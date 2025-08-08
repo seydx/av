@@ -1375,6 +1375,25 @@ export const AV_DISPOSITION_DEPENDENT = 0x80000 as AVDisposition;
 export const AV_DISPOSITION_STILL_IMAGE = 0x100000 as AVDisposition;
 export const AV_DISPOSITION_MULTILAYER = 0x200000 as AVDisposition;
 
+// AV_FMT_FLAG constants (from libavformat/avformat.h)
+export type AVFormatFlag = number & { readonly [__ffmpeg_brand]: 'AVFormatFlag' };
+
+export const AV_FMT_FLAG_GENPTS = 1 as AVFormatFlag;
+export const AV_FMT_FLAG_IGNIDX = 2 as AVFormatFlag;
+export const AV_FMT_FLAG_NONBLOCK = 4 as AVFormatFlag;
+export const AV_FMT_FLAG_IGNDTS = 8 as AVFormatFlag;
+export const AV_FMT_FLAG_NOFILLIN = 16 as AVFormatFlag;
+export const AV_FMT_FLAG_NOPARSE = 32 as AVFormatFlag;
+export const AV_FMT_FLAG_NOBUFFER = 64 as AVFormatFlag;
+export const AV_FMT_FLAG_CUSTOM_IO = 128 as AVFormatFlag;
+export const AV_FMT_FLAG_DISCARD_CORRUPT = 256 as AVFormatFlag;
+export const AV_FMT_FLAG_FLUSH_PACKETS = 512 as AVFormatFlag;
+export const AV_FMT_FLAG_BITEXACT = 1024 as AVFormatFlag;
+export const AV_FMT_FLAG_SORT_DTS = 65536 as AVFormatFlag;
+export const AV_FMT_FLAG_FAST_SEEK = 524288 as AVFormatFlag;
+export const AV_FMT_FLAG_SHORTEST = 1048576 as AVFormatFlag;
+export const AV_FMT_FLAG_AUTO_BSF = 2097152 as AVFormatFlag;
+
 // AV_PARSER_PTS constants (from libavcodec/avcodec.h)
 export type AVParserPts = number & { readonly [__ffmpeg_brand]: 'AVParserPts' };
 
@@ -1703,6 +1722,26 @@ export const AV_UTF8_FLAG_ACCEPT_INVALID_BIG_CODES = 1 as AVUTF;
 export const AV_UTF8_FLAG_ACCEPT_NON_CHARACTERS = 2 as AVUTF;
 export const AV_UTF8_FLAG_ACCEPT_SURROGATES = 4 as AVUTF;
 export const AV_UTF8_FLAG_EXCLUDE_XML_INVALID_CONTROL_CODES = 8 as AVUTF;
+
+// AV_FMT constants (from libavformat/avformat.h)
+export type AVFormatFlags = number & { readonly [__ffmpeg_brand]: 'AVFormatFlags' };
+
+export const AV_FMT_NOFILE = 1 as AVFormatFlags;
+export const AV_FMT_EXPERIMENTAL = 4 as AVFormatFlags;
+export const AV_FMT_SHOW_IDS = 8 as AVFormatFlags;
+export const AV_FMT_GLOBALHEADER = 64 as AVFormatFlags;
+export const AV_FMT_NOTIMESTAMPS = 128 as AVFormatFlags;
+export const AV_FMT_GENERIC_INDEX = 256 as AVFormatFlags;
+export const AV_FMT_TS_DISCONT = 512 as AVFormatFlags;
+export const AV_FMT_VARIABLE_FPS = 1024 as AVFormatFlags;
+export const AV_FMT_NODIMENSIONS = 2048 as AVFormatFlags;
+export const AV_FMT_NOSTREAMS = 4096 as AVFormatFlags;
+export const AV_FMT_NOBINSEARCH = 8192 as AVFormatFlags;
+export const AV_FMT_NOGENSEARCH = 16384 as AVFormatFlags;
+export const AV_FMT_NO_BYTE_SEEK = 32768 as AVFormatFlags;
+export const AV_FMT_ALLOW_FLUSH = 65536 as AVFormatFlags;
+export const AV_FMT_SEEK_TO_PTS = 67108864 as AVFormatFlags;
+export const AV_FMT_EVENT_FLAG_METADATA_UPDATED = 1 as AVFormatFlags;
 
 // Other constants (ungrouped) - 41 constants
 // These are miscellaneous constants that don't fit into a specific category

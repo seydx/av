@@ -11,7 +11,9 @@
         "src/bindings/codec_parameters.cc",
         "src/bindings/dictionary.cc",
         "src/bindings/format_context.cc",
-        "src/bindings/stream.cc"
+        "src/bindings/stream.cc",
+        "src/bindings/input_format.cc",
+        "src/bindings/output_format.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

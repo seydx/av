@@ -49,8 +49,8 @@ const parseConstants = (headerPath) => {
   const content = fs.readFileSync(headerPath, 'utf8');
   const constants = [];
 
-  // Parse #define constants (including AVERROR)
-  const definePattern = /#define\s+((?:AV|AVERROR)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\/.*)?$/gm;
+  // Parse #define constants (including AVERROR and AVFMT)
+  const definePattern = /#define\s+((?:AV|AVERROR|AVFMT)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\/.*)?$/gm;
   let match;
   while ((match = definePattern.exec(content)) !== null) {
     let name = match[1];
@@ -70,9 +70,12 @@ const parseConstants = (headerPath) => {
       continue;
     }
 
-    // Rename AVERROR_ to AV_ERROR_ for consistency
+    // Rename AVERROR_ to AV_ERROR_ and AVFMT_ to AV_FMT_ for consistency
     if (name.startsWith('AVERROR_')) {
       name = name.replace('AVERROR_', 'AV_ERROR_');
+    }
+    if (name.startsWith('AVFMT_')) {
+      name = name.replace('AVFMT_', 'AV_FMT_');
     }
 
     constants.push({ name, value, type: 'define' });
@@ -297,6 +300,8 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_HAVE';
       } else if (name.startsWith('AV_INPUT_BUFFER_')) {
         prefix = 'AV_INPUT_BUFFER';
+      } else if (name.startsWith('AV_FMT_')) {
+        prefix = 'AV_FMT';
       }
     }
 
@@ -449,6 +454,9 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     // Platform features
     ['AV_HAVE', 'AVHave'],
     ['AV_UTF', 'AVUTF'],
+    
+    // Format flags (note: already handled by AV_FMT_FLAG above)
+    ['AV_FMT', 'AVFormatFlags'],
   ]);
 
   // Generate constants by group

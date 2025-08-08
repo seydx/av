@@ -11,5 +11,7 @@ export * from './codec.js';
 export * from './dictionary.js';
 export * from './format-context.js';
 export * from './frame.js';
+export * from './input-format.js';
+export * from './output-format.js';
 export * from './packet.js';
 export * from './stream.js';

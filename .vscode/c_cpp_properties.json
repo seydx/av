@@ -4,7 +4,8 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/local/include/node"
+                "/usr/local/include/node",
+                "/opt/homebrew/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

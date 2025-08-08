@@ -16,6 +16,7 @@
     "build:tsc": "rimraf dist && tsc -p tsconfig.build.json",
     "clean": "node-gyp clean && rimraf dist",
     "format": "prettier --write 'src/' --ignore-unknown --no-error-on-unmatched-pattern",
+    "generate:constants": "node scripts/generate-constants.js",
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",

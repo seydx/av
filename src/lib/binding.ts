@@ -14,6 +14,8 @@ import type { Codec } from './codec.js';
 import type { Dictionary } from './dictionary.js';
 import type { FormatContext } from './format-context.js';
 import type { Frame } from './frame.js';
+import type { InputFormat } from './input-format.js';
+import type { OutputFormat } from './output-format.js';
 import type { Packet } from './packet.js';
 import type { Stream } from './stream.js';
 
@@ -52,6 +54,8 @@ export interface NativeBindings {
   Dictionary: typeof Dictionary;
   FormatContext: typeof FormatContext;
   Stream: typeof Stream;
+  InputFormat: typeof InputFormat;
+  OutputFormat: typeof OutputFormat;
 }
 
 /**

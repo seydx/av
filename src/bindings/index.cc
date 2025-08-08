@@ -8,6 +8,8 @@
 #include "format_context.h"
 #include "stream.h"
 #include "dictionary.h"
+#include "input_format.h"
+#include "output_format.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -90,6 +92,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   FormatContext::Init(env, exports);
   Stream::Init(env, exports);
   Dictionary::Init(env, exports);
+  InputFormat::Init(env, exports);
+  OutputFormat::Init(env, exports);
   
   return exports;
 }
