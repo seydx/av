@@ -1,0 +1,46 @@
+{
+  "name": "@seydx/ffmpeg",
+  "version": "0.1.0",
+  "description": "FFmpeg N-API bindings for Node.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "require": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "npm run build:native && npm run build:tsc",
+    "build:native": "node-gyp rebuild",
+    "build:tsc": "rimraf dist && tsc -p tsconfig.build.json",
+    "clean": "node-gyp clean && rimraf dist",
+    "format": "prettier --write 'src/' --ignore-unknown --no-error-on-unmatched-pattern",
+    "install-updates": "npm i --save",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "test": "npm run build && tsx --test test/**/*.test.ts",
+    "test:watch": "node --import tsx --test --watch test/**/*.test.ts",
+    "update": "updates --update ./"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.5.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^11.3.0",
+    "@stylistic/eslint-plugin": "^5.2.2",
+    "@types/debug": "^4.1.12",
+    "@types/node": "^24.2.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.32.0",
+    "globals": "^16.3.0",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.0",
+    "updates": "^16.6.2"
+  },
+  "gypfile": true
+}

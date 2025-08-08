@@ -1,0 +1,25 @@
+{
+  "folders": [
+    {
+      "name": "Server",
+      "path": "../server"
+    },
+    {
+      "name": "Interface",
+      "path": "../ui"
+    },
+    {
+      "name": "Electron",
+      "path": "../electron"
+    },
+    {
+      "name": "Packages",
+      "path": "../packages"
+    },
+    {
+      "name": "Plugins",
+      "path": "../plugins"
+    },
+  ],
+  "settings": {}
+}
