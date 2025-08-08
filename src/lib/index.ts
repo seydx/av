@@ -38,3 +38,8 @@ export * from './mathematics.js';
 export * from './color-types.js';
 export * from './discard.js';
 export * from './level.js';
+export * from './profile.js';
+export * from './field-order.js';
+export * from './chroma-location.js';
+export * from './codec-id.js';
+export * from './pixel-format.js';

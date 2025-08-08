@@ -118,8 +118,10 @@ const parseEnums = (headerPath) => {
         .trim();
       if (!cleanLine) continue;
 
-      // Match enum values (including AVCOL_* for color enums and AVDISCARD_*)
-      const valueMatch = cleanLine.match(/^\s*(AV_[A-Z0-9_]+|AVMEDIA_[A-Z0-9_]+|AVCOL_[A-Z0-9_]+|AVDISCARD_[A-Z0-9_]+|FF_LEVEL_[A-Z0-9_]+)\s*(?:=\s*(.+?))?$/);
+      // Match enum values (including AVCOL_*, AVDISCARD_*, AVCHROMA_LOC_*, FF_SUB_CHARENC_MODE_*)
+      const valueMatch = cleanLine.match(
+        /^\s*(AV_[A-Z0-9_]+|AVMEDIA_[A-Z0-9_]+|AVCOL_[A-Z0-9_]+|AVDISCARD_[A-Z0-9_]+|FF_LEVEL_[A-Z0-9_]+|AVCHROMA_LOC_[A-Z0-9_]+|FF_SUB_CHARENC_MODE_[A-Z0-9_]+)\s*(?:=\s*(.+?))?$/,
+      );
       if (valueMatch) {
         let name = valueMatch[1];
 
@@ -149,6 +151,14 @@ const parseEnums = (headerPath) => {
         if (name.startsWith('FF_LEVEL_')) {
           // Convert FF_LEVEL_ to AV_LEVEL_
           name = name.replace('FF_LEVEL_', 'AV_LEVEL_');
+        }
+        if (name.startsWith('AVCHROMA_LOC_')) {
+          // Convert AVCHROMA_LOC_ to AV_CHROMA_LOCATION_
+          name = name.replace('AVCHROMA_LOC_', 'AV_CHROMA_LOCATION_');
+        }
+        if (name.startsWith('FF_SUB_CHARENC_MODE_')) {
+          // Convert FF_SUB_CHARENC_MODE_ to AV_SUB_CHARENC_MODE_
+          name = name.replace('FF_SUB_CHARENC_MODE_', 'AV_SUB_CHARENC_MODE_');
         }
 
         if (valueMatch[2]) {
@@ -308,7 +318,7 @@ const groupConstantsByPrefix = (constants) => {
       } else if (name.startsWith('AV_FIELD_')) {
         prefix = 'AV_FIELD';
       } else if (name.startsWith('AV_EF_')) {
-        prefix = 'AV_EF';  // Error resilience flags
+        prefix = 'AV_EF'; // Error resilience flags
       } else if (name.startsWith('AV_BUFFERSINK_FLAG_')) {
         prefix = 'AV_BUFFERSINK_FLAG';
       } else if (name.startsWith('AV_PTS_WRAP_')) {
@@ -354,7 +364,7 @@ const groupConstantsByPrefix = (constants) => {
 // Generate TypeScript output with branded types
 const generateTypeScript = () => {
   const { constants, enums } = scanAllHeaders();
-  
+
   // Log enums for debugging (optional - set DEBUG=1 to see)
   if (process.env.DEBUG) {
     console.log('\nEnum Types:');
@@ -424,17 +434,17 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     ['AV_CODEC_PROP', 'AVCodecProp'],
     ['AV_CODEC_EXPORT', 'AVCodecExport'],
     ['AV_CODEC_ID', 'AVCodecIDConstants'],
-    
+
     // Packet/Frame flags
     ['AV_PKT_FLAG', 'AVPacketFlag'],
     ['AV_FRAME_FLAG', 'AVFrameFlag'],
-    
+
     // Stream/Format
     ['AV_DISPOSITION', 'AVDisposition'],
     ['AV_SEEK_FLAG', 'AVSeekFlag'],
     ['AV_FMT_FLAG', 'AVFormatFlag'],
     ['AV_PARSER_PTS', 'AVParserPts'],
-    
+
     // Audio/Video
     ['AV_CH', 'AVChannel'],
     ['AV_CHANNEL_LAYOUT', 'AVChannelLayout'],
@@ -442,17 +452,17 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     ['AV_PIX_FMT', 'AVPixelFormatConstants'],
     ['AV_FIELD', 'AVFieldOrder'],
     ['AV_COLORSPACE', 'AVColorSpace'],
-    
+
     // Profiles
     ['AV_PROFILE', 'AVProfile'],
-    
+
     // Options
     ['AV_OPT_FLAG', 'AVOptionFlag'],
     ['AV_OPT_SERIALIZE', 'AVOptionSerialize'],
-    
+
     // Hardware acceleration
     ['AV_HWACCEL_FLAG', 'AVHWAccelFlag'],
-    
+
     // Utility
     ['AV_LOG', 'AVLogLevel'],
     ['AV_CPU_FLAG', 'AVCpuFlag'],
@@ -460,26 +470,26 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     ['AV_ESCAPE_FLAG', 'AVEscapeFlag'],
     ['AV_BPRINT_SIZE', 'AVBPrintSize'],
     ['AV_TIME_BASE', 'AVTimeBase'],
-    
+
     // Error resilience
     ['AV_EF', 'AVErrorFlags'],
-    
+
     // Buffer flags
     ['AV_BUFFERSINK_FLAG', 'AVBufferSinkFlag'],
     ['AV_GET_BUFFER_FLAG', 'AVGetBufferFlag'],
     ['AV_GET_ENCODE_BUFFER_FLAG', 'AVGetEncodeBufferFlag'],
     ['AV_INPUT_BUFFER', 'AVInputBuffer'],
-    
+
     // Subtitle
     ['AV_SUBTITLE_FLAG', 'AVSubtitleFlag'],
-    
+
     // PTS wrapping
     ['AV_PTS_WRAP', 'AVPTSWrap'],
-    
+
     // Platform features
     ['AV_HAVE', 'AVHave'],
     ['AV_UTF', 'AVUTF'],
-    
+
     // Format flags (note: already handled by AV_FMT_FLAG above)
     ['AV_FMT', 'AVFormatFlags'],
   ]);
@@ -494,7 +504,7 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     processedTypes.add(typeName);
 
     // Get source files for documentation
-    const sources = [...new Set(groupConstants.map(c => c.source))];
+    const sources = [...new Set(groupConstants.map((c) => c.source))];
     const sourceComment = sources.length > 0 ? ` (from ${sources.slice(0, 3).join(', ')}${sources.length > 3 ? '...' : ''})` : '';
 
     output += `// ${prefix} constants${sourceComment}\n`;
@@ -682,7 +692,7 @@ const main = () => {
   const lines = output.split('\n').length;
   const constants = (output.match(/export const/g) || []).length;
   const types = (output.match(/export type/g) || []).length;
-  
+
   console.log('\n=== Generation Summary ===');
   console.log(`Generated: ${lines} lines, ${constants} constants, ${types} branded types`);
   console.log(`Note: Enums like AVPixelFormat are processed separately from #define constants`);

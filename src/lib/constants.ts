@@ -1238,6 +1238,18 @@ export const AV_COLOR_RANGE_MPEG = 1 as AVColorRange;
 export const AV_COLOR_RANGE_JPEG = 2 as AVColorRange;
 export const AV_COLOR_RANGE_NB = 3 as AVColorRange;
 
+// libavutil/pixfmt.h
+export type AVChromaLocation = number & { readonly [__ffmpeg_brand]: 'AVChromaLocation' };
+
+export const AV_CHROMA_LOCATION_UNSPECIFIED = 0 as AVChromaLocation;
+export const AV_CHROMA_LOCATION_LEFT = 1 as AVChromaLocation;
+export const AV_CHROMA_LOCATION_CENTER = 2 as AVChromaLocation;
+export const AV_CHROMA_LOCATION_TOPLEFT = 3 as AVChromaLocation;
+export const AV_CHROMA_LOCATION_TOP = 4 as AVChromaLocation;
+export const AV_CHROMA_LOCATION_BOTTOMLEFT = 5 as AVChromaLocation;
+export const AV_CHROMA_LOCATION_BOTTOM = 6 as AVChromaLocation;
+export const AV_CHROMA_LOCATION_NB = 7 as AVChromaLocation;
+
 // libavutil/samplefmt.h
 export type AVSampleFormat = number & { readonly [__ffmpeg_brand]: 'AVSampleFormat' };
 
