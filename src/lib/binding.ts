@@ -7,7 +7,6 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { AVLogLevel } from '../lib/constants.js';
 import type {
   NativeAudioFifo,
   NativeBitStreamFilter,
@@ -140,6 +139,8 @@ type BitStreamFilterContextConstructor = new (filter: NativeBitStreamFilter) => 
 export interface NativeBindings {
   // Utility functions
   setLogLevel(level: number): void;
+  getLogLevel(): number;
+  setLogCallback(callback: ((level: number, message: string) => void) | null): void;
   getVersion(): {
     avcodec: number;
     avformat: number;
@@ -186,13 +187,6 @@ export interface NativeBindings {
 const bindings = require(modulePath) as NativeBindings;
 
 /**
- * Set FFmpeg log level
- */
-export function setLogLevel(level: AVLogLevel): void {
-  bindings.setLogLevel(level);
-}
-
-/**
  * Get FFmpeg version information
  */
 export function getVersion(): {
@@ -223,14 +217,6 @@ export function getConfiguration(): {
  */
 export function getLicense(): string {
   return bindings.getLicense();
-}
-
-/**
- * Create a typed binding getter for internal use
- * This ensures all access to native bindings goes through typed interfaces
- */
-export function getTypedBindings(): NativeBindings {
-  return bindings;
 }
 
 // Re-export native bindings for internal use

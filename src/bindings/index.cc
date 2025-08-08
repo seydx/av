@@ -20,6 +20,7 @@
 #include "audio_fifo.h"
 #include "option.h"
 #include "bit_stream_filter.h"
+#include "log.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -41,17 +42,6 @@ class FFmpegInit {
     
     // Set log level
     av_log_set_level(AV_LOG_ERROR);
-  }
-  
-  static void SetLogLevel(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (info.Length() < 1 || !info[0].IsNumber()) {
-      throw Napi::TypeError::New(env, "Expected number argument");
-    }
-    
-    int level = info[0].As<Napi::Number>().Int32Value();
-    av_log_set_level(level);
   }
   
   static Napi::Value GetVersion(const Napi::CallbackInfo& info) {
@@ -90,11 +80,13 @@ class FFmpegInit {
 static FFmpegInit ffmpeg_init;
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  // Export utility functions
-  exports.Set("setLogLevel", Napi::Function::New(env, FFmpegInit::SetLogLevel));
+  // Export utility functions (except setLogLevel which is now in Log module)
   exports.Set("getVersion", Napi::Function::New(env, FFmpegInit::GetVersion));
   exports.Set("getConfiguration", Napi::Function::New(env, FFmpegInit::GetConfiguration));
   exports.Set("getLicense", Napi::Function::New(env, FFmpegInit::GetLicense));
+  
+  // Initialize logging
+  ffmpeg::InitLog(env, exports);
   
   // Initialize and export wrapper classes
   // Basic types first

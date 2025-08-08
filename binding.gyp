@@ -4,6 +4,7 @@
       "target_name": "ffmpeg",
       "sources": [
         "src/bindings/index.cc",
+        "src/bindings/log.cc",
         "src/bindings/packet.cc",
         "src/bindings/frame.cc",
         "src/bindings/codec.cc",
