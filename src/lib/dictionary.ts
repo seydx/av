@@ -234,6 +234,13 @@ export class Dictionary implements Disposable {
   }
 
   /**
+   * Get native dictionary (for internal use with bindings)
+   */
+  get nativeDict(): any {
+    return this.native;
+  }
+
+  /**
    * Convert to plain JavaScript object
    */
   toObject(): Record<string, string> {

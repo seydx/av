@@ -15,3 +15,16 @@ export * from './input-format.js';
 export * from './output-format.js';
 export * from './packet.js';
 export * from './stream.js';
+
+// Re-export filter types
+export * from './filter.js';
+export * from './filter-context.js';
+export * from './filter-graph.js';
+
+// Re-export software scaling/resampling
+export * from './software-scale-context.js';
+export * from './software-resample-context.js';
+
+// Re-export hardware acceleration
+export * from './hardware-device-context.js';
+export * from './hardware-frames-context.js';

@@ -12,6 +12,9 @@ import type { CodecContext } from './codec-context.js';
 import type { CodecParameters } from './codec-parameters.js';
 import type { Codec } from './codec.js';
 import type { Dictionary } from './dictionary.js';
+import type { FilterContext } from './filter-context.js';
+import type { FilterGraph } from './filter-graph.js';
+import type { Filter } from './filter.js';
 import type { FormatContext } from './format-context.js';
 import type { Frame } from './frame.js';
 import type { InputFormat } from './input-format.js';
@@ -56,6 +59,13 @@ export interface NativeBindings {
   Stream: typeof Stream;
   InputFormat: typeof InputFormat;
   OutputFormat: typeof OutputFormat;
+  Filter: typeof Filter;
+  FilterContext: typeof FilterContext;
+  FilterGraph: typeof FilterGraph;
+  SoftwareScaleContext: any;
+  SoftwareResampleContext: any;
+  HardwareDeviceContext: any;
+  HardwareFramesContext: any;
 }
 
 /**

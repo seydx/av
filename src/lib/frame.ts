@@ -364,4 +364,11 @@ export class Frame implements Disposable {
   [Symbol.dispose](): void {
     this.unref();
   }
+
+  /**
+   * Get native frame (for internal use with bindings)
+   */
+  get nativeFrame(): any {
+    return this.native;
+  }
 }

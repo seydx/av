@@ -108,6 +108,7 @@ const parseEnums = (headerPath) => {
     const values = [];
     const lines = enumContent.split(/[,\n]/);
     let currentValue = enumName === 'AVMediaType' ? -1 : 0;
+    let isFirstValue = true;
 
     for (const line of lines) {
       // Skip comments and empty lines
@@ -152,9 +153,13 @@ const parseEnums = (headerPath) => {
             // Can't evaluate, skip this enum
             continue;
           }
+          isFirstValue = false;
         } else {
-          // Auto-increment
-          currentValue++;
+          // Auto-increment only if not the first value
+          if (!isFirstValue) {
+            currentValue++;
+          }
+          isFirstValue = false;
         }
 
         values.push({ name, value: currentValue });

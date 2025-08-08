@@ -10,10 +10,20 @@
 #include "dictionary.h"
 #include "input_format.h"
 #include "output_format.h"
+#include "filter.h"
+#include "filter_context.h"
+#include "filter_graph.h"
+#include "software_scale_context.h"
+#include "software_resample_context.h"
+#include "hardware_device_context.h"
+#include "hardware_frames_context.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavfilter/avfilter.h>
+#include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
 #include <libavutil/log.h>
 }
 
@@ -84,17 +94,35 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("getLicense", Napi::Function::New(env, FFmpegInit::GetLicense));
   
   // Initialize and export wrapper classes
+  // Basic types first
+  Dictionary::Init(env, exports);
   Packet::Init(env, exports);
   Frame::Init(env, exports);
+  
+  // Codec types
   Codec::Init(env, exports);
-  CodecContext::Init(env, exports);
   CodecParameters::Init(env, exports);
-  FormatContext::Init(env, exports);
-  Stream::Init(env, exports);
-  Dictionary::Init(env, exports);
+  CodecContext::Init(env, exports);
+  
+  // Format types
   InputFormat::Init(env, exports);
   OutputFormat::Init(env, exports);
+  Stream::Init(env, exports);
+  FormatContext::Init(env, exports);
   
+  // Filter types
+  Filter::Init(env, exports);
+  FilterContext::Init(env, exports);
+  FilterGraph::Init(env, exports);
+  
+  // Software scaling/resampling
+  SoftwareScaleContext::Init(env, exports);
+  SoftwareResampleContext::Init(env, exports);
+  
+  // Hardware acceleration
+  HardwareDeviceContext::Init(env, exports);
+  HardwareFramesContext::Init(env, exports);
+
   return exports;
 }
 
