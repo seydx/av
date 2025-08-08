@@ -7,6 +7,7 @@
 #include "codec_parameters.h"
 #include "format_context.h"
 #include "stream.h"
+#include "dictionary.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -88,6 +89,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   CodecParameters::Init(env, exports);
   FormatContext::Init(env, exports);
   Stream::Init(env, exports);
+  Dictionary::Init(env, exports);
   
   return exports;
 }

@@ -8,6 +8,7 @@ export * from './constants.js';
 export * from './codec-context.js';
 export * from './codec-parameters.js';
 export * from './codec.js';
+export * from './dictionary.js';
 export * from './format-context.js';
 export * from './frame.js';
 export * from './packet.js';

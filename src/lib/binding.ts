@@ -11,6 +11,7 @@ import type { AVLogLevel } from '../lib/constants.js';
 import type { CodecContext } from './codec-context.js';
 import type { CodecParameters } from './codec-parameters.js';
 import type { Codec } from './codec.js';
+import type { Dictionary } from './dictionary.js';
 import type { FormatContext } from './format-context.js';
 import type { Frame } from './frame.js';
 import type { Packet } from './packet.js';
@@ -23,7 +24,7 @@ const __dirname = dirname(__filename);
 const modulePath = join(__dirname, '../../build/Release/ffmpeg.node');
 const bindings = require(modulePath) as NativeBindings;
 
-interface NativeBindings {
+export interface NativeBindings {
   // Utility functions
   setLogLevel(level: number): void;
   getVersion(): {
@@ -48,6 +49,7 @@ interface NativeBindings {
   Codec: typeof Codec;
   CodecContext: typeof CodecContext;
   CodecParameters: typeof CodecParameters;
+  Dictionary: typeof Dictionary;
   FormatContext: typeof FormatContext;
   Stream: typeof Stream;
 }

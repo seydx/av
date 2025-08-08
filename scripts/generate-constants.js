@@ -5,9 +5,9 @@
  * This extracts all AV_* constants and creates TypeScript constants with branded types
  */
 
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,11 +26,7 @@ const getFFmpegPath = () => {
   }
 
   // Fallback paths
-  const paths = [
-    '/opt/homebrew/Cellar/ffmpeg/7.1.1_1/include',
-    '/usr/local/include',
-    '/usr/include',
-  ];
+  const paths = ['/opt/homebrew/Cellar/ffmpeg/7.1.1_1/include', '/usr/local/include', '/usr/include'];
 
   for (const p of paths) {
     if (fs.existsSync(path.join(p, 'libavcodec/avcodec.h'))) {
@@ -59,7 +55,7 @@ const parseConstants = (headerPath) => {
   while ((match = definePattern.exec(content)) !== null) {
     let name = match[1];
     let value = match[2].trim();
-    
+
     // Skip macros with parameters
     if (name.includes('(') || value.includes('#')) {
       continue;
@@ -68,7 +64,7 @@ const parseConstants = (headerPath) => {
     // Clean up the value
     value = value.replace(/\/\*.*?\*\//g, '').trim();
     value = value.replace(/\/\/.*$/, '').trim();
-    
+
     // Skip if value contains complex expressions we can't handle
     if (value.includes('?') || value.includes(':') || value.includes('sizeof')) {
       continue;
@@ -78,7 +74,7 @@ const parseConstants = (headerPath) => {
     if (name.startsWith('AVERROR_')) {
       name = name.replace('AVERROR_', 'AV_ERROR_');
     }
-    
+
     constants.push({ name, value, type: 'define' });
   }
 
@@ -97,11 +93,11 @@ const parseEnums = (headerPath) => {
   // Find all enum blocks
   const enumPattern = /enum\s+(\w+)\s*{([^}]+)}/gs;
   let match;
-  
+
   while ((match = enumPattern.exec(content)) !== null) {
     const enumName = match[1];
     const enumContent = match[2];
-    
+
     if (!enumName.startsWith('AV')) {
       continue;
     }
@@ -109,17 +105,20 @@ const parseEnums = (headerPath) => {
     const values = [];
     const lines = enumContent.split(/[,\n]/);
     let currentValue = enumName === 'AVMediaType' ? -1 : 0;
-    
+
     for (const line of lines) {
       // Skip comments and empty lines
-      const cleanLine = line.replace(/\/\*.*?\*\//g, '').replace(/\/\/.*$/, '').trim();
+      const cleanLine = line
+        .replace(/\/\*.*?\*\//g, '')
+        .replace(/\/\/.*$/, '')
+        .trim();
       if (!cleanLine) continue;
-      
+
       // Match enum values
       const valueMatch = cleanLine.match(/^\s*(AV_[A-Z0-9_]+|AVMEDIA_[A-Z0-9_]+)\s*(?:=\s*(.+?))?$/);
       if (valueMatch) {
         let name = valueMatch[1];
-        
+
         // Convert names for consistency
         if (name.startsWith('AVMEDIA_')) {
           name = name.replace('AVMEDIA_', 'AV_MEDIA_');
@@ -127,21 +126,24 @@ const parseEnums = (headerPath) => {
         if (name.startsWith('AVERROR_')) {
           name = name.replace('AVERROR_', 'AV_ERROR_');
         }
-        
+
         if (valueMatch[2]) {
           // Has explicit value
           const explicitValue = valueMatch[2].trim();
-          
+
           // Try to evaluate simple expressions
           if (/^-?\d+$/.test(explicitValue)) {
             currentValue = parseInt(explicitValue);
           } else if (/^0x[0-9a-fA-F]+$/.test(explicitValue)) {
             currentValue = parseInt(explicitValue, 16);
           } else if (/^\d+\s*<<\s*\d+$/.test(explicitValue)) {
-            const [base, shift] = explicitValue.split('<<').map(s => parseInt(s.trim()));
+            const [base, shift] = explicitValue.split('<<').map((s) => parseInt(s.trim()));
             currentValue = base << shift;
           } else if (/^\d+U?\s*<<\s*\d+$/.test(explicitValue)) {
-            const [base, shift] = explicitValue.replace('U', '').split('<<').map(s => parseInt(s.trim()));
+            const [base, shift] = explicitValue
+              .replace('U', '')
+              .split('<<')
+              .map((s) => parseInt(s.trim()));
             currentValue = base << shift;
           } else {
             // Can't evaluate, skip this enum
@@ -151,11 +153,11 @@ const parseEnums = (headerPath) => {
           // Auto-increment
           currentValue++;
         }
-        
+
         values.push({ name, value: currentValue });
       }
     }
-    
+
     if (values.length > 0) {
       enums[enumName] = values;
     }
@@ -176,11 +178,11 @@ const scanAllHeaders = () => {
       continue;
     }
 
-    const headers = fs.readdirSync(libPath).filter(f => f.endsWith('.h'));
-    
+    const headers = fs.readdirSync(libPath).filter((f) => f.endsWith('.h'));
+
     for (const header of headers) {
       const headerPath = path.join(libPath, header);
-      
+
       // Parse constants
       const constants = parseConstants(headerPath);
       for (const constant of constants) {
@@ -205,7 +207,7 @@ const scanAllHeaders = () => {
 // Group constants by prefix for better organization
 const groupConstantsByPrefix = (constants) => {
   const groups = new Map();
-  
+
   for (const [name, info] of constants) {
     // Skip certain patterns
     if (name.includes('_NE') || name === 'AV_NB' || name.includes('(')) {
@@ -215,7 +217,7 @@ const groupConstantsByPrefix = (constants) => {
     // Extract prefix (e.g., AV_LOG_, AV_CODEC_FLAG_, etc.)
     const parts = name.split('_');
     let prefix = '';
-    
+
     if (parts.length >= 3) {
       // Try to find a meaningful prefix
       if (name.startsWith('AV_CODEC_FLAG2_')) {
@@ -246,6 +248,55 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_CH';
       } else if (name.startsWith('AV_CPU_FLAG_')) {
         prefix = 'AV_CPU_FLAG';
+      } else if (name.startsWith('AV_DICT_')) {
+        prefix = 'AV_DICT';
+      } else if (name.startsWith('AV_PIX_FMT_')) {
+        prefix = 'AV_PIX_FMT';
+      } else if (name.startsWith('AV_PROFILE_')) {
+        prefix = 'AV_PROFILE';
+      } else if (name.startsWith('AV_OPT_FLAG_')) {
+        prefix = 'AV_OPT_FLAG';
+      } else if (name.startsWith('AV_OPT_SERIALIZE_')) {
+        prefix = 'AV_OPT_SERIALIZE';
+      } else if (name.startsWith('AV_HWACCEL_FLAG_')) {
+        prefix = 'AV_HWACCEL_FLAG';
+      } else if (name.startsWith('AV_CODEC_EXPORT_')) {
+        prefix = 'AV_CODEC_EXPORT';
+      } else if (name.startsWith('AV_CHANNEL_LAYOUT_')) {
+        prefix = 'AV_CHANNEL_LAYOUT';
+      } else if (name.startsWith('AV_ESCAPE_FLAG_')) {
+        prefix = 'AV_ESCAPE_FLAG';
+      } else if (name.startsWith('AV_BPRINT_SIZE_')) {
+        prefix = 'AV_BPRINT_SIZE';
+      } else if (name.startsWith('AV_TIME_BASE')) {
+        prefix = 'AV_TIME_BASE';
+      } else if (name.startsWith('AV_CODEC_ID_')) {
+        // These are usually enums, but sometimes defined as constants
+        prefix = 'AV_CODEC_ID';
+      } else if (name.startsWith('AV_SAMPLE_FMT_')) {
+        prefix = 'AV_SAMPLE_FMT';
+      } else if (name.startsWith('AV_COLORSPACE_')) {
+        prefix = 'AV_COLORSPACE';
+      } else if (name.startsWith('AV_FIELD_')) {
+        prefix = 'AV_FIELD';
+      } else if (name.startsWith('AV_EF_')) {
+        prefix = 'AV_EF';  // Error resilience flags
+      } else if (name.startsWith('AV_BUFFERSINK_FLAG_')) {
+        prefix = 'AV_BUFFERSINK_FLAG';
+      } else if (name.startsWith('AV_PTS_WRAP_')) {
+        prefix = 'AV_PTS_WRAP';
+      } else if (name.startsWith('AV_GET_BUFFER_FLAG_')) {
+        prefix = 'AV_GET_BUFFER_FLAG';
+      } else if (name.startsWith('AV_GET_ENCODE_BUFFER_FLAG_')) {
+        prefix = 'AV_GET_ENCODE_BUFFER_FLAG';
+      } else if (name.startsWith('AV_SUBTITLE_FLAG_')) {
+        prefix = 'AV_SUBTITLE_FLAG';
+      } else if (name.startsWith('AV_UTF')) {
+        prefix = 'AV_UTF';
+      } else if (name.startsWith('AV_HAVE_')) {
+        prefix = 'AV_HAVE';
+      } else if (name.startsWith('AV_INPUT_BUFFER_')) {
+        prefix = 'AV_INPUT_BUFFER';
       }
     }
 
@@ -259,6 +310,14 @@ const groupConstantsByPrefix = (constants) => {
     groups.get(prefix).push({ name, ...info });
   }
 
+  // Log groups for debugging (optional - set DEBUG=1 to see)
+  if (process.env.DEBUG) {
+    console.log('Constant Groups:');
+    for (const [prefix, items] of groups) {
+      console.log(`  ${prefix}: ${items.length} constants`);
+    }
+  }
+
   return groups;
 };
 
@@ -266,6 +325,14 @@ const groupConstantsByPrefix = (constants) => {
 const generateTypeScript = () => {
   const { constants, enums } = scanAllHeaders();
   
+  // Log enums for debugging (optional - set DEBUG=1 to see)
+  if (process.env.DEBUG) {
+    console.log('\nEnum Types:');
+    for (const [enumName, enumData] of enums) {
+      console.log(`  ${enumName}: ${enumData.values.length} values`);
+    }
+  }
+
   let output = `/**
  * Auto-generated FFmpeg constants
  * Generated from FFmpeg headers
@@ -291,7 +358,7 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   // Generate branded types for each enum
   const processedEnums = new Set();
   const processedTypes = new Set(['AVMediaType']); // Track all generated types to avoid duplicates
-  
+
   for (const [enumName, enumData] of enums) {
     if (processedEnums.has(enumName) || enumName === 'AVMediaType') continue;
     processedEnums.add(enumName);
@@ -307,9 +374,9 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     // Export constants
     for (const { name, value } of enumData.values) {
       // Skip duplicates and platform-specific variations
-      if (name.includes('_NE') || name === 'NB') {
-        continue;
-      }
+      // if (name.includes('_NE') || name === 'NB') {
+      //   continue;
+      // }
       output += `export const ${name} = ${value} as ${enumName};\n`;
     }
     output += '\n';
@@ -317,22 +384,71 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
 
   // Group and generate constants
   const groups = groupConstantsByPrefix(constants);
-  
+
   // Generate branded types for constant groups
   const brandedTypes = new Map([
+    // Core codec flags
     ['AV_CODEC_FLAG', 'AVCodecFlag'],
     ['AV_CODEC_FLAG2', 'AVCodecFlag2'],
     ['AV_CODEC_CAP', 'AVCodecCap'],
+    ['AV_CODEC_PROP', 'AVCodecProp'],
+    ['AV_CODEC_EXPORT', 'AVCodecExport'],
+    ['AV_CODEC_ID', 'AVCodecIDConstants'],
+    
+    // Packet/Frame flags
     ['AV_PKT_FLAG', 'AVPacketFlag'],
     ['AV_FRAME_FLAG', 'AVFrameFlag'],
+    
+    // Stream/Format
     ['AV_DISPOSITION', 'AVDisposition'],
-    ['AV_LOG', 'AVLogLevel'],
     ['AV_SEEK_FLAG', 'AVSeekFlag'],
     ['AV_FMT_FLAG', 'AVFormatFlag'],
-    ['AV_CODEC_PROP', 'AVCodecProp'],
     ['AV_PARSER_PTS', 'AVParserPts'],
+    
+    // Audio/Video
     ['AV_CH', 'AVChannel'],
+    ['AV_CHANNEL_LAYOUT', 'AVChannelLayout'],
+    ['AV_SAMPLE_FMT', 'AVSampleFormatConstants'],
+    ['AV_PIX_FMT', 'AVPixelFormatConstants'],
+    ['AV_FIELD', 'AVFieldOrder'],
+    ['AV_COLORSPACE', 'AVColorSpace'],
+    
+    // Profiles
+    ['AV_PROFILE', 'AVProfile'],
+    
+    // Options
+    ['AV_OPT_FLAG', 'AVOptionFlag'],
+    ['AV_OPT_SERIALIZE', 'AVOptionSerialize'],
+    
+    // Hardware acceleration
+    ['AV_HWACCEL_FLAG', 'AVHWAccelFlag'],
+    
+    // Utility
+    ['AV_LOG', 'AVLogLevel'],
     ['AV_CPU_FLAG', 'AVCpuFlag'],
+    ['AV_DICT', 'AVDictionaryFlag'],
+    ['AV_ESCAPE_FLAG', 'AVEscapeFlag'],
+    ['AV_BPRINT_SIZE', 'AVBPrintSize'],
+    ['AV_TIME_BASE', 'AVTimeBase'],
+    
+    // Error resilience
+    ['AV_EF', 'AVErrorFlags'],
+    
+    // Buffer flags
+    ['AV_BUFFERSINK_FLAG', 'AVBufferSinkFlag'],
+    ['AV_GET_BUFFER_FLAG', 'AVGetBufferFlag'],
+    ['AV_GET_ENCODE_BUFFER_FLAG', 'AVGetEncodeBufferFlag'],
+    ['AV_INPUT_BUFFER', 'AVInputBuffer'],
+    
+    // Subtitle
+    ['AV_SUBTITLE_FLAG', 'AVSubtitleFlag'],
+    
+    // PTS wrapping
+    ['AV_PTS_WRAP', 'AVPTSWrap'],
+    
+    // Platform features
+    ['AV_HAVE', 'AVHave'],
+    ['AV_UTF', 'AVUTF'],
   ]);
 
   // Generate constants by group
@@ -344,7 +460,11 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     if (processedTypes.has(typeName)) continue;
     processedTypes.add(typeName);
 
-    output += `// ${prefix} constants\n`;
+    // Get source files for documentation
+    const sources = [...new Set(groupConstants.map(c => c.source))];
+    const sourceComment = sources.length > 0 ? ` (from ${sources.slice(0, 3).join(', ')}${sources.length > 3 ? '...' : ''})` : '';
+
+    output += `// ${prefix} constants${sourceComment}\n`;
     output += `export type ${typeName} = number & { readonly [__ffmpeg_brand]: '${typeName}' };\n\n`;
 
     for (const constant of groupConstants) {
@@ -390,11 +510,14 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     output += '\n';
   }
 
-  // Handle remaining constants
-  const otherConstants = groups.get('OTHER');
-  if (otherConstants && otherConstants.length > 0) {
-    output += '// Other constants\n';
-    for (const constant of otherConstants) {
+  // OTHER constants will be handled later at the end
+
+  // Generate remaining ungrouped constants if any
+  const ungroupedConstants = groups.get('OTHER');
+  if (ungroupedConstants && ungroupedConstants.length > 0) {
+    output += `// Other constants (ungrouped) - ${ungroupedConstants.length} constants\n`;
+    output += `// These are miscellaneous constants that don't fit into a specific category\n`;
+    for (const constant of ungroupedConstants) {
       // Try to evaluate the value
       let value = constant.value;
       let evaluatedValue = null;
@@ -408,9 +531,8 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
         if (matches) {
           const shift = parseInt(matches[1]);
           const result = 1 << shift;
-          // Handle negative values for bit 31
           if (result < 0) {
-            evaluatedValue = String(result >>> 0); // Convert to unsigned 32-bit
+            evaluatedValue = String(result >>> 0);
           } else {
             evaluatedValue = `0x${result.toString(16)}`;
           }
@@ -428,17 +550,17 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   if (!processedTypes.has('AVError')) {
     const errorConstants = [];
     const errorFile = path.join(FFMPEG_PATH, 'libavutil', 'error.h');
-    
+
     if (fs.existsSync(errorFile)) {
       const errorContent = fs.readFileSync(errorFile, 'utf8');
-      
+
       // Parse FFERRTAG macro calls
       const fferrtagPattern = /#define\s+(AVERROR_\w+)\s+FFERRTAG\s*\(([^)]+)\)/gm;
       let match;
       while ((match = fferrtagPattern.exec(errorContent)) !== null) {
         const name = match[1].replace('AVERROR_', 'AV_ERROR_');
-        const args = match[2].split(',').map(a => a.trim().replace(/'/g, ''));
-        
+        const args = match[2].split(',').map((a) => a.trim().replace(/'/g, ''));
+
         // MKTAG(a,b,c,d) = (a) | ((b) << 8) | ((c) << 16) | ((d) << 24)
         // FFERRTAG = -(int)MKTAG
         let a, b, c, d;
@@ -449,17 +571,17 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
         } else {
           a = args[0].charCodeAt(0);
         }
-        
+
         // Handle character literals and special chars
         b = args[1] === ' ' ? 32 : args[1].charCodeAt(0);
         c = args[2] === ' ' ? 32 : args[2].charCodeAt(0);
-        d = args[3] === ' ' ? 32 : (args[3] === '!' ? 33 : args[3].charCodeAt(0));
-        
+        d = args[3] === ' ' ? 32 : args[3] === '!' ? 33 : args[3].charCodeAt(0);
+
         const mktag = (a | (b << 8) | (c << 16) | (d << 24)) >>> 0;
         const fferrtag = -(mktag | 0); // Convert to signed 32-bit then negate
         errorConstants.push({ name, value: fferrtag });
       }
-      
+
       // Parse direct hex error values
       const hexPattern = /#define\s+(AVERROR_\w+)\s+\((-0x[0-9a-fA-F]+)\)/gm;
       while ((match = hexPattern.exec(errorContent)) !== null) {
@@ -468,7 +590,7 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
         errorConstants.push({ name, value });
       }
     }
-    
+
     // Add common POSIX errors
     const posixErrors = [
       { name: 'AV_ERROR_EAGAIN', value: -11 },
@@ -478,17 +600,17 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
       { name: 'AV_ERROR_ENOSYS', value: -38 },
       { name: 'AV_ERROR_EIO', value: -5 },
       { name: 'AV_ERROR_EPERM', value: -1 },
-      { name: 'AV_ERROR_ETIMEDOUT', value: -110 }
+      { name: 'AV_ERROR_ETIMEDOUT', value: -110 },
     ];
-    
+
     // Check which errors we already have
-    const existingErrorNames = new Set(errorConstants.map(e => e.name));
+    const existingErrorNames = new Set(errorConstants.map((e) => e.name));
     for (const posixError of posixErrors) {
       if (!existingErrorNames.has(posixError.name)) {
         errorConstants.push(posixError);
       }
     }
-    
+
     // Generate error constants
     output += `// Error codes\n`;
     output += `export type AVError = number & { readonly [__ffmpeg_brand]: 'AVError' };\n\n`;
@@ -527,8 +649,10 @@ const main = () => {
   const lines = output.split('\n').length;
   const constants = (output.match(/export const/g) || []).length;
   const types = (output.match(/export type/g) || []).length;
-
-  console.log(`Summary: ${lines} lines, ${constants} constants, ${types} branded types`);
+  
+  console.log('\n=== Generation Summary ===');
+  console.log(`Generated: ${lines} lines, ${constants} constants, ${types} branded types`);
+  console.log(`Note: Enums like AVPixelFormat are processed separately from #define constants`);
 };
 
 main();
