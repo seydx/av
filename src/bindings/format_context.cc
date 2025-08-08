@@ -125,25 +125,47 @@ Napi::Value FormatContext::OpenInput(const Napi::CallbackInfo& info) {
   
   // Handle InputFormat (2nd parameter)
   AVInputFormat* input_format = nullptr;
-  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
-    Napi::Object inputFormatObj = info[1].As<Napi::Object>();
-    InputFormat* inputFormatWrapper = Napi::ObjectWrap<InputFormat>::Unwrap(inputFormatObj);
-    input_format = const_cast<AVInputFormat*>(inputFormatWrapper->GetFormat());
+  if (info.Length() > 1) {
+    InputFormat* inputFormatWrapper = ffmpeg::UnwrapNativeObject<InputFormat>(env, info[1], "InputFormat");
+    if (inputFormatWrapper) {
+      input_format = const_cast<AVInputFormat*>(inputFormatWrapper->GetFormat());
+    }
   }
   
   // Handle Dictionary options (3rd parameter)
   AVDictionary* options = nullptr;
-  if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined()) {
-    Napi::Object dictObj = info[2].As<Napi::Object>();
-    Dictionary* dictWrapper = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
-    options = dictWrapper->GetDict();
+  if (info.Length() > 2) {
+    Dictionary* dictWrapper = ffmpeg::UnwrapNativeObject<Dictionary>(env, info[2], "Dictionary");
+    if (dictWrapper) {
+      options = dictWrapper->GetDict();
+    }
   }
   
   // avformat_open_input takes a pointer to pointer and may reallocate
   AVFormatContext* ctx = context_;
   int ret = avformat_open_input(&ctx, url.c_str(), input_format, options ? &options : nullptr);
   if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to open input");
+    char errbuf[AV_ERROR_MAX_STRING_SIZE];
+    av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
+    
+    std::string errorMsg = "Failed to open input '" + url + "': ";
+    
+    // Provide more specific error messages
+    if (ret == AVERROR(ENOENT)) {
+      errorMsg += "File not found";
+    } else if (ret == AVERROR(EACCES)) {
+      errorMsg += "Permission denied";
+    } else if (ret == AVERROR_INVALIDDATA) {
+      errorMsg += "Invalid data found when processing input";
+    } else if (ret == AVERROR_DEMUXER_NOT_FOUND) {
+      errorMsg += "Demuxer not found (unknown file format)";
+    } else if (ret == AVERROR_PROTOCOL_NOT_FOUND) {
+      errorMsg += "Protocol not found";
+    } else {
+      errorMsg += errbuf;
+    }
+    
+    Napi::Error::New(env, errorMsg).ThrowAsJavaScriptException();
     if (options) av_dict_free(&options);
     return env.Undefined();
   }
@@ -243,13 +265,13 @@ Napi::Value FormatContext::FindBestStream(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::ReadFrame(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (info.Length() < 1 || !info[0].IsObject()) {
+  if (info.Length() < 1) {
     Napi::TypeError::New(env, "Packet object required").ThrowAsJavaScriptException();
     return env.Null();
   }
   
-  Napi::Object packetObj = info[0].As<Napi::Object>();
-  Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(packetObj);
+  Packet* packet = ffmpeg::UnwrapNativeObjectRequired<Packet>(env, info[0], "Packet");
+  if (!packet) return env.Null();
   
   int ret = av_read_frame(context_, packet->GetPacket());
   if (ret < 0) {
@@ -322,10 +344,11 @@ Napi::Value FormatContext::WriteHeader(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   AVDictionary* options = nullptr;
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Napi::Object dictObj = info[0].As<Napi::Object>();
-    Dictionary* dictWrapper = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
-    options = dictWrapper->GetDict();
+  if (info.Length() > 0) {
+    Dictionary* dictWrapper = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
+    if (dictWrapper) {
+      options = dictWrapper->GetDict();
+    }
   }
   
   int ret = avformat_write_header(context_, options ? &options : nullptr);
@@ -340,10 +363,11 @@ Napi::Value FormatContext::WriteFrame(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   AVPacket* pkt = nullptr;
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Napi::Object packetObj = info[0].As<Napi::Object>();
-    Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(packetObj);
-    pkt = packet->GetPacket();
+  if (info.Length() > 0) {
+    Packet* packet = ffmpeg::UnwrapNativeObject<Packet>(env, info[0], "Packet");
+    if (packet) {
+      pkt = packet->GetPacket();
+    }
   }
   
   int ret = av_write_frame(context_, pkt);
@@ -358,10 +382,11 @@ Napi::Value FormatContext::WriteInterleavedFrame(const Napi::CallbackInfo& info)
   Napi::Env env = info.Env();
   
   AVPacket* pkt = nullptr;
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Napi::Object packetObj = info[0].As<Napi::Object>();
-    Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(packetObj);
-    pkt = packet->GetPacket();
+  if (info.Length() > 0) {
+    Packet* packet = ffmpeg::UnwrapNativeObject<Packet>(env, info[0], "Packet");
+    if (packet) {
+      pkt = packet->GetPacket();
+    }
   }
   
   int ret = av_interleaved_write_frame(context_, pkt);

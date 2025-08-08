@@ -1,17 +1,51 @@
 import { bindings } from './binding.js';
+import type { NativeFilter, NativeWrapper } from './native-types.js';
 
 /**
- * AVFilter wrapper - represents a filter that can be used in a filter graph
+ * FFmpeg filter for audio/video processing
+ *
+ * Represents a filter type that can be instantiated in a FilterGraph.
+ * Filters are the building blocks for complex audio/video processing pipelines.
+ *
+ * @example
+ * ```typescript
+ * // Find a filter by name
+ * const scaleFilter = Filter.findByName('scale');
+ * if (scaleFilter) {
+ *   // Use in a filter graph
+ *   const graph = new FilterGraph();
+ *   const context = graph.createFilter(scaleFilter, 'scaler', '320:240');
+ * }
+ *
+ * // List all available filters
+ * const filters = Filter.getAll();
+ * console.log(`Available filters: ${filters.length}`);
+ * ```
  */
-export class Filter {
-  private filter: any;
+export class Filter implements NativeWrapper<NativeFilter> {
+  private filter: any; // Native filter binding
 
+  // ==================== Constructor ====================
+
+  /**
+   * Create a Filter wrapper
+   * @param filter Native filter object
+   * @internal
+   */
   constructor(filter: any) {
     this.filter = filter;
   }
 
+  // ==================== Static Methods ====================
+
   /**
    * Find a filter by name
+   * @param name Filter name (e.g., 'scale', 'overlay', 'format')
+   * @returns Filter instance or null if not found
+   * @example
+   * ```typescript
+   * const filter = Filter.findByName('scale');
+   * ```
    */
   static findByName(name: string): Filter | null {
     const filter = bindings.Filter.findByName(name);
@@ -20,10 +54,26 @@ export class Filter {
 
   /**
    * Get all available filters
+   * @returns Array of all registered filters
+   * @example
+   * ```typescript
+   * const filters = Filter.getAll();
+   * for (const filter of filters) {
+   *   console.log(`${filter.name}: ${filter.description}`);
+   * }
+   * ```
    */
   static getAll(): Filter[] {
-    return bindings.Filter.getAll().map((f: any) => new Filter(f));
+    try {
+      const natives = bindings.Filter.getAll();
+      return natives.map((native) => new Filter(native));
+    } catch (error) {
+      console.warn('Failed to get all filters:', error);
+      return [];
+    }
   }
+
+  // ==================== Getters/Setters ====================
 
   /**
    * Get filter name
@@ -48,6 +98,7 @@ export class Filter {
 
   /**
    * Get number of inputs
+   * @returns Number of input pads this filter has
    */
   get nbInputs(): number {
     return this.filter.nbInputs;
@@ -55,15 +106,65 @@ export class Filter {
 
   /**
    * Get number of outputs
+   * @returns Number of output pads this filter has
    */
   get nbOutputs(): number {
     return this.filter.nbOutputs;
   }
 
+  // ==================== Internal Methods ====================
+
   /**
-   * Get native filter object
+   * Get native filter object for internal use
+   * @internal
    */
-  get native(): any {
+  getNative(): any {
     return this.filter;
   }
 }
+
+/**
+ * Common filter names for convenience
+ */
+export const FilterNames = {
+  // Video filters
+  SCALE: 'scale',
+  CROP: 'crop',
+  PAD: 'pad',
+  OVERLAY: 'overlay',
+  FORMAT: 'format',
+  FPS: 'fps',
+  ROTATE: 'rotate',
+  FLIP: 'hflip',
+  VFLIP: 'vflip',
+  TRANSPOSE: 'transpose',
+  SETPTS: 'setpts',
+  FADE: 'fade',
+  DRAWTEXT: 'drawtext',
+  DEINTERLACE: 'yadif',
+
+  // Audio filters
+  VOLUME: 'volume',
+  AMERGE: 'amerge',
+  AMIX: 'amix',
+  AFORMAT: 'aformat',
+  ARESAMPLE: 'aresample',
+  ATEMPO: 'atempo',
+  ADELAY: 'adelay',
+  AECHO: 'aecho',
+  AFADE: 'afade',
+  HIGHPASS: 'highpass',
+  LOWPASS: 'lowpass',
+
+  // Source/Sink filters
+  BUFFER: 'buffer',
+  BUFFERSINK: 'buffersink',
+  ABUFFER: 'abuffer',
+  ABUFFERSINK: 'abuffersink',
+
+  // Special filters
+  NULLSRC: 'nullsrc',
+  NULLSINK: 'nullsink',
+  SPLIT: 'split',
+  ASPLIT: 'asplit',
+} as const;

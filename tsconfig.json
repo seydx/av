@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "outDir": "./dist",
-    "target": "ES2024",
+    "target": "ESNext",
     "moduleResolution": "NodeNext",
     "module": "NodeNext",
     "lib": [
-      "ES2024"
+      "ESNext"
     ],
     "declaration": true,
     "sourceMap": true,
@@ -20,10 +20,11 @@
     "emitDecoratorMetadata": true,
     "verbatimModuleSyntax": true,
     "noImplicitAny": true,
+    "noEmit": true
   },
   "include": [
     "src/**/*.ts",
-    "test"
+    "test",
   ],
   "exclude": [
     "node_modules",

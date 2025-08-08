@@ -23,7 +23,9 @@ describe('CodecContext', () => {
 
     const timeBase = new Rational(1, 25);
     ctx.timeBase = timeBase;
-    assert.deepStrictEqual(ctx.timeBase, { num: 1, den: 25 });
+    const tb = ctx.timeBase;
+    assert.strictEqual(tb.num, 1);
+    assert.strictEqual(tb.den, 25);
 
     ctx.level = 41;
     assert.strictEqual(ctx.level, 41);
@@ -48,7 +50,9 @@ describe('CodecContext', () => {
 
     const framerate = new Rational(30, 1);
     ctx.framerate = framerate;
-    assert.deepStrictEqual(ctx.framerate, { num: 30, den: 1 });
+    const fr = ctx.framerate;
+    assert.strictEqual(fr.num, 30);
+    assert.strictEqual(fr.den, 1);
 
     ctx.gopSize = 12;
     assert.strictEqual(ctx.gopSize, 12);

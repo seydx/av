@@ -1910,14 +1910,14 @@ export const AV_ERROR_HTTP_SERVER_ERROR = -1482175992 as AVError;
 export const AV_ERROR_EXPERIMENTAL = -733130664 as AVError;
 export const AV_ERROR_INPUT_CHANGED = -1668179713 as AVError;
 export const AV_ERROR_OUTPUT_CHANGED = -1668179714 as AVError;
-export const AV_ERROR_EAGAIN = -11 as AVError;
+export const AV_ERROR_EAGAIN = -35 as AVError;
 export const AV_ERROR_ENOMEM = -12 as AVError;
 export const AV_ERROR_EINVAL = -22 as AVError;
 export const AV_ERROR_EPIPE = -32 as AVError;
-export const AV_ERROR_ENOSYS = -38 as AVError;
+export const AV_ERROR_ENOSYS = -78 as AVError;
 export const AV_ERROR_EIO = -5 as AVError;
 export const AV_ERROR_EPERM = -1 as AVError;
-export const AV_ERROR_ETIMEDOUT = -110 as AVError;
+export const AV_ERROR_ETIMEDOUT = -60 as AVError;
 
 // Helper function to cast numbers to branded types
 export function cast<T>(value: number): T {

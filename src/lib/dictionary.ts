@@ -1,20 +1,7 @@
 import { bindings } from './binding.js';
 
 import type { AVDictionaryFlag } from './constants.js';
-
-// Native dictionary interface
-interface NativeDictionary {
-  set(key: string, value: string, flags?: AVDictionaryFlag): void;
-  get(key: string, flags?: AVDictionaryFlag): string | null;
-  getAll(): Record<string, string>;
-  has(key: string): boolean;
-  delete(key: string): void;
-  clear(): void;
-  copy(flags?: AVDictionaryFlag): NativeDictionary;
-  parseString(str: string, keyValSep?: string, pairsSep?: string, flags?: AVDictionaryFlag): void;
-  toString(keyValSep?: string, pairsSep?: string): string;
-  readonly count: number;
-}
+import type { NativeDictionary, NativeWrapper } from './native-types.js';
 
 /**
  * AVDictionary wrapper - key-value store for FFmpeg options and metadata
@@ -40,19 +27,83 @@ interface NativeDictionary {
  * metadata.parseString('title=My Video artist=Me');
  * ```
  */
-export class Dictionary implements Disposable {
-  private native: NativeDictionary;
+export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
+  private native: any; // Native dictionary binding
 
-  constructor(native?: NativeDictionary) {
+  // ==================== Constructor ====================
+
+  /**
+   * Create a new Dictionary
+   * @param native Optional native dictionary object (for internal use)
+   */
+  constructor(native?: any) {
     this.native = native ?? new bindings.Dictionary();
   }
 
+  // ==================== Static Methods ====================
+
   /**
-   * Create from native handle (internal use)
+   * Create a Dictionary from an object
+   * @param obj Plain object with key-value pairs
+   * @returns New Dictionary instance
+   * @example
+   * ```typescript
+   * const dict = Dictionary.fromObject({
+   *   preset: 'fast',
+   *   crf: '23'
+   * });
+   * ```
+   */
+  static fromObject(obj: Record<string, string>): Dictionary {
+    const dict = new Dictionary();
+    for (const [key, value] of Object.entries(obj)) {
+      dict.set(key, value);
+    }
+    return dict;
+  }
+
+  /**
+   * Create a Dictionary from a string
+   * @param str String to parse
+   * @param keyValSep Key-value separator (default '=')
+   * @param pairsSep Pairs separator (default ' ')
+   * @returns New Dictionary instance
+   * @example
+   * ```typescript
+   * const dict = Dictionary.fromString('preset=fast crf=23');
+   * ```
+   */
+  static fromString(str: string, keyValSep = '=', pairsSep = ' '): Dictionary {
+    const dict = new Dictionary();
+    dict.parseString(str, keyValSep, pairsSep);
+    return dict;
+  }
+
+  /**
+   * Create from native handle
+   * @internal
    */
   static fromNative(native: any): Dictionary {
     return new Dictionary(native);
   }
+
+  // ==================== Getters/Setters ====================
+
+  /**
+   * Get the number of entries in the dictionary
+   */
+  get count(): number {
+    return this.native.count;
+  }
+
+  /**
+   * Get the number of entries (alias for count)
+   */
+  get size(): number {
+    return this.count;
+  }
+
+  // ==================== Public Methods ====================
 
   /**
    * Set a key-value pair
@@ -121,7 +172,6 @@ export class Dictionary implements Disposable {
    * @param keyValSep Separator between key and value (default: '=')
    * @param pairsSep Separator between pairs (default: ' ')
    * @param flags Optional flags for parsing behavior
-   *
    * @example
    * ```typescript
    * dict.parseString('key1=value1 key2=value2');
@@ -143,21 +193,18 @@ export class Dictionary implements Disposable {
   }
 
   /**
-   * Get the number of entries
+   * Convert to plain JavaScript object
+   * @returns Plain object with all key-value pairs
    */
-  get count(): number {
-    return this.native.count;
+  toObject(): Record<string, string> {
+    return this.getAll();
   }
 
-  /**
-   * Get the number of entries (alias for count)
-   */
-  get size(): number {
-    return this.native.count;
-  }
+  // ==================== Iteration Methods ====================
 
   /**
    * Iterate over entries
+   * @yields Key-value pairs as tuples
    */
   *entries(): IterableIterator<[string, string]> {
     const all = this.getAll();
@@ -168,6 +215,7 @@ export class Dictionary implements Disposable {
 
   /**
    * Iterate over keys
+   * @yields Dictionary keys
    */
   *keys(): IterableIterator<string> {
     const all = this.getAll();
@@ -178,6 +226,7 @@ export class Dictionary implements Disposable {
 
   /**
    * Iterate over values
+   * @yields Dictionary values
    */
   *values(): IterableIterator<string> {
     const all = this.getAll();
@@ -188,6 +237,7 @@ export class Dictionary implements Disposable {
 
   /**
    * Make Dictionary iterable
+   * @yields Key-value pairs as tuples
    */
   [Symbol.iterator](): IterableIterator<[string, string]> {
     return this.entries();
@@ -200,50 +250,13 @@ export class Dictionary implements Disposable {
     this.clear();
   }
 
-  /**
-   * Create Dictionary from object
-   * @param obj Object with key-value pairs
-   * @returns New Dictionary instance
-   */
-  static fromObject(obj: Record<string, string>): Dictionary {
-    const dict = new Dictionary();
-    for (const [key, value] of Object.entries(obj)) {
-      dict.set(key, value);
-    }
-    return dict;
-  }
+  // ==================== Internal Methods ====================
 
   /**
-   * Create Dictionary from string
-   * @param str String to parse
-   * @param keyValSep Separator between key and value
-   * @param pairsSep Separator between pairs
-   * @returns New Dictionary instance
+   * Get native dictionary for internal use
+   * @internal
    */
-  static fromString(str: string, keyValSep = '=', pairsSep = ' '): Dictionary {
-    const dict = new Dictionary();
-    dict.parseString(str, keyValSep, pairsSep);
-    return dict;
-  }
-
-  /**
-   * Get native handle (internal use)
-   */
-  getNative(): any {
+  getNative(): NativeDictionary {
     return this.native;
-  }
-
-  /**
-   * Get native dictionary (for internal use with bindings)
-   */
-  get nativeDict(): any {
-    return this.native;
-  }
-
-  /**
-   * Convert to plain JavaScript object
-   */
-  toObject(): Record<string, string> {
-    return this.getAll();
   }
 }

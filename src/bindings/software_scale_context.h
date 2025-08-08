@@ -18,9 +18,6 @@ public:
   SoftwareScaleContext(const Napi::CallbackInfo& info);
   ~SoftwareScaleContext();
   
-  // Static factory method
-  static Napi::Value Create(const Napi::CallbackInfo& info);
-  
   // Methods
   Napi::Value ScaleFrame(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);

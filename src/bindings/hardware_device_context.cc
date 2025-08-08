@@ -8,7 +8,6 @@ Napi::FunctionReference HardwareDeviceContext::constructor;
 Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "HardwareDeviceContext", {
     // Static methods
-    StaticMethod<&HardwareDeviceContext::Create>("create"),
     StaticMethod<&HardwareDeviceContext::FindTypeByName>("findTypeByName"),
     StaticMethod<&HardwareDeviceContext::GetTypeName>("getTypeName"),
     StaticMethod<&HardwareDeviceContext::GetSupportedTypes>("getSupportedTypes"),
@@ -30,23 +29,12 @@ Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
 
 HardwareDeviceContext::HardwareDeviceContext(const Napi::CallbackInfo& info)
   : Napi::ObjectWrap<HardwareDeviceContext>(info), context_(nullptr), type_(AV_HWDEVICE_TYPE_NONE) {
-  // Constructor is private, use Create() static method
-}
-
-HardwareDeviceContext::~HardwareDeviceContext() {
-  if (context_) {
-    av_buffer_unref(&context_);
-    context_ = nullptr;
-  }
-}
-
-// Static method to create hardware device context
-Napi::Value HardwareDeviceContext::Create(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
+  // Constructor now handles initialization directly
   if (info.Length() < 1 || !info[0].IsNumber()) {
     Napi::TypeError::New(env, "Hardware device type required").ThrowAsJavaScriptException();
-    return env.Null();
+    return;
   }
   
   AVHWDeviceType type = static_cast<AVHWDeviceType>(info[0].As<Napi::Number>().Int32Value());
@@ -62,9 +50,10 @@ Napi::Value HardwareDeviceContext::Create(const Napi::CallbackInfo& info) {
   // Optional options dictionary
   AVDictionary* options = nullptr;
   if (info.Length() > 2 && info[2].IsObject()) {
-    Napi::Object dictObj = info[2].As<Napi::Object>();
-    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
-    options = dict->GetDict();
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[2], "Dictionary");
+    if (dict) {
+      options = dict->GetDict();
+    }
   }
   
   // Optional flags
@@ -78,16 +67,18 @@ Napi::Value HardwareDeviceContext::Create(const Napi::CallbackInfo& info) {
   int ret = av_hwdevice_ctx_create(&hwContext, type, device, options, flags);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to create hardware device context");
-    return env.Null();
+    return;
   }
   
-  // Create wrapper object
-  Napi::Object obj = constructor.New({});
-  HardwareDeviceContext* hdc = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(obj);
-  hdc->context_ = hwContext;
-  hdc->type_ = type;
-  
-  return obj;
+  context_ = hwContext;
+  type_ = type;
+}
+
+HardwareDeviceContext::~HardwareDeviceContext() {
+  if (context_) {
+    av_buffer_unref(&context_);
+    context_ = nullptr;
+  }
 }
 
 // Find hardware device type by name

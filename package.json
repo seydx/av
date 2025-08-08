@@ -20,7 +20,7 @@
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "test": "npm run build && tsx --test test/**/*.test.ts",
+    "test": "tsc -p tsconfig.json && npm run build && tsx --test test/**/*.test.ts",
     "test:watch": "node --import tsx --test --watch test/**/*.test.ts",
     "update": "updates --update ./"
   },

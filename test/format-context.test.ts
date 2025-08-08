@@ -1,10 +1,10 @@
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { Dictionary, FormatContext, InputFormat, OutputFormat, Packet, AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO, AV_ERROR_EOF } from '../src/lib/index.js';
+import { AV_ERROR_EOF, AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO, Dictionary, FormatContext, InputFormat, OutputFormat, Packet } from '../src/lib/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,18 +14,19 @@ describe('FormatContext', () => {
     assert(ctx);
   });
 
-  it('should create format context with static methods', () => {
-    const ctx1 = FormatContext.allocFormatContext();
+  it('should create format context with constructor', () => {
+    const ctx1 = new FormatContext('input');
     assert(ctx1);
 
     // Output format context for MP4 using OutputFormat
     const mp4Format = OutputFormat.find('mp4');
-    assert(mp4Format);
-    const ctx2 = FormatContext.allocOutputFormatContext(mp4Format, 'mp4', 'test.mp4');
-    assert(ctx2);
+    if (mp4Format) {
+      const ctx2 = new FormatContext('output', mp4Format, 'mp4', 'test.mp4');
+      assert(ctx2);
+    }
 
     // Output format context with just format name
-    const ctx3 = FormatContext.allocOutputFormatContext(null, 'mp4', 'test.mp4');
+    const ctx3 = new FormatContext('output', null, 'mp4', 'test.mp4');
     assert(ctx3);
   });
 
@@ -117,7 +118,7 @@ describe('FormatContext', () => {
   it('should create output streams', () => {
     const mp4Format = OutputFormat.find('mp4');
     assert(mp4Format);
-    const ctx = FormatContext.allocOutputFormatContext(mp4Format, undefined, 'test.mp4');
+    const ctx = new FormatContext('output', mp4Format, undefined, 'test.mp4');
 
     // Create a new stream
     const stream1 = ctx.newStream();
@@ -162,7 +163,7 @@ describe('FormatContext', () => {
 
   it('integration test with real media file', async () => {
     const testFile = path.join(__dirname, '..', 'testdata', 'video.mp4');
-    
+
     // Check if test file exists
     if (!fs.existsSync(testFile)) {
       console.log(`Skipping integration test - ${testFile} not found`);
@@ -170,74 +171,73 @@ describe('FormatContext', () => {
     }
 
     const ctx = new FormatContext();
-    
+
     try {
       // Open the media file
       await ctx.openInput(testFile);
-      
+
       // Find stream info
       await ctx.findStreamInfo();
-      
+
       // Check basic properties
       assert.ok(ctx.nbStreams > 0, 'Should have at least one stream');
       assert.ok(ctx.duration > 0n, 'Should have duration');
       assert.ok(ctx.bitRate >= 0n, 'Should have bitrate');
       assert.ok(ctx.url?.includes('video.mp4'), 'Should have URL');
-      
+
       // Check streams
       const streams = ctx.streams;
       assert.ok(Array.isArray(streams), 'Should return streams array');
       assert.strictEqual(streams.length, ctx.nbStreams, 'Stream count should match');
-      
+
       // Find video stream
       const videoStreamIndex = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO);
       if (videoStreamIndex >= 0) {
         const videoStream = streams[videoStreamIndex];
         assert.ok(videoStream, 'Should have video stream');
-        
+
         const codecParams = videoStream.codecParameters;
         assert.ok(codecParams, 'Video stream should have codec parameters');
         assert.strictEqual(codecParams.codecType, AV_MEDIA_TYPE_VIDEO);
         assert.ok(codecParams.width > 0, 'Should have width');
         assert.ok(codecParams.height > 0, 'Should have height');
       }
-      
+
       // Find audio stream
       const audioStreamIndex = ctx.findBestStream(AV_MEDIA_TYPE_AUDIO);
       if (audioStreamIndex >= 0) {
         const audioStream = streams[audioStreamIndex];
         assert.ok(audioStream, 'Should have audio stream');
-        
+
         const codecParams = audioStream.codecParameters;
         assert.ok(codecParams, 'Audio stream should have codec parameters');
         assert.strictEqual(codecParams.codecType, AV_MEDIA_TYPE_AUDIO);
         assert.ok(codecParams.sampleRate > 0, 'Should have sample rate');
         assert.ok(codecParams.channelLayout, 'Should have channel layout');
       }
-      
+
       // Test reading packets
       using packet = new Packet();
       let packetsRead = 0;
       const maxPackets = 10; // Read only first 10 packets for testing
-      
+
       while (packetsRead < maxPackets) {
         const ret = ctx.readFrame(packet);
         if (ret === AV_ERROR_EOF) {
           break;
         }
-        
+
         assert.ok(packet.streamIndex >= 0, 'Packet should have valid stream index');
         assert.ok(packet.size > 0, 'Packet should have data');
         packetsRead++;
-        
+
         packet.unref(); // Clear packet for next read
       }
-      
+
       assert.ok(packetsRead > 0, 'Should have read at least one packet');
-      
+
       // Test dump (should not crash)
       ctx.dump(0, false);
-      
     } finally {
       // Close input
       ctx.closeInput();

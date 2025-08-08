@@ -54,7 +54,7 @@ describe('HardwareDeviceContext', () => {
       const types = HardwareDeviceContext.getSupportedTypes();
       if (types.length > 0) {
         // Try to create with the first supported type
-        using ctx = HardwareDeviceContext.create(types[0].type);
+        using ctx = new HardwareDeviceContext(types[0].type);
         assert(ctx);
         assert.strictEqual(ctx.type, types[0].type);
 
@@ -78,7 +78,7 @@ describe('HardwareDeviceContext', () => {
     if (types.length > 0) {
       try {
         {
-          using ctx = HardwareDeviceContext.create(types[0].type);
+          using ctx = new HardwareDeviceContext(types[0].type);
           assert(ctx);
         }
         // Context should be disposed here
@@ -95,8 +95,8 @@ describe('HardwareFramesContext', () => {
     const types = HardwareDeviceContext.getSupportedTypes();
     if (types.length > 0) {
       try {
-        using deviceCtx = HardwareDeviceContext.create(types[0].type);
-        using framesCtx = HardwareFramesContext.alloc(deviceCtx);
+        using deviceCtx = new HardwareDeviceContext(types[0].type);
+        using framesCtx = new HardwareFramesContext(deviceCtx);
 
         assert(framesCtx);
 

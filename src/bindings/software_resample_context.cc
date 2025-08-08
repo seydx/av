@@ -1,5 +1,6 @@
 #include "software_resample_context.h"
 #include "frame.h"
+#include "common.h"
 
 namespace ffmpeg {
 
@@ -57,20 +58,16 @@ Napi::Value SoftwareResampleContext::ConvertFrame(const Napi::CallbackInfo& info
   AVFrame* dst = nullptr;
   
   // Source frame (can be null for flushing)
-  if (!info[0].IsNull() && !info[0].IsUndefined() && info[0].IsObject()) {
-    Napi::Object srcObj = info[0].As<Napi::Object>();
-    Frame* srcFrame = Napi::ObjectWrap<Frame>::Unwrap(srcObj);
-    src = srcFrame->GetFrame();
+  if (info.Length() > 0) {
+    Frame* srcFrame = ffmpeg::UnwrapNativeObject<Frame>(env, info[0], "Frame");
+    if (srcFrame) {
+      src = srcFrame->GetFrame();
+    }
   }
   
   // Destination frame (required)
-  if (!info[1].IsObject()) {
-    Napi::TypeError::New(env, "Destination frame required").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  Napi::Object dstObj = info[1].As<Napi::Object>();
-  Frame* dstFrame = Napi::ObjectWrap<Frame>::Unwrap(dstObj);
+  Frame* dstFrame = ffmpeg::UnwrapNativeObjectRequired<Frame>(env, info[1], "Frame");
+  if (!dstFrame) return env.Undefined();
   dst = dstFrame->GetFrame();
   
   int ret = swr_convert_frame(context_, dst, src);

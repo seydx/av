@@ -1,42 +1,54 @@
 import { bindings } from './binding.js';
 
 import type { HardwareDeviceContext } from './hardware-device-context.js';
+import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
 
 /**
- * Hardware Frames Context wrapper for hardware frame allocation
+ * Hardware frames context for GPU memory management
+ *
+ * Manages hardware frame allocation and configuration for GPU-accelerated
+ * video processing. Works in conjunction with HardwareDeviceContext to
+ * allocate frames in GPU memory.
+ *
+ * @example
+ * ```typescript
+ * // Create hardware frames context
+ * const hwDevice = new HardwareDeviceContext(AV_HWDEVICE_TYPE_CUDA);
+ * const hwFrames = new HardwareFramesContext(hwDevice);
+ *
+ * // Configure frame properties
+ * hwFrames.width = 1920;
+ * hwFrames.height = 1080;
+ * hwFrames.hardwarePixelFormat = AV_PIX_FMT_CUDA;
+ * hwFrames.softwarePixelFormat = AV_PIX_FMT_NV12;
+ * hwFrames.initialPoolSize = 20;
+ *
+ * // Initialize the context
+ * hwFrames.initialize();
+ * ```
  */
-export class HardwareFramesContext implements Disposable {
-  private context: any;
+export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHardwareFramesContext> {
+  private context: any; // Native hardware frames context binding
 
-  private constructor(context: any) {
-    this.context = context;
-  }
+  // ==================== Constructor ====================
 
   /**
    * Allocate a hardware frames context
-   *
-   * @param deviceContext Hardware device context
+   * @param deviceContext Hardware device context to use
+   * @throws Error if allocation fails
    */
-  static alloc(deviceContext: HardwareDeviceContext): HardwareFramesContext {
-    const context = bindings.HardwareFramesContext.alloc(deviceContext.native);
+  constructor(deviceContext: HardwareDeviceContext) {
+    this.context = new bindings.HardwareFramesContext(deviceContext.getNative());
 
-    if (!context) {
+    if (!this.context) {
       throw new Error('Failed to allocate hardware frames context');
     }
-
-    return new HardwareFramesContext(context);
   }
 
-  /**
-   * Initialize the hardware frames context
-   * Must be called after setting all properties
-   */
-  initialize(): void {
-    this.context.initialize();
-  }
+  // ==================== Getters/Setters ====================
 
   /**
-   * Get/set width
+   * Get/set frame width in pixels
    */
   get width(): number {
     return this.context.width;
@@ -47,7 +59,7 @@ export class HardwareFramesContext implements Disposable {
   }
 
   /**
-   * Get/set height
+   * Get/set frame height in pixels
    */
   get height(): number {
     return this.context.height;
@@ -58,7 +70,7 @@ export class HardwareFramesContext implements Disposable {
   }
 
   /**
-   * Get/set hardware pixel format
+   * Get/set hardware pixel format (GPU format)
    */
   get hardwarePixelFormat(): number {
     return this.context.hardwarePixelFormat;
@@ -69,7 +81,7 @@ export class HardwareFramesContext implements Disposable {
   }
 
   /**
-   * Get/set software pixel format
+   * Get/set software pixel format (CPU format)
    */
   get softwarePixelFormat(): number {
     return this.context.softwarePixelFormat;
@@ -80,7 +92,7 @@ export class HardwareFramesContext implements Disposable {
   }
 
   /**
-   * Get/set initial pool size
+   * Get/set initial frame pool size
    */
   get initialPoolSize(): number {
     return this.context.initialPoolSize;
@@ -90,11 +102,22 @@ export class HardwareFramesContext implements Disposable {
     this.context.initialPoolSize = value;
   }
 
+  // ==================== Public Methods ====================
+
   /**
-   * Get native context for use with other APIs
+   * Initialize the hardware frames context
+   * Must be called after setting all properties
+   * @throws Error if initialization fails
+   * @example
+   * ```typescript
+   * hwFrames.width = 1920;
+   * hwFrames.height = 1080;
+   * hwFrames.hardwarePixelFormat = AV_PIX_FMT_CUDA;
+   * hwFrames.initialize(); // Initialize after configuration
+   * ```
    */
-  get native(): any {
-    return this.context;
+  initialize(): void {
+    this.context.initialize();
   }
 
   /**
@@ -102,5 +125,15 @@ export class HardwareFramesContext implements Disposable {
    */
   [Symbol.dispose](): void {
     this.context[Symbol.dispose]();
+  }
+
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get native hardware frames context for internal use
+   * @internal
+   */
+  getNative(): any {
+    return this.context;
   }
 }

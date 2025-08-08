@@ -10,7 +10,7 @@ import {
 
 describe('AudioFifo', () => {
   it('should allocate audio FIFO', () => {
-    using fifo = AudioFifo.alloc(AV_SAMPLE_FMT_S16, 2, 1024);
+    using fifo = new AudioFifo(AV_SAMPLE_FMT_S16, 2, 1024);
     assert(fifo);
     assert.strictEqual(fifo.size, 0);
     assert(fifo.space >= 1024);
@@ -18,7 +18,7 @@ describe('AudioFifo', () => {
 
   it('should support using statement', () => {
     {
-      using fifo = AudioFifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 2048);
+      using fifo = new AudioFifo(AV_SAMPLE_FMT_FLTP, 2, 2048);
       assert(fifo);
     }
     // FIFO should be disposed here
@@ -26,7 +26,7 @@ describe('AudioFifo', () => {
   });
 
   it('should reallocate buffer', () => {
-    using fifo = AudioFifo.alloc(AV_SAMPLE_FMT_S16, 2, 1024);
+    using fifo = new AudioFifo(AV_SAMPLE_FMT_S16, 2, 1024);
     const initialSpace = fifo.space;
     
     // Reallocate to larger size
@@ -37,7 +37,7 @@ describe('AudioFifo', () => {
   });
 
   it('should write and read frames', () => {
-    using fifo = AudioFifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 1024);
+    using fifo = new AudioFifo(AV_SAMPLE_FMT_FLTP, 2, 1024);
     
     // Create an audio frame
     using writeFrame = new Frame();
@@ -76,7 +76,7 @@ describe('AudioFifo', () => {
   });
 
   it('should handle multiple write/read operations', () => {
-    using fifo = AudioFifo.alloc(AV_SAMPLE_FMT_S16, 1, 1024);
+    using fifo = new AudioFifo(AV_SAMPLE_FMT_S16, 1, 1024);
     
     // Create frames
     using frame1 = new Frame();
@@ -119,7 +119,7 @@ describe('AudioFifo', () => {
   });
 
   it('should report correct size and space', () => {
-    using fifo = AudioFifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 1024);
+    using fifo = new AudioFifo(AV_SAMPLE_FMT_FLTP, 2, 1024);
     
     // Initially empty
     assert.strictEqual(fifo.size, 0);

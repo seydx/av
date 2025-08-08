@@ -1,18 +1,31 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { SoftwareResampleContext } from '../src/lib/index.js';
+import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16, SoftwareResampleContext } from '../src/lib/index.js';
 
 describe('SoftwareResampleContext', () => {
   it('should create a resample context', () => {
-    using ctx = new SoftwareResampleContext();
+    using ctx = new SoftwareResampleContext(
+      { nbChannels: 2, order: 1, mask: 3n }, // Stereo input
+      48000, // 48kHz
+      AV_SAMPLE_FMT_FLTP,
+      { nbChannels: 2, order: 1, mask: 3n }, // Stereo output
+      44100, // 44.1kHz
+      AV_SAMPLE_FMT_S16
+    );
     assert(ctx);
-    assert(ctx.native);
   });
 
   it('should support using statement', () => {
     {
-      using ctx = new SoftwareResampleContext();
+      using ctx = new SoftwareResampleContext(
+        { nbChannels: 2, order: 1, mask: 3n },
+        48000,
+        AV_SAMPLE_FMT_FLTP,
+        { nbChannels: 2, order: 1, mask: 3n },
+        44100,
+        AV_SAMPLE_FMT_S16
+      );
       assert(ctx);
     }
     // Context should be disposed here
@@ -20,7 +33,14 @@ describe('SoftwareResampleContext', () => {
   });
 
   it('should have convertFrame method', () => {
-    using ctx = new SoftwareResampleContext();
+    using ctx = new SoftwareResampleContext(
+      { nbChannels: 2, order: 1, mask: 3n },
+      48000,
+      AV_SAMPLE_FMT_FLTP,
+      { nbChannels: 2, order: 1, mask: 3n },
+      44100,
+      AV_SAMPLE_FMT_S16
+    );
 
     // Just verify the method exists
     assert.strictEqual(typeof ctx.convertFrame, 'function');
@@ -30,7 +50,14 @@ describe('SoftwareResampleContext', () => {
   });
 
   it('should have getDelay method', () => {
-    using ctx = new SoftwareResampleContext();
+    using ctx = new SoftwareResampleContext(
+      { nbChannels: 2, order: 1, mask: 3n },
+      48000,
+      AV_SAMPLE_FMT_FLTP,
+      { nbChannels: 2, order: 1, mask: 3n },
+      44100,
+      AV_SAMPLE_FMT_S16
+    );
 
     // Just verify the method exists and returns bigint
     assert.strictEqual(typeof ctx.getDelay, 'function');

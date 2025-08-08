@@ -1,5 +1,6 @@
 import { bindings } from './binding.js';
 import type { AVCodecID, AVFormatFlags } from './constants.js';
+import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
 
 /**
  * Options for guessing output format
@@ -14,75 +15,148 @@ export interface GuessFormatOptions {
 }
 
 /**
- * OutputFormat represents a muxer in FFmpeg
- * Used to write media files
+ * Output format (muxer) for writing media files
+ *
+ * OutputFormat represents a muxer that can write specific container
+ * formats. Each format handles specific file types like MP4, MKV, AVI, etc.
+ * and defines default codecs for audio, video, and subtitles.
+ *
+ * @example
+ * ```typescript
+ * // Find a specific output format
+ * const mp4Format = OutputFormat.find('mp4');
+ * if (mp4Format) {
+ *   console.log(`Format: ${mp4Format.longName}`);
+ *   console.log(`Default video codec: ${mp4Format.videoCodec}`);
+ *   console.log(`Default audio codec: ${mp4Format.audioCodec}`);
+ * }
+ *
+ * // Guess format from filename
+ * const format = OutputFormat.guess({ filename: 'output.mp4' });
+ *
+ * // Use with FormatContext
+ * const context = new FormatContext('output', format, null, 'output.mp4');
+ * ```
  */
-export class OutputFormat {
-  private native: any;
+export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
+  private native: any; // Native output format binding
 
+  // ==================== Constructor ====================
+
+  /**
+   * Create an OutputFormat wrapper
+   * @param native Native output format object
+   * @internal
+   */
   private constructor(native: any) {
     this.native = native;
   }
+
+  // ==================== Static Methods ====================
 
   /**
    * Find an output format by name
    * @param name Format short name (e.g., 'mp4', 'mov', 'avi')
    * @returns OutputFormat instance or null if not found
+   * @example
+   * ```typescript
+   * const format = OutputFormat.find('mp4');
+   * if (format) {
+   *   console.log(`Found format: ${format.longName}`);
+   * }
+   * ```
    */
   static find(name: string): OutputFormat | null {
-    const native = bindings.OutputFormat.find(name);
-    return native ? new OutputFormat(native) : null;
+    try {
+      const native = bindings.OutputFormat.find(name);
+      return native ? new OutputFormat(native) : null;
+    } catch (error) {
+      console.warn(`Failed to find output format '${name}':`, error);
+      return null;
+    }
   }
 
   /**
    * Guess output format based on filename, MIME type, or short name
    * @param options Options for guessing format
    * @returns OutputFormat instance or null if no match found
+   * @example
+   * ```typescript
+   * // Guess from filename extension
+   * const format = OutputFormat.guess({ filename: 'output.mp4' });
+   *
+   * // Guess from MIME type
+   * const webmFormat = OutputFormat.guess({ mimeType: 'video/webm' });
+   *
+   * // Specify short name directly
+   * const mkvFormat = OutputFormat.guess({ shortName: 'matroska' });
+   * ```
    */
   static guess(options: GuessFormatOptions = {}): OutputFormat | null {
-    const native = bindings.OutputFormat.guess(options);
-    return native ? new OutputFormat(native) : null;
+    try {
+      const native = bindings.OutputFormat.guess(options);
+      return native ? new OutputFormat(native) : null;
+    } catch (error) {
+      console.warn('Failed to guess output format:', error);
+      return null;
+    }
   }
 
   /**
    * Get all available output formats
    * @returns Array of all available OutputFormat instances
+   * @example
+   * ```typescript
+   * const formats = OutputFormat.getAll();
+   * console.log(`Available formats: ${formats.length}`);
+   * for (const format of formats) {
+   *   console.log(`${format.name}: ${format.longName}`);
+   * }
+   * ```
    */
   static getAll(): OutputFormat[] {
-    const natives = bindings.OutputFormat.getAll();
-    return natives.map((native: any) => new OutputFormat(native));
+    try {
+      const natives = bindings.OutputFormat.getAll();
+      return natives.map((native) => new OutputFormat(native));
+    } catch (error) {
+      console.warn('Failed to get all output formats:', error);
+      return [];
+    }
   }
 
   /**
-   * Create from native handle (internal use)
+   * Create from native handle
+   * @internal
    */
   static fromNative(native: any): OutputFormat {
     return new OutputFormat(native);
   }
 
+  // ==================== Getters/Setters ====================
+
   /**
-   * Format short name
+   * Get format short name
    */
   get name(): string | null {
     return this.native.name;
   }
 
   /**
-   * Format long descriptive name
+   * Get format long descriptive name
    */
   get longName(): string | null {
     return this.native.longName;
   }
 
   /**
-   * Format flags (combination of AV_FMT_* flags)
+   * Get format flags (combination of AV_FMT_* flags)
    */
   get flags(): AVFormatFlags {
     return this.native.flags as AVFormatFlags;
   }
 
   /**
-   * File extensions associated with this format
+   * Get file extensions associated with this format
    * @returns Array of extensions or null
    */
   get extensions(): string[] | null {
@@ -90,39 +164,31 @@ export class OutputFormat {
   }
 
   /**
-   * MIME type associated with this format
+   * Get MIME type associated with this format
    */
   get mimeType(): string | null {
     return this.native.mimeType;
   }
 
   /**
-   * Default audio codec for this format
+   * Get default audio codec for this format
    */
   get audioCodec(): AVCodecID {
     return this.native.audioCodec as AVCodecID;
   }
 
   /**
-   * Default video codec for this format
+   * Get default video codec for this format
    */
   get videoCodec(): AVCodecID {
     return this.native.videoCodec as AVCodecID;
   }
 
   /**
-   * Default subtitle codec for this format
+   * Get default subtitle codec for this format
    */
   get subtitleCodec(): AVCodecID {
     return this.native.subtitleCodec as AVCodecID;
-  }
-
-  /**
-   * Check if format has a specific flag
-   * @param flag AVFormatFlags constant
-   */
-  hasFlag(flag: AVFormatFlags): boolean {
-    return (this.flags & flag) !== 0;
   }
 
   /**
@@ -140,15 +206,36 @@ export class OutputFormat {
     return (this.flags & 0x0040) !== 0; // AVFMT_GLOBALHEADER = 0x0040
   }
 
+  // ==================== Public Methods ====================
+
+  /**
+   * Check if format has a specific flag
+   * @param flag AVFormatFlags constant
+   * @returns true if the format has the flag
+   * @example
+   * ```typescript
+   * if (format.hasFlag(AVFMT_NOFILE)) {
+   *   console.log('Format does not require file I/O');
+   * }
+   * ```
+   */
+  hasFlag(flag: AVFormatFlags): boolean {
+    return (this.flags & flag) !== 0;
+  }
+
   /**
    * Get string representation
+   * @returns Format name or 'unknown'
    */
   toString(): string {
     return this.name ?? 'unknown';
   }
 
+  // ==================== Internal Methods ====================
+
   /**
-   * Get native handle (internal use)
+   * Get native output format for internal use
+   * @internal
    */
   getNative(): any {
     return this.native;

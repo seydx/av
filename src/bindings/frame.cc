@@ -344,12 +344,13 @@ Napi::Value Frame::AllocBuffer(const Napi::CallbackInfo& info) {
 
 Napi::Value Frame::Ref(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  AVFrame* frame = frame_.Get();
   
-  int ret = av_frame_ref(frame, frame);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to reference frame");
-  }
+  // In FFmpeg, av_frame_ref() is used to create a new reference to a frame
+  // from another frame. Since we're not copying from another frame here,
+  // this is essentially a no-op. The frame's reference counting is handled
+  // automatically by FFmpeg when frames are passed between contexts.
+  // If we need to increase reference count, we would use av_frame_get_buffer()
+  // or work with the underlying AVBufferRef.
   
   return env.Undefined();
 }

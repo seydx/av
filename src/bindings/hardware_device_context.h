@@ -19,7 +19,6 @@ public:
   ~HardwareDeviceContext();
   
   // Static methods
-  static Napi::Value Create(const Napi::CallbackInfo& info);
   static Napi::Value FindTypeByName(const Napi::CallbackInfo& info);
   static Napi::Value GetTypeName(const Napi::CallbackInfo& info);
   static Napi::Value GetSupportedTypes(const Napi::CallbackInfo& info);

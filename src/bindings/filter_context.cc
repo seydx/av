@@ -3,6 +3,7 @@
 #include "frame.h"
 #include "dictionary.h"
 #include "option.h"
+#include "common.h"
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/buffersink.h>
 
@@ -13,7 +14,6 @@ Napi::FunctionReference FilterContext::constructor;
 Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterContext", {
     // Methods
-    InstanceMethod<&FilterContext::Init>("init"),
     InstanceMethod<&FilterContext::Link>("link"),
     InstanceMethod<&FilterContext::Unlink>("unlink"),
     InstanceMethod<&FilterContext::BufferSrcAddFrame>("bufferSrcAddFrame"),
@@ -42,37 +42,6 @@ FilterContext::FilterContext(const Napi::CallbackInfo& info)
 }
 
 // Methods
-Napi::Value FilterContext::Init(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_) {
-    Napi::Error::New(env, "Filter context is null").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  AVDictionary* options = nullptr;
-  std::string args;
-  
-  // Optional args string
-  if (info.Length() > 0 && info[0].IsString()) {
-    args = info[0].As<Napi::String>().Utf8Value();
-  }
-  
-  // Optional options dictionary
-  if (info.Length() > 1 && info[1].IsObject()) {
-    Napi::Object dictObj = info[1].As<Napi::Object>();
-    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
-    options = dict->GetDict();
-  }
-  
-  int ret = avfilter_init_str(context_, args.empty() ? nullptr : args.c_str());
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to initialize filter");
-  }
-  
-  return env.Undefined();
-}
-
 Napi::Value FilterContext::Link(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -81,8 +50,8 @@ Napi::Value FilterContext::Link(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
   
-  Napi::Object dstObj = info[0].As<Napi::Object>();
-  FilterContext* dst = Napi::ObjectWrap<FilterContext>::Unwrap(dstObj);
+  FilterContext* dst = ffmpeg::UnwrapNativeObjectRequired<FilterContext>(env, info[0], "FilterContext");
+  if (!dst) return env.Undefined();
   
   int srcPad = info[1].As<Napi::Number>().Int32Value();
   int dstPad = info[2].As<Napi::Number>().Int32Value();
@@ -115,10 +84,11 @@ Napi::Value FilterContext::BufferSrcAddFrame(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   AVFrame* frame = nullptr;
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Napi::Object frameObj = info[0].As<Napi::Object>();
-    Frame* f = Napi::ObjectWrap<Frame>::Unwrap(frameObj);
-    frame = f->GetFrame();
+  if (info.Length() > 0) {
+    Frame* f = ffmpeg::UnwrapNativeObject<Frame>(env, info[0], "Frame");
+    if (f) {
+      frame = f->GetFrame();
+    }
   }
   
   int flags = 0;
@@ -142,8 +112,8 @@ Napi::Value FilterContext::BufferSinkGetFrame(const Napi::CallbackInfo& info) {
     return env.Null();
   }
   
-  Napi::Object frameObj = info[0].As<Napi::Object>();
-  Frame* frame = Napi::ObjectWrap<Frame>::Unwrap(frameObj);
+  Frame* frame = ffmpeg::UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
+  if (!frame) return env.Null();
   
   int ret = av_buffersink_get_frame(context_, frame->GetFrame());
   if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {

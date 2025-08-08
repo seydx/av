@@ -1,0 +1,23 @@
+{
+  "name": "@seydx/ffmpeg-examples",
+  "version": "0.1.0",
+  "description": "FFmpeg Node.js binding examples",
+  "type": "module",
+  "scripts": {
+    "demuxing-decoding": "tsx demuxing-decoding/index.ts",
+    "bit-stream-filtering": "tsx bit-stream-filtering/index.ts",
+    "remuxing": "tsx remuxing/index.ts",
+    "transcoding": "tsx transcoding/index.ts",
+    "filtering": "tsx filtering/index.ts",
+    "scaling-video": "tsx scaling-video/index.ts",
+    "resampling-audio": "tsx resampling-audio/index.ts"
+  },
+  "dependencies": {
+    "@seydx/ffmpeg": "file:.."
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}

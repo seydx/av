@@ -17,7 +17,6 @@ public:
   ~FilterContext() = default;
   
   // Methods
-  Napi::Value Init(const Napi::CallbackInfo& info);
   Napi::Value Link(const Napi::CallbackInfo& info);
   Napi::Value Unlink(const Napi::CallbackInfo& info);
   

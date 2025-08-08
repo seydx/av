@@ -2,136 +2,158 @@ import { AV_ERROR_EAGAIN, AV_ERROR_EOF } from './constants.js';
 import { FFmpegError } from './error.js';
 import { Options } from './option.js';
 
+import type { Codec } from './codec.js';
 import type { AVCodecFlag, AVCodecFlag2, AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type { Frame } from './frame.js';
 import type { Packet } from './packet.js';
-import type { Rational } from './rational.js';
+import { Rational } from './rational.js';
 
 import { bindings } from './binding.js';
+import type { NativeCodecContext, NativeWrapper } from './native-types.js';
 
+/**
+ * Audio channel layout configuration
+ */
 export interface ChannelLayout {
+  /** Number of channels */
   nbChannels: number;
+  /** Channel order */
   order: number;
+  /** Channel mask */
   mask: bigint;
 }
 
-export class CodecContext implements Disposable {
-  private context: any;
+/**
+ * FFmpeg codec context for encoding and decoding
+ *
+ * Represents the state and configuration for an encoder or decoder.
+ * Must be initialized with a codec and opened before use.
+ *
+ * @example
+ * ```typescript
+ * // Create decoder context
+ * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
+ * const ctx = new CodecContext(codec);
+ * ctx.width = 1920;
+ * ctx.height = 1080;
+ * ctx.open();
+ *
+ * // Decode packets
+ * ctx.sendPacket(packet);
+ * while (ctx.receiveFrame(frame) >= 0) {
+ *   // Process frame
+ * }
+ * ```
+ */
+export class CodecContext implements Disposable, NativeWrapper<NativeCodecContext> {
+  private native: any; // Native codec context binding
   private _options?: Options;
 
-  constructor(codec?: any) {
-    this.context = codec ? new bindings.CodecContext(codec) : new bindings.CodecContext();
-  }
+  // ==================== Constructor ====================
 
-  // Lifecycle
-  open(options?: Record<string, any>): void {
-    this.context.open(options);
-  }
-
-  close(): void {
-    this.context.close();
-  }
-
-  flushBuffers(): void {
-    this.context.flushBuffers();
-  }
-
-  // Encoding/Decoding
-  sendPacket(packet: Packet | null): number {
-    const ret = this.context.sendPacket(packet?.nativePacket ?? null);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to send packet');
+  /**
+   * Create a new codec context
+   * @param codec Optional codec to use for initialization
+   */
+  constructor(codec?: Codec) {
+    if (codec) {
+      // Pass the wrapped codec's native binding object (which is itself a wrapped C++ object)
+      // The C++ code will unwrap it to get the actual AVCodec*
+      this.native = new bindings.CodecContext(codec.getNative());
+    } else {
+      this.native = new bindings.CodecContext();
     }
-    return ret;
   }
 
-  receiveFrame(frame: Frame): number {
-    const ret = this.context.receiveFrame(frame.nativeFrame);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to receive frame');
-    }
-    return ret;
-  }
+  // ==================== Getters/Setters ====================
 
-  sendFrame(frame: Frame | null): number {
-    const ret = this.context.sendFrame(frame?.nativeFrame ?? null);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to send frame');
-    }
-    return ret;
-  }
-
-  receivePacket(packet: Packet): number {
-    const ret = this.context.receivePacket(packet.nativePacket);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to receive packet');
-    }
-    return ret;
-  }
-
-  // Properties - General
+  /**
+   * Get/set codec ID
+   */
   get codecID(): AVCodecID {
-    return this.context.codecID as AVCodecID;
+    return this.native.codecID as AVCodecID;
   }
 
   set codecID(value: AVCodecID) {
-    this.context.codecID = value;
+    this.native.codecID = value;
   }
 
+  /**
+   * Get/set media type (audio/video/subtitle)
+   */
   get mediaType(): AVMediaType {
-    return this.context.mediaType as AVMediaType;
+    return this.native.mediaType as AVMediaType;
   }
 
   set mediaType(value: AVMediaType) {
-    this.context.mediaType = value;
+    this.native.mediaType = value;
   }
 
+  /**
+   * Get/set bit rate
+   */
   get bitRate(): bigint {
-    return this.context.bitRate;
+    return this.native.bitRate;
   }
 
   set bitRate(value: bigint) {
-    this.context.bitRate = value;
+    this.native.bitRate = value;
   }
 
+  /**
+   * Get/set time base for timestamps
+   */
   get timeBase(): Rational {
-    return this.context.timeBase;
+    const r = this.native.timeBase;
+    return new Rational(r.num, r.den);
   }
 
   set timeBase(value: Rational) {
-    this.context.timeBase = value;
+    this.native.timeBase = { num: value.num, den: value.den };
   }
 
+  /**
+   * Get/set codec level
+   */
   get level(): number {
-    return this.context.level;
+    return this.native.level;
   }
 
   set level(value: number) {
-    this.context.level = value;
+    this.native.level = value;
   }
 
+  /**
+   * Get/set codec profile
+   */
   get profile(): number {
-    return this.context.profile;
+    return this.native.profile;
   }
 
   set profile(value: number) {
-    this.context.profile = value;
+    this.native.profile = value;
   }
 
+  /**
+   * Get/set number of threads for encoding/decoding
+   */
   get threadCount(): number {
-    return this.context.threadCount;
+    return this.native.threadCount;
   }
 
   set threadCount(value: number) {
-    this.context.threadCount = value;
+    this.native.threadCount = value;
   }
 
+  /**
+   * Get/set thread type flags
+   */
   get threadType(): number {
-    return this.context.threadType;
+    return this.native.threadType;
   }
 
   set threadType(value: number) {
-    this.context.threadType = value;
+    this.native.threadType = value;
   }
 
   /**
@@ -139,27 +161,30 @@ export class CodecContext implements Disposable {
    * Example: ctx.flags |= AV_CODEC_FLAG_COPY_OPAQUE to pass opaque data through codec
    */
   get flags(): AVCodecFlag {
-    return this.context.flags as AVCodecFlag;
+    return this.native.flags as AVCodecFlag;
   }
 
   set flags(value: AVCodecFlag) {
-    this.context.flags = value;
+    this.native.flags = value;
   }
 
   get flags2(): AVCodecFlag2 {
-    return this.context.flags2 as AVCodecFlag2;
+    return this.native.flags2 as AVCodecFlag2;
   }
 
   set flags2(value: AVCodecFlag2) {
-    this.context.flags2 = value;
+    this.native.flags2 = value;
   }
 
+  /**
+   * Get/set codec-specific extra data
+   */
   get extraData(): Buffer | null {
-    return this.context.extraData;
+    return this.native.extraData;
   }
 
   set extraData(value: Buffer | null) {
-    this.context.extraData = value;
+    this.native.extraData = value;
   }
 
   /**
@@ -167,161 +192,304 @@ export class CodecContext implements Disposable {
    * Allows runtime configuration of codec parameters
    */
   get options(): Options {
-    this._options ??= new Options(this.context.options);
+    this._options ??= new Options(this.native.options);
     return this._options;
   }
 
-  // Properties - Video
+  /**
+   * Get/set video width in pixels
+   */
   get width(): number {
-    return this.context.width;
+    return this.native.width;
   }
 
   set width(value: number) {
-    this.context.width = value;
+    this.native.width = value;
   }
 
+  /**
+   * Get/set video height in pixels
+   */
   get height(): number {
-    return this.context.height;
+    return this.native.height;
   }
 
   set height(value: number) {
-    this.context.height = value;
+    this.native.height = value;
   }
 
+  /**
+   * Get/set pixel format
+   */
   get pixelFormat(): AVPixelFormat {
-    return this.context.pixelFormat as AVPixelFormat;
+    return this.native.pixelFormat as AVPixelFormat;
   }
 
   set pixelFormat(value: AVPixelFormat) {
-    this.context.pixelFormat = value;
+    this.native.pixelFormat = value;
   }
 
+  /**
+   * Get/set framerate
+   */
   get framerate(): Rational {
-    return this.context.framerate;
+    const r = this.native.framerate;
+    return new Rational(r.num, r.den);
   }
 
   set framerate(value: Rational) {
-    this.context.framerate = value;
+    this.native.framerate = { num: value.num, den: value.den };
   }
 
+  /**
+   * Get/set sample aspect ratio
+   */
   get sampleAspectRatio(): Rational {
-    return this.context.sampleAspectRatio;
+    const r = this.native.sampleAspectRatio;
+    return new Rational(r.num, r.den);
   }
 
   set sampleAspectRatio(value: Rational) {
-    this.context.sampleAspectRatio = value;
+    this.native.sampleAspectRatio = { num: value.num, den: value.den };
   }
 
+  /**
+   * Get/set GOP (Group of Pictures) size
+   */
   get gopSize(): number {
-    return this.context.gopSize;
+    return this.native.gopSize;
   }
 
   set gopSize(value: number) {
-    this.context.gopSize = value;
+    this.native.gopSize = value;
   }
 
+  /**
+   * Get/set maximum number of B-frames
+   */
   get maxBFrames(): number {
-    return this.context.maxBFrames;
+    return this.native.maxBFrames;
   }
 
   set maxBFrames(value: number) {
-    this.context.maxBFrames = value;
+    this.native.maxBFrames = value;
   }
 
+  /**
+   * Get/set color space
+   */
   get colorSpace(): number {
-    return this.context.colorSpace;
+    return this.native.colorSpace;
   }
 
   set colorSpace(value: number) {
-    this.context.colorSpace = value;
+    this.native.colorSpace = value;
   }
 
+  /**
+   * Get/set color range
+   */
   get colorRange(): number {
-    return this.context.colorRange;
+    return this.native.colorRange;
   }
 
   set colorRange(value: number) {
-    this.context.colorRange = value;
+    this.native.colorRange = value;
   }
 
-  // Properties - Audio
+  /**
+   * Get/set audio sample rate in Hz
+   */
   get sampleRate(): number {
-    return this.context.sampleRate;
+    return this.native.sampleRate;
   }
 
   set sampleRate(value: number) {
-    this.context.sampleRate = value;
+    this.native.sampleRate = value;
   }
 
+  /**
+   * Get/set audio sample format
+   */
   get sampleFormat(): AVSampleFormat {
-    return this.context.sampleFormat as AVSampleFormat;
+    return this.native.sampleFormat as AVSampleFormat;
   }
 
   set sampleFormat(value: AVSampleFormat) {
-    this.context.sampleFormat = value;
+    this.native.sampleFormat = value;
   }
 
+  /**
+   * Get/set channel layout configuration
+   */
   get channelLayout(): ChannelLayout {
-    return this.context.channelLayout;
+    return this.native.channelLayout;
   }
 
   set channelLayout(value: ChannelLayout) {
-    this.context.channelLayout = value;
+    this.native.channelLayout = value;
   }
 
+  /**
+   * Get number of audio channels (read-only)
+   */
   get channels(): number {
-    return this.context.channels;
+    return this.native.channels;
   }
 
+  /**
+   * Get/set audio frame size
+   */
   get frameSize(): number {
-    return this.context.frameSize;
+    return this.native.frameSize;
   }
 
   set frameSize(value: number) {
-    this.context.frameSize = value;
+    this.native.frameSize = value;
   }
 
-  // Properties - Rate Control
+  /**
+   * Get/set rate control maximum bit rate
+   */
   get rcMaxRate(): bigint {
-    return this.context.rcMaxRate;
+    return this.native.rcMaxRate;
   }
 
   set rcMaxRate(value: bigint) {
-    this.context.rcMaxRate = value;
+    this.native.rcMaxRate = value;
   }
 
+  /**
+   * Get/set rate control minimum bit rate
+   */
   get rcMinRate(): bigint {
-    return this.context.rcMinRate;
+    return this.native.rcMinRate;
   }
 
   set rcMinRate(value: bigint) {
-    this.context.rcMinRate = value;
+    this.native.rcMinRate = value;
   }
 
+  /**
+   * Get/set rate control buffer size
+   */
   get rcBufferSize(): number {
-    return this.context.rcBufferSize;
+    return this.native.rcBufferSize;
   }
 
   set rcBufferSize(value: number) {
-    this.context.rcBufferSize = value;
+    this.native.rcBufferSize = value;
   }
 
-  // Utility
+  /**
+   * Check if this context is configured as encoder
+   */
   get isEncoder(): boolean {
-    return this.context.isEncoder;
+    return this.native.isEncoder;
   }
 
+  /**
+   * Check if this context is configured as decoder
+   */
   get isDecoder(): boolean {
-    return this.context.isDecoder;
+    return this.native.isDecoder;
   }
 
-  // Symbol.dispose support
+  // ==================== Public Methods ====================
+
+  /**
+   * Open the codec context for encoding/decoding
+   * @param options Optional codec-specific options
+   * @throws FFmpegError if opening fails
+   */
+  open(options?: Record<string, any>): void {
+    this.native.open(options);
+  }
+
+  /**
+   * Close the codec context
+   */
+  close(): void {
+    this.native.close();
+  }
+
+  /**
+   * Flush internal buffers
+   */
+  flushBuffers(): void {
+    this.native.flushBuffers();
+  }
+
+  /**
+   * Send a packet to the decoder
+   * @param packet Packet to decode (null to flush)
+   * @returns 0 on success, negative error code on failure
+   * @throws FFmpegError on fatal errors
+   */
+  sendPacket(packet: Packet | null): number {
+    const ret = this.native.sendPacket(packet?.getNative() ?? null);
+    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to send packet');
+    }
+    return ret;
+  }
+
+  /**
+   * Receive a decoded frame from the decoder
+   * @param frame Frame to receive decoded data into
+   * @returns 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available
+   * @throws FFmpegError on fatal errors
+   */
+  receiveFrame(frame: Frame): number {
+    const ret = this.native.receiveFrame(frame.getNative());
+    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to receive frame');
+    }
+    return ret;
+  }
+
+  /**
+   * Send a frame to the encoder
+   * @param frame Frame to encode (null to flush)
+   * @returns 0 on success, negative error code on failure
+   * @throws FFmpegError on fatal errors
+   */
+  sendFrame(frame: Frame | null): number {
+    const ret = this.native.sendFrame(frame?.getNative() ?? null);
+    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to send frame');
+    }
+    return ret;
+  }
+
+  /**
+   * Receive an encoded packet from the encoder
+   * @param packet Packet to receive encoded data into
+   * @returns 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available
+   * @throws FFmpegError on fatal errors
+   */
+  receivePacket(packet: Packet): number {
+    const ret = this.native.receivePacket(packet.getNative());
+    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to receive packet');
+    }
+    return ret;
+  }
+
+  /**
+   * Dispose of the codec context and free resources
+   */
   [Symbol.dispose](): void {
-    this.context[Symbol.dispose]();
+    this.native[Symbol.dispose]();
   }
 
-  // Internal helper
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get the native codec context object for use with C++ bindings
+   * @internal
+   */
   getNative(): any {
-    return this.context;
+    return this.native;
   }
 }

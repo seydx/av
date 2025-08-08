@@ -128,13 +128,19 @@ Napi::Value Packet::GetData(const Napi::CallbackInfo& info) {
 
 void Packet::SetData(const Napi::CallbackInfo& info, const Napi::Value& value) {
   Napi::Env env = info.Env();
+  AVPacket* pkt = packet_.Get();
+  
+  // Handle null case - clear packet data
+  if (value.IsNull() || value.IsUndefined()) {
+    av_packet_unref(pkt);
+    return;
+  }
   
   if (!value.IsBuffer()) {
-    throw Napi::TypeError::New(env, "Expected Buffer");
+    throw Napi::TypeError::New(env, "Expected Buffer or null");
   }
   
   Napi::Buffer<uint8_t> buffer = value.As<Napi::Buffer<uint8_t>>();
-  AVPacket* pkt = packet_.Get();
   
   // Free existing data
   av_packet_unref(pkt);
@@ -150,12 +156,11 @@ void Packet::SetData(const Napi::CallbackInfo& info, const Napi::Value& value) {
 
 Napi::Value Packet::Ref(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  AVPacket* pkt = packet_.Get();
   
-  int ret = av_packet_ref(pkt, pkt);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to reference packet");
-  }
+  // In go-astiav, Ref() is typically used to copy a packet from another
+  // If we're implementing a self-reference increment, we should just increase ref count
+  // For now, this is a no-op as packet reference counting is handled automatically
+  // by FFmpeg when packets are passed between contexts
   
   return env.Undefined();
 }

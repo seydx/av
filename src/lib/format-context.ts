@@ -8,124 +8,125 @@ import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
 import type { AVMediaType } from './constants.js';
+import type { NativeFormatContext, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 
+/**
+ * Flags for seeking operations
+ */
 export enum SeekFlags {
-  BACKWARD = 1, // Seek backward
-  BYTE = 2, // Seeking based on position in bytes
-  ANY = 4, // Seek to any frame, even non-keyframes
-  FRAME = 8, // Seeking based on frame number
+  /** Seek backward */
+  BACKWARD = 1,
+  /** Seeking based on position in bytes */
+  BYTE = 2,
+  /** Seek to any frame, even non-keyframes */
+  ANY = 4,
+  /** Seeking based on frame number */
+  FRAME = 8,
 }
 
-export class FormatContext implements Disposable {
-  private context: any;
+/**
+ * Format context for media file I/O and container handling
+ *
+ * FormatContext manages input/output operations for media files,
+ * handling container formats, streams, and metadata. It's the main
+ * entry point for reading and writing media files.
+ *
+ * @example
+ * ```typescript
+ * // Open an input file
+ * const formatContext = new FormatContext('input');
+ * formatContext.openInput('video.mp4');
+ * formatContext.findStreamInfo();
+ *
+ * // Read packets
+ * const packet = new Packet();
+ * while (formatContext.readFrame(packet) >= 0) {
+ *   // Process packet
+ * }
+ *
+ * // Create output file
+ * const output = new FormatContext('output', null, 'mp4', 'output.mp4');
+ * // Add streams and write...
+ * ```
+ */
+export class FormatContext implements Disposable, NativeWrapper<NativeFormatContext> {
+  private context: any; // Native format context binding
   private _options?: Options;
 
-  constructor() {
-    this.context = new bindings.FormatContext();
-  }
+  // ==================== Constructor ====================
 
-  // Static factory methods
-  static allocFormatContext(): FormatContext {
-    const ctx = new FormatContext();
-    ctx.context = bindings.FormatContext.allocFormatContext();
-    return ctx;
-  }
-
-  static allocOutputFormatContext(outputFormat?: OutputFormat | null, formatName?: string, filename?: string): FormatContext {
-    const ctx = new FormatContext();
-    ctx.context = bindings.FormatContext.allocOutputFormatContext(outputFormat?.getNative() ?? null, formatName, filename);
-    return ctx;
-  }
-
-  // Lifecycle
-  async openInput(url: string, inputFormat?: InputFormat | null, options?: Dictionary): Promise<void> {
-    return this.context.openInput(url, inputFormat?.getNative() ?? null, options?.getNative() ?? null);
-  }
-
-  closeInput(): void {
-    this.context.closeInput();
-  }
-
-  // Stream Discovery
-  async findStreamInfo(options?: Dictionary): Promise<void> {
-    return this.context.findStreamInfo(options?.getNative() ?? null);
-  }
-
-  findBestStream(mediaType: AVMediaType, wantedStreamNb?: number, relatedStream?: number): number {
-    return this.context.findBestStream(mediaType, wantedStreamNb ?? -1, relatedStream ?? -1);
-  }
-
-  // Reading
-  readFrame(packet: Packet): number {
-    const ret = this.context.readFrame(packet.nativePacket);
-    if (ret < 0 && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to read frame');
+  /**
+   * Create a new FormatContext
+   * @param type Type of context: 'input' (default) or 'output'
+   * @param outputFormat Output format (for output contexts)
+   * @param formatName Format name (for output contexts, e.g., 'mp4', 'mkv')
+   * @param filename Filename (for output contexts)
+   * @example
+   * ```typescript
+   * // Input context
+   * const input = new FormatContext('input');
+   *
+   * // Output context with format
+   * const output = new FormatContext('output', null, 'mp4', 'output.mp4');
+   * ```
+   */
+  constructor(type: 'input' | 'output' = 'input', outputFormat?: OutputFormat | null, formatName?: string, filename?: string) {
+    if (type === 'output' && (outputFormat || formatName || filename)) {
+      this.context = bindings.FormatContext.allocOutputFormatContext(outputFormat?.getNative() ?? null, formatName, filename);
+    } else {
+      this.context = bindings.FormatContext.allocFormatContext();
     }
-    return ret;
   }
 
-  seekFrame(streamIndex: number, timestamp: bigint, flags: number): number {
-    return this.context.seekFrame(streamIndex, timestamp, flags);
-  }
+  // ==================== Getters/Setters ====================
 
-  seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags?: number): number {
-    return this.context.seekFile(streamIndex, minTs, ts, maxTs, flags ?? 0);
-  }
-
-  flush(): void {
-    this.context.flush();
-  }
-
-  // Writing
-  writeHeader(options?: Dictionary): void {
-    this.context.writeHeader(options?.getNative() ?? null);
-  }
-
-  writeFrame(packet: Packet | null): number {
-    return this.context.writeFrame(packet ? packet.nativePacket : null);
-  }
-
-  writeInterleavedFrame(packet: Packet | null): number {
-    return this.context.writeInterleavedFrame(packet ? packet.nativePacket : null);
-  }
-
-  writeTrailer(): void {
-    this.context.writeTrailer();
-  }
-
-  // Stream Management
+  /**
+   * Get all streams in the container
+   */
   get streams(): Stream[] {
     const nativeStreams = this.context.streams;
     return nativeStreams.map((s: any) => Stream.fromNative(s));
   }
 
+  /**
+   * Get number of streams
+   */
   get nbStreams(): number {
     return this.context.nbStreams;
   }
 
-  newStream(codec?: any): Stream {
-    const nativeStream = this.context.newStream(codec);
-    return Stream.fromNative(nativeStream);
-  }
-
-  // Properties
+  /**
+   * Get file URL/path
+   */
   get url(): string | null {
     return this.context.url;
   }
 
+  /**
+   * Get duration in AV_TIME_BASE units
+   */
   get duration(): bigint {
     return this.context.duration;
   }
 
+  /**
+   * Get start time in AV_TIME_BASE units
+   */
   get startTime(): bigint {
     return this.context.startTime;
   }
 
+  /**
+   * Get total bit rate
+   */
   get bitRate(): bigint {
     return this.context.bitRate;
   }
 
+  /**
+   * Get/set metadata dictionary
+   */
   get metadata(): Dictionary | null {
     const native = this.context.metadata;
     if (!native) return null;
@@ -138,6 +139,9 @@ export class FormatContext implements Disposable {
     this.context.metadata = value?.toObject() ?? null;
   }
 
+  /**
+   * Get/set format flags
+   */
   get flags(): number {
     return this.context.flags;
   }
@@ -146,6 +150,9 @@ export class FormatContext implements Disposable {
     this.context.flags = value;
   }
 
+  /**
+   * Get/set maximum duration to analyze
+   */
   get maxAnalyzeDuration(): bigint {
     return this.context.maxAnalyzeDuration;
   }
@@ -154,6 +161,9 @@ export class FormatContext implements Disposable {
     this.context.maxAnalyzeDuration = value;
   }
 
+  /**
+   * Get/set probe size for format detection
+   */
   get probesize(): bigint {
     return this.context.probesize;
   }
@@ -171,30 +181,200 @@ export class FormatContext implements Disposable {
     return this._options;
   }
 
-  // Format Info
+  /**
+   * Get input format (for input contexts)
+   */
   get inputFormat(): InputFormat | null {
     const native = this.context.inputFormat;
     if (!native) return null;
     return InputFormat.fromNative(native);
   }
 
+  /**
+   * Get output format (for output contexts)
+   */
   get outputFormat(): OutputFormat | null {
     const native = this.context.outputFormat;
     if (!native) return null;
     return OutputFormat.fromNative(native);
   }
 
-  // Utility
+  // ==================== Public Methods ====================
+
+  /**
+   * Open an input file or URL
+   * @param url File path or URL to open
+   * @param inputFormat Optional format to force
+   * @param options Optional format options
+   * @throws FFmpegError if opening fails
+   * @example
+   * ```typescript
+   * formatContext.openInput('video.mp4');
+   * // With options
+   * const options = new Dictionary();
+   * options.set('rtsp_transport', 'tcp');
+   * formatContext.openInput('rtsp://server/stream', null, options);
+   * ```
+   */
+  openInput(url: string, inputFormat?: InputFormat | null, options?: Dictionary): void {
+    // Pass the native binding objects (which are wrapped C++ objects) directly
+    // The C++ code will unwrap them to get the actual AVInputFormat* and AVDictionary*
+    this.context.openInput(url, inputFormat?.getNative() ?? null, options?.getNative() ?? null);
+  }
+
+  /**
+   * Close the input file
+   */
+  closeInput(): void {
+    this.context.closeInput();
+  }
+
+  /**
+   * Find and analyze stream information
+   * @param options Optional per-stream options
+   * @throws FFmpegError if analysis fails
+   */
+  findStreamInfo(options?: Dictionary): void {
+    this.context.findStreamInfo(options?.getNative() ?? null);
+  }
+
+  /**
+   * Find the best stream of a given type
+   * @param mediaType Type of stream to find (audio/video/subtitle)
+   * @param wantedStreamNb Preferred stream index or -1 for auto
+   * @param relatedStream Related stream index or -1
+   * @returns Stream index or negative error code
+   */
+  findBestStream(mediaType: AVMediaType, wantedStreamNb?: number, relatedStream?: number): number {
+    return this.context.findBestStream(mediaType, wantedStreamNb ?? -1, relatedStream ?? -1);
+  }
+
+  /**
+   * Read the next packet from the file
+   * @param packet Packet to read data into
+   * @returns 0 on success, AV_ERROR_EOF at end of file
+   * @throws FFmpegError on read errors
+   * @example
+   * ```typescript
+   * const packet = new Packet();
+   * while (formatContext.readFrame(packet) >= 0) {
+   *   // Process packet
+   *   packet.unref();
+   * }
+   * ```
+   */
+  readFrame(packet: Packet): number {
+    const ret = this.context.readFrame(packet.getNative());
+    if (ret < 0 && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to read frame');
+    }
+    return ret;
+  }
+
+  /**
+   * Seek to a specific timestamp
+   * @param streamIndex Stream to seek in (-1 for default)
+   * @param timestamp Target timestamp
+   * @param flags Seek flags (use SeekFlags enum)
+   * @returns 0 on success, negative on error
+   */
+  seekFrame(streamIndex: number, timestamp: bigint, flags: number): number {
+    return this.context.seekFrame(streamIndex, timestamp, flags);
+  }
+
+  /**
+   * Seek to timestamp with min/max bounds
+   * @param streamIndex Stream to seek in
+   * @param minTs Minimum acceptable timestamp
+   * @param ts Target timestamp
+   * @param maxTs Maximum acceptable timestamp
+   * @param flags Optional seek flags
+   * @returns 0 on success, negative on error
+   */
+  seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags?: number): number {
+    return this.context.seekFile(streamIndex, minTs, ts, maxTs, flags ?? 0);
+  }
+
+  /**
+   * Flush internal buffers
+   */
+  flush(): void {
+    this.context.flush();
+  }
+
+  /**
+   * Write file header (for output contexts)
+   * @param options Optional muxer options
+   * @throws FFmpegError if writing fails
+   */
+  writeHeader(options?: Dictionary): void {
+    this.context.writeHeader(options?.getNative() ?? null);
+  }
+
+  /**
+   * Write a packet to the output file
+   * @param packet Packet to write (null to flush)
+   * @returns 0 on success, negative on error
+   */
+  writeFrame(packet: Packet | null): number {
+    return this.context.writeFrame(packet ? packet.getNative() : null);
+  }
+
+  /**
+   * Write packet with proper interleaving
+   * @param packet Packet to write (null to flush)
+   * @returns 0 on success, negative on error
+   */
+  writeInterleavedFrame(packet: Packet | null): number {
+    return this.context.writeInterleavedFrame(packet ? packet.getNative() : null);
+  }
+
+  /**
+   * Write file trailer (for output contexts)
+   * Must be called after all packets are written
+   */
+  writeTrailer(): void {
+    this.context.writeTrailer();
+  }
+
+  /**
+   * Create a new stream (for output contexts)
+   * @param codec Optional codec to use
+   * @returns New stream
+   * @example
+   * ```typescript
+   * const stream = formatContext.newStream();
+   * stream.codecParameters.codecType = AVMEDIA_TYPE_VIDEO;
+   * stream.codecParameters.codecId = AV_CODEC_ID_H264;
+   * ```
+   */
+  newStream(codec?: any): Stream {
+    const nativeStream = this.context.newStream(codec);
+    return Stream.fromNative(nativeStream);
+  }
+
+  /**
+   * Dump format information to stderr
+   * @param index Stream index to highlight
+   * @param isOutput Whether this is an output context
+   */
   dump(index = 0, isOutput = false): void {
     this.context.dump(index, isOutput);
   }
 
-  // Symbol.dispose support
+  /**
+   * Dispose of the format context and free resources
+   */
   [Symbol.dispose](): void {
     this.context[Symbol.dispose]();
   }
 
-  // Internal helper
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get native format context for internal use
+   * @internal
+   */
   getNative(): any {
     return this.context;
   }

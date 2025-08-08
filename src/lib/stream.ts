@@ -1,23 +1,72 @@
 import { bindings } from './binding.js';
 import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_SUBTITLE, AV_MEDIA_TYPE_VIDEO, type AVDisposition } from './constants.js';
 import { Options } from './option.js';
+import { Rational } from './rational.js';
 
 import type { CodecParameters } from './codec-parameters.js';
-import type { Rational } from './rational.js';
+import type { NativeStream, NativeWrapper } from './native-types.js';
 
-export class Stream {
-  private native: any;
+/**
+ * Media stream within a format context
+ *
+ * Represents an individual stream (video, audio, or subtitle) within a
+ * media container. Each stream has its own codec parameters, timing
+ * information, and metadata.
+ *
+ * @example
+ * ```typescript
+ * // Find video stream
+ * const streams = formatContext.streams;
+ * const videoStream = streams.find(s => s.isVideo());
+ * if (videoStream) {
+ *   console.log(`Video stream #${videoStream.index}`);
+ *   console.log(`Resolution: ${videoStream.codecParameters?.width}x${videoStream.codecParameters?.height}`);
+ *   console.log(`Time base: ${videoStream.timeBase.num}/${videoStream.timeBase.den}`);
+ * }
+ *
+ * // Check stream disposition
+ * if (stream.hasDisposition(AV_DISPOSITION_DEFAULT)) {
+ *   console.log('This is the default stream');
+ * }
+ * ```
+ */
+export class Stream implements NativeWrapper<NativeStream> {
+  private native: any; // Native stream binding
   private _options?: Options;
 
+  // ==================== Constructor ====================
+
+  /**
+   * Create a new stream
+   */
   constructor() {
     this.native = new bindings.Stream();
   }
 
-  // Core Properties
+  // ==================== Static Methods ====================
+
+  /**
+   * Create a Stream from native binding
+   * @internal
+   */
+  static fromNative(nativeStream: any): Stream {
+    const stream = new Stream();
+    stream.native = nativeStream;
+    return stream;
+  }
+
+  // ==================== Getters/Setters ====================
+
+  /**
+   * Get stream index in the container (read-only)
+   */
   get index(): number {
     return this.native.index;
   }
 
+  /**
+   * Get/set stream ID
+   */
   get id(): number {
     return this.native.id;
   }
@@ -26,52 +75,78 @@ export class Stream {
     this.native.id = value;
   }
 
+  /**
+   * Get stream duration in stream time base units
+   */
   get duration(): bigint {
     return this.native.duration;
   }
 
+  /**
+   * Get number of frames in this stream
+   */
   get nbFrames(): bigint {
     return this.native.nbFrames;
   }
 
+  /**
+   * Get start time in stream time base units
+   */
   get startTime(): bigint {
     return this.native.startTime;
   }
 
-  // Timing Properties
+  /**
+   * Get/set time base for timestamps
+   */
   get timeBase(): Rational {
-    return this.native.timeBase;
+    const r = this.native.timeBase;
+    return new Rational(r.num, r.den);
   }
 
   set timeBase(value: Rational) {
-    this.native.timeBase = value;
+    this.native.timeBase = { num: value.num, den: value.den };
   }
 
+  /**
+   * Get/set average frame rate
+   */
   get avgFrameRate(): Rational {
-    return this.native.avgFrameRate;
+    const r = this.native.avgFrameRate;
+    return new Rational(r.num, r.den);
   }
 
   set avgFrameRate(value: Rational) {
-    this.native.avgFrameRate = value;
+    this.native.avgFrameRate = { num: value.num, den: value.den };
   }
 
+  /**
+   * Get/set real frame rate
+   */
   get rFrameRate(): Rational {
-    return this.native.rFrameRate;
+    const r = this.native.rFrameRate;
+    return new Rational(r.num, r.den);
   }
 
   set rFrameRate(value: Rational) {
-    this.native.rFrameRate = value;
+    this.native.rFrameRate = { num: value.num, den: value.den };
   }
 
+  /**
+   * Get/set sample aspect ratio (video streams)
+   */
   get sampleAspectRatio(): Rational {
-    return this.native.sampleAspectRatio;
+    const r = this.native.sampleAspectRatio;
+    return new Rational(r.num, r.den);
   }
 
   set sampleAspectRatio(value: Rational) {
-    this.native.sampleAspectRatio = value;
+    this.native.sampleAspectRatio = { num: value.num, den: value.den };
   }
 
-  // Configuration
+  /**
+   * Get/set discard setting
+   */
   get discard(): number {
     return this.native.discard;
   }
@@ -80,6 +155,9 @@ export class Stream {
     this.native.discard = value;
   }
 
+  /**
+   * Get/set stream disposition flags
+   */
   get disposition(): AVDisposition {
     return this.native.disposition as AVDisposition;
   }
@@ -88,10 +166,16 @@ export class Stream {
     this.native.disposition = value;
   }
 
+  /**
+   * Get event flags (read-only)
+   */
   get eventFlags(): number {
     return this.native.eventFlags;
   }
 
+  /**
+   * Get/set stream metadata
+   */
   get metadata(): Record<string, string> | null {
     return this.native.metadata;
   }
@@ -100,7 +184,9 @@ export class Stream {
     this.native.metadata = value;
   }
 
-  // Codec Parameters
+  /**
+   * Get codec parameters for this stream
+   */
   get codecParameters(): CodecParameters | null {
     return this.native.codecParameters;
   }
@@ -114,43 +200,73 @@ export class Stream {
     return this._options;
   }
 
-  // Helper methods
+  // ==================== Public Methods ====================
+
+  /**
+   * Check if this is a video stream
+   * @returns true if video stream
+   */
   isVideo(): boolean {
     const params = this.codecParameters;
     return params ? params.codecType === AV_MEDIA_TYPE_VIDEO : false;
   }
 
+  /**
+   * Check if this is an audio stream
+   * @returns true if audio stream
+   */
   isAudio(): boolean {
     const params = this.codecParameters;
     return params ? params.codecType === AV_MEDIA_TYPE_AUDIO : false;
   }
 
+  /**
+   * Check if this is a subtitle stream
+   * @returns true if subtitle stream
+   */
   isSubtitle(): boolean {
     const params = this.codecParameters;
     return params ? params.codecType === AV_MEDIA_TYPE_SUBTITLE : false;
   }
 
+  /**
+   * Check if stream has a specific disposition flag
+   * @param flag Disposition flag to check
+   * @returns true if flag is set
+   * @example
+   * ```typescript
+   * if (stream.hasDisposition(AV_DISPOSITION_DEFAULT)) {
+   *   console.log('Default stream');
+   * }
+   * ```
+   */
   hasDisposition(flag: AVDisposition): boolean {
     return (this.disposition & flag) !== 0;
   }
 
+  /**
+   * Add a disposition flag to the stream
+   * @param flag Disposition flag to add
+   */
   addDisposition(flag: AVDisposition): void {
     this.disposition = (this.disposition | flag) as AVDisposition;
   }
 
+  /**
+   * Remove a disposition flag from the stream
+   * @param flag Disposition flag to remove
+   */
   removeDisposition(flag: AVDisposition): void {
     this.disposition = (this.disposition & ~flag) as AVDisposition;
   }
 
-  // Internal helper
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get native stream for internal use
+   * @internal
+   */
   getNative(): any {
     return this.native;
-  }
-
-  // Static helper to wrap native stream
-  static fromNative(nativeStream: any): Stream {
-    const stream = new Stream();
-    stream.native = nativeStream;
-    return stream;
   }
 }

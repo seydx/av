@@ -1,5 +1,6 @@
 #include "codec_parameters.h"
 #include "codec_context.h"
+#include "common.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -304,7 +305,9 @@ Napi::Value CodecParameters::Copy(const Napi::CallbackInfo& info) {
         return env.Undefined();
     }
     
-    CodecParameters* dst = Napi::ObjectWrap<CodecParameters>::Unwrap(info[0].As<Napi::Object>());
+    CodecParameters* dst = ffmpeg::UnwrapNativeObjectRequired<CodecParameters>(env, info[0], "CodecParameters");
+    if (!dst) return env.Undefined();
+    
     int ret = avcodec_parameters_copy(dst->params_.Get(), params_.Get());
     
     if (ret < 0) {
@@ -324,7 +327,9 @@ Napi::Value CodecParameters::FromCodecContext(const Napi::CallbackInfo& info) {
         return env.Undefined();
     }
     
-    ffmpeg::CodecContext* ctx = Napi::ObjectWrap<ffmpeg::CodecContext>::Unwrap(info[0].As<Napi::Object>());
+    ffmpeg::CodecContext* ctx = ffmpeg::UnwrapNativeObjectRequired<ffmpeg::CodecContext>(env, info[0], "CodecContext");
+    if (!ctx) return env.Undefined();
+    
     int ret = avcodec_parameters_from_context(params_.Get(), ctx->Get());
     
     if (ret < 0) {
@@ -344,8 +349,16 @@ Napi::Value CodecParameters::ToCodecContext(const Napi::CallbackInfo& info) {
         return env.Undefined();
     }
     
-    ffmpeg::CodecContext* ctx = Napi::ObjectWrap<ffmpeg::CodecContext>::Unwrap(info[0].As<Napi::Object>());
-    int ret = avcodec_parameters_to_context(ctx->Get(), params_.Get());
+    ffmpeg::CodecContext* ctx = ffmpeg::UnwrapNativeObjectRequired<ffmpeg::CodecContext>(env, info[0], "CodecContext");
+    if (!ctx) return env.Undefined();
+    
+    AVCodecContext* avctx = ctx->Get();
+    if (!avctx) {
+        Napi::Error::New(env, "Invalid AVCodecContext pointer").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    
+    int ret = avcodec_parameters_to_context(avctx, params_.Get());
     
     if (ret < 0) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE];

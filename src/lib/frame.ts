@@ -1,48 +1,8 @@
 import { bindings } from './binding.js';
+import { Rational } from './rational.js';
 
 import type { AVPictureType, AVPixelFormat, AVSampleFormat } from './constants.js';
-import type { Rational } from './rational.js';
-
-// Native frame interface
-interface NativeFrame {
-  // Common
-  pts: bigint;
-  pktDts: bigint;
-  readonly bestEffortTimestamp: bigint;
-  pktPos: bigint;
-  pktDuration: bigint;
-  keyFrame: boolean;
-  pictType: number;
-
-  // Video
-  width: number;
-  height: number;
-  format: number;
-  sampleAspectRatio: Rational;
-  colorRange: number;
-  colorSpace: number;
-
-  // Audio
-  nbSamples: number;
-  sampleRate: number;
-  channelLayout: {
-    nbChannels: number;
-    order: number;
-    mask?: bigint;
-  };
-
-  // Data
-  readonly data: (Buffer | null)[];
-  readonly linesize: number[];
-
-  // Methods
-  allocBuffer(align?: number): void;
-  ref(): void;
-  unref(): void;
-  clone(): NativeFrame;
-  makeWritable(): void;
-  getBuffer(): Buffer | null;
-}
+import type { NativeFrame, NativeWrapper } from './native-types.js';
 
 /**
  * Channel layout order
@@ -80,20 +40,62 @@ export enum ColorSpace {
 }
 
 /**
- * AVFrame wrapper - represents decoded/raw data
- * Frames are used to store uncompressed audio/video data
+ * AVFrame wrapper - represents decoded/raw audio or video data
+ *
+ * Frames store uncompressed audio/video data after decoding or before encoding.
+ * They contain the actual pixel data for video or sample data for audio,
+ * along with metadata like timestamps and format information.
+ *
+ * @example
+ * ```typescript
+ * // Create a frame for decoding
+ * const frame = new Frame();
+ *
+ * // Receive decoded frame from codec
+ * if (codecContext.receiveFrame(frame) >= 0) {
+ *   console.log(`Got ${frame.isVideo ? 'video' : 'audio'} frame`);
+ *   console.log(`PTS: ${frame.pts}`);
+ *
+ *   if (frame.isVideo) {
+ *     console.log(`Resolution: ${frame.width}x${frame.height}`);
+ *   } else {
+ *     console.log(`Samples: ${frame.nbSamples}`);
+ *   }
+ * }
+ * ```
  */
-export class Frame implements Disposable {
-  private native: NativeFrame;
+export class Frame implements Disposable, NativeWrapper<NativeFrame> {
+  private native: any; // Native frame binding - using any because native bindings have dynamic properties
 
+  // ==================== Constructor ====================
+
+  /**
+   * Create a new frame
+   */
   constructor() {
     this.native = new bindings.Frame();
   }
 
-  // Common properties
+  // ==================== Static Methods ====================
 
   /**
-   * Presentation timestamp
+   * Create a frame from a native binding
+   * @internal
+   */
+  static fromNative(native: any): Frame {
+    const frame = Object.create(Frame.prototype) as Frame;
+    Object.defineProperty(frame, 'native', {
+      value: native,
+      writable: false,
+      configurable: false,
+    });
+    return frame;
+  }
+
+  // ==================== Getters/Setters ====================
+
+  /**
+   * Get/set presentation timestamp (PTS)
    */
   get pts(): bigint {
     return this.native.pts;
@@ -104,7 +106,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Packet decompression timestamp
+   * Get/set packet decompression timestamp (DTS)
    */
   get pktDts(): bigint {
     return this.native.pktDts;
@@ -115,7 +117,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Best effort timestamp
+   * Get best effort timestamp (read-only)
    */
   get bestEffortTimestamp(): bigint {
     return this.native.bestEffortTimestamp;
@@ -140,7 +142,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Packet duration
+   * Get/set packet duration
    */
   get pktDuration(): bigint {
     return this.native.pktDuration;
@@ -151,7 +153,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Is this a keyframe?
+   * Get/set whether this is a keyframe
    */
   get keyFrame(): boolean {
     return this.native.keyFrame;
@@ -162,7 +164,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Picture type (I, P, B frame)
+   * Get/set picture type (I, P, B frame)
    */
   get pictType(): AVPictureType {
     return this.native.pictType as AVPictureType;
@@ -172,10 +174,8 @@ export class Frame implements Disposable {
     this.native.pictType = value;
   }
 
-  // Video properties
-
   /**
-   * Video frame width
+   * Get/set video frame width in pixels
    */
   get width(): number {
     return this.native.width;
@@ -186,7 +186,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Video frame height
+   * Get/set video frame height in pixels
    */
   get height(): number {
     return this.native.height;
@@ -197,7 +197,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Pixel format for video, sample format for audio
+   * Get/set pixel format (video) or sample format (audio)
    */
   get format(): AVPixelFormat | AVSampleFormat {
     return this.native.format as AVPixelFormat | AVSampleFormat;
@@ -208,18 +208,19 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Sample aspect ratio (video only)
+   * Get/set sample aspect ratio (video only)
    */
   get sampleAspectRatio(): Rational {
-    return this.native.sampleAspectRatio;
+    const r = this.native.sampleAspectRatio;
+    return new Rational(r.num, r.den);
   }
 
   set sampleAspectRatio(value: Rational) {
-    this.native.sampleAspectRatio = value;
+    this.native.sampleAspectRatio = { num: value.num, den: value.den };
   }
 
   /**
-   * Color range (video only)
+   * Get/set color range (video only)
    */
   get colorRange(): ColorRange {
     return this.native.colorRange;
@@ -230,7 +231,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Color space (video only)
+   * Get/set color space (video only)
    */
   get colorSpace(): ColorSpace {
     return this.native.colorSpace;
@@ -240,10 +241,8 @@ export class Frame implements Disposable {
     this.native.colorSpace = value;
   }
 
-  // Audio properties
-
   /**
-   * Number of audio samples
+   * Get/set number of audio samples per channel
    */
   get nbSamples(): number {
     return this.native.nbSamples;
@@ -254,7 +253,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Audio sample rate
+   * Get/set audio sample rate in Hz
    */
   get sampleRate(): number {
     return this.native.sampleRate;
@@ -265,7 +264,7 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Audio channel layout
+   * Get/set audio channel layout configuration
    */
   get channelLayout(): { nbChannels: number; order: number; mask?: bigint } {
     return this.native.channelLayout;
@@ -276,46 +275,54 @@ export class Frame implements Disposable {
   }
 
   /**
-   * Get number of channels
+   * Get number of audio channels (read-only)
    */
   get channels(): number {
     return this.native.channelLayout.nbChannels;
   }
 
-  // Data access
-
   /**
-   * Frame data planes
+   * Get frame data planes (read-only)
+   * @returns Array of buffers, one per plane
    */
   get data(): (Buffer | null)[] {
     return this.native.data;
   }
 
   /**
-   * Line sizes for each plane
+   * Get line sizes for each plane (read-only)
+   * @returns Array of line sizes in bytes
    */
   get linesize(): number[] {
     return this.native.linesize;
   }
 
   /**
-   * Check if this is a video frame
+   * Check if this is a video frame (read-only)
    */
   get isVideo(): boolean {
     return this.width > 0 && this.height > 0;
   }
 
   /**
-   * Check if this is an audio frame
+   * Check if this is an audio frame (read-only)
    */
   get isAudio(): boolean {
     return this.nbSamples > 0 && this.sampleRate > 0;
   }
 
-  // Methods
+  // ==================== Public Methods ====================
 
   /**
    * Allocate buffer for frame data
+   * @param align Alignment for buffer allocation (default: 0)
+   * @example
+   * ```typescript
+   * frame.width = 1920;
+   * frame.height = 1080;
+   * frame.format = AV_PIX_FMT_YUV420P;
+   * frame.allocBuffer();
+   * ```
    */
   allocBuffer(align = 0): void {
     this.native.allocBuffer(align);
@@ -337,15 +344,21 @@ export class Frame implements Disposable {
 
   /**
    * Create a copy of this frame
+   * @returns A new Frame with copied data
+   * @example
+   * ```typescript
+   * const copy = frame.clone();
+   * // Modify copy without affecting original
+   * copy.pts = frame.pts + 1000n;
+   * ```
    */
   clone(): Frame {
-    const cloned = new Frame();
-    (cloned as any).native = this.native.clone();
-    return cloned;
+    return Frame.fromNative(this.native.clone());
   }
 
   /**
    * Make frame data writable
+   * Ensures the frame owns its data and can be modified
    */
   makeWritable(): void {
     this.native.makeWritable();
@@ -353,6 +366,7 @@ export class Frame implements Disposable {
 
   /**
    * Get frame data as single buffer (first plane only)
+   * @returns Buffer containing frame data or null if no data
    */
   getBuffer(): Buffer | null {
     return this.native.getBuffer();
@@ -365,10 +379,13 @@ export class Frame implements Disposable {
     this.unref();
   }
 
+  // ==================== Internal Methods ====================
+
   /**
-   * Get native frame (for internal use with bindings)
+   * Get native frame for internal use
+   * @internal
    */
-  get nativeFrame(): any {
+  getNative(): any {
     return this.native;
   }
 }

@@ -1,6 +1,7 @@
 #include "bit_stream_filter.h"
 #include "packet.h"
 #include "codec_parameters.h"
+#include "common.h"
 #include <cstring>
 
 using namespace ffmpeg;
@@ -155,8 +156,9 @@ Napi::Value BitStreamFilterContext::Alloc(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
-    BitStreamFilter* filter = Napi::ObjectWrap<BitStreamFilter>::Unwrap(info[0].As<Napi::Object>());
-    if (!filter || !filter->GetNative()) {
+    BitStreamFilter* filter = ffmpeg::UnwrapNativeObjectRequired<BitStreamFilter>(env, info[0], "BitStreamFilter");
+    if (!filter) return env.Null();
+    if (!filter->GetNative()) {
         Napi::Error::New(env, "Invalid BitStreamFilter").ThrowAsJavaScriptException();
         return env.Null();
     }
@@ -214,8 +216,10 @@ Napi::Value BitStreamFilterContext::SendPacket(const Napi::CallbackInfo& info) {
             Napi::TypeError::New(env, "Packet expected").ThrowAsJavaScriptException();
             return Napi::Number::New(env, -1);
         }
-        Packet* packetWrapper = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
-        packet = packetWrapper->GetPacket();
+        Packet* packetWrapper = ffmpeg::UnwrapNativeObject<Packet>(env, info[0], "Packet");
+        if (packetWrapper) {
+            packet = packetWrapper->GetPacket();
+        }
     }
 
     int ret = av_bsf_send_packet(ctx_, packet);
@@ -235,7 +239,8 @@ Napi::Value BitStreamFilterContext::ReceivePacket(const Napi::CallbackInfo& info
         return Napi::Number::New(env, -1);
     }
 
-    Packet* packetWrapper = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
+    Packet* packetWrapper = ffmpeg::UnwrapNativeObjectRequired<Packet>(env, info[0], "Packet");
+    if (!packetWrapper) return Napi::Number::New(env, -1);
     AVPacket* packet = packetWrapper->GetPacket();
 
     int ret = av_bsf_receive_packet(ctx_, packet);

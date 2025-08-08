@@ -1,57 +1,79 @@
 import { bindings } from './binding.js';
 
 import type { Frame } from './frame.js';
+import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.js';
 
 /**
- * Software Scale Context wrapper for video frame scaling
+ * Software video scaler for frame format conversion
+ *
+ * Handles video frame scaling and pixel format conversion using libswscale.
+ * Used when you need to resize video frames or convert between different
+ * pixel formats.
+ *
+ * @example
+ * ```typescript
+ * // Create scaler for 1920x1080 YUV420P to 1280x720 RGB24
+ * const scaler = new SoftwareScaleContext(
+ *   1920, 1080, AV_PIX_FMT_YUV420P,
+ *   1280, 720, AV_PIX_FMT_RGB24,
+ *   SWS_BILINEAR
+ * );
+ *
+ * // Scale frames
+ * scaler.scaleFrame(inputFrame, outputFrame);
+ * ```
  */
-export class SoftwareScaleContext implements Disposable {
-  private context: any;
+export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {
+  private context: any; // Native scale context binding
 
-  private constructor(context: any) {
-    this.context = context;
-  }
+  // ==================== Constructor ====================
 
   /**
    * Create a new software scale context
+   * @param srcWidth Source width in pixels
+   * @param srcHeight Source height in pixels
+   * @param srcFormat Source pixel format (AV_PIX_FMT_*)
+   * @param dstWidth Destination width in pixels
+   * @param dstHeight Destination height in pixels
+   * @param dstFormat Destination pixel format (AV_PIX_FMT_*)
+   * @param flags Scaling algorithm flags (SWS_*)
+   * @throws Error if context creation fails
+   * @example
+   * ```typescript
+   * // High quality downscaling with Lanczos
+   * const scaler = new SoftwareScaleContext(
+   *   3840, 2160, AV_PIX_FMT_YUV420P,
+   *   1920, 1080, AV_PIX_FMT_YUV420P,
+   *   SWS_LANCZOS
+   * );
    *
-   * @param srcWidth Source width
-   * @param srcHeight Source height
-   * @param srcFormat Source pixel format (use constants.AV_PIX_FMT_*)
-   * @param dstWidth Destination width
-   * @param dstHeight Destination height
-   * @param dstFormat Destination pixel format
-   * @param flags Scaling flags (use constants.SWS_* flags)
+   * // Fast upscaling with bilinear interpolation
+   * const upscaler = new SoftwareScaleContext(
+   *   640, 480, AV_PIX_FMT_RGB24,
+   *   1920, 1080, AV_PIX_FMT_RGB24,
+   *   SWS_BILINEAR
+   * );
+   * ```
    */
-  static create(srcWidth: number, srcHeight: number, srcFormat: number, dstWidth: number, dstHeight: number, dstFormat: number, flags: number): SoftwareScaleContext {
-    const context = bindings.SoftwareScaleContext.create(srcWidth, srcHeight, srcFormat, dstWidth, dstHeight, dstFormat, flags);
+  constructor(srcWidth: number, srcHeight: number, srcFormat: number, dstWidth: number, dstHeight: number, dstFormat: number, flags: number) {
+    this.context = new bindings.SoftwareScaleContext(srcWidth, srcHeight, srcFormat, dstWidth, dstHeight, dstFormat, flags);
 
-    if (!context) {
+    if (!this.context) {
       throw new Error('Failed to create software scale context');
     }
-
-    return new SoftwareScaleContext(context);
   }
 
-  /**
-   * Scale a frame
-   *
-   * @param src Source frame
-   * @param dst Destination frame (must be allocated with proper size/format)
-   */
-  scaleFrame(src: Frame, dst: Frame): void {
-    this.context.scaleFrame(src.nativeFrame, dst.nativeFrame);
-  }
+  // ==================== Getters/Setters ====================
 
   /**
-   * Get source width
+   * Get source frame width
    */
   get sourceWidth(): number {
     return this.context.sourceWidth;
   }
 
   /**
-   * Get source height
+   * Get source frame height
    */
   get sourceHeight(): number {
     return this.context.sourceHeight;
@@ -65,14 +87,14 @@ export class SoftwareScaleContext implements Disposable {
   }
 
   /**
-   * Get destination width
+   * Get destination frame width
    */
   get destinationWidth(): number {
     return this.context.destinationWidth;
   }
 
   /**
-   * Get destination height
+   * Get destination frame height
    */
   get destinationHeight(): number {
     return this.context.destinationHeight;
@@ -86,16 +108,48 @@ export class SoftwareScaleContext implements Disposable {
   }
 
   /**
-   * Get scaling flags
+   * Get scaling algorithm flags
    */
   get flags(): number {
     return this.context.flags;
   }
 
+  // ==================== Public Methods ====================
+
   /**
-   * Dispose of the scale context
+   * Scale a video frame from source to destination format
+   * @param src Source frame
+   * @param dst Destination frame (must be allocated with correct size/format)
+   * @throws Error if scaling fails
+   * @example
+   * ```typescript
+   * const dstFrame = new Frame();
+   * dstFrame.format = AV_PIX_FMT_RGB24;
+   * dstFrame.width = 1280;
+   * dstFrame.height = 720;
+   * dstFrame.allocBuffer();
+   *
+   * scaler.scaleFrame(srcFrame, dstFrame);
+   * ```
+   */
+  scaleFrame(src: Frame, dst: Frame): void {
+    this.context.scaleFrame(src.getNative(), dst.getNative());
+  }
+
+  /**
+   * Dispose of the scale context and free resources
    */
   [Symbol.dispose](): void {
     this.context[Symbol.dispose]();
+  }
+
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get native scale context for internal use
+   * @internal
+   */
+  getNative(): any {
+    return this.context;
   }
 }

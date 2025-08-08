@@ -2,35 +2,33 @@ import { bindings } from './binding.js';
 import { AV_PKT_FLAG_KEY } from './constants.js';
 
 import type { AVPacketFlag } from './constants.js';
+import type { NativeWrapper } from './native-types.js';
 import type { Rational } from './rational.js';
-
-// Native packet interface
-interface NativePacket {
-  streamIndex: number;
-  pts: bigint;
-  dts: bigint;
-  duration: bigint;
-  pos: bigint;
-  readonly size: number;
-  flags: AVPacketFlag;
-  data: Buffer | null;
-
-  ref(): void;
-  unref(): void;
-  rescaleTs(src: Rational, dst: Rational): void;
-  clone(): NativePacket;
-}
 
 /**
  * AVPacket wrapper - represents encoded data
  * Packets are used to store compressed data before decoding
  * or after encoding
  */
-export class Packet implements Disposable {
-  private native: NativePacket;
+export class Packet implements Disposable, NativeWrapper {
+  private native: any; // Native packet binding - using any because native bindings have dynamic properties
 
   constructor() {
     this.native = new bindings.Packet();
+  }
+
+  /**
+   * Create a packet from a native binding
+   * @internal
+   */
+  static fromNative(native: any): Packet {
+    const packet = Object.create(Packet.prototype) as Packet;
+    Object.defineProperty(packet, 'native', {
+      value: native,
+      writable: false,
+      configurable: false,
+    });
+    return packet;
   }
 
   /**
@@ -107,7 +105,7 @@ export class Packet implements Disposable {
   }
 
   /**
-   * Check if packet contains a keyframe
+   * Get whether packet contains a keyframe (read-only)
    */
   get isKeyframe(): boolean {
     return (this.flags & AV_PKT_FLAG_KEY) !== 0;
@@ -174,10 +172,10 @@ export class Packet implements Disposable {
   }
 
   /**
-   * Get native packet for internal use
+   * Get native binding
    * @internal
    */
-  get nativePacket(): NativePacket {
+  getNative(): any {
     return this.native;
   }
 }

@@ -634,17 +634,52 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
       }
     }
 
-    // Add common POSIX errors
-    const posixErrors = [
-      { name: 'AV_ERROR_EAGAIN', value: -11 },
-      { name: 'AV_ERROR_ENOMEM', value: -12 },
-      { name: 'AV_ERROR_EINVAL', value: -22 },
-      { name: 'AV_ERROR_EPIPE', value: -32 },
-      { name: 'AV_ERROR_ENOSYS', value: -38 },
-      { name: 'AV_ERROR_EIO', value: -5 },
-      { name: 'AV_ERROR_EPERM', value: -1 },
-      { name: 'AV_ERROR_ETIMEDOUT', value: -110 },
+    // Get platform-specific POSIX error codes
+    const getPosixErrorCode = (errorName) => {
+      try {
+        // Compile a small C program to get the actual error code
+        const cCode = `
+          #include <errno.h>
+          #include <stdio.h>
+          int main() {
+            printf("%d", ${errorName});
+            return 0;
+          }
+        `;
+        const tmpFile = path.join(__dirname, 'tmp_errno.c');
+        const tmpExe = path.join(__dirname, 'tmp_errno');
+        fs.writeFileSync(tmpFile, cCode);
+        execSync(`cc -o ${tmpExe} ${tmpFile}`, { stdio: 'ignore' });
+        const result = execSync(tmpExe, { encoding: 'utf8' }).trim();
+        fs.unlinkSync(tmpFile);
+        fs.unlinkSync(tmpExe);
+        return -parseInt(result); // FFmpeg uses negative error codes
+      } catch (e) {
+        console.warn(`Failed to get platform-specific value for ${errorName}`);
+        return null;
+      }
+    };
+
+    // Add common POSIX errors with platform-specific values
+    const posixErrorNames = [
+      { name: 'AV_ERROR_EAGAIN', errno: 'EAGAIN' },
+      { name: 'AV_ERROR_ENOMEM', errno: 'ENOMEM' },
+      { name: 'AV_ERROR_EINVAL', errno: 'EINVAL' },
+      { name: 'AV_ERROR_EPIPE', errno: 'EPIPE' },
+      { name: 'AV_ERROR_ENOSYS', errno: 'ENOSYS' },
+      { name: 'AV_ERROR_EIO', errno: 'EIO' },
+      { name: 'AV_ERROR_EPERM', errno: 'EPERM' },
+      { name: 'AV_ERROR_ETIMEDOUT', errno: 'ETIMEDOUT' },
     ];
+
+    const posixErrors = [];
+    for (const { name, errno } of posixErrorNames) {
+      const value = getPosixErrorCode(errno);
+      if (value !== null) {
+        posixErrors.push({ name, value });
+        console.log(`  ${name}: ${value} (platform-specific)`);
+      }
+    }
 
     // Check which errors we already have
     const existingErrorNames = new Set(errorConstants.map((e) => e.name));

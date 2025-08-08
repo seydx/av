@@ -1,22 +1,71 @@
 import { bindings } from './binding.js';
 
+import type { CodecContext } from './codec-context.js';
 import type { AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
-import type { Rational } from './rational.js';
+import type { NativeCodecParameters, NativeWrapper } from './native-types.js';
+import { Rational } from './rational.js';
 
+/**
+ * Channel layout configuration
+ */
 export interface CodecChannelLayout {
+  /** Number of channels */
   nbChannels: number;
+  /** Channel order */
   order: number;
+  /** Channel mask */
   mask: bigint;
 }
 
-export class CodecParameters {
-  private native: any;
+/**
+ * Codec parameters for streams
+ *
+ * Contains the essential information about a codec configuration
+ * that can be used to initialize encoders/decoders or copy between streams.
+ *
+ * @example
+ * ```typescript
+ * // Copy parameters from a stream
+ * const params = new CodecParameters();
+ * params.fromCodecContext(decoderContext);
+ *
+ * // Apply to another context
+ * params.toCodecContext(encoderContext);
+ * ```
+ */
+export class CodecParameters implements Disposable, NativeWrapper<NativeCodecParameters> {
+  private native: any; // Native codec parameters binding
 
+  // ==================== Constructor ====================
+
+  /**
+   * Create new codec parameters
+   */
   constructor() {
     this.native = new bindings.CodecParameters();
   }
 
-  // Media Type & Codec
+  // ==================== Static Methods ====================
+
+  /**
+   * Create CodecParameters from a native binding
+   * @internal
+   */
+  static fromNative(nativeParams: any): CodecParameters {
+    const params = Object.create(CodecParameters.prototype) as CodecParameters;
+    Object.defineProperty(params, 'native', {
+      value: nativeParams,
+      writable: false,
+      configurable: false,
+    });
+    return params;
+  }
+
+  // ==================== Getters/Setters ====================
+
+  /**
+   * Get/set the codec type (audio/video/subtitle)
+   */
   get codecType(): AVMediaType {
     return this.native.codecType;
   }
@@ -25,6 +74,9 @@ export class CodecParameters {
     this.native.codecType = value;
   }
 
+  /**
+   * Get/set the codec ID
+   */
   get codecId(): AVCodecID {
     return this.native.codecId;
   }
@@ -33,6 +85,9 @@ export class CodecParameters {
     this.native.codecId = value;
   }
 
+  /**
+   * Get/set the codec tag
+   */
   get codecTag(): number {
     return this.native.codecTag;
   }
@@ -41,7 +96,9 @@ export class CodecParameters {
     this.native.codecTag = value;
   }
 
-  // Bitrate
+  /**
+   * Get/set the bit rate
+   */
   get bitRate(): bigint {
     return this.native.bitRate;
   }
@@ -50,7 +107,9 @@ export class CodecParameters {
     this.native.bitRate = value;
   }
 
-  // Video Parameters
+  /**
+   * Get/set video width in pixels
+   */
   get width(): number {
     return this.native.width;
   }
@@ -59,6 +118,9 @@ export class CodecParameters {
     this.native.width = value;
   }
 
+  /**
+   * Get/set video height in pixels
+   */
   get height(): number {
     return this.native.height;
   }
@@ -67,6 +129,9 @@ export class CodecParameters {
     this.native.height = value;
   }
 
+  /**
+   * Get/set format (generic)
+   */
   get format(): number {
     return this.native.format;
   }
@@ -75,6 +140,9 @@ export class CodecParameters {
     this.native.format = value;
   }
 
+  /**
+   * Get/set pixel format for video
+   */
   get pixelFormat(): AVPixelFormat {
     return this.native.format;
   }
@@ -83,15 +151,21 @@ export class CodecParameters {
     this.native.format = value;
   }
 
+  /**
+   * Get/set sample aspect ratio
+   */
   get sampleAspectRatio(): Rational {
-    return this.native.sampleAspectRatio;
+    const r = this.native.sampleAspectRatio;
+    return new Rational(r.num, r.den);
   }
 
   set sampleAspectRatio(value: Rational) {
-    this.native.sampleAspectRatio = value;
+    this.native.sampleAspectRatio = { num: value.num, den: value.den };
   }
 
-  // Audio Parameters
+  /**
+   * Get/set audio sample rate in Hz
+   */
   get sampleRate(): number {
     return this.native.sampleRate;
   }
@@ -100,6 +174,9 @@ export class CodecParameters {
     this.native.sampleRate = value;
   }
 
+  /**
+   * Get/set audio sample format
+   */
   get sampleFormat(): AVSampleFormat {
     return this.native.format;
   }
@@ -108,6 +185,9 @@ export class CodecParameters {
     this.native.format = value;
   }
 
+  /**
+   * Get/set channel layout configuration
+   */
   get channelLayout(): CodecChannelLayout {
     return this.native.channelLayout;
   }
@@ -116,6 +196,9 @@ export class CodecParameters {
     this.native.channelLayout = value;
   }
 
+  /**
+   * Get/set audio frame size
+   */
   get frameSize(): number {
     return this.native.frameSize;
   }
@@ -124,7 +207,9 @@ export class CodecParameters {
     this.native.frameSize = value;
   }
 
-  // Profile & Level
+  /**
+   * Get/set codec profile
+   */
   get profile(): number {
     return this.native.profile;
   }
@@ -133,6 +218,9 @@ export class CodecParameters {
     this.native.profile = value;
   }
 
+  /**
+   * Get/set codec level
+   */
   get level(): number {
     return this.native.level;
   }
@@ -141,7 +229,9 @@ export class CodecParameters {
     this.native.level = value;
   }
 
-  // Color Properties
+  /**
+   * Get/set color range
+   */
   get colorRange(): number {
     return this.native.colorRange;
   }
@@ -150,6 +240,9 @@ export class CodecParameters {
     this.native.colorRange = value;
   }
 
+  /**
+   * Get/set color space
+   */
   get colorSpace(): number {
     return this.native.colorSpace;
   }
@@ -158,6 +251,9 @@ export class CodecParameters {
     this.native.colorSpace = value;
   }
 
+  /**
+   * Get/set color primaries
+   */
   get colorPrimaries(): number {
     return this.native.colorPrimaries;
   }
@@ -166,6 +262,9 @@ export class CodecParameters {
     this.native.colorPrimaries = value;
   }
 
+  /**
+   * Get/set color transfer characteristic
+   */
   get colorTransferCharacteristic(): number {
     return this.native.colorTransferCharacteristic;
   }
@@ -174,6 +273,9 @@ export class CodecParameters {
     this.native.colorTransferCharacteristic = value;
   }
 
+  /**
+   * Get/set chroma sample location
+   */
   get chromaLocation(): number {
     return this.native.chromaLocation;
   }
@@ -182,7 +284,9 @@ export class CodecParameters {
     this.native.chromaLocation = value;
   }
 
-  // Extra Data
+  /**
+   * Get/set codec extra data
+   */
   get extraData(): Buffer | null {
     return this.native.extraData;
   }
@@ -191,33 +295,50 @@ export class CodecParameters {
     this.native.extraData = value;
   }
 
-  // Methods
+  // ==================== Public Methods ====================
+
+  /**
+   * Copy parameters to another CodecParameters instance
+   * @param dst Destination parameters
+   */
   copy(dst: CodecParameters): void {
-    this.native.copy(dst.native);
+    this.native.copy(dst.getNative());
   }
 
-  fromCodecContext(ctx: any): void {
-    this.native.fromCodecContext(ctx.native ?? ctx);
+  /**
+   * Copy parameters from a codec context
+   * @param ctx Source codec context
+   */
+  fromCodecContext(ctx: CodecContext): void {
+    // Pass the native binding object (which is itself a wrapped C++ object)
+    // The C++ code will unwrap it to get the actual AVCodecContext*
+    this.native.fromCodecContext(ctx.getNative());
   }
 
-  toCodecContext(ctx: any): void {
-    this.native.toCodecContext(ctx.native ?? ctx);
+  /**
+   * Copy parameters to a codec context
+   * @param ctx Destination codec context
+   */
+  toCodecContext(ctx: CodecContext): void {
+    // Pass the native binding object (which is itself a wrapped C++ object)
+    // The C++ code will unwrap it to get the actual AVCodecContext*
+    this.native.toCodecContext(ctx.getNative());
   }
 
-  // Symbol.dispose support
+  /**
+   * Dispose of codec parameters and free resources
+   */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();
   }
 
-  // Internal helper
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get native codec parameters for internal use
+   * @internal
+   */
   getNative(): any {
     return this.native;
-  }
-
-  // Static factory to wrap native codec parameters
-  static fromNative(nativeParams: any): CodecParameters {
-    const params = new CodecParameters();
-    params.native = nativeParams;
-    return params;
   }
 }

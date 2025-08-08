@@ -2,6 +2,7 @@
 #include "filter.h"
 #include "filter_context.h"
 #include "dictionary.h"
+#include "common.h"
 #include <vector>
 #include <sstream>
 
@@ -87,8 +88,8 @@ Napi::Value FilterGraph::CreateFilter(const Napi::CallbackInfo& info) {
     return env.Null();
   }
   
-  Napi::Object filterObj = info[0].As<Napi::Object>();
-  Filter* filter = Napi::ObjectWrap<Filter>::Unwrap(filterObj);
+  Filter* filter = ffmpeg::UnwrapNativeObjectRequired<Filter>(env, info[0], "Filter");
+  if (!filter) return env.Null();
   std::string name = info[1].As<Napi::String>().Utf8Value();
   
   std::string args;
@@ -135,8 +136,10 @@ Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {
   
   // Handle input filter context if provided
   if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined() && info[1].IsObject()) {
-    Napi::Object inputObj = info[1].As<Napi::Object>();
-    FilterContext* inputCtx = Napi::ObjectWrap<FilterContext>::Unwrap(inputObj);
+    FilterContext* inputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[1], "FilterContext");
+    if (!inputCtx) {
+      return env.Undefined();
+    }
     
     // Create AVFilterInOut for input
     inputs = avfilter_inout_alloc();
@@ -152,8 +155,11 @@ Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {
   
   // Handle output filter context if provided
   if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined() && info[2].IsObject()) {
-    Napi::Object outputObj = info[2].As<Napi::Object>();
-    FilterContext* outputCtx = Napi::ObjectWrap<FilterContext>::Unwrap(outputObj);
+    FilterContext* outputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[2], "FilterContext");
+    if (!outputCtx) {
+      avfilter_inout_free(&inputs);
+      return env.Undefined();
+    }
     
     // Create AVFilterInOut for output
     outputs = avfilter_inout_alloc();
@@ -198,8 +204,10 @@ Napi::Value FilterGraph::ParsePtr(const Napi::CallbackInfo& info) {
   // Parse with inputs/outputs for complex graphs
   if (info.Length() > 1 && info[1].IsObject()) {
     // Handle input filter context
-    Napi::Object inputObj = info[1].As<Napi::Object>();
-    FilterContext* inputCtx = Napi::ObjectWrap<FilterContext>::Unwrap(inputObj);
+    FilterContext* inputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[1], "FilterContext");
+    if (!inputCtx) {
+      return env.Undefined();
+    }
     
     inputs = avfilter_inout_alloc();
     inputs->filter_ctx = inputCtx->GetContext();
@@ -210,8 +218,11 @@ Napi::Value FilterGraph::ParsePtr(const Napi::CallbackInfo& info) {
   
   if (info.Length() > 2 && info[2].IsObject()) {
     // Handle output filter context
-    Napi::Object outputObj = info[2].As<Napi::Object>();
-    FilterContext* outputCtx = Napi::ObjectWrap<FilterContext>::Unwrap(outputObj);
+    FilterContext* outputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[2], "FilterContext");
+    if (!outputCtx) {
+      avfilter_inout_free(&inputs);
+      return env.Undefined();
+    }
     
     outputs = avfilter_inout_alloc();
     outputs->filter_ctx = outputCtx->GetContext();

@@ -1,5 +1,6 @@
 #include "audio_fifo.h"
 #include "frame.h"
+#include "common.h"
 #include <stdexcept>
 
 namespace ffmpeg {
@@ -61,8 +62,33 @@ Napi::Value AudioFifo::Alloc(const Napi::CallbackInfo& info) {
 
 AudioFifo::AudioFifo(const Napi::CallbackInfo& info) 
     : Napi::ObjectWrap<AudioFifo>(info), resource(nullptr) {
-    // Constructor for JavaScript instantiation
-    // The actual allocation is done in the static Alloc method
+    Napi::Env env = info.Env();
+    
+    // Constructor now handles allocation directly
+    if (info.Length() < 3) {
+        Napi::TypeError::New(env, "Expected 3 arguments: sampleFormat, channels, nbSamples")
+            .ThrowAsJavaScriptException();
+        return;
+    }
+    
+    if (!info[0].IsNumber() || !info[1].IsNumber() || !info[2].IsNumber()) {
+        Napi::TypeError::New(env, "All arguments must be numbers")
+            .ThrowAsJavaScriptException();
+        return;
+    }
+    
+    AVSampleFormat sampleFormat = static_cast<AVSampleFormat>(info[0].As<Napi::Number>().Int32Value());
+    int channels = info[1].As<Napi::Number>().Int32Value();
+    int nbSamples = info[2].As<Napi::Number>().Int32Value();
+    
+    AVAudioFifo* fifo = av_audio_fifo_alloc(sampleFormat, channels, nbSamples);
+    if (!fifo) {
+        Napi::Error::New(env, "Failed to allocate audio FIFO")
+            .ThrowAsJavaScriptException();
+        return;
+    }
+    
+    resource.Reset(fifo);
 }
 
 Napi::Value AudioFifo::Realloc(const Napi::CallbackInfo& info) {
@@ -128,8 +154,9 @@ Napi::Value AudioFifo::Write(const Napi::CallbackInfo& info) {
         return env.Undefined();
     }
     
-    Frame* frame = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
-    if (!frame || !frame->GetFrame()) {
+    Frame* frame = ffmpeg::UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
+    if (!frame) return env.Undefined();
+    if (!frame->GetFrame()) {
         Napi::Error::New(env, "Invalid Frame object")
             .ThrowAsJavaScriptException();
         return env.Undefined();
@@ -165,8 +192,9 @@ Napi::Value AudioFifo::Read(const Napi::CallbackInfo& info) {
         return env.Undefined();
     }
     
-    Frame* frame = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
-    if (!frame || !frame->GetFrame()) {
+    Frame* frame = ffmpeg::UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
+    if (!frame) return env.Undefined();
+    if (!frame->GetFrame()) {
         Napi::Error::New(env, "Invalid Frame object")
             .ThrowAsJavaScriptException();
         return env.Undefined();

@@ -8,7 +8,7 @@ const SWS_BILINEAR = 2;
 
 describe('SoftwareScaleContext', () => {
   it('should create a scale context', () => {
-    using ctx = SoftwareScaleContext.create(
+    using ctx = new SoftwareScaleContext(
       640,
       480,
       AV_PIX_FMT_YUV420P, // Source
@@ -29,7 +29,7 @@ describe('SoftwareScaleContext', () => {
   });
 
   it('should support different pixel formats', () => {
-    using ctx = SoftwareScaleContext.create(
+    using ctx = new SoftwareScaleContext(
       640,
       480,
       AV_PIX_FMT_YUV420P, // Source YUV
@@ -46,7 +46,7 @@ describe('SoftwareScaleContext', () => {
 
   it('should support using statement', () => {
     {
-      using ctx = SoftwareScaleContext.create(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
+      using ctx = new SoftwareScaleContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
       assert(ctx);
     }
     // Context should be disposed here
@@ -54,7 +54,7 @@ describe('SoftwareScaleContext', () => {
   });
 
   it('should have scaleFrame method', () => {
-    using ctx = SoftwareScaleContext.create(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
+    using ctx = new SoftwareScaleContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
     // Just verify the method exists
     assert.strictEqual(typeof ctx.scaleFrame, 'function');

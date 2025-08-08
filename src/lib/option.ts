@@ -1,9 +1,3 @@
-/**
- * AVOption wrapper for FFmpeg
- * Provides configuration options management
- */
-
-import { bindings } from './binding.js';
 import {
   type AVOptionType,
   type AVPixelFormat,
@@ -52,10 +46,37 @@ export enum OptionSearchFlags {
 
 /**
  * Single AVOption descriptor
+ *
+ * Represents a single configuration option that can be get/set on FFmpeg objects.
+ * Each option has a type, default value, min/max constraints, and flags.
+ *
+ * @example
+ * ```typescript
+ * // List all options for a codec context
+ * const options = codecContext.options.list();
+ * for (const opt of options) {
+ *   console.log(`${opt.name}: ${opt.getTypeName()} - ${opt.help}`);
+ *   if (opt.isDeprecated()) {
+ *     console.log('  (deprecated)');
+ *   }
+ * }
+ * ```
  */
 export class Option {
-  /** @internal */
-  constructor(private readonly native: any) {}
+  private readonly native: any; // Native option binding
+
+  // ==================== Constructor ====================
+
+  /**
+   * Create an Option wrapper
+   * @param native Native option object
+   * @internal
+   */
+  constructor(native: any) {
+    this.native = native;
+  }
+
+  // ==================== Getters/Setters ====================
 
   /**
    * Get option name
@@ -112,6 +133,8 @@ export class Option {
   get unit(): string | null {
     return this.native.unit;
   }
+
+  // ==================== Public Methods ====================
 
   /**
    * Check if option is for encoding
@@ -227,18 +250,54 @@ export class Option {
 
 /**
  * AVOptions container for configuration management
+ *
+ * Provides type-safe access to FFmpeg configuration options.
+ * Used to configure codecs, formats, filters, and other FFmpeg objects.
+ *
+ * @example
+ * ```typescript
+ * // Set codec options
+ * codecContext.options.set('preset', 'fast');
+ * codecContext.options.setInt('crf', 23);
+ * codecContext.options.setDouble('qscale', 0.8);
+ *
+ * // Get current values
+ * const preset = codecContext.options.get('preset');
+ * const crf = codecContext.options.getInt('crf');
+ *
+ * // Set multiple options at once
+ * codecContext.options.setOptions({
+ *   preset: 'fast',
+ *   crf: 23,
+ *   profile: 'high'
+ * });
+ * ```
  */
 export class Options {
-  /** @internal */
-  constructor(private readonly native: any) {}
+  private readonly native: any; // Native options context
+
+  // ==================== Constructor ====================
+
+  /**
+   * Create an Options wrapper
+   * @param native Native options context
+   * @internal
+   */
+  constructor(native: any) {
+    this.native = native;
+  }
+
+  // ==================== Static Methods ====================
 
   /**
    * Create options from native context
    * @internal
    */
   static fromNative(context: any): Options {
-    return new Options(new bindings.Options(context));
+    return new Options(context);
   }
+
+  // ==================== Public Methods ====================
 
   /**
    * Set string option

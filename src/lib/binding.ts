@@ -8,34 +8,135 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { AVLogLevel } from '../lib/constants.js';
-import type { AudioFifo } from './audio-fifo.js';
-import type { BitStreamFilter, BitStreamFilterContext } from './bit-stream-filter.js';
-import type { CodecContext } from './codec-context.js';
-import type { CodecParameters } from './codec-parameters.js';
-import type { Codec } from './codec.js';
-import type { Dictionary } from './dictionary.js';
-import type { FilterContext } from './filter-context.js';
-import type { FilterGraph } from './filter-graph.js';
-import type { Filter } from './filter.js';
-import type { FormatContext } from './format-context.js';
-import type { Frame } from './frame.js';
-import type { HardwareDeviceContext } from './hardware-device-context.js';
-import type { HardwareFramesContext } from './hardware-frames-context.js';
-import type { InputFormat } from './input-format.js';
-import type { Options } from './option.js';
-import type { OutputFormat } from './output-format.js';
-import type { Packet } from './packet.js';
-import type { SoftwareResampleContext } from './software-resample-context.js';
-import type { SoftwareScaleContext } from './software-scale-context.js';
-import type { Stream } from './stream.js';
+import type {
+  NativeAudioFifo,
+  NativeBitStreamFilter,
+  NativeBitStreamFilterContext,
+  NativeCodec,
+  NativeCodecContext,
+  NativeCodecParameters,
+  NativeDictionary,
+  NativeFilter,
+  NativeFilterContext,
+  NativeFilterGraph,
+  NativeFormatContext,
+  NativeFrame,
+  NativeHardwareDeviceContext,
+  NativeHardwareFramesContext,
+  NativeInputFormat,
+  NativeOptions,
+  NativeOutputFormat,
+  NativePacket,
+  NativeSoftwareResampleContext,
+  NativeSoftwareScaleContext,
+  NativeStream,
+} from './native-types.js';
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const modulePath = join(__dirname, '../../build/Release/ffmpeg.node');
-const bindings = require(modulePath) as NativeBindings;
 
+/**
+ * Native bindings constructor interfaces
+ */
+type PacketConstructor = new () => NativePacket;
+
+type FrameConstructor = new () => NativeFrame;
+
+interface CodecConstructor {
+  new (): NativeCodec;
+  findDecoder(id: number): NativeCodec | null;
+  findDecoderByName(name: string): NativeCodec | null;
+  findEncoder(id: number): NativeCodec | null;
+  findEncoderByName(name: string): NativeCodec | null;
+  getAllCodecs(): NativeCodec[]; // Returns array of all codecs
+}
+
+type CodecContextConstructor = new (codec?: NativeCodec) => NativeCodecContext;
+
+type CodecParametersConstructor = new () => NativeCodecParameters;
+
+interface DictionaryConstructor {
+  new (): NativeDictionary;
+  fromObject(obj: Record<string, string>): NativeDictionary;
+}
+
+interface FormatContextConstructor {
+  new (): NativeFormatContext;
+  allocFormatContext(): NativeFormatContext;
+  allocOutputFormatContext(outputFormat: NativeOutputFormat | null, formatName?: string, filename?: string): NativeFormatContext;
+}
+
+type StreamConstructor = new () => NativeStream;
+
+interface InputFormatConstructor {
+  new (): NativeInputFormat;
+  find(name: string): NativeInputFormat | null;
+  getAll(): NativeInputFormat[];
+}
+
+interface OutputFormatConstructor {
+  new (): NativeOutputFormat;
+  find(name: string): NativeOutputFormat | null;
+  guess(options: { shortName?: string; filename?: string; mimeType?: string }): NativeOutputFormat | null;
+  getAll(): NativeOutputFormat[];
+}
+
+interface FilterConstructor {
+  new (): NativeFilter;
+  findByName(name: string): NativeFilter | null;
+  getAll(): NativeFilter[];
+}
+
+type FilterContextConstructor = new () => NativeFilterContext;
+
+type FilterGraphConstructor = new () => NativeFilterGraph;
+
+type SoftwareScaleContextConstructor = new (
+  srcWidth: number,
+  srcHeight: number,
+  srcFormat: number,
+  dstWidth: number,
+  dstHeight: number,
+  dstFormat: number,
+  flags?: number,
+) => NativeSoftwareScaleContext;
+
+type SoftwareResampleContextConstructor = new (
+  srcChannelLayout: { nbChannels: number; order: number; mask: bigint },
+  srcSampleRate: number,
+  srcSampleFormat: number,
+  dstChannelLayout: { nbChannels: number; order: number; mask: bigint },
+  dstSampleRate: number,
+  dstSampleFormat: number,
+) => NativeSoftwareResampleContext;
+
+interface HardwareDeviceContextConstructor {
+  new (type: number, device?: string, options?: NativeDictionary): NativeHardwareDeviceContext;
+  findTypeByName(name: string): number;
+  getTypeName(type: number): string | null;
+  getSupportedTypes(): { type: number; name: string }[];
+}
+
+type HardwareFramesContextConstructor = new (deviceContext: NativeHardwareDeviceContext) => NativeHardwareFramesContext;
+
+type AudioFifoConstructor = new (sampleFormat: number, channels: number, nbSamples: number) => NativeAudioFifo;
+
+type OptionsConstructor = new () => NativeOptions;
+
+interface BitStreamFilterConstructor {
+  new (): NativeBitStreamFilter;
+  getByName(name: string): NativeBitStreamFilter | null;
+  iterate(opaque?: any): NativeBitStreamFilter | null; // Still uses iterate
+}
+
+type BitStreamFilterContextConstructor = new (filter: NativeBitStreamFilter) => NativeBitStreamFilterContext;
+
+/**
+ * Complete native bindings interface with typed constructors
+ */
 export interface NativeBindings {
   // Utility functions
   setLogLevel(level: number): void;
@@ -55,29 +156,34 @@ export interface NativeBindings {
   };
   getLicense(): string;
 
-  // Native class constructors
-  Packet: typeof Packet;
-  Frame: typeof Frame;
-  Codec: typeof Codec;
-  CodecContext: typeof CodecContext;
-  CodecParameters: typeof CodecParameters;
-  Dictionary: typeof Dictionary;
-  FormatContext: typeof FormatContext;
-  Stream: typeof Stream;
-  InputFormat: typeof InputFormat;
-  OutputFormat: typeof OutputFormat;
-  Filter: typeof Filter;
-  FilterContext: typeof FilterContext;
-  FilterGraph: typeof FilterGraph;
-  SoftwareScaleContext: typeof SoftwareScaleContext;
-  SoftwareResampleContext: typeof SoftwareResampleContext;
-  HardwareDeviceContext: typeof HardwareDeviceContext;
-  HardwareFramesContext: typeof HardwareFramesContext;
-  AudioFifo: typeof AudioFifo;
-  Options: typeof Options;
-  BitStreamFilter: typeof BitStreamFilter;
-  BitStreamFilterContext: typeof BitStreamFilterContext;
+  // Native class constructors with proper typing
+  Packet: PacketConstructor;
+  Frame: FrameConstructor;
+  Codec: CodecConstructor;
+  CodecContext: CodecContextConstructor;
+  CodecParameters: CodecParametersConstructor;
+  Dictionary: DictionaryConstructor;
+  FormatContext: FormatContextConstructor;
+  Stream: StreamConstructor;
+  InputFormat: InputFormatConstructor;
+  OutputFormat: OutputFormatConstructor;
+  Filter: FilterConstructor;
+  FilterContext: FilterContextConstructor;
+  FilterGraph: FilterGraphConstructor;
+  SoftwareScaleContext: SoftwareScaleContextConstructor;
+  SoftwareResampleContext: SoftwareResampleContextConstructor;
+  HardwareDeviceContext: HardwareDeviceContextConstructor;
+  HardwareFramesContext: HardwareFramesContextConstructor;
+  AudioFifo: AudioFifoConstructor;
+  Options: OptionsConstructor;
+  BitStreamFilter: BitStreamFilterConstructor;
+  BitStreamFilterContext: BitStreamFilterContextConstructor;
 }
+
+/**
+ * Typed native bindings object
+ */
+const bindings = require(modulePath) as NativeBindings;
 
 /**
  * Set FFmpeg log level
@@ -119,5 +225,39 @@ export function getLicense(): string {
   return bindings.getLicense();
 }
 
+/**
+ * Create a typed binding getter for internal use
+ * This ensures all access to native bindings goes through typed interfaces
+ */
+export function getTypedBindings(): NativeBindings {
+  return bindings;
+}
+
 // Re-export native bindings for internal use
 export { bindings };
+
+// Export native type interfaces for internal use
+export type {
+  NativeAudioFifo,
+  NativeBinding,
+  NativeBitStreamFilter,
+  NativeBitStreamFilterContext,
+  NativeCodec,
+  NativeCodecContext,
+  NativeCodecParameters,
+  NativeDictionary,
+  NativeFilter,
+  NativeFilterContext,
+  NativeFilterGraph,
+  NativeFormatContext,
+  NativeFrame,
+  NativeHardwareDeviceContext,
+  NativeHardwareFramesContext,
+  NativeInputFormat,
+  NativeOptions,
+  NativeOutputFormat,
+  NativePacket,
+  NativeSoftwareResampleContext,
+  NativeSoftwareScaleContext,
+  NativeStream,
+} from './native-types.js';

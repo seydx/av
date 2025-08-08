@@ -1,64 +1,46 @@
 import { Filter } from './filter.js';
 import { Options } from './option.js';
 
-import type { Dictionary } from './dictionary.js';
 import type { Frame } from './frame.js';
+import type { NativeFilterContext, NativeWrapper } from './native-types.js';
 
 /**
- * AVFilterContext wrapper - represents an instance of a filter in a graph
+ * Filter context - an instance of a filter in a graph
+ *
+ * Represents an instantiated filter within a FilterGraph.
+ * Each FilterContext is a specific instance of a Filter with its own configuration.
+ *
+ * @example
+ * ```typescript
+ * // Create a filter context in a graph
+ * const graph = new FilterGraph();
+ * const scaleFilter = Filter.findByName('scale');
+ * const context = graph.createFilter(scaleFilter, 'scaler', '320:240');
+ *
+ * // Link filters together
+ * sourceContext.link(context, 0, 0);
+ * context.link(sinkContext, 0, 0);
+ * ```
  */
-export class FilterContext {
-  private context: any;
+export class FilterContext implements NativeWrapper<NativeFilterContext> {
+  private context: any; // Native filter context binding
   private _options?: Options;
 
+  // ==================== Constructor ====================
+
+  /**
+   * Create a FilterContext wrapper
+   * @param context Native filter context object
+   * @internal
+   */
   constructor(context: any) {
     this.context = context;
   }
 
-  /**
-   * Initialize the filter with arguments
-   *
-   * WARNING: Only call this if the FilterContext was created with allocFilter()!
-   * Do NOT call this if the FilterContext was created with createFilter() -
-   * it's already initialized in that case and calling init() again will cause an error.
-   *
-   * @param args Optional initialization arguments
-   * @param options Optional dictionary with additional options
-   */
-  init(args?: string, options?: Dictionary): void {
-    this.context.init(args, options?.nativeDict);
-  }
+  // ==================== Getters/Setters ====================
 
   /**
-   * Link this filter to another
-   */
-  link(dst: FilterContext, srcPad: number, dstPad: number): void {
-    this.context.link(dst.context, srcPad, dstPad);
-  }
-
-  /**
-   * Unlink filter
-   */
-  unlink(pad: number): void {
-    this.context.unlink(pad);
-  }
-
-  /**
-   * Add frame to buffer source filter
-   */
-  bufferSrcAddFrame(frame: Frame | null, flags = 0): number {
-    return this.context.bufferSrcAddFrame(frame?.nativeFrame, flags);
-  }
-
-  /**
-   * Get frame from buffer sink filter
-   */
-  bufferSinkGetFrame(frame: Frame): number {
-    return this.context.bufferSinkGetFrame(frame.nativeFrame);
-  }
-
-  /**
-   * Get filter name
+   * Get filter instance name
    */
   get name(): string | null {
     return this.context.name;
@@ -73,14 +55,14 @@ export class FilterContext {
   }
 
   /**
-   * Get number of inputs
+   * Get number of input pads
    */
   get nbInputs(): number {
     return this.context.nbInputs;
   }
 
   /**
-   * Get number of outputs
+   * Get number of output pads
    */
   get nbOutputs(): number {
     return this.context.nbOutputs;
@@ -95,10 +77,74 @@ export class FilterContext {
     return this._options;
   }
 
+  // ==================== Public Methods ====================
+
   /**
-   * Get native context object
+   * Link this filter to another filter
+   * @param dst Destination filter context
+   * @param srcPad Output pad index of this filter
+   * @param dstPad Input pad index of destination filter
+   * @example
+   * ```typescript
+   * // Link output 0 of source to input 0 of destination
+   * sourceContext.link(destContext, 0, 0);
+   * ```
    */
-  get native(): any {
+  link(dst: FilterContext, srcPad: number, dstPad: number): void {
+    this.context.link(dst.context, srcPad, dstPad);
+  }
+
+  /**
+   * Unlink a filter pad
+   * @param pad Pad index to unlink
+   */
+  unlink(pad: number): void {
+    this.context.unlink(pad);
+  }
+
+  /**
+   * Add a frame to a buffer source filter
+   * @param frame Frame to add (null to signal EOF)
+   * @param flags Optional flags
+   * @returns 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * // Send frame to buffer source
+   * const ret = bufferSrc.bufferSrcAddFrame(frame);
+   * if (ret < 0) {
+   *   console.error('Failed to add frame');
+   * }
+   * ```
+   */
+  bufferSrcAddFrame(frame: Frame | null, flags = 0): number {
+    return this.context.bufferSrcAddFrame(frame?.getNative(), flags);
+  }
+
+  /**
+   * Get a frame from a buffer sink filter
+   * @param frame Frame to receive the data
+   * @returns 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * // Get filtered frame from buffer sink
+   * const frame = new Frame();
+   * const ret = bufferSink.bufferSinkGetFrame(frame);
+   * if (ret >= 0) {
+   *   // Process filtered frame
+   * }
+   * ```
+   */
+  bufferSinkGetFrame(frame: Frame): number {
+    return this.context.bufferSinkGetFrame(frame.getNative());
+  }
+
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get native filter context for internal use
+   * @internal
+   */
+  getNative(): any {
     return this.context;
   }
 }

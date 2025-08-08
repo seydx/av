@@ -168,4 +168,52 @@ inline int64_t MicrosecondsToTimestamp(int64_t us, const AVRational& timeBase) {
   return av_rescale_q(us, {1, AV_TIME_BASE}, timeBase);
 }
 
+// Standardized unwrapping helpers for consistent pattern
+template <typename T>
+inline T* UnwrapNativeObject(const Napi::Env& env, const Napi::Value& value, const std::string& expectedType) {
+  if (value.IsNull() || value.IsUndefined()) {
+    return nullptr;
+  }
+  
+  if (!value.IsObject()) {
+    Napi::TypeError::New(env, expectedType + " object expected").ThrowAsJavaScriptException();
+    return nullptr;
+  }
+  
+  try {
+    Napi::Object obj = value.As<Napi::Object>();
+    T* wrapper = Napi::ObjectWrap<T>::Unwrap(obj);
+    if (!wrapper) {
+      Napi::TypeError::New(env, "Invalid " + expectedType + " object").ThrowAsJavaScriptException();
+      return nullptr;
+    }
+    return wrapper;
+  } catch (...) {
+    Napi::TypeError::New(env, "Failed to unwrap " + expectedType + " object").ThrowAsJavaScriptException();
+    return nullptr;
+  }
+}
+
+// Overload for required parameters (throws on null/undefined)
+template <typename T>
+inline T* UnwrapNativeObjectRequired(const Napi::Env& env, const Napi::Value& value, const std::string& expectedType) {
+  if (value.IsNull() || value.IsUndefined() || !value.IsObject()) {
+    Napi::TypeError::New(env, expectedType + " object required").ThrowAsJavaScriptException();
+    return nullptr;
+  }
+  
+  try {
+    Napi::Object obj = value.As<Napi::Object>();
+    T* wrapper = Napi::ObjectWrap<T>::Unwrap(obj);
+    if (!wrapper) {
+      Napi::TypeError::New(env, "Invalid " + expectedType + " object").ThrowAsJavaScriptException();
+      return nullptr;
+    }
+    return wrapper;
+  } catch (...) {
+    Napi::TypeError::New(env, "Failed to unwrap " + expectedType + " object").ThrowAsJavaScriptException();
+    return nullptr;
+  }
+}
+
 }  // namespace ffmpeg
