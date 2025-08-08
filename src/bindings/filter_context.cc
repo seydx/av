@@ -2,6 +2,7 @@
 #include "filter.h"
 #include "frame.h"
 #include "dictionary.h"
+#include "option.h"
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/buffersink.h>
 
@@ -23,6 +24,9 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&FilterContext::GetFilter>("filter"),
     InstanceAccessor<&FilterContext::GetNbInputs>("nbInputs"),
     InstanceAccessor<&FilterContext::GetNbOutputs>("nbOutputs"),
+    
+    // Options
+    InstanceAccessor<&FilterContext::GetOptions>("options"),
   });
   
   constructor = Napi::Persistent(func);
@@ -147,6 +151,18 @@ Napi::Value FilterContext::BufferSinkGetFrame(const Napi::CallbackInfo& info) {
   }
   
   return Napi::Number::New(env, ret);
+}
+
+// Options
+Napi::Value FilterContext::GetOptions(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!context_) {
+    return env.Null();
+  }
+  
+  // Use the Options helper to create an Options wrapper
+  return Options::CreateFromContext(env, context_);
 }
 
 // Properties

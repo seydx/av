@@ -29,6 +29,9 @@ class FormatContext : public Napi::ObjectWrap<FormatContext> {
   Napi::Value CloseInput(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
+  // Options
+  Napi::Value GetOptions(const Napi::CallbackInfo& info);
+  
   // Stream Discovery
   Napi::Value FindStreamInfo(const Napi::CallbackInfo& info);
   Napi::Value FindBestStream(const Napi::CallbackInfo& info);

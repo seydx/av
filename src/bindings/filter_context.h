@@ -31,6 +31,9 @@ public:
   Napi::Value GetNbInputs(const Napi::CallbackInfo& info);
   Napi::Value GetNbOutputs(const Napi::CallbackInfo& info);
   
+  // Options
+  Napi::Value GetOptions(const Napi::CallbackInfo& info);
+  
   // Internal use
   void SetContext(AVFilterContext* ctx) { context_ = ctx; }
   AVFilterContext* GetContext() const { return context_; }

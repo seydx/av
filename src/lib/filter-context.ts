@@ -1,4 +1,5 @@
 import { Filter } from './filter.js';
+import { Options } from './option.js';
 
 import type { Dictionary } from './dictionary.js';
 import type { Frame } from './frame.js';
@@ -8,6 +9,7 @@ import type { Frame } from './frame.js';
  */
 export class FilterContext {
   private context: any;
+  private _options?: Options;
 
   constructor(context: any) {
     this.context = context;
@@ -82,6 +84,15 @@ export class FilterContext {
    */
   get nbOutputs(): number {
     return this.context.nbOutputs;
+  }
+
+  /**
+   * Get AVOptions for this filter context
+   * Allows runtime configuration of filter parameters
+   */
+  get options(): Options {
+    this._options ??= new Options(this.context.options);
+    return this._options;
   }
 
   /**

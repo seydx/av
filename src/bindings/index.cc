@@ -18,6 +18,7 @@
 #include "hardware_device_context.h"
 #include "hardware_frames_context.h"
 #include "audio_fifo.h"
+#include "option.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -126,6 +127,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   
   // Audio FIFO
   AudioFifo::Init(env, exports);
+  
+  // Options
+  Option::Init(env, exports);
+  Options::Init(env, exports);
 
   return exports;
 }

@@ -3,6 +3,7 @@ import { AV_ERROR_EOF } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { FFmpegError } from './error.js';
 import { InputFormat } from './input-format.js';
+import { Options } from './option.js';
 import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
@@ -18,6 +19,7 @@ export enum SeekFlags {
 
 export class FormatContext implements Disposable {
   private context: any;
+  private _options?: Options;
 
   constructor() {
     this.context = new bindings.FormatContext();
@@ -158,6 +160,15 @@ export class FormatContext implements Disposable {
 
   set probesize(value: bigint) {
     this.context.probesize = value;
+  }
+
+  /**
+   * Get AVOptions for this format context
+   * Allows runtime configuration of format parameters
+   */
+  get options(): Options {
+    this._options ??= new Options(this.context.options);
+    return this._options;
   }
 
   // Format Info

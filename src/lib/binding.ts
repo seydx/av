@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { AVLogLevel } from '../lib/constants.js';
+import type { AudioFifo } from './audio-fifo.js';
 import type { CodecContext } from './codec-context.js';
 import type { CodecParameters } from './codec-parameters.js';
 import type { Codec } from './codec.js';
@@ -17,9 +18,13 @@ import type { FilterGraph } from './filter-graph.js';
 import type { Filter } from './filter.js';
 import type { FormatContext } from './format-context.js';
 import type { Frame } from './frame.js';
+import type { HardwareDeviceContext } from './hardware-device-context.js';
+import type { HardwareFramesContext } from './hardware-frames-context.js';
 import type { InputFormat } from './input-format.js';
 import type { OutputFormat } from './output-format.js';
 import type { Packet } from './packet.js';
+import type { SoftwareResampleContext } from './software-resample-context.js';
+import type { SoftwareScaleContext } from './software-scale-context.js';
 import type { Stream } from './stream.js';
 
 const require = createRequire(import.meta.url);
@@ -62,11 +67,11 @@ export interface NativeBindings {
   Filter: typeof Filter;
   FilterContext: typeof FilterContext;
   FilterGraph: typeof FilterGraph;
-  SoftwareScaleContext: any;
-  SoftwareResampleContext: any;
-  HardwareDeviceContext: any;
-  HardwareFramesContext: any;
-  AudioFifo: any;
+  SoftwareScaleContext: typeof SoftwareScaleContext;
+  SoftwareResampleContext: typeof SoftwareResampleContext;
+  HardwareDeviceContext: typeof HardwareDeviceContext;
+  HardwareFramesContext: typeof HardwareFramesContext;
+  AudioFifo: typeof AudioFifo;
 }
 
 /**

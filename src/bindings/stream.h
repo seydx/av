@@ -24,6 +24,9 @@ class Stream : public Napi::ObjectWrap<Stream> {
  private:
   AVStream* stream_;  // Not owned, belongs to FormatContext
   
+  // Options
+  Napi::Value GetOptions(const Napi::CallbackInfo& info);
+  
   // Core Properties
   Napi::Value GetIndex(const Napi::CallbackInfo& info);
   Napi::Value GetId(const Napi::CallbackInfo& info);

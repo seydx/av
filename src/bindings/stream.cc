@@ -1,4 +1,5 @@
 #include "stream.h"
+#include "option.h"
 
 namespace ffmpeg {
 
@@ -6,6 +7,9 @@ Napi::FunctionReference Stream::constructor;
 
 Napi::Object Stream::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Stream", {
+    // Options
+    InstanceAccessor<&Stream::GetOptions>("options"),
+    
     // Core Properties
     InstanceAccessor<&Stream::GetIndex>("index"),
     InstanceAccessor<&Stream::GetId, &Stream::SetId>("id"),
@@ -39,6 +43,18 @@ Napi::Object Stream::Init(Napi::Env env, Napi::Object exports) {
 Stream::Stream(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<Stream>(info), stream_(nullptr) {
   // Stream is typically not created directly but obtained from FormatContext
+}
+
+// Options
+Napi::Value Stream::GetOptions(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!stream_) {
+    return env.Null();
+  }
+  
+  // Use the Options helper to create an Options wrapper
+  return Options::CreateFromContext(env, stream_);
 }
 
 // Core Properties

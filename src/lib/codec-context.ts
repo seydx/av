@@ -1,5 +1,6 @@
 import { AV_ERROR_EAGAIN, AV_ERROR_EOF } from './constants.js';
 import { FFmpegError } from './error.js';
+import { Options } from './option.js';
 
 import type { AVCodecFlag, AVCodecFlag2, AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type { Frame } from './frame.js';
@@ -16,6 +17,7 @@ export interface ChannelLayout {
 
 export class CodecContext implements Disposable {
   private context: any;
+  private _options?: Options;
 
   constructor(codec?: any) {
     this.context = codec ? new bindings.CodecContext(codec) : new bindings.CodecContext();
@@ -158,6 +160,15 @@ export class CodecContext implements Disposable {
 
   set extraData(value: Buffer | null) {
     this.context.extraData = value;
+  }
+
+  /**
+   * Get AVOptions for this codec context
+   * Allows runtime configuration of codec parameters
+   */
+  get options(): Options {
+    this._options ??= new Options(this.context.options);
+    return this._options;
   }
 
   // Properties - Video

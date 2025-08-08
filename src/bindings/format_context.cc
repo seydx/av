@@ -4,6 +4,7 @@
 #include "dictionary.h"
 #include "input_format.h"
 #include "output_format.h"
+#include "option.h"
 #include <vector>
 
 namespace ffmpeg {
@@ -15,6 +16,9 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     // Lifecycle
     InstanceMethod<&FormatContext::OpenInput>("openInput"),
     InstanceMethod<&FormatContext::CloseInput>("closeInput"),
+    
+    // Options
+    InstanceAccessor<&FormatContext::GetOptions>("options"),
     
     // Stream Discovery
     InstanceMethod<&FormatContext::FindStreamInfo>("findStreamInfo"),
@@ -177,6 +181,18 @@ Napi::Value FormatContext::Dispose(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
+}
+
+// Options
+Napi::Value FormatContext::GetOptions(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!context_) {
+    return env.Null();
+  }
+  
+  // Use the Options helper to create an Options wrapper
+  return Options::CreateFromContext(env, context_);
 }
 
 // Stream Discovery

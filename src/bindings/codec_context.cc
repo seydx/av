@@ -2,6 +2,7 @@
 #include "packet.h"
 #include "frame.h"
 #include "dictionary.h"
+#include "option.h"
 
 namespace ffmpeg {
 
@@ -59,6 +60,9 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     // Utility
     InstanceAccessor<&CodecContext::IsEncoder>("isEncoder"),
     InstanceAccessor<&CodecContext::IsDecoder>("isDecoder"),
+    
+    // Options
+    InstanceAccessor<&CodecContext::GetOptions>("options"),
     
     // Symbol.dispose
     InstanceMethod<&CodecContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
@@ -129,6 +133,18 @@ Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   context_.Reset();
   return env.Undefined();
+}
+
+// Options
+Napi::Value CodecContext::GetOptions(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!context_.Get()) {
+    return env.Null();
+  }
+  
+  // Use the Options helper to create an Options wrapper
+  return Options::CreateFromContext(env, context_.Get());
 }
 
 // Encoding/Decoding

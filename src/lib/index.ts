@@ -43,3 +43,6 @@ export * from './field-order.js';
 export * from './chroma-location.js';
 export * from './codec-id.js';
 export * from './pixel-format.js';
+export * from './log.js';
+export * from './channel-layout.js';
+export * from './option.js';

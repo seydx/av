@@ -27,6 +27,9 @@ class CodecContext : public Napi::ObjectWrap<CodecContext> {
   Napi::Value Close(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
+  // Options
+  Napi::Value GetOptions(const Napi::CallbackInfo& info);
+  
   // Encoding/Decoding
   Napi::Value SendPacket(const Napi::CallbackInfo& info);
   Napi::Value ReceiveFrame(const Napi::CallbackInfo& info);

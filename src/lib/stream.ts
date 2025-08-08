@@ -1,11 +1,13 @@
 import { bindings } from './binding.js';
 import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_SUBTITLE, AV_MEDIA_TYPE_VIDEO, type AVDisposition } from './constants.js';
+import { Options } from './option.js';
 
 import type { CodecParameters } from './codec-parameters.js';
 import type { Rational } from './rational.js';
 
 export class Stream {
   private native: any;
+  private _options?: Options;
 
   constructor() {
     this.native = new bindings.Stream();
@@ -101,6 +103,15 @@ export class Stream {
   // Codec Parameters
   get codecParameters(): CodecParameters | null {
     return this.native.codecParameters;
+  }
+
+  /**
+   * Get AVOptions for this stream
+   * Allows runtime configuration of stream parameters
+   */
+  get options(): Options {
+    this._options ??= new Options(this.native.options);
+    return this._options;
   }
 
   // Helper methods
