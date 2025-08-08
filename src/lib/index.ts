@@ -28,3 +28,6 @@ export * from './software-resample-context.js';
 // Re-export hardware acceleration
 export * from './hardware-device-context.js';
 export * from './hardware-frames-context.js';
+
+// Re-export audio FIFO
+export * from './audio-fifo.js';

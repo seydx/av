@@ -66,6 +66,7 @@ export interface NativeBindings {
   SoftwareResampleContext: any;
   HardwareDeviceContext: any;
   HardwareFramesContext: any;
+  AudioFifo: any;
 }
 
 /**

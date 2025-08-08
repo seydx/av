@@ -20,7 +20,8 @@
         "src/bindings/software_scale_context.cc",
         "src/bindings/software_resample_context.cc",
         "src/bindings/hardware_device_context.cc",
-        "src/bindings/hardware_frames_context.cc"
+        "src/bindings/hardware_frames_context.cc",
+        "src/bindings/audio_fifo.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

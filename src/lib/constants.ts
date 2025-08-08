@@ -1334,7 +1334,6 @@ export const AV_CODEC_EXPORT_DATA_ENHANCEMENTS = 0x10 as AVCodecExport;
 // AV_CODEC_ID constants (from libavcodec/codec_id.h)
 export type AVCodecIDConstants = number & { readonly [__ffmpeg_brand]: 'AVCodecIDConstants' };
 
-
 // AV_PKT_FLAG constants (from libavcodec/packet.h)
 export type AVPacketFlag = number & { readonly [__ffmpeg_brand]: 'AVPacketFlag' };
 
