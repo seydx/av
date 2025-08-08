@@ -14,7 +14,7 @@ export interface ChannelLayout {
   mask: bigint;
 }
 
-export class CodecContext {
+export class CodecContext implements Disposable {
   private context: any;
 
   constructor(codec?: any) {

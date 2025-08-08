@@ -14,13 +14,15 @@ class FormatContext : public Napi::ObjectWrap<FormatContext> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   FormatContext(const Napi::CallbackInfo& info);
+  ~FormatContext();
   
-  AVFormatContext* Get() { return context_.Get(); }
+  AVFormatContext* Get() { return context_; }
   void SetContext(AVFormatContext* ctx);
 
  private:
   static Napi::FunctionReference constructor;
-  FormatContextResource context_;
+  AVFormatContext* context_;
+  bool is_opened_;  // Track if context was opened with avformat_open_input
   
   // Lifecycle
   Napi::Value OpenInput(const Napi::CallbackInfo& info);

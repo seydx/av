@@ -1,7 +1,12 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { Dictionary, FormatContext, InputFormat, OutputFormat } from '../src/lib/index.js';
+import { Dictionary, FormatContext, InputFormat, OutputFormat, Packet, AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO, AV_ERROR_EOF } from '../src/lib/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('FormatContext', () => {
   it('should create a new format context', () => {
@@ -9,8 +14,7 @@ describe('FormatContext', () => {
     assert(ctx);
   });
 
-  it.skip('should create format context with static methods', () => {
-    // Skip: These require proper native allocation
+  it('should create format context with static methods', () => {
     const ctx1 = FormatContext.allocFormatContext();
     assert(ctx1);
 
@@ -41,8 +45,7 @@ describe('FormatContext', () => {
     assert.strictEqual(ctx.probesize, 5000000n);
   });
 
-  it.skip('should handle metadata using Dictionary', () => {
-    // Skip: Requires native FormatContext with AVDictionary support
+  it('should handle metadata using Dictionary', () => {
     const ctx = new FormatContext();
 
     // Create metadata dictionary
@@ -70,8 +73,7 @@ describe('FormatContext', () => {
     assert.strictEqual(ctx.streams.length, 0);
   });
 
-  it.skip('should support using statement', () => {
-    // TODO: Fix dispose - might cause segfault
+  it('should support using statement', () => {
     {
       using ctx = new FormatContext();
       ctx.flags = 0x0002;
@@ -112,25 +114,25 @@ describe('FormatContext', () => {
     assert.strictEqual(typeof ctx.bitRate, 'bigint');
   });
 
-  it.skip('should create output streams', () => {
-    // Skip: Requires proper native allocation
+  it('should create output streams', () => {
     const mp4Format = OutputFormat.find('mp4');
     assert(mp4Format);
     const ctx = FormatContext.allocOutputFormatContext(mp4Format, undefined, 'test.mp4');
 
     // Create a new stream
-    const streamIndex = ctx.newStream();
-    assert.strictEqual(streamIndex, 0);
+    const stream1 = ctx.newStream();
+    assert(stream1);
+    assert.strictEqual(stream1.index, 0);
     assert.strictEqual(ctx.nbStreams, 1);
 
     // Create another stream
-    const streamIndex2 = ctx.newStream();
-    assert.strictEqual(streamIndex2, 1);
+    const stream2 = ctx.newStream();
+    assert(stream2);
+    assert.strictEqual(stream2.index, 1);
     assert.strictEqual(ctx.nbStreams, 2);
   });
 
-  it.skip('should handle dump without crashing', () => {
-    // Skip: Requires proper native context
+  it('should handle dump without crashing', () => {
     const ctx = new FormatContext();
 
     // Should not throw
@@ -156,5 +158,90 @@ describe('FormatContext', () => {
 
     assert.strictEqual(inputOptions.get('analyzeduration'), '10000000');
     assert.strictEqual(outputOptions.get('movflags'), 'faststart');
+  });
+
+  it('integration test with real media file', async () => {
+    const testFile = path.join(__dirname, '..', 'testdata', 'video.mp4');
+    
+    // Check if test file exists
+    if (!fs.existsSync(testFile)) {
+      console.log(`Skipping integration test - ${testFile} not found`);
+      return;
+    }
+
+    const ctx = new FormatContext();
+    
+    try {
+      // Open the media file
+      await ctx.openInput(testFile);
+      
+      // Find stream info
+      await ctx.findStreamInfo();
+      
+      // Check basic properties
+      assert.ok(ctx.nbStreams > 0, 'Should have at least one stream');
+      assert.ok(ctx.duration > 0n, 'Should have duration');
+      assert.ok(ctx.bitRate >= 0n, 'Should have bitrate');
+      assert.ok(ctx.url?.includes('video.mp4'), 'Should have URL');
+      
+      // Check streams
+      const streams = ctx.streams;
+      assert.ok(Array.isArray(streams), 'Should return streams array');
+      assert.strictEqual(streams.length, ctx.nbStreams, 'Stream count should match');
+      
+      // Find video stream
+      const videoStreamIndex = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO);
+      if (videoStreamIndex >= 0) {
+        const videoStream = streams[videoStreamIndex];
+        assert.ok(videoStream, 'Should have video stream');
+        
+        const codecParams = videoStream.codecParameters;
+        assert.ok(codecParams, 'Video stream should have codec parameters');
+        assert.strictEqual(codecParams.codecType, AV_MEDIA_TYPE_VIDEO);
+        assert.ok(codecParams.width > 0, 'Should have width');
+        assert.ok(codecParams.height > 0, 'Should have height');
+      }
+      
+      // Find audio stream
+      const audioStreamIndex = ctx.findBestStream(AV_MEDIA_TYPE_AUDIO);
+      if (audioStreamIndex >= 0) {
+        const audioStream = streams[audioStreamIndex];
+        assert.ok(audioStream, 'Should have audio stream');
+        
+        const codecParams = audioStream.codecParameters;
+        assert.ok(codecParams, 'Audio stream should have codec parameters');
+        assert.strictEqual(codecParams.codecType, AV_MEDIA_TYPE_AUDIO);
+        assert.ok(codecParams.sampleRate > 0, 'Should have sample rate');
+        assert.ok(codecParams.channelLayout, 'Should have channel layout');
+      }
+      
+      // Test reading packets
+      using packet = new Packet();
+      let packetsRead = 0;
+      const maxPackets = 10; // Read only first 10 packets for testing
+      
+      while (packetsRead < maxPackets) {
+        const ret = ctx.readFrame(packet);
+        if (ret === AV_ERROR_EOF) {
+          break;
+        }
+        
+        assert.ok(packet.streamIndex >= 0, 'Packet should have valid stream index');
+        assert.ok(packet.size > 0, 'Packet should have data');
+        packetsRead++;
+        
+        packet.unref(); // Clear packet for next read
+      }
+      
+      assert.ok(packetsRead > 0, 'Should have read at least one packet');
+      
+      // Test dump (should not crash)
+      ctx.dump(0, false);
+      
+    } finally {
+      // Close input
+      ctx.closeInput();
+      ctx[Symbol.dispose]();
+    }
   });
 });

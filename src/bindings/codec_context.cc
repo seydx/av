@@ -1,6 +1,7 @@
 #include "codec_context.h"
 #include "packet.h"
 #include "frame.h"
+#include "dictionary.h"
 
 namespace ffmpeg {
 
@@ -96,11 +97,20 @@ void CodecContext::SetContext(AVCodecContext* ctx) {
 Napi::Value CodecContext::Open(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  // TODO: Add dictionary support for options
-  int ret = avcodec_open2(context_.Get(), context_.Get()->codec, nullptr);
+  AVDictionary* options = nullptr;
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::Object dictObj = info[0].As<Napi::Object>();
+    Dictionary* dictWrapper = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
+    options = dictWrapper->GetDict();
+  }
+  
+  int ret = avcodec_open2(context_.Get(), context_.Get()->codec, options ? &options : nullptr);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to open codec context");
   }
+  
+  // Clean up any remaining options
+  if (options) av_dict_free(&options);
   
   return env.Undefined();
 }

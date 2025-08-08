@@ -16,7 +16,7 @@ export enum SeekFlags {
   FRAME = 8, // Seeking based on frame number
 }
 
-export class FormatContext {
+export class FormatContext implements Disposable {
   private context: any;
 
   constructor() {
@@ -102,8 +102,9 @@ export class FormatContext {
     return this.context.nbStreams;
   }
 
-  newStream(codec?: any): number {
-    return this.context.newStream(codec);
+  newStream(codec?: any): Stream {
+    const nativeStream = this.context.newStream(codec);
+    return Stream.fromNative(nativeStream);
   }
 
   // Properties
@@ -126,11 +127,13 @@ export class FormatContext {
   get metadata(): Dictionary | null {
     const native = this.context.metadata;
     if (!native) return null;
-    return Dictionary.fromNative(native);
+    // Convert the plain object to Dictionary
+    return Dictionary.fromObject(native);
   }
 
   set metadata(value: Dictionary | null) {
-    this.context.metadata = value?.getNative() ?? null;
+    // Convert Dictionary to plain object for native code
+    this.context.metadata = value?.toObject() ?? null;
   }
 
   get flags(): number {

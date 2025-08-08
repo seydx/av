@@ -172,4 +172,12 @@ export class Packet implements Disposable {
   [Symbol.dispose](): void {
     this.unref();
   }
+
+  /**
+   * Get native packet for internal use
+   * @internal
+   */
+  get nativePacket(): NativePacket {
+    return this.native;
+  }
 }

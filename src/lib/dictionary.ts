@@ -232,4 +232,11 @@ export class Dictionary implements Disposable {
   getNative(): any {
     return this.native;
   }
+
+  /**
+   * Convert to plain JavaScript object
+   */
+  toObject(): Record<string, string> {
+    return this.getAll();
+  }
 }

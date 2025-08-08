@@ -1,6 +1,9 @@
 #include "format_context.h"
 #include "packet.h"
 #include "stream.h"
+#include "dictionary.h"
+#include "input_format.h"
+#include "output_format.h"
 #include <vector>
 
 namespace ffmpeg {
@@ -67,20 +70,42 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
 }
 
 FormatContext::FormatContext(const Napi::CallbackInfo& info) 
-  : Napi::ObjectWrap<FormatContext>(info) {
+  : Napi::ObjectWrap<FormatContext>(info), context_(nullptr), is_opened_(false) {
   Napi::Env env = info.Env();
   
   // Default constructor allocates a new context
-  AVFormatContext* ctx = avformat_alloc_context();
-  if (!ctx) {
+  context_ = avformat_alloc_context();
+  if (!context_) {
     Napi::Error::New(env, "Failed to allocate format context").ThrowAsJavaScriptException();
     return;
   }
-  context_.Reset(ctx);
+}
+
+FormatContext::~FormatContext() {
+  // Clean up based on how the context was created
+  if (context_) {
+    if (is_opened_) {
+      // If opened with avformat_open_input, use avformat_close_input
+      avformat_close_input(&context_);
+    } else {
+      // If just allocated, use avformat_free_context
+      avformat_free_context(context_);
+    }
+    context_ = nullptr;
+  }
 }
 
 void FormatContext::SetContext(AVFormatContext* ctx) {
-  context_.Reset(ctx);
+  // Clean up existing context first
+  if (context_) {
+    if (is_opened_) {
+      avformat_close_input(&context_);
+    } else {
+      avformat_free_context(context_);
+    }
+  }
+  context_ = ctx;
+  is_opened_ = false;
 }
 
 // Lifecycle
@@ -94,16 +119,37 @@ Napi::Value FormatContext::OpenInput(const Napi::CallbackInfo& info) {
   
   std::string url = info[0].As<Napi::String>().Utf8Value();
   
-  // TODO: Support input format and options
-  AVFormatContext* ctx = context_.Get();
-  int ret = avformat_open_input(&ctx, url.c_str(), nullptr, nullptr);
+  // Handle InputFormat (2nd parameter)
+  AVInputFormat* input_format = nullptr;
+  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
+    Napi::Object inputFormatObj = info[1].As<Napi::Object>();
+    InputFormat* inputFormatWrapper = Napi::ObjectWrap<InputFormat>::Unwrap(inputFormatObj);
+    input_format = const_cast<AVInputFormat*>(inputFormatWrapper->GetFormat());
+  }
+  
+  // Handle Dictionary options (3rd parameter)
+  AVDictionary* options = nullptr;
+  if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined()) {
+    Napi::Object dictObj = info[2].As<Napi::Object>();
+    Dictionary* dictWrapper = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
+    options = dictWrapper->GetDict();
+  }
+  
+  // avformat_open_input takes a pointer to pointer and may reallocate
+  AVFormatContext* ctx = context_;
+  int ret = avformat_open_input(&ctx, url.c_str(), input_format, options ? &options : nullptr);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to open input");
+    if (options) av_dict_free(&options);
     return env.Undefined();
   }
   
-  // Update our internal pointer as avformat_open_input may reallocate
-  context_.Reset(ctx);
+  // Update our internal pointer and mark as opened
+  context_ = ctx;
+  is_opened_ = true;
+  
+  // Clean up any remaining options
+  if (options) av_dict_free(&options);
   
   return env.Undefined();
 }
@@ -111,10 +157,9 @@ Napi::Value FormatContext::OpenInput(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::CloseInput(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  AVFormatContext* ctx = context_.Get();
-  if (ctx) {
-    avformat_close_input(&ctx);
-    context_.Reset(nullptr);
+  if (context_ && is_opened_) {
+    avformat_close_input(&context_);
+    is_opened_ = false;
   }
   
   return env.Undefined();
@@ -123,10 +168,12 @@ Napi::Value FormatContext::CloseInput(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::Dispose(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  AVFormatContext* ctx = context_.Get();
-  if (ctx) {
-    avformat_close_input(&ctx);
-    context_.Reset(nullptr);
+  if (context_ && is_opened_) {
+    avformat_close_input(&context_);
+    is_opened_ = false;
+  } else if (context_) {
+    avformat_free_context(context_);
+    context_ = nullptr;
   }
   
   return env.Undefined();
@@ -136,7 +183,7 @@ Napi::Value FormatContext::Dispose(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::FindStreamInfo(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  int ret = avformat_find_stream_info(context_.Get(), nullptr);
+  int ret = avformat_find_stream_info(context_, nullptr);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to find stream info");
   }
@@ -164,7 +211,7 @@ Napi::Value FormatContext::FindBestStream(const Napi::CallbackInfo& info) {
     related_stream = info[2].As<Napi::Number>().Int32Value();
   }
   
-  int ret = av_find_best_stream(context_.Get(), type, wanted_stream_nb, related_stream, nullptr, 0);
+  int ret = av_find_best_stream(context_, type, wanted_stream_nb, related_stream, nullptr, 0);
   if (ret < 0) {
     if (ret == AVERROR_STREAM_NOT_FOUND) {
       return Napi::Number::New(env, -1);
@@ -188,7 +235,7 @@ Napi::Value FormatContext::ReadFrame(const Napi::CallbackInfo& info) {
   Napi::Object packetObj = info[0].As<Napi::Object>();
   Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(packetObj);
   
-  int ret = av_read_frame(context_.Get(), packet->GetPacket());
+  int ret = av_read_frame(context_, packet->GetPacket());
   if (ret < 0) {
     if (ret == AVERROR_EOF) {
       return Napi::Number::New(env, ret);
@@ -212,7 +259,7 @@ Napi::Value FormatContext::SeekFrame(const Napi::CallbackInfo& info) {
   int64_t timestamp = info[1].As<Napi::BigInt>().Int64Value(&lossless);
   int flags = info[2].As<Napi::Number>().Int32Value();
   
-  int ret = av_seek_frame(context_.Get(), stream_index, timestamp, flags);
+  int ret = av_seek_frame(context_, stream_index, timestamp, flags);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to seek frame");
   }
@@ -235,7 +282,7 @@ Napi::Value FormatContext::SeekFile(const Napi::CallbackInfo& info) {
   int64_t max_ts = info[3].As<Napi::BigInt>().Int64Value(&lossless);
   int flags = info.Length() >= 5 ? info[4].As<Napi::Number>().Int32Value() : 0;
   
-  int ret = avformat_seek_file(context_.Get(), stream_index, min_ts, ts, max_ts, flags);
+  int ret = avformat_seek_file(context_, stream_index, min_ts, ts, max_ts, flags);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to seek file");
   }
@@ -246,7 +293,7 @@ Napi::Value FormatContext::SeekFile(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::Flush(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  int ret = avformat_flush(context_.Get());
+  int ret = avformat_flush(context_);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to flush");
   }
@@ -258,8 +305,14 @@ Napi::Value FormatContext::Flush(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::WriteHeader(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  // TODO: Support options dictionary
-  int ret = avformat_write_header(context_.Get(), nullptr);
+  AVDictionary* options = nullptr;
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::Object dictObj = info[0].As<Napi::Object>();
+    Dictionary* dictWrapper = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
+    options = dictWrapper->GetDict();
+  }
+  
+  int ret = avformat_write_header(context_, options ? &options : nullptr);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write header");
   }
@@ -277,7 +330,7 @@ Napi::Value FormatContext::WriteFrame(const Napi::CallbackInfo& info) {
     pkt = packet->GetPacket();
   }
   
-  int ret = av_write_frame(context_.Get(), pkt);
+  int ret = av_write_frame(context_, pkt);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write frame");
   }
@@ -295,7 +348,7 @@ Napi::Value FormatContext::WriteInterleavedFrame(const Napi::CallbackInfo& info)
     pkt = packet->GetPacket();
   }
   
-  int ret = av_interleaved_write_frame(context_.Get(), pkt);
+  int ret = av_interleaved_write_frame(context_, pkt);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write interleaved frame");
   }
@@ -306,7 +359,7 @@ Napi::Value FormatContext::WriteInterleavedFrame(const Napi::CallbackInfo& info)
 Napi::Value FormatContext::WriteTrailer(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  int ret = av_write_trailer(context_.Get());
+  int ret = av_write_trailer(context_);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write trailer");
   }
@@ -317,15 +370,14 @@ Napi::Value FormatContext::WriteTrailer(const Napi::CallbackInfo& info) {
 // Stream Management
 Napi::Value FormatContext::GetStreams(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  AVFormatContext* ctx = context_.Get();
   
-  Napi::Array streams = Napi::Array::New(env, ctx->nb_streams);
+  Napi::Array streams = Napi::Array::New(env, context_->nb_streams);
   
-  for (unsigned int i = 0; i < ctx->nb_streams; i++) {
+  for (unsigned int i = 0; i < context_->nb_streams; i++) {
     // Create Stream wrapper object
     Napi::Object streamObj = Stream::constructor.New({});
     Stream* stream = Napi::ObjectWrap<Stream>::Unwrap(streamObj);
-    stream->SetStream(ctx->streams[i]);
+    stream->SetStream(context_->streams[i]);
     streams[i] = streamObj;
   }
   
@@ -334,30 +386,32 @@ Napi::Value FormatContext::GetStreams(const Napi::CallbackInfo& info) {
 
 Napi::Value FormatContext::GetNbStreams(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->nb_streams);
+  return Napi::Number::New(env, context_->nb_streams);
 }
 
 Napi::Value FormatContext::NewStream(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  AVStream* stream = avformat_new_stream(context_.Get(), nullptr);
+  AVStream* stream = avformat_new_stream(context_, nullptr);
   if (!stream) {
     Napi::Error::New(env, "Failed to create new stream").ThrowAsJavaScriptException();
     return env.Null();
   }
   
-  // TODO: Return Stream wrapper object
-  // For now, return stream index
-  return Napi::Number::New(env, stream->index);
+  // Create Stream wrapper object
+  Napi::Object streamObj = Stream::constructor.New({});
+  Stream* streamWrapper = Napi::ObjectWrap<Stream>::Unwrap(streamObj);
+  streamWrapper->SetStream(stream);
+  
+  return streamObj;
 }
 
 // Properties
 Napi::Value FormatContext::GetUrl(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  AVFormatContext* ctx = context_.Get();
   
-  if (ctx->url) {
-    return Napi::String::New(env, ctx->url);
+  if (context_->url) {
+    return Napi::String::New(env, context_->url);
   }
   
   return env.Null();
@@ -365,31 +419,30 @@ Napi::Value FormatContext::GetUrl(const Napi::CallbackInfo& info) {
 
 Napi::Value FormatContext::GetDuration(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->duration);
+  return Napi::BigInt::New(env, context_->duration);
 }
 
 Napi::Value FormatContext::GetStartTime(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->start_time);
+  return Napi::BigInt::New(env, context_->start_time);
 }
 
 Napi::Value FormatContext::GetBitRate(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->bit_rate);
+  return Napi::BigInt::New(env, context_->bit_rate);
 }
 
 Napi::Value FormatContext::GetMetadata(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  AVFormatContext* ctx = context_.Get();
-  if (!ctx || !ctx->metadata) {
+  if (!context_ || !context_->metadata) {
     return env.Null();
   }
   
   Napi::Object metadata = Napi::Object::New(env);
   AVDictionaryEntry* entry = nullptr;
   
-  while ((entry = av_dict_get(ctx->metadata, "", entry, AV_DICT_IGNORE_SUFFIX))) {
+  while ((entry = av_dict_get(context_->metadata, "", entry, AV_DICT_IGNORE_SUFFIX))) {
     if (entry->key && entry->value) {
       metadata.Set(entry->key, Napi::String::New(env, entry->value));
     }
@@ -420,45 +473,45 @@ void FormatContext::SetMetadata(const Napi::CallbackInfo& info, const Napi::Valu
   }
   
   // Free old metadata and set new
-  if (context_.Get()->metadata) {
-    av_dict_free(&context_.Get()->metadata);
+  if (context_->metadata) {
+    av_dict_free(&context_->metadata);
   }
-  context_.Get()->metadata = dict;
+  context_->metadata = dict;
 }
 
 Napi::Value FormatContext::GetFlags(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->flags);
+  return Napi::Number::New(env, context_->flags);
 }
 
 void FormatContext::SetFlags(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->flags = value.As<Napi::Number>().Int32Value();
+  context_->flags = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value FormatContext::GetMaxAnalyzeDuration(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->max_analyze_duration);
+  return Napi::BigInt::New(env, context_->max_analyze_duration);
 }
 
 void FormatContext::SetMaxAnalyzeDuration(const Napi::CallbackInfo& info, const Napi::Value& value) {
   bool lossless;
-  context_.Get()->max_analyze_duration = value.As<Napi::BigInt>().Int64Value(&lossless);
+  context_->max_analyze_duration = value.As<Napi::BigInt>().Int64Value(&lossless);
 }
 
 Napi::Value FormatContext::GetProbesize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->probesize);
+  return Napi::BigInt::New(env, context_->probesize);
 }
 
 void FormatContext::SetProbesize(const Napi::CallbackInfo& info, const Napi::Value& value) {
   bool lossless;
-  context_.Get()->probesize = value.As<Napi::BigInt>().Int64Value(&lossless);
+  context_->probesize = value.As<Napi::BigInt>().Int64Value(&lossless);
 }
 
 // Format Info
 Napi::Value FormatContext::GetInputFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  const AVInputFormat* fmt = context_.Get()->iformat;
+  const AVInputFormat* fmt = context_->iformat;
   
   if (!fmt) {
     return env.Null();
@@ -475,7 +528,7 @@ Napi::Value FormatContext::GetInputFormat(const Napi::CallbackInfo& info) {
 
 Napi::Value FormatContext::GetOutputFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  const AVOutputFormat* fmt = context_.Get()->oformat;
+  const AVOutputFormat* fmt = context_->oformat;
   
   if (!fmt) {
     return env.Null();
@@ -494,6 +547,11 @@ Napi::Value FormatContext::GetOutputFormat(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::Dump(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
+  if (!context_) {
+    Napi::Error::New(env, "Format context is null").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
   int index = 0;
   bool is_output = false;
   
@@ -504,8 +562,22 @@ Napi::Value FormatContext::Dump(const Napi::CallbackInfo& info) {
     is_output = info[1].As<Napi::Boolean>().Value();
   }
   
-  const char* url = context_.Get()->url ? context_.Get()->url : "";
-  av_dump_format(context_.Get(), index, url, is_output ? 1 : 0);
+  // For empty contexts without URL, pass an empty string
+  const char* url = context_->url ? context_->url : "";
+  
+  // av_dump_format expects a valid context
+  // For output contexts, oformat must be set
+  // For input contexts, iformat must be set
+  if (is_output && !context_->oformat) {
+    // Empty output context - nothing to dump
+    return env.Undefined();
+  }
+  if (!is_output && !context_->iformat) {
+    // Empty input context - nothing to dump
+    return env.Undefined();
+  }
+  
+  av_dump_format(context_, index, url, is_output ? 1 : 0);
   
   return env.Undefined();
 }
@@ -521,21 +593,31 @@ Napi::Value FormatContext::AllocFormatContext(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::AllocOutputFormatContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "Format name required").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  std::string format_name = info[0].As<Napi::String>().Utf8Value();
+  // Parameters: (outputFormat?, formatName?, filename?)
+  AVOutputFormat* output_format = nullptr;
+  std::string format_name;
   std::string filename;
   
-  if (info.Length() >= 2 && info[1].IsString()) {
-    filename = info[1].As<Napi::String>().Utf8Value();
+  // First parameter: OutputFormat object or null
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::Object outputFormatObj = info[0].As<Napi::Object>();
+    OutputFormat* outputFormatWrapper = Napi::ObjectWrap<OutputFormat>::Unwrap(outputFormatObj);
+    output_format = const_cast<AVOutputFormat*>(outputFormatWrapper->GetFormat());
+  }
+  
+  // Second parameter: format name
+  if (info.Length() > 1 && info[1].IsString()) {
+    format_name = info[1].As<Napi::String>().Utf8Value();
+  }
+  
+  // Third parameter: filename
+  if (info.Length() > 2 && info[2].IsString()) {
+    filename = info[2].As<Napi::String>().Utf8Value();
   }
   
   AVFormatContext* ctx = nullptr;
-  int ret = avformat_alloc_output_context2(&ctx, nullptr, 
-                                           format_name.c_str(), 
+  int ret = avformat_alloc_output_context2(&ctx, output_format, 
+                                           format_name.empty() ? nullptr : format_name.c_str(), 
                                            filename.empty() ? nullptr : filename.c_str());
   if (ret < 0 || !ctx) {
     CheckFFmpegError(env, ret, "Failed to allocate output format context");
