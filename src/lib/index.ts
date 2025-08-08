@@ -36,3 +36,5 @@ export * from './audio-fifo.js';
 export * from './media-types.js';
 export * from './mathematics.js';
 export * from './color-types.js';
+export * from './discard.js';
+export * from './level.js';

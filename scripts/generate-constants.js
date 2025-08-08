@@ -118,8 +118,8 @@ const parseEnums = (headerPath) => {
         .trim();
       if (!cleanLine) continue;
 
-      // Match enum values (including AVCOL_* for color enums)
-      const valueMatch = cleanLine.match(/^\s*(AV_[A-Z0-9_]+|AVMEDIA_[A-Z0-9_]+|AVCOL_[A-Z0-9_]+)\s*(?:=\s*(.+?))?$/);
+      // Match enum values (including AVCOL_* for color enums and AVDISCARD_*)
+      const valueMatch = cleanLine.match(/^\s*(AV_[A-Z0-9_]+|AVMEDIA_[A-Z0-9_]+|AVCOL_[A-Z0-9_]+|AVDISCARD_[A-Z0-9_]+|FF_LEVEL_[A-Z0-9_]+)\s*(?:=\s*(.+?))?$/);
       if (valueMatch) {
         let name = valueMatch[1];
 
@@ -141,6 +141,14 @@ const parseEnums = (headerPath) => {
           } else if (name.startsWith('AVCOL_RANGE_')) {
             name = name.replace('AVCOL_RANGE_', 'AV_COLOR_RANGE_');
           }
+        }
+        if (name.startsWith('AVDISCARD_')) {
+          // Keep as is but with AV_ prefix for consistency
+          name = name.replace('AVDISCARD_', 'AV_DISCARD_');
+        }
+        if (name.startsWith('FF_LEVEL_')) {
+          // Convert FF_LEVEL_ to AV_LEVEL_
+          name = name.replace('FF_LEVEL_', 'AV_LEVEL_');
         }
 
         if (valueMatch[2]) {

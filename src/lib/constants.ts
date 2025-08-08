@@ -575,6 +575,17 @@ export const AV_FIELD_TB = 4 as AVFieldOrder;
 export const AV_FIELD_BT = 5 as AVFieldOrder;
 
 // libavcodec/defs.h
+export type AVDiscard = number & { readonly [__ffmpeg_brand]: 'AVDiscard' };
+
+export const AV_DISCARD_NONE = -16 as AVDiscard;
+export const AV_DISCARD_DEFAULT = 0 as AVDiscard;
+export const AV_DISCARD_NONREF = 8 as AVDiscard;
+export const AV_DISCARD_BIDIR = 16 as AVDiscard;
+export const AV_DISCARD_NONINTRA = 24 as AVDiscard;
+export const AV_DISCARD_NONKEY = 32 as AVDiscard;
+export const AV_DISCARD_ALL = 48 as AVDiscard;
+
+// libavcodec/defs.h
 export type AVAudioServiceType = number & { readonly [__ffmpeg_brand]: 'AVAudioServiceType' };
 
 export const AV_AUDIO_SERVICE_TYPE_MAIN = 0 as AVAudioServiceType;
