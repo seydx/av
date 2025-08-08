@@ -3,7 +3,7 @@ import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_SUBTITLE, AV_MEDIA_TYPE_VIDEO, type 
 import { Options } from './option.js';
 import { Rational } from './rational.js';
 
-import type { CodecParameters } from './codec-parameters.js';
+import { CodecParameters } from './codec-parameters.js';
 import type { NativeStream, NativeWrapper } from './native-types.js';
 
 /**
@@ -188,7 +188,11 @@ export class Stream implements NativeWrapper<NativeStream> {
    * Get codec parameters for this stream
    */
   get codecParameters(): CodecParameters | null {
-    return this.native.codecParameters;
+    const nativeParams = this.native.codecParameters;
+    if (!nativeParams) return null;
+    // The native binding returns a wrapped CodecParameters object
+    // We need to wrap it in our TypeScript class
+    return CodecParameters.fromNative(nativeParams);
   }
 
   /**

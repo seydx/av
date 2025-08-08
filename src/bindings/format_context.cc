@@ -15,6 +15,7 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FormatContext", {
     // Lifecycle
     InstanceMethod<&FormatContext::OpenInput>("openInput"),
+    InstanceMethod<&FormatContext::OpenInputAsync>("openInputAsync"),
     InstanceMethod<&FormatContext::CloseInput>("closeInput"),
     
     // Options
@@ -22,19 +23,24 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     
     // Stream Discovery
     InstanceMethod<&FormatContext::FindStreamInfo>("findStreamInfo"),
+    InstanceMethod<&FormatContext::FindStreamInfoAsync>("findStreamInfoAsync"),
     InstanceMethod<&FormatContext::FindBestStream>("findBestStream"),
     
     // Reading
     InstanceMethod<&FormatContext::ReadFrame>("readFrame"),
+    InstanceMethod<&FormatContext::ReadFrameAsync>("readFrameAsync"),
     InstanceMethod<&FormatContext::SeekFrame>("seekFrame"),
     InstanceMethod<&FormatContext::SeekFile>("seekFile"),
     InstanceMethod<&FormatContext::Flush>("flush"),
     
     // Writing
     InstanceMethod<&FormatContext::WriteHeader>("writeHeader"),
+    InstanceMethod<&FormatContext::WriteHeaderAsync>("writeHeaderAsync"),
     InstanceMethod<&FormatContext::WriteFrame>("writeFrame"),
+    InstanceMethod<&FormatContext::WriteFrameAsync>("writeFrameAsync"),
     InstanceMethod<&FormatContext::WriteInterleavedFrame>("writeInterleavedFrame"),
     InstanceMethod<&FormatContext::WriteTrailer>("writeTrailer"),
+    InstanceMethod<&FormatContext::WriteTrailerAsync>("writeTrailerAsync"),
     
     // Stream Management
     InstanceAccessor<&FormatContext::GetStreams>("streams"),

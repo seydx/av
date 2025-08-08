@@ -18,6 +18,7 @@ public:
   
   // Lifecycle
   Napi::Value Config(const Napi::CallbackInfo& info);
+  Napi::Value ConfigAsync(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   // Filter creation

@@ -14,6 +14,7 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterGraph", {
     // Lifecycle
     InstanceMethod<&FilterGraph::Config>("config"),
+    InstanceMethod<&FilterGraph::ConfigAsync>("configAsync"),
     InstanceMethod<&FilterGraph::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Filter creation

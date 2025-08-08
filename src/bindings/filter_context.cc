@@ -17,7 +17,9 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FilterContext::Link>("link"),
     InstanceMethod<&FilterContext::Unlink>("unlink"),
     InstanceMethod<&FilterContext::BufferSrcAddFrame>("bufferSrcAddFrame"),
+    InstanceMethod<&FilterContext::BufferSrcAddFrameAsync>("bufferSrcAddFrameAsync"),
     InstanceMethod<&FilterContext::BufferSinkGetFrame>("bufferSinkGetFrame"),
+    InstanceMethod<&FilterContext::BufferSinkGetFrameAsync>("bufferSinkGetFrameAsync"),
     
     // Properties
     InstanceAccessor<&FilterContext::GetName>("name"),

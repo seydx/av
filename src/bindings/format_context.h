@@ -26,6 +26,7 @@ class FormatContext : public Napi::ObjectWrap<FormatContext> {
   
   // Lifecycle
   Napi::Value OpenInput(const Napi::CallbackInfo& info);
+  Napi::Value OpenInputAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value CloseInput(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
@@ -34,19 +35,24 @@ class FormatContext : public Napi::ObjectWrap<FormatContext> {
   
   // Stream Discovery
   Napi::Value FindStreamInfo(const Napi::CallbackInfo& info);
+  Napi::Value FindStreamInfoAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value FindBestStream(const Napi::CallbackInfo& info);
   
   // Reading
   Napi::Value ReadFrame(const Napi::CallbackInfo& info);
+  Napi::Value ReadFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value SeekFrame(const Napi::CallbackInfo& info);
   Napi::Value SeekFile(const Napi::CallbackInfo& info);
   Napi::Value Flush(const Napi::CallbackInfo& info);
   
   // Writing
   Napi::Value WriteHeader(const Napi::CallbackInfo& info);
+  Napi::Value WriteHeaderAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value WriteFrame(const Napi::CallbackInfo& info);
+  Napi::Value WriteFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value WriteInterleavedFrame(const Napi::CallbackInfo& info);
   Napi::Value WriteTrailer(const Napi::CallbackInfo& info);
+  Napi::Value WriteTrailerAsync(const Napi::CallbackInfo& info);  // Promise-based
   
   // Stream Management
   Napi::Value GetStreams(const Napi::CallbackInfo& info);

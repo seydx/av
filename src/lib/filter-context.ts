@@ -103,7 +103,7 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
   }
 
   /**
-   * Add a frame to a buffer source filter
+   * Add a frame to a buffer source filter (synchronous)
    * @param frame Frame to add (null to signal EOF)
    * @param flags Optional flags
    * @returns 0 on success, negative error code on failure
@@ -121,7 +121,25 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
   }
 
   /**
-   * Get a frame from a buffer sink filter
+   * Add a frame to a buffer source filter (asynchronous)
+   * @param frame Frame to add (null to signal EOF)
+   * @param flags Optional flags
+   * @returns Promise resolving to 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * // Send frame to buffer source
+   * const ret = await bufferSrc.bufferSrcAddFrameAsync(frame);
+   * if (ret < 0) {
+   *   console.error('Failed to add frame');
+   * }
+   * ```
+   */
+  async bufferSrcAddFrameAsync(frame: Frame | null, flags = 0): Promise<number> {
+    return await this.context.bufferSrcAddFrameAsync(frame?.getNative(), flags);
+  }
+
+  /**
+   * Get a frame from a buffer sink filter (synchronous)
    * @param frame Frame to receive the data
    * @returns 0 on success, negative error code on failure
    * @example
@@ -136,6 +154,24 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
    */
   bufferSinkGetFrame(frame: Frame): number {
     return this.context.bufferSinkGetFrame(frame.getNative());
+  }
+
+  /**
+   * Get a frame from a buffer sink filter (asynchronous)
+   * @param frame Frame to receive the data
+   * @returns Promise resolving to 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * // Get filtered frame from buffer sink
+   * const frame = new Frame();
+   * const ret = await bufferSink.bufferSinkGetFrameAsync(frame);
+   * if (ret >= 0) {
+   *   // Process filtered frame
+   * }
+   * ```
+   */
+  async bufferSinkGetFrameAsync(frame: Frame): Promise<number> {
+    return await this.context.bufferSinkGetFrameAsync(frame.getNative());
   }
 
   // ==================== Internal Methods ====================

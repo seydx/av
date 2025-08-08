@@ -22,7 +22,9 @@ public:
   
   // Buffer operations
   Napi::Value BufferSrcAddFrame(const Napi::CallbackInfo& info);
+  Napi::Value BufferSrcAddFrameAsync(const Napi::CallbackInfo& info);
   Napi::Value BufferSinkGetFrame(const Napi::CallbackInfo& info);
+  Napi::Value BufferSinkGetFrameAsync(const Napi::CallbackInfo& info);
   
   // Properties
   Napi::Value GetName(const Napi::CallbackInfo& info);

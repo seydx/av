@@ -24,17 +24,24 @@ class CodecContext : public Napi::ObjectWrap<CodecContext> {
   
   // Lifecycle
   Napi::Value Open(const Napi::CallbackInfo& info);
+  Napi::Value OpenAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value Close(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   // Options
   Napi::Value GetOptions(const Napi::CallbackInfo& info);
   
-  // Encoding/Decoding
+  // Encoding/Decoding (Synchronous)
   Napi::Value SendPacket(const Napi::CallbackInfo& info);
   Napi::Value ReceiveFrame(const Napi::CallbackInfo& info);
   Napi::Value SendFrame(const Napi::CallbackInfo& info);
   Napi::Value ReceivePacket(const Napi::CallbackInfo& info);
+  
+  // Encoding/Decoding (Asynchronous)
+  Napi::Value SendPacketAsync(const Napi::CallbackInfo& info);    // Promise-based
+  Napi::Value ReceiveFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
+  Napi::Value SendFrameAsync(const Napi::CallbackInfo& info);     // Promise-based
+  Napi::Value ReceivePacketAsync(const Napi::CallbackInfo& info); // Promise-based
   
   // Properties - General
   Napi::Value GetCodecID(const Napi::CallbackInfo& info);

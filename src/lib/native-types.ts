@@ -62,14 +62,21 @@ export interface NativeCodecContext {
 
   // Lifecycle
   open(options?: NativeDictionary | null): void;
+  openAsync(options?: NativeDictionary | null): Promise<void>;
   close(): void;
   flushBuffers(): void;
 
-  // Encoding/Decoding
+  // Encoding/Decoding (Synchronous)
   sendPacket(packet: NativePacket | null): number;
   receiveFrame(frame: NativeFrame): number;
   sendFrame(frame: NativeFrame | null): number;
   receivePacket(packet: NativePacket): number;
+
+  // Encoding/Decoding (Asynchronous)
+  sendPacketAsync(packet: NativePacket | null): Promise<number>;
+  receiveFrameAsync(frame: NativeFrame): Promise<number>;
+  sendFrameAsync(frame: NativeFrame | null): Promise<number>;
+  receivePacketAsync(packet: NativePacket): Promise<number>;
 
   // Properties
   codecID: AVCodecID;
@@ -246,23 +253,29 @@ export interface NativeFormatContext {
 
   // Lifecycle
   openInput(url: string, inputFormat: NativeInputFormat | null, options: NativeDictionary | null): void;
+  openInputAsync(url: string, inputFormat: NativeInputFormat | null, options: NativeDictionary | null): Promise<void>;
   closeInput(): void;
 
   // Stream Discovery
   findStreamInfo(options: NativeDictionary | null): void;
+  findStreamInfoAsync(options: NativeDictionary | null): Promise<void>;
   findBestStream(mediaType: AVMediaType, wantedStreamNb: number, relatedStream: number): number;
 
   // Reading
   readFrame(packet: NativePacket): number;
+  readFrameAsync(packet: NativePacket): Promise<number>;
   seekFrame(streamIndex: number, timestamp: bigint, flags: number): number;
   seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags: number): number;
   flush(): void;
 
   // Writing
   writeHeader(options: NativeDictionary | null): void;
+  writeHeaderAsync(options: NativeDictionary | null): Promise<void>;
   writeFrame(packet: NativePacket | null): number;
+  writeFrameAsync(packet: NativePacket | null): Promise<number>;
   writeInterleavedFrame(packet: NativePacket | null): number;
   writeTrailer(): void;
+  writeTrailerAsync(): Promise<void>;
 
   // Stream Management
   readonly streams: NativeStream[];
@@ -367,10 +380,12 @@ export interface NativeFilterContext {
   readonly __brand: 'NativeFilterContext';
 
   // Methods
-  link(srcPad: number, dst: NativeFilterContext, dstPad: number): void;
+  link(dst: NativeFilterContext, srcPad: number, dstPad: number): void;
   unlink(srcPad: number): void;
-  sendFrame(frame: NativeFrame | null): number;
-  receiveFrame(frame: NativeFrame): number;
+  bufferSrcAddFrame(frame: NativeFrame | null, flags?: number): number;
+  bufferSrcAddFrameAsync(frame: NativeFrame | null, flags?: number): Promise<number>;
+  bufferSinkGetFrame(frame: NativeFrame): number;
+  bufferSinkGetFrameAsync(frame: NativeFrame): Promise<number>;
 
   // Properties
   readonly filter: NativeFilter;
@@ -389,6 +404,7 @@ export interface NativeFilterGraph {
 
   // Methods
   config(): void;
+  configAsync(): Promise<void>;
   createFilter(filter: NativeFilter, name: string, args: string | null): NativeFilterContext;
   getFilter(name: string): NativeFilterContext | null;
   parse(filters: string, inputs: NativeFilterContext[], outputs: NativeFilterContext[]): void;

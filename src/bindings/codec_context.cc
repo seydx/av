@@ -13,13 +13,21 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "CodecContext", {
     // Lifecycle
     InstanceMethod<&CodecContext::Open>("open"),
+    InstanceMethod<&CodecContext::OpenAsync>("openAsync"),
     InstanceMethod<&CodecContext::Close>("close"),
     
-    // Encoding/Decoding
+    // Encoding/Decoding (Synchronous)
     InstanceMethod<&CodecContext::SendPacket>("sendPacket"),
     InstanceMethod<&CodecContext::ReceiveFrame>("receiveFrame"),
     InstanceMethod<&CodecContext::SendFrame>("sendFrame"),
     InstanceMethod<&CodecContext::ReceivePacket>("receivePacket"),
+    
+    // Encoding/Decoding (Asynchronous)
+    InstanceMethod<&CodecContext::SendPacketAsync>("sendPacketAsync"),
+    InstanceMethod<&CodecContext::ReceiveFrameAsync>("receiveFrameAsync"),
+    InstanceMethod<&CodecContext::SendFrameAsync>("sendFrameAsync"),
+    InstanceMethod<&CodecContext::ReceivePacketAsync>("receivePacketAsync"),
+    
     InstanceMethod<&CodecContext::FlushBuffers>("flushBuffers"),
     
     // Properties - General

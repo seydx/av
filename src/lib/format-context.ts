@@ -223,6 +223,26 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   }
 
   /**
+   * Open an input file or URL (asynchronous)
+   * @param url File path or URL to open
+   * @param inputFormat Optional specific input format to use
+   * @param options Optional format options
+   * @returns Promise that resolves when the file is opened
+   * @throws FFmpegError if opening fails
+   * @example
+   * ```typescript
+   * await formatContext.openInputAsync('video.mp4');
+   * // With options
+   * const options = new Dictionary();
+   * options.set('rtsp_transport', 'tcp');
+   * await formatContext.openInputAsync('rtsp://server/stream', null, options);
+   * ```
+   */
+  async openInputAsync(url: string, inputFormat?: InputFormat | null, options?: Dictionary): Promise<void> {
+    await this.context.openInputAsync(url, inputFormat?.getNative() ?? null, options?.getNative() ?? null);
+  }
+
+  /**
    * Close the input file
    */
   closeInput(): void {
@@ -230,12 +250,22 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   }
 
   /**
-   * Find and analyze stream information
+   * Find and analyze stream information (synchronous)
    * @param options Optional per-stream options
    * @throws FFmpegError if analysis fails
    */
   findStreamInfo(options?: Dictionary): void {
     this.context.findStreamInfo(options?.getNative() ?? null);
+  }
+
+  /**
+   * Find and analyze stream information (asynchronous)
+   * @param options Optional per-stream options
+   * @returns Promise that resolves when stream info is found
+   * @throws FFmpegError if analysis fails
+   */
+  async findStreamInfoAsync(options?: Dictionary): Promise<void> {
+    await this.context.findStreamInfoAsync(options?.getNative() ?? null);
   }
 
   /**
@@ -250,7 +280,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   }
 
   /**
-   * Read the next packet from the file
+   * Read the next packet from the file (synchronous)
    * @param packet Packet to read data into
    * @returns 0 on success, AV_ERROR_EOF at end of file
    * @throws FFmpegError on read errors
@@ -265,6 +295,29 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    */
   readFrame(packet: Packet): number {
     const ret = this.context.readFrame(packet.getNative());
+    if (ret < 0 && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to read frame');
+    }
+    return ret;
+  }
+
+  /**
+   * Read the next packet from the file (asynchronous)
+   * @param packet Packet to read data into
+   * @returns Promise resolving to 0 on success, AV_ERROR_EOF at end of file
+   * @throws FFmpegError on read errors
+   * @example
+   * ```typescript
+   * const packet = new Packet();
+   * let ret: number;
+   * while ((ret = await formatContext.readFrameAsync(packet)) >= 0) {
+   *   // Process packet
+   *   packet.unref();
+   * }
+   * ```
+   */
+  async readFrameAsync(packet: Packet): Promise<number> {
+    const ret = await this.context.readFrameAsync(packet.getNative());
     if (ret < 0 && ret !== AV_ERROR_EOF) {
       throw new FFmpegError(ret, 'Failed to read frame');
     }
@@ -303,7 +356,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   }
 
   /**
-   * Write file header (for output contexts)
+   * Write file header (for output contexts) - synchronous
    * @param options Optional muxer options
    * @throws FFmpegError if writing fails
    */
@@ -312,12 +365,31 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   }
 
   /**
-   * Write a packet to the output file
+   * Write file header (for output contexts) - asynchronous
+   * @param options Optional muxer options
+   * @returns Promise that resolves when header is written
+   * @throws FFmpegError if writing fails
+   */
+  async writeHeaderAsync(options?: Dictionary): Promise<void> {
+    await this.context.writeHeaderAsync(options?.getNative() ?? null);
+  }
+
+  /**
+   * Write a packet to the output file - synchronous
    * @param packet Packet to write (null to flush)
    * @returns 0 on success, negative on error
    */
   writeFrame(packet: Packet | null): number {
     return this.context.writeFrame(packet ? packet.getNative() : null);
+  }
+
+  /**
+   * Write a packet to the output file - asynchronous
+   * @param packet Packet to write (null to flush)
+   * @returns Promise resolving to 0 on success, negative on error
+   */
+  async writeFrameAsync(packet: Packet | null): Promise<number> {
+    return await this.context.writeFrameAsync(packet ? packet.getNative() : null);
   }
 
   /**
@@ -330,11 +402,20 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   }
 
   /**
-   * Write file trailer (for output contexts)
+   * Write file trailer (for output contexts) - synchronous
    * Must be called after all packets are written
    */
   writeTrailer(): void {
     this.context.writeTrailer();
+  }
+
+  /**
+   * Write file trailer (for output contexts) - asynchronous
+   * Must be called after all packets are written
+   * @returns Promise that resolves when trailer is written
+   */
+  async writeTrailerAsync(): Promise<void> {
+    await this.context.writeTrailerAsync();
   }
 
   /**

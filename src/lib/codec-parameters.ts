@@ -310,8 +310,7 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
    * @param ctx Source codec context
    */
   fromCodecContext(ctx: CodecContext): void {
-    // Pass the native binding object (which is itself a wrapped C++ object)
-    // The C++ code will unwrap it to get the actual AVCodecContext*
+    // Pass the native wrapped object that C++ can unwrap
     this.native.fromCodecContext(ctx.getNative());
   }
 
@@ -320,8 +319,7 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
    * @param ctx Destination codec context
    */
   toCodecContext(ctx: CodecContext): void {
-    // Pass the native binding object (which is itself a wrapped C++ object)
-    // The C++ code will unwrap it to get the actual AVCodecContext*
+    // Pass the native wrapped object that C++ can unwrap
     this.native.toCodecContext(ctx.getNative());
   }
 

@@ -95,7 +95,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   // ==================== Public Methods ====================
 
   /**
-   * Configure the filter graph
+   * Configure the filter graph (synchronous)
    * Must be called after all filters are created and linked
    * @throws Error if the graph configuration is invalid
    * @example
@@ -106,6 +106,21 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    */
   config(): void {
     this.graph.config();
+  }
+
+  /**
+   * Configure the filter graph (asynchronous)
+   * Must be called after all filters are created and linked
+   * @returns Promise that resolves when configuration is complete
+   * @throws Error if the graph configuration is invalid
+   * @example
+   * ```typescript
+   * // After creating and linking filters
+   * await graph.configAsync();
+   * ```
+   */
+  async configAsync(): Promise<void> {
+    await this.graph.configAsync();
   }
 
   /**
