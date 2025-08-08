@@ -118,8 +118,8 @@ const parseEnums = (headerPath) => {
         .trim();
       if (!cleanLine) continue;
 
-      // Match enum values
-      const valueMatch = cleanLine.match(/^\s*(AV_[A-Z0-9_]+|AVMEDIA_[A-Z0-9_]+)\s*(?:=\s*(.+?))?$/);
+      // Match enum values (including AVCOL_* for color enums)
+      const valueMatch = cleanLine.match(/^\s*(AV_[A-Z0-9_]+|AVMEDIA_[A-Z0-9_]+|AVCOL_[A-Z0-9_]+)\s*(?:=\s*(.+?))?$/);
       if (valueMatch) {
         let name = valueMatch[1];
 
@@ -129,6 +129,18 @@ const parseEnums = (headerPath) => {
         }
         if (name.startsWith('AVERROR_')) {
           name = name.replace('AVERROR_', 'AV_ERROR_');
+        }
+        if (name.startsWith('AVCOL_')) {
+          // Convert AVCOL_ to AV_COLOR_
+          if (name.startsWith('AVCOL_SPC_')) {
+            name = name.replace('AVCOL_SPC_', 'AV_COLOR_SPACE_');
+          } else if (name.startsWith('AVCOL_PRI_')) {
+            name = name.replace('AVCOL_PRI_', 'AV_COLOR_PRIMARIES_');
+          } else if (name.startsWith('AVCOL_TRC_')) {
+            name = name.replace('AVCOL_TRC_', 'AV_COLOR_TRC_');
+          } else if (name.startsWith('AVCOL_RANGE_')) {
+            name = name.replace('AVCOL_RANGE_', 'AV_COLOR_RANGE_');
+          }
         }
 
         if (valueMatch[2]) {

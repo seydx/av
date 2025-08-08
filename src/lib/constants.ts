@@ -1153,6 +1153,80 @@ export const AV_PIX_FMT_GBRAP14LE = 226 as AVPixelFormat;
 export const AV_PIX_FMT_D3D12 = 227 as AVPixelFormat;
 export const AV_PIX_FMT_NB = 228 as AVPixelFormat;
 
+// libavutil/pixfmt.h
+export type AVColorPrimaries = number & { readonly [__ffmpeg_brand]: 'AVColorPrimaries' };
+
+export const AV_COLOR_PRIMARIES_RESERVED0 = 0 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_BT709 = 1 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_UNSPECIFIED = 2 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_RESERVED = 3 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_BT470M = 4 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_BT470BG = 5 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_SMPTE170M = 6 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_SMPTE240M = 7 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_FILM = 8 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_BT2020 = 9 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_SMPTE428 = 10 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_SMPTE431 = 11 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_SMPTE432 = 12 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_EBU3213 = 22 as AVColorPrimaries;
+export const AV_COLOR_PRIMARIES_NB = 23 as AVColorPrimaries;
+
+// libavutil/pixfmt.h
+export type AVColorTransferCharacteristic = number & { readonly [__ffmpeg_brand]: 'AVColorTransferCharacteristic' };
+
+export const AV_COLOR_TRC_RESERVED0 = 0 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_BT709 = 1 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_UNSPECIFIED = 2 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_RESERVED = 3 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_GAMMA22 = 4 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_GAMMA28 = 5 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_SMPTE170M = 6 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_SMPTE240M = 7 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_LINEAR = 8 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_LOG = 9 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_LOG_SQRT = 10 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_IEC61966_2_4 = 11 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_BT1361_ECG = 12 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_IEC61966_2_1 = 13 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_BT2020_10 = 14 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_BT2020_12 = 15 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_SMPTE2084 = 16 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_SMPTE428 = 17 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_ARIB_STD_B67 = 18 as AVColorTransferCharacteristic;
+export const AV_COLOR_TRC_NB = 19 as AVColorTransferCharacteristic;
+
+// libavutil/pixfmt.h
+export type AVColorSpace = number & { readonly [__ffmpeg_brand]: 'AVColorSpace' };
+
+export const AV_COLOR_SPACE_RGB = 0 as AVColorSpace;
+export const AV_COLOR_SPACE_BT709 = 1 as AVColorSpace;
+export const AV_COLOR_SPACE_UNSPECIFIED = 2 as AVColorSpace;
+export const AV_COLOR_SPACE_RESERVED = 3 as AVColorSpace;
+export const AV_COLOR_SPACE_FCC = 4 as AVColorSpace;
+export const AV_COLOR_SPACE_BT470BG = 5 as AVColorSpace;
+export const AV_COLOR_SPACE_SMPTE170M = 6 as AVColorSpace;
+export const AV_COLOR_SPACE_SMPTE240M = 7 as AVColorSpace;
+export const AV_COLOR_SPACE_YCGCO = 8 as AVColorSpace;
+export const AV_COLOR_SPACE_BT2020_NCL = 9 as AVColorSpace;
+export const AV_COLOR_SPACE_BT2020_CL = 10 as AVColorSpace;
+export const AV_COLOR_SPACE_SMPTE2085 = 11 as AVColorSpace;
+export const AV_COLOR_SPACE_CHROMA_DERIVED_NCL = 12 as AVColorSpace;
+export const AV_COLOR_SPACE_CHROMA_DERIVED_CL = 13 as AVColorSpace;
+export const AV_COLOR_SPACE_ICTCP = 14 as AVColorSpace;
+export const AV_COLOR_SPACE_IPT_C2 = 15 as AVColorSpace;
+export const AV_COLOR_SPACE_YCGCO_RE = 16 as AVColorSpace;
+export const AV_COLOR_SPACE_YCGCO_RO = 17 as AVColorSpace;
+export const AV_COLOR_SPACE_NB = 18 as AVColorSpace;
+
+// libavutil/pixfmt.h
+export type AVColorRange = number & { readonly [__ffmpeg_brand]: 'AVColorRange' };
+
+export const AV_COLOR_RANGE_UNSPECIFIED = 0 as AVColorRange;
+export const AV_COLOR_RANGE_MPEG = 1 as AVColorRange;
+export const AV_COLOR_RANGE_JPEG = 2 as AVColorRange;
+export const AV_COLOR_RANGE_NB = 3 as AVColorRange;
+
 // libavutil/samplefmt.h
 export type AVSampleFormat = number & { readonly [__ffmpeg_brand]: 'AVSampleFormat' };
 

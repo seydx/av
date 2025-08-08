@@ -31,3 +31,8 @@ export * from './hardware-frames-context.js';
 
 // Re-export audio FIFO
 export * from './audio-fifo.js';
+
+// Re-export utilities
+export * from './media-types.js';
+export * from './mathematics.js';
+export * from './color-types.js';
