@@ -48,6 +48,13 @@ export class Dictionary implements Disposable {
   }
 
   /**
+   * Create from native handle (internal use)
+   */
+  static fromNative(native: any): Dictionary {
+    return new Dictionary(native);
+  }
+
+  /**
    * Set a key-value pair
    * @param key The key
    * @param value The value
@@ -217,5 +224,12 @@ export class Dictionary implements Disposable {
     const dict = new Dictionary();
     dict.parseString(str, keyValSep, pairsSep);
     return dict;
+  }
+
+  /**
+   * Get native handle (internal use)
+   */
+  getNative(): any {
+    return this.native;
   }
 }

@@ -32,6 +32,13 @@ export class InputFormat {
   }
 
   /**
+   * Create from native handle (internal use)
+   */
+  static fromNative(native: any): InputFormat {
+    return new InputFormat(native);
+  }
+
+  /**
    * Format short name
    */
   get name(): string | null {

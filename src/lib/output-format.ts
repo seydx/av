@@ -54,6 +54,13 @@ export class OutputFormat {
   }
 
   /**
+   * Create from native handle (internal use)
+   */
+  static fromNative(native: any): OutputFormat {
+    return new OutputFormat(native);
+  }
+
+  /**
    * Format short name
    */
   get name(): string | null {

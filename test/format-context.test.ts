@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { FormatContext } from '../src/lib/index.js';
+import { Dictionary, FormatContext, InputFormat, OutputFormat } from '../src/lib/index.js';
 
 describe('FormatContext', () => {
   it('should create a new format context', () => {
@@ -10,13 +10,19 @@ describe('FormatContext', () => {
   });
 
   it.skip('should create format context with static methods', () => {
-    // TODO: Fix static methods - might cause issues
+    // Skip: These require proper native allocation
     const ctx1 = FormatContext.allocFormatContext();
     assert(ctx1);
 
-    // Output format context for MP4
-    const ctx2 = FormatContext.allocOutputFormatContext('mp4', 'test.mp4');
+    // Output format context for MP4 using OutputFormat
+    const mp4Format = OutputFormat.find('mp4');
+    assert(mp4Format);
+    const ctx2 = FormatContext.allocOutputFormatContext(mp4Format, 'mp4', 'test.mp4');
     assert(ctx2);
+
+    // Output format context with just format name
+    const ctx3 = FormatContext.allocOutputFormatContext(null, 'mp4', 'test.mp4');
+    assert(ctx3);
   });
 
   it('should get and set properties', () => {
@@ -35,23 +41,24 @@ describe('FormatContext', () => {
     assert.strictEqual(ctx.probesize, 5000000n);
   });
 
-  it.skip('should handle metadata', () => {
-    // TODO: Fix metadata handling
+  it.skip('should handle metadata using Dictionary', () => {
+    // Skip: Requires native FormatContext with AVDictionary support
     const ctx = new FormatContext();
 
-    const metadata = {
-      title: 'Test Video',
-      artist: 'Test Artist',
-      album: 'Test Album',
-    };
+    // Create metadata dictionary
+    const metadata = new Dictionary();
+    metadata.set('title', 'Test Video');
+    metadata.set('artist', 'Test Artist');
+    metadata.set('album', 'Test Album');
 
     ctx.metadata = metadata;
     const retrieved = ctx.metadata;
 
     assert(retrieved);
-    assert.strictEqual(retrieved.title, 'Test Video');
-    assert.strictEqual(retrieved.artist, 'Test Artist');
-    assert.strictEqual(retrieved.album, 'Test Album');
+    assert(retrieved instanceof Dictionary);
+    assert.strictEqual(retrieved.get('title'), 'Test Video');
+    assert.strictEqual(retrieved.get('artist'), 'Test Artist');
+    assert.strictEqual(retrieved.get('album'), 'Test Album');
   });
 
   it('should report stream count', () => {
@@ -81,6 +88,21 @@ describe('FormatContext', () => {
     assert.strictEqual(ctx.outputFormat, null);
   });
 
+  it('should work with InputFormat and OutputFormat', () => {
+    // Find formats
+    const mp4Input = InputFormat.find('mp4');
+    assert(mp4Input);
+    assert.strictEqual(mp4Input.name, 'mov,mp4,m4a,3gp,3g2,mj2');
+
+    const mp4Output = OutputFormat.find('mp4');
+    assert(mp4Output);
+    assert.strictEqual(mp4Output.name, 'mp4');
+
+    // Can be used with FormatContext (would be used in openInput/allocOutputFormatContext)
+    assert(mp4Input.extensions?.includes('mp4'));
+    assert(mp4Output.extensions?.includes('mp4'));
+  });
+
   it('should get duration and timing info', () => {
     const ctx = new FormatContext();
 
@@ -91,8 +113,10 @@ describe('FormatContext', () => {
   });
 
   it.skip('should create output streams', () => {
-    // TODO: Fix - causes segfault
-    const ctx = FormatContext.allocOutputFormatContext('mp4');
+    // Skip: Requires proper native allocation
+    const mp4Format = OutputFormat.find('mp4');
+    assert(mp4Format);
+    const ctx = FormatContext.allocOutputFormatContext(mp4Format, undefined, 'test.mp4');
 
     // Create a new stream
     const streamIndex = ctx.newStream();
@@ -106,12 +130,31 @@ describe('FormatContext', () => {
   });
 
   it.skip('should handle dump without crashing', () => {
-    // TODO: Fix - might cause issues
+    // Skip: Requires proper native context
     const ctx = new FormatContext();
 
     // Should not throw
     assert.doesNotThrow(() => {
       ctx.dump(0, false);
     });
+  });
+
+  it('should demonstrate Dictionary usage for options', () => {
+    // Create options dictionary for openInput
+    const inputOptions = new Dictionary();
+    inputOptions.set('analyzeduration', '10000000');
+    inputOptions.set('probesize', '5000000');
+
+    // Create options dictionary for writeHeader
+    const outputOptions = new Dictionary();
+    outputOptions.set('movflags', 'faststart');
+    outputOptions.set('brand', 'mp42');
+
+    // These would be used like:
+    // await ctx.openInput('input.mp4', null, inputOptions);
+    // ctx.writeHeader(outputOptions);
+
+    assert.strictEqual(inputOptions.get('analyzeduration'), '10000000');
+    assert.strictEqual(outputOptions.get('movflags'), 'faststart');
   });
 });

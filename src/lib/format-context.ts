@@ -1,6 +1,9 @@
 import { bindings } from './binding.js';
 import { AV_ERROR_EOF } from './constants.js';
+import { Dictionary } from './dictionary.js';
 import { FFmpegError } from './error.js';
+import { InputFormat } from './input-format.js';
+import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
 import type { AVMediaType } from './constants.js';
@@ -11,13 +14,6 @@ export enum SeekFlags {
   BYTE = 2, // Seeking based on position in bytes
   ANY = 4, // Seek to any frame, even non-keyframes
   FRAME = 8, // Seeking based on frame number
-}
-
-export interface FormatInfo {
-  name: string;
-  longName?: string;
-  mimeType?: string;
-  flags: number;
 }
 
 export class FormatContext {
@@ -34,15 +30,15 @@ export class FormatContext {
     return ctx;
   }
 
-  static allocOutputFormatContext(formatName: string, filename?: string): FormatContext {
+  static allocOutputFormatContext(outputFormat?: OutputFormat | null, formatName?: string, filename?: string): FormatContext {
     const ctx = new FormatContext();
-    ctx.context = bindings.FormatContext.allocOutputFormatContext(formatName, filename);
+    ctx.context = bindings.FormatContext.allocOutputFormatContext(outputFormat?.getNative() ?? null, formatName, filename);
     return ctx;
   }
 
   // Lifecycle
-  async openInput(url: string, inputFormat?: any, options?: Record<string, any>): Promise<void> {
-    return this.context.openInput(url, inputFormat, options);
+  async openInput(url: string, inputFormat?: InputFormat | null, options?: Dictionary): Promise<void> {
+    return this.context.openInput(url, inputFormat?.getNative() ?? null, options?.getNative() ?? null);
   }
 
   closeInput(): void {
@@ -50,8 +46,8 @@ export class FormatContext {
   }
 
   // Stream Discovery
-  async findStreamInfo(options?: Record<string, any>): Promise<void> {
-    return this.context.findStreamInfo(options);
+  async findStreamInfo(options?: Dictionary): Promise<void> {
+    return this.context.findStreamInfo(options?.getNative() ?? null);
   }
 
   findBestStream(mediaType: AVMediaType, wantedStreamNb?: number, relatedStream?: number): number {
@@ -80,8 +76,8 @@ export class FormatContext {
   }
 
   // Writing
-  writeHeader(options?: Record<string, any>): void {
-    this.context.writeHeader(options);
+  writeHeader(options?: Dictionary): void {
+    this.context.writeHeader(options?.getNative() ?? null);
   }
 
   writeFrame(packet: Packet | null): number {
@@ -127,12 +123,14 @@ export class FormatContext {
     return this.context.bitRate;
   }
 
-  get metadata(): Record<string, string> | null {
-    return this.context.metadata;
+  get metadata(): Dictionary | null {
+    const native = this.context.metadata;
+    if (!native) return null;
+    return Dictionary.fromNative(native);
   }
 
-  set metadata(value: Record<string, string> | null) {
-    this.context.metadata = value;
+  set metadata(value: Dictionary | null) {
+    this.context.metadata = value?.getNative() ?? null;
   }
 
   get flags(): number {
@@ -160,12 +158,16 @@ export class FormatContext {
   }
 
   // Format Info
-  get inputFormat(): FormatInfo | null {
-    return this.context.inputFormat;
+  get inputFormat(): InputFormat | null {
+    const native = this.context.inputFormat;
+    if (!native) return null;
+    return InputFormat.fromNative(native);
   }
 
-  get outputFormat(): FormatInfo | null {
-    return this.context.outputFormat;
+  get outputFormat(): OutputFormat | null {
+    const native = this.context.outputFormat;
+    if (!native) return null;
+    return OutputFormat.fromNative(native);
   }
 
   // Utility
