@@ -359,6 +359,68 @@ Napi::Value FormatContext::WriteFrameAsync(const Napi::CallbackInfo& info) {
   return promise;
 }
 
+// Worker class for async WriteInterleavedFrame operation
+class WriteInterleavedFrameWorker : public Napi::AsyncWorker {
+public:
+  WriteInterleavedFrameWorker(Napi::Env env, AVFormatContext* context, AVPacket* packet)
+    : AsyncWorker(env),
+      context_(context),
+      packet_(packet),
+      result_(0) {}
+
+  void Execute() override {
+    result_ = av_interleaved_write_frame(context_, packet_);
+    
+    if (result_ < 0) {
+      char errbuf[AV_ERROR_MAX_STRING_SIZE];
+      av_strerror(result_, errbuf, sizeof(errbuf));
+      SetError(errbuf);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Env().Undefined());
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise::Deferred GetDeferred() { return deferred_; }
+
+private:
+  AVFormatContext* context_;
+  AVPacket* packet_;
+  int result_;
+  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
+};
+
+// Async version of WriteInterleavedFrame
+Napi::Value FormatContext::WriteInterleavedFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!context_) {
+    auto deferred = Napi::Promise::Deferred::New(env);
+    deferred.Reject(Napi::Error::New(env, "Format context not opened").Value());
+    return deferred.Promise();
+  }
+  
+  AVPacket* pkt = nullptr;
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Packet* packet = ffmpeg::UnwrapNativeObject<Packet>(env, info[0], "Packet");
+    if (packet) {
+      pkt = packet->GetPacket();
+    }
+  }
+  
+  auto* worker = new WriteInterleavedFrameWorker(env, context_, pkt);
+  auto promise = worker->GetDeferred().Promise();
+  worker->Queue();
+  
+  return promise;
+}
+
 // Worker class for async WriteTrailer operation
 class WriteTrailerWorker : public Napi::AsyncWorker {
 public:

@@ -49,91 +49,93 @@ Napi::Object CodecParameters::Init(Napi::Env env, Napi::Object exports) {
 }
 
 CodecParameters::CodecParameters(const Napi::CallbackInfo& info) 
-    : Napi::ObjectWrap<CodecParameters>(info) {
+    : Napi::ObjectWrap<CodecParameters>(info), params_(nullptr), owns_params_(true) {
     Napi::Env env = info.Env();
     
-    AVCodecParameters* params = avcodec_parameters_alloc();
-    if (!params) {
+    params_ = avcodec_parameters_alloc();
+    if (!params_) {
         Napi::Error::New(env, "Failed to allocate codec parameters").ThrowAsJavaScriptException();
         return;
     }
-    
-    params_.Reset(params);
 }
 
 CodecParameters::~CodecParameters() {
+    // Only free if we own the parameters
+    if (owns_params_ && params_) {
+        avcodec_parameters_free(&params_);
+    }
 }
 
 // Properties
 Napi::Value CodecParameters::GetCodecType(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->codec_type);
+    return Napi::Number::New(env, params_->codec_type);
 }
 
 void CodecParameters::SetCodecType(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->codec_type = static_cast<AVMediaType>(value.As<Napi::Number>().Int32Value());
+    params_->codec_type = static_cast<AVMediaType>(value.As<Napi::Number>().Int32Value());
 }
 
 Napi::Value CodecParameters::GetCodecId(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->codec_id);
+    return Napi::Number::New(env, params_->codec_id);
 }
 
 void CodecParameters::SetCodecId(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->codec_id = static_cast<AVCodecID>(value.As<Napi::Number>().Int32Value());
+    params_->codec_id = static_cast<AVCodecID>(value.As<Napi::Number>().Int32Value());
 }
 
 Napi::Value CodecParameters::GetBitRate(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::BigInt::New(env, params_.Get()->bit_rate);
+    return Napi::BigInt::New(env, params_->bit_rate);
 }
 
 void CodecParameters::SetBitRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
     bool lossless;
-    params_.Get()->bit_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
+    params_->bit_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
 }
 
 Napi::Value CodecParameters::GetWidth(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->width);
+    return Napi::Number::New(env, params_->width);
 }
 
 void CodecParameters::SetWidth(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->width = value.As<Napi::Number>().Int32Value();
+    params_->width = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value CodecParameters::GetHeight(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->height);
+    return Napi::Number::New(env, params_->height);
 }
 
 void CodecParameters::SetHeight(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->height = value.As<Napi::Number>().Int32Value();
+    params_->height = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value CodecParameters::GetFormat(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->format);
+    return Napi::Number::New(env, params_->format);
 }
 
 void CodecParameters::SetFormat(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->format = value.As<Napi::Number>().Int32Value();
+    params_->format = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value CodecParameters::GetSampleRate(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->sample_rate);
+    return Napi::Number::New(env, params_->sample_rate);
 }
 
 void CodecParameters::SetSampleRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->sample_rate = value.As<Napi::Number>().Int32Value();
+    params_->sample_rate = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value CodecParameters::GetChannelLayout(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     Napi::Object layout = Napi::Object::New(env);
     
-    AVChannelLayout* ch_layout = &params_.Get()->ch_layout;
+    AVChannelLayout* ch_layout = &params_->ch_layout;
     layout.Set("nbChannels", Napi::Number::New(env, ch_layout->nb_channels));
     layout.Set("order", Napi::Number::New(env, ch_layout->order));
     layout.Set("mask", Napi::BigInt::New(env, ch_layout->u.mask));
@@ -145,7 +147,7 @@ void CodecParameters::SetChannelLayout(const Napi::CallbackInfo& info, const Nap
     if (!value.IsObject()) return;
     
     Napi::Object layout = value.As<Napi::Object>();
-    AVChannelLayout* ch_layout = &params_.Get()->ch_layout;
+    AVChannelLayout* ch_layout = &params_->ch_layout;
     
     if (layout.Has("nbChannels")) {
         ch_layout->nb_channels = layout.Get("nbChannels").As<Napi::Number>().Int32Value();
@@ -162,17 +164,17 @@ void CodecParameters::SetChannelLayout(const Napi::CallbackInfo& info, const Nap
 Napi::Value CodecParameters::GetExtraData(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     
-    if (!params_.Get()->extradata || params_.Get()->extradata_size <= 0) {
+    if (!params_->extradata || params_->extradata_size <= 0) {
         return env.Null();
     }
     
-    return Napi::Buffer<uint8_t>::Copy(env, params_.Get()->extradata, params_.Get()->extradata_size);
+    return Napi::Buffer<uint8_t>::Copy(env, params_->extradata, params_->extradata_size);
 }
 
 void CodecParameters::SetExtraData(const Napi::CallbackInfo& info, const Napi::Value& value) {
     if (value.IsNull() || value.IsUndefined()) {
-        av_freep(&params_.Get()->extradata);
-        params_.Get()->extradata_size = 0;
+        av_freep(&params_->extradata);
+        params_->extradata_size = 0;
         return;
     }
     
@@ -181,52 +183,52 @@ void CodecParameters::SetExtraData(const Napi::CallbackInfo& info, const Napi::V
     Napi::Buffer<uint8_t> buffer = value.As<Napi::Buffer<uint8_t>>();
     
     // Free existing extra data
-    av_freep(&params_.Get()->extradata);
+    av_freep(&params_->extradata);
     
     // Allocate new extra data
-    params_.Get()->extradata_size = buffer.Length();
-    params_.Get()->extradata = static_cast<uint8_t*>(av_malloc(params_.Get()->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE));
+    params_->extradata_size = buffer.Length();
+    params_->extradata = static_cast<uint8_t*>(av_malloc(params_->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE));
     
-    if (params_.Get()->extradata) {
-        memcpy(params_.Get()->extradata, buffer.Data(), params_.Get()->extradata_size);
-        memset(params_.Get()->extradata + params_.Get()->extradata_size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+    if (params_->extradata) {
+        memcpy(params_->extradata, buffer.Data(), params_->extradata_size);
+        memset(params_->extradata + params_->extradata_size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
     } else {
-        params_.Get()->extradata_size = 0;
+        params_->extradata_size = 0;
     }
 }
 
 Napi::Value CodecParameters::GetProfile(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->profile);
+    return Napi::Number::New(env, params_->profile);
 }
 
 void CodecParameters::SetProfile(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->profile = value.As<Napi::Number>().Int32Value();
+    params_->profile = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value CodecParameters::GetLevel(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->level);
+    return Napi::Number::New(env, params_->level);
 }
 
 void CodecParameters::SetLevel(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->level = value.As<Napi::Number>().Int32Value();
+    params_->level = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value CodecParameters::GetFrameSize(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->frame_size);
+    return Napi::Number::New(env, params_->frame_size);
 }
 
 void CodecParameters::SetFrameSize(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->frame_size = value.As<Napi::Number>().Int32Value();
+    params_->frame_size = value.As<Napi::Number>().Int32Value();
 }
 
 Napi::Value CodecParameters::GetSampleAspectRatio(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     Napi::Object ratio = Napi::Object::New(env);
-    ratio.Set("num", Napi::Number::New(env, params_.Get()->sample_aspect_ratio.num));
-    ratio.Set("den", Napi::Number::New(env, params_.Get()->sample_aspect_ratio.den));
+    ratio.Set("num", Napi::Number::New(env, params_->sample_aspect_ratio.num));
+    ratio.Set("den", Napi::Number::New(env, params_->sample_aspect_ratio.den));
     return ratio;
 }
 
@@ -235,65 +237,65 @@ void CodecParameters::SetSampleAspectRatio(const Napi::CallbackInfo& info, const
     
     Napi::Object ratio = value.As<Napi::Object>();
     if (ratio.Has("num")) {
-        params_.Get()->sample_aspect_ratio.num = ratio.Get("num").As<Napi::Number>().Int32Value();
+        params_->sample_aspect_ratio.num = ratio.Get("num").As<Napi::Number>().Int32Value();
     }
     if (ratio.Has("den")) {
-        params_.Get()->sample_aspect_ratio.den = ratio.Get("den").As<Napi::Number>().Int32Value();
+        params_->sample_aspect_ratio.den = ratio.Get("den").As<Napi::Number>().Int32Value();
     }
 }
 
 Napi::Value CodecParameters::GetColorRange(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->color_range);
+    return Napi::Number::New(env, params_->color_range);
 }
 
 void CodecParameters::SetColorRange(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->color_range = static_cast<AVColorRange>(value.As<Napi::Number>().Int32Value());
+    params_->color_range = static_cast<AVColorRange>(value.As<Napi::Number>().Int32Value());
 }
 
 Napi::Value CodecParameters::GetColorSpace(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->color_space);
+    return Napi::Number::New(env, params_->color_space);
 }
 
 void CodecParameters::SetColorSpace(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->color_space = static_cast<AVColorSpace>(value.As<Napi::Number>().Int32Value());
+    params_->color_space = static_cast<AVColorSpace>(value.As<Napi::Number>().Int32Value());
 }
 
 Napi::Value CodecParameters::GetColorPrimaries(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->color_primaries);
+    return Napi::Number::New(env, params_->color_primaries);
 }
 
 void CodecParameters::SetColorPrimaries(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->color_primaries = static_cast<AVColorPrimaries>(value.As<Napi::Number>().Int32Value());
+    params_->color_primaries = static_cast<AVColorPrimaries>(value.As<Napi::Number>().Int32Value());
 }
 
 Napi::Value CodecParameters::GetColorTransferCharacteristic(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->color_trc);
+    return Napi::Number::New(env, params_->color_trc);
 }
 
 void CodecParameters::SetColorTransferCharacteristic(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->color_trc = static_cast<AVColorTransferCharacteristic>(value.As<Napi::Number>().Int32Value());
+    params_->color_trc = static_cast<AVColorTransferCharacteristic>(value.As<Napi::Number>().Int32Value());
 }
 
 Napi::Value CodecParameters::GetChromaLocation(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->chroma_location);
+    return Napi::Number::New(env, params_->chroma_location);
 }
 
 void CodecParameters::SetChromaLocation(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->chroma_location = static_cast<AVChromaLocation>(value.As<Napi::Number>().Int32Value());
+    params_->chroma_location = static_cast<AVChromaLocation>(value.As<Napi::Number>().Int32Value());
 }
 
 Napi::Value CodecParameters::GetCodecTag(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    return Napi::Number::New(env, params_.Get()->codec_tag);
+    return Napi::Number::New(env, params_->codec_tag);
 }
 
 void CodecParameters::SetCodecTag(const Napi::CallbackInfo& info, const Napi::Value& value) {
-    params_.Get()->codec_tag = value.As<Napi::Number>().Uint32Value();
+    params_->codec_tag = value.As<Napi::Number>().Uint32Value();
 }
 
 // Methods
@@ -308,7 +310,7 @@ Napi::Value CodecParameters::Copy(const Napi::CallbackInfo& info) {
     CodecParameters* dst = ffmpeg::UnwrapNativeObjectRequired<CodecParameters>(env, info[0], "CodecParameters");
     if (!dst) return env.Undefined();
     
-    int ret = avcodec_parameters_copy(dst->params_.Get(), params_.Get());
+    int ret = avcodec_parameters_copy(dst->params_, params_);
     
     if (ret < 0) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE];
@@ -330,7 +332,7 @@ Napi::Value CodecParameters::FromCodecContext(const Napi::CallbackInfo& info) {
     ffmpeg::CodecContext* ctx = ffmpeg::UnwrapNativeObjectRequired<ffmpeg::CodecContext>(env, info[0], "CodecContext");
     if (!ctx) return env.Undefined();
     
-    int ret = avcodec_parameters_from_context(params_.Get(), ctx->Get());
+    int ret = avcodec_parameters_from_context(params_, ctx->Get());
     
     if (ret < 0) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE];
@@ -358,7 +360,7 @@ Napi::Value CodecParameters::ToCodecContext(const Napi::CallbackInfo& info) {
         return env.Undefined();
     }
     
-    int ret = avcodec_parameters_to_context(avctx, params_.Get());
+    int ret = avcodec_parameters_to_context(avctx, params_);
     
     if (ret < 0) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE];
@@ -370,7 +372,10 @@ Napi::Value CodecParameters::ToCodecContext(const Napi::CallbackInfo& info) {
 }
 
 void CodecParameters::Dispose(const Napi::CallbackInfo& info) {
-    params_.Reset(nullptr);
+    if (owns_params_ && params_) {
+        avcodec_parameters_free(&params_);
+    }
+    params_ = nullptr;
 }
 
 // Static factory
@@ -379,8 +384,10 @@ Napi::Object CodecParameters::FromNative(Napi::Env env, AVCodecParameters* param
     
     CodecParameters* wrapper = Napi::ObjectWrap<CodecParameters>::Unwrap(obj);
     
-    // Make a copy of the parameters
-    avcodec_parameters_copy(wrapper->params_.Get(), params);
+    // Don't copy - use the original pointer directly
+    // This allows modifications to affect the original stream
+    wrapper->params_ = params;
+    wrapper->owns_params_ = false; // We don't own this - it belongs to a stream
     
     return obj;
 }

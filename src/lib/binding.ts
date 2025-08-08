@@ -133,6 +133,8 @@ interface BitStreamFilterConstructor {
 
 type BitStreamFilterContextConstructor = new (filter: NativeBitStreamFilter) => NativeBitStreamFilterContext;
 
+type IOContextConstructor = new () => any;
+
 /**
  * Complete native bindings interface with typed constructors
  */
@@ -179,6 +181,7 @@ export interface NativeBindings {
   Options: OptionsConstructor;
   BitStreamFilter: BitStreamFilterConstructor;
   BitStreamFilterContext: BitStreamFilterContextConstructor;
+  IOContext: IOContextConstructor;
 }
 
 /**

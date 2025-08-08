@@ -21,6 +21,7 @@
 #include "option.h"
 #include "bit_stream_filter.h"
 #include "log.h"
+#include "io_context.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -108,6 +109,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   OutputFormat::Init(env, exports);
   Stream::Init(env, exports);
   FormatContext::Init(env, exports);
+  IOContext::Init(env, exports);
   
   // Filter types
   Filter::Init(env, exports);

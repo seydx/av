@@ -49,8 +49,8 @@ const parseConstants = (headerPath) => {
   const content = fs.readFileSync(headerPath, 'utf8');
   const constants = [];
 
-  // Parse #define constants (including AVERROR and AVFMT)
-  const definePattern = /#define\s+((?:AV|AVERROR|AVFMT)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\/.*)?$/gm;
+  // Parse #define constants (including AVERROR, AVFMT, and AVIO)
+  const definePattern = /#define\s+((?:AV|AVERROR|AVFMT|AVIO)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\/.*)?$/gm;
   let match;
   while ((match = definePattern.exec(content)) !== null) {
     let name = match[1];
@@ -70,12 +70,15 @@ const parseConstants = (headerPath) => {
       continue;
     }
 
-    // Rename AVERROR_ to AV_ERROR_ and AVFMT_ to AV_FMT_ for consistency
+    // Rename AVERROR_ to AV_ERROR_, AVFMT_ to AV_FMT_, and AVIO_ to AV_IO_ for consistency
     if (name.startsWith('AVERROR_')) {
       name = name.replace('AVERROR_', 'AV_ERROR_');
     }
     if (name.startsWith('AVFMT_')) {
       name = name.replace('AVFMT_', 'AV_FMT_');
+    }
+    if (name.startsWith('AVIO_')) {
+      name = name.replace('AVIO_', 'AV_IO_');
     }
 
     constants.push({ name, value, type: 'define' });
@@ -337,6 +340,10 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_INPUT_BUFFER';
       } else if (name.startsWith('AV_FMT_')) {
         prefix = 'AV_FMT';
+      } else if (name.startsWith('AV_IO_FLAG_')) {
+        prefix = 'AV_IO_FLAG';
+      } else if (name.startsWith('AV_IO_')) {
+        prefix = 'AV_IO';
       }
     }
 
@@ -492,6 +499,10 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
 
     // Format flags (note: already handled by AV_FMT_FLAG above)
     ['AV_FMT', 'AVFormatFlags'],
+    
+    // IO flags
+    ['AV_IO_FLAG', 'AVIOFlag'],
+    ['AV_IO', 'AVIOConstants'],
   ]);
 
   // Generate constants by group

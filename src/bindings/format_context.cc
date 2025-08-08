@@ -5,6 +5,7 @@
 #include "input_format.h"
 #include "output_format.h"
 #include "option.h"
+#include "io_context.h"
 #include <vector>
 
 namespace ffmpeg {
@@ -39,6 +40,7 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FormatContext::WriteFrame>("writeFrame"),
     InstanceMethod<&FormatContext::WriteFrameAsync>("writeFrameAsync"),
     InstanceMethod<&FormatContext::WriteInterleavedFrame>("writeInterleavedFrame"),
+    InstanceMethod<&FormatContext::WriteInterleavedFrameAsync>("writeInterleavedFrameAsync"),
     InstanceMethod<&FormatContext::WriteTrailer>("writeTrailer"),
     InstanceMethod<&FormatContext::WriteTrailerAsync>("writeTrailerAsync"),
     
@@ -60,6 +62,9 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     // Format Info
     InstanceAccessor<&FormatContext::GetInputFormat>("inputFormat"),
     InstanceAccessor<&FormatContext::GetOutputFormat>("outputFormat"),
+    
+    // I/O Context
+    InstanceAccessor<&FormatContext::GetPb, &FormatContext::SetPb>("pb"),
     
     // Utility
     InstanceMethod<&FormatContext::Dump>("dump"),
@@ -588,6 +593,43 @@ Napi::Value FormatContext::GetOutputFormat(const Napi::CallbackInfo& info) {
   format.Set("flags", Napi::Number::New(env, fmt->flags));
   
   return format;
+}
+
+// I/O Context
+Napi::Value FormatContext::GetPb(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!context_ || !context_->pb) {
+    return env.Null();
+  }
+  
+  // Return the raw pointer as an external - we'll wrap it properly later
+  // For now, just return something so the API works
+  return env.Null();
+}
+
+void FormatContext::SetPb(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (!context_) {
+    return;
+  }
+  
+  if (value.IsNull() || value.IsUndefined()) {
+    context_->pb = nullptr;
+    return;
+  }
+  
+  // Extract AVIOContext from IOContext object
+  if (value.IsObject()) {
+    Napi::Object obj = value.As<Napi::Object>();
+    
+    // First check if it's a wrapped IOContext object
+    IOContext* ioContext = nullptr;
+    napi_status status = napi_unwrap(info.Env(), obj, reinterpret_cast<void**>(&ioContext));
+    
+    if (status == napi_ok && ioContext) {
+      context_->pb = ioContext->Get();
+    }
+  }
 }
 
 // Utility

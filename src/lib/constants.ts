@@ -1840,6 +1840,20 @@ export const AV_FMT_ALLOW_FLUSH = 65536 as AVFormatFlags;
 export const AV_FMT_SEEK_TO_PTS = 67108864 as AVFormatFlags;
 export const AV_FMT_EVENT_FLAG_METADATA_UPDATED = 1 as AVFormatFlags;
 
+// AV_IO_FLAG constants (from libavformat/avio.h)
+export type AVIOFlag = number & { readonly [__ffmpeg_brand]: 'AVIOFlag' };
+
+export const AV_IO_FLAG_READ = 1 as AVIOFlag;
+export const AV_IO_FLAG_WRITE = 2 as AVIOFlag;
+export const AV_IO_FLAG_NONBLOCK = 8 as AVIOFlag;
+export const AV_IO_FLAG_DIRECT = 32768 as AVIOFlag;
+
+// AV_IO constants (from libavformat/avio.h)
+export type AVIOConstants = number & { readonly [__ffmpeg_brand]: 'AVIOConstants' };
+
+export const AV_IO_SEEKABLE_NORMAL = 0x1 as AVIOConstants;
+export const AV_IO_SEEKABLE_TIME = 0x2 as AVIOConstants;
+
 // Other constants (ungrouped) - 41 constants
 // These are miscellaneous constants that don't fit into a specific category
 export const AV_AAC_ADTS_HEADER_SIZE = 7;

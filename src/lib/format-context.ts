@@ -199,7 +199,31 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
     return OutputFormat.fromNative(native);
   }
 
+  /**
+   * Set I/O context for custom I/O operations
+   */
+  set pb(value: any) {
+    this.context.pb = value ? value.getNative() : null;
+  }
+
+  /**
+   * Get I/O context
+   */
+  get pb(): any {
+    return this.context.pb;
+  }
+
   // ==================== Public Methods ====================
+
+  /**
+   * Allocate an output format context
+   * @param outputFormat Optional output format
+   * @param formatName Optional format name (e.g., 'mp4', 'mkv')
+   * @param filename Optional filename
+   */
+  allocOutputContext(outputFormat: OutputFormat | null, formatName: string, filename: string): void {
+    this.context = bindings.FormatContext.allocOutputFormatContext(outputFormat?.getNative() ?? null, formatName, filename);
+  }
 
   /**
    * Open an input file or URL
@@ -399,6 +423,15 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    */
   writeInterleavedFrame(packet: Packet | null): number {
     return this.context.writeInterleavedFrame(packet ? packet.getNative() : null);
+  }
+
+  /**
+   * Write packet with proper interleaving (asynchronous)
+   * @param packet Packet to write (null to flush)
+   * @returns Promise that resolves when the packet is written
+   */
+  async writeInterleavedFrameAsync(packet: Packet | null): Promise<void> {
+    await this.context.writeInterleavedFrameAsync(packet ? packet.getNative() : null);
   }
 
   /**

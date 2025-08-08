@@ -51,6 +51,7 @@ class FormatContext : public Napi::ObjectWrap<FormatContext> {
   Napi::Value WriteFrame(const Napi::CallbackInfo& info);
   Napi::Value WriteFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value WriteInterleavedFrame(const Napi::CallbackInfo& info);
+  Napi::Value WriteInterleavedFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value WriteTrailer(const Napi::CallbackInfo& info);
   Napi::Value WriteTrailerAsync(const Napi::CallbackInfo& info);  // Promise-based
   
@@ -76,6 +77,10 @@ class FormatContext : public Napi::ObjectWrap<FormatContext> {
   // Format Info
   Napi::Value GetInputFormat(const Napi::CallbackInfo& info);
   Napi::Value GetOutputFormat(const Napi::CallbackInfo& info);
+  
+  // I/O Context
+  Napi::Value GetPb(const Napi::CallbackInfo& info);
+  void SetPb(const Napi::CallbackInfo& info, const Napi::Value& value);
   
   // Utility
   Napi::Value Dump(const Napi::CallbackInfo& info);

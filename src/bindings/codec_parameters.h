@@ -81,22 +81,14 @@ public:
     void Dispose(const Napi::CallbackInfo& info);
     
     // Get native pointer
-    AVCodecParameters* Get() const { return params_.Get(); }
+    AVCodecParameters* Get() const { return params_; }
     
     // Static factory method
     static Napi::Object FromNative(Napi::Env env, AVCodecParameters* params);
 
 private:
-    struct CodecParametersDeleter {
-        static void Free(AVCodecParameters** p) {
-            if (p && *p) {
-                avcodec_parameters_free(p);
-            }
-        }
-    };
-    
-    using CodecParametersResource = ffmpeg::FFmpegResource<AVCodecParameters, CodecParametersDeleter>;
-    CodecParametersResource params_;
+    AVCodecParameters* params_;
+    bool owns_params_; // Track if we own the parameters or if they belong to a stream
 };
 
 #endif // CODEC_PARAMETERS_H
