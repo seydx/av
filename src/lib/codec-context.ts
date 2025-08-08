@@ -38,7 +38,7 @@ export class CodecContext implements Disposable {
 
   // Encoding/Decoding
   sendPacket(packet: Packet | null): number {
-    const ret = this.context.sendPacket((packet as any)?.nativePacket ?? null);
+    const ret = this.context.sendPacket(packet?.nativePacket ?? null);
     if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
       throw new FFmpegError(ret, 'Failed to send packet');
     }
@@ -46,7 +46,7 @@ export class CodecContext implements Disposable {
   }
 
   receiveFrame(frame: Frame): number {
-    const ret = this.context.receiveFrame((frame as any).nativeFrame);
+    const ret = this.context.receiveFrame(frame.nativeFrame);
     if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
       throw new FFmpegError(ret, 'Failed to receive frame');
     }
@@ -54,7 +54,7 @@ export class CodecContext implements Disposable {
   }
 
   sendFrame(frame: Frame | null): number {
-    const ret = this.context.sendFrame((frame as any)?.nativeFrame ?? null);
+    const ret = this.context.sendFrame(frame?.nativeFrame ?? null);
     if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
       throw new FFmpegError(ret, 'Failed to send frame');
     }
@@ -62,7 +62,7 @@ export class CodecContext implements Disposable {
   }
 
   receivePacket(packet: Packet): number {
-    const ret = this.context.receivePacket((packet as any).nativePacket);
+    const ret = this.context.receivePacket(packet.nativePacket);
     if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
       throw new FFmpegError(ret, 'Failed to receive packet');
     }

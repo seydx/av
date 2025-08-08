@@ -87,7 +87,7 @@ export class Frame implements Disposable {
   private native: NativeFrame;
 
   constructor() {
-    this.native = new (bindings as any).Frame();
+    this.native = new bindings.Frame();
   }
 
   // Common properties

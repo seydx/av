@@ -58,7 +58,7 @@ export class FormatContext implements Disposable {
 
   // Reading
   readFrame(packet: Packet): number {
-    const ret = this.context.readFrame((packet as any).nativePacket);
+    const ret = this.context.readFrame(packet.nativePacket);
     if (ret < 0 && ret !== AV_ERROR_EOF) {
       throw new FFmpegError(ret, 'Failed to read frame');
     }
@@ -83,11 +83,11 @@ export class FormatContext implements Disposable {
   }
 
   writeFrame(packet: Packet | null): number {
-    return this.context.writeFrame(packet ? (packet as any).nativePacket : null);
+    return this.context.writeFrame(packet ? packet.nativePacket : null);
   }
 
   writeInterleavedFrame(packet: Packet | null): number {
-    return this.context.writeInterleavedFrame(packet ? (packet as any).nativePacket : null);
+    return this.context.writeInterleavedFrame(packet ? packet.nativePacket : null);
   }
 
   writeTrailer(): void {

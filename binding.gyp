@@ -22,7 +22,8 @@
         "src/bindings/hardware_device_context.cc",
         "src/bindings/hardware_frames_context.cc",
         "src/bindings/audio_fifo.cc",
-        "src/bindings/option.cc"
+        "src/bindings/option.cc",
+        "src/bindings/bit_stream_filter.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

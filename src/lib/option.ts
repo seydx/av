@@ -237,7 +237,7 @@ export class Options {
    * @internal
    */
   static fromNative(context: any): Options {
-    return new Options(new (bindings as any).Options(context));
+    return new Options(new bindings.Options(context));
   }
 
   /**

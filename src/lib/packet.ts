@@ -30,7 +30,7 @@ export class Packet implements Disposable {
   private native: NativePacket;
 
   constructor() {
-    this.native = new (bindings as any).Packet();
+    this.native = new bindings.Packet();
   }
 
   /**

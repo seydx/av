@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { AVLogLevel } from '../lib/constants.js';
 import type { AudioFifo } from './audio-fifo.js';
+import type { BitStreamFilter, BitStreamFilterContext } from './bit-stream-filter.js';
 import type { CodecContext } from './codec-context.js';
 import type { CodecParameters } from './codec-parameters.js';
 import type { Codec } from './codec.js';
@@ -21,6 +22,7 @@ import type { Frame } from './frame.js';
 import type { HardwareDeviceContext } from './hardware-device-context.js';
 import type { HardwareFramesContext } from './hardware-frames-context.js';
 import type { InputFormat } from './input-format.js';
+import type { Options } from './option.js';
 import type { OutputFormat } from './output-format.js';
 import type { Packet } from './packet.js';
 import type { SoftwareResampleContext } from './software-resample-context.js';
@@ -72,6 +74,9 @@ export interface NativeBindings {
   HardwareDeviceContext: typeof HardwareDeviceContext;
   HardwareFramesContext: typeof HardwareFramesContext;
   AudioFifo: typeof AudioFifo;
+  Options: typeof Options;
+  BitStreamFilter: typeof BitStreamFilter;
+  BitStreamFilterContext: typeof BitStreamFilterContext;
 }
 
 /**

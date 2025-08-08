@@ -19,6 +19,7 @@
 #include "hardware_frames_context.h"
 #include "audio_fifo.h"
 #include "option.h"
+#include "bit_stream_filter.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -105,6 +106,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   Codec::Init(env, exports);
   CodecParameters::Init(env, exports);
   CodecContext::Init(env, exports);
+  
+  // BitStream Filter
+  BitStreamFilter::Init(env, exports);
+  BitStreamFilterContext::Init(env, exports);
   
   // Format types
   InputFormat::Init(env, exports);
