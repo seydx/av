@@ -36,11 +36,11 @@ import {
   IOContext,
   OutputFormat,
   Packet,
-} from '@seydx/ffmpeg';
+} from '../../src/lib/index.js';
 
 import { config, ffmpegLog } from '../index.js';
 
-import type { Stream } from '@seydx/ffmpeg';
+import type { Stream } from '../../src/lib/index.js';
 
 // Stream mapping between input and output
 interface StreamMapping {

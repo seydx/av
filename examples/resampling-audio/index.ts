@@ -37,11 +37,11 @@ import {
   Frame,
   Packet,
   SoftwareResampleContext,
-} from '@seydx/ffmpeg';
+} from '../../src/lib/index.js';
 
 import { config, ffmpegLog } from '../index.js';
 
-import type { Stream } from '@seydx/ffmpeg';
+import type { Stream } from '../../src/lib/index.js';
 
 // Target audio parameters for resampling
 const TARGET_SAMPLE_RATE = 44100; // CD quality

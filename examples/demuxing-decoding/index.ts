@@ -30,11 +30,11 @@ import {
   FormatContext,
   Frame,
   Packet,
-} from '@seydx/ffmpeg';
+} from '../../src/lib/index.js';
 
 import { config, ffmpegLog } from '../index.js';
 
-import type { Stream } from '@seydx/ffmpeg';
+import type { Stream } from '../../src/lib/index.js';
 
 // Stream info for decoding
 interface StreamInfo {

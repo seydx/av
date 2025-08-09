@@ -1,8 +1,8 @@
-import { getLogLevelName, setLogCallback, setLogLevel } from '@seydx/ffmpeg';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getLogLevelName, setLogCallback, setLogLevel } from '../src/lib/index.js';
 
-import type { AVLogLevel } from '@seydx/ffmpeg';
+import type { AVLogLevel } from '../src/lib/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

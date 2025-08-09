@@ -35,7 +35,7 @@ import {
   Frame,
   Packet,
   SoftwareScaleContext,
-} from '@seydx/ffmpeg';
+} from '../../src/lib/index.js';
 
 import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
@@ -43,7 +43,7 @@ import { PNG } from 'pngjs';
 
 import { config, ffmpegLog } from '../index.js';
 
-import type { Stream } from '@seydx/ffmpeg';
+import type { Stream } from '../../src/lib/index.js';
 
 // Scaling algorithm constants
 const SWS_BILINEAR = 2; // Good balance of speed and quality

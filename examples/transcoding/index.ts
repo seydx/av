@@ -42,11 +42,11 @@ import {
   OutputFormat,
   Packet,
   Rational,
-} from '@seydx/ffmpeg';
+} from '../../src/lib/index.js';
 
 import { config, ffmpegLog } from '../index.js';
 
-import type { FilterContext, Stream } from '@seydx/ffmpeg';
+import type { FilterContext, Stream } from '../../src/lib/index.js';
 
 // Stream processing context
 interface StreamContext {
