@@ -3,6 +3,38 @@ import { FilterContext } from './filter-context.js';
 
 import type { Filter } from './filter.js';
 import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
+import type { Rational } from './rational.js';
+
+/**
+ * Parameters for creating a buffer source filter
+ */
+export interface BuffersrcParameters {
+  // Video parameters
+  width?: number;
+  height?: number;
+  pixelFormat?: number;
+  timeBase?: Rational;
+  sampleAspectRatio?: Rational;
+
+  // Audio parameters
+  sampleRate?: number;
+  sampleFormat?: number;
+  channelLayout?: {
+    nbChannels: number;
+    order: number;
+    mask: bigint;
+  };
+  channelLayoutString?: string;
+}
+
+/**
+ * Configuration for filter input/output connections
+ */
+export interface FilterInOutConfig {
+  name: string;
+  filterContext: FilterContext;
+  padIdx?: number;
+}
 
 /**
  * Filter graph for complex audio/video processing pipelines
@@ -144,6 +176,81 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   createFilter(filter: Filter, name: string, args?: string): FilterContext {
     const ctx = this.graph.createFilter(filter.getNative(), name, args);
     return new FilterContext(ctx);
+  }
+
+  /**
+   * Create a buffer source filter for feeding frames into the graph
+   * @param name Name for the filter instance
+   * @param params Buffer source parameters
+   * @returns The created filter context
+   * @example
+   * ```typescript
+   * // Video buffer source
+   * const bufferSrc = graph.createBuffersrcFilter('src', {
+   *   width: 1920,
+   *   height: 1080,
+   *   pixelFormat: AV_PIX_FMT_YUV420P,
+   *   timeBase: { num: 1, den: 25 },
+   *   sampleAspectRatio: { num: 1, den: 1 }
+   * });
+   *
+   * // Audio buffer source
+   * const audioSrc = graph.createBuffersrcFilter('asrc', {
+   *   sampleRate: 48000,
+   *   sampleFormat: AV_SAMPLE_FMT_FLTP,
+   *   channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+   *   channelLayoutString: 'stereo'
+   * });
+   * ```
+   */
+  createBuffersrcFilter(name: string, params: BuffersrcParameters): FilterContext {
+    const ctx = this.graph.createBuffersrcFilter(name, params);
+    return new FilterContext(ctx);
+  }
+
+  /**
+   * Create a buffer sink filter for retrieving frames from the graph
+   * @param name Name for the filter instance
+   * @param isAudio Whether this is an audio sink (default: false)
+   * @returns The created filter context
+   * @example
+   * ```typescript
+   * const bufferSink = graph.createBuffersinkFilter('sink');
+   * const audioSink = graph.createBuffersinkFilter('asink', true);
+   * ```
+   */
+  createBuffersinkFilter(name: string, isAudio = false): FilterContext {
+    const ctx = this.graph.createBuffersinkFilter(name, isAudio);
+    return new FilterContext(ctx);
+  }
+
+  /**
+   * Parse a filter graph with explicit input/output connections
+   * @param filters Filter graph description string
+   * @param inputs Input connection configuration
+   * @param outputs Output connection configuration
+   * @example
+   * ```typescript
+   * graph.parseWithInOut(
+   *   'scale=640:480,format=yuv420p',
+   *   { name: 'in', filterContext: bufferSrc, padIdx: 0 },
+   *   { name: 'out', filterContext: bufferSink, padIdx: 0 }
+   * );
+   * ```
+   */
+  parseWithInOut(filters: string, inputs: FilterInOutConfig, outputs: FilterInOutConfig): void {
+    // Convert FilterContext objects to their native handles
+    const inputConfig = {
+      name: inputs.name,
+      filterContext: inputs.filterContext.getNative(),
+      padIdx: inputs.padIdx || 0,
+    };
+    const outputConfig = {
+      name: outputs.name,
+      filterContext: outputs.filterContext.getNative(),
+      padIdx: outputs.padIdx || 0,
+    };
+    this.graph.parseWithInOut(filters, inputConfig, outputConfig);
   }
 
   /**

@@ -18,9 +18,6 @@ public:
   HardwareFramesContext(const Napi::CallbackInfo& info);
   ~HardwareFramesContext();
   
-  // Static factory method
-  static Napi::Value Alloc(const Napi::CallbackInfo& info);
-  
   // Methods
   Napi::Value Initialize(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);

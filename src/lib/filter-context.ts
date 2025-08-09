@@ -103,75 +103,58 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
   }
 
   /**
-   * Add a frame to a buffer source filter (synchronous)
-   * @param frame Frame to add (null to signal EOF)
-   * @param flags Optional flags
-   * @returns 0 on success, negative error code on failure
+   * Add a frame to a buffer source filter
+   * @param frame Frame to add (null to signal end of stream)
+   * @param flags Optional flags for the operation
    * @example
    * ```typescript
-   * // Send frame to buffer source
-   * const ret = bufferSrc.bufferSrcAddFrame(frame);
-   * if (ret < 0) {
-   *   console.error('Failed to add frame');
-   * }
+   * // Add a frame to buffer source
+   * await bufferSrcContext.bufferSrcAddFrameAsync(frame);
+   *
+   * // Signal end of stream
+   * await bufferSrcContext.bufferSrcAddFrameAsync(null);
    * ```
    */
-  bufferSrcAddFrame(frame: Frame | null, flags = 0): number {
-    return this.context.bufferSrcAddFrame(frame?.getNative(), flags);
+  bufferSrcAddFrame(frame: Frame | null, flags = 0): void {
+    this.context.bufferSrcAddFrame(frame?.getNative() ?? null, flags);
   }
 
   /**
-   * Add a frame to a buffer source filter (asynchronous)
-   * @param frame Frame to add (null to signal EOF)
-   * @param flags Optional flags
-   * @returns Promise resolving to 0 on success, negative error code on failure
-   * @example
-   * ```typescript
-   * // Send frame to buffer source
-   * const ret = await bufferSrc.bufferSrcAddFrameAsync(frame);
-   * if (ret < 0) {
-   *   console.error('Failed to add frame');
-   * }
-   * ```
+   * Add a frame to a buffer source filter (async)
+   * @param frame Frame to add (null to signal end of stream)
+   * @param flags Optional flags for the operation
+   * @returns Promise that resolves when frame is added
    */
-  async bufferSrcAddFrameAsync(frame: Frame | null, flags = 0): Promise<number> {
-    return await this.context.bufferSrcAddFrameAsync(frame?.getNative(), flags);
+  async bufferSrcAddFrameAsync(frame: Frame | null, flags = 0): Promise<void> {
+    await this.context.bufferSrcAddFrameAsync(frame?.getNative() ?? null, flags);
   }
 
   /**
-   * Get a frame from a buffer sink filter (synchronous)
+   * Get a frame from a buffer sink filter
    * @param frame Frame to receive the data
-   * @returns 0 on success, negative error code on failure
+   * @param flags Optional flags for the operation
+   * @returns 0 on success, negative on error
    * @example
    * ```typescript
-   * // Get filtered frame from buffer sink
    * const frame = new Frame();
-   * const ret = bufferSink.bufferSinkGetFrame(frame);
+   * const ret = bufferSinkContext.bufferSinkGetFrame(frame);
    * if (ret >= 0) {
-   *   // Process filtered frame
+   *   // Process frame
    * }
    * ```
    */
-  bufferSinkGetFrame(frame: Frame): number {
-    return this.context.bufferSinkGetFrame(frame.getNative());
+  bufferSinkGetFrame(frame: Frame, flags = 0): number {
+    return this.context.bufferSinkGetFrame(frame.getNative(), flags);
   }
 
   /**
-   * Get a frame from a buffer sink filter (asynchronous)
+   * Get a frame from a buffer sink filter (async)
    * @param frame Frame to receive the data
-   * @returns Promise resolving to 0 on success, negative error code on failure
-   * @example
-   * ```typescript
-   * // Get filtered frame from buffer sink
-   * const frame = new Frame();
-   * const ret = await bufferSink.bufferSinkGetFrameAsync(frame);
-   * if (ret >= 0) {
-   *   // Process filtered frame
-   * }
-   * ```
+   * @param flags Optional flags for the operation
+   * @returns Promise that resolves when frame is retrieved
    */
-  async bufferSinkGetFrameAsync(frame: Frame): Promise<number> {
-    return await this.context.bufferSinkGetFrameAsync(frame.getNative());
+  async bufferSinkGetFrameAsync(frame: Frame, flags = 0): Promise<number> {
+    return await this.context.bufferSinkGetFrameAsync(frame.getNative(), flags);
   }
 
   // ==================== Internal Methods ====================

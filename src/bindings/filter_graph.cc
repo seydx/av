@@ -19,8 +19,11 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
     
     // Filter creation
     InstanceMethod<&FilterGraph::CreateFilter>("createFilter"),
+    InstanceMethod<&FilterGraph::CreateBuffersrcFilter>("createBuffersrcFilter"),
+    InstanceMethod<&FilterGraph::CreateBuffersinkFilter>("createBuffersinkFilter"),
     InstanceMethod<&FilterGraph::Parse>("parse"),
     InstanceMethod<&FilterGraph::ParsePtr>("parsePtr"),
+    InstanceMethod<&FilterGraph::ParseWithInOut>("parseWithInOut"),
     
     // Properties
     InstanceAccessor<&FilterGraph::GetNbFilters>("nbFilters"),
@@ -120,6 +123,229 @@ Napi::Value FilterGraph::CreateFilter(const Napi::CallbackInfo& info) {
   ctx->SetContext(filter_ctx);
   
   return ctxObj;
+}
+
+Napi::Value FilterGraph::CreateBuffersrcFilter(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!graph_) {
+    Napi::Error::New(env, "Filter graph is null").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  if (info.Length() < 2 || !info[0].IsString() || !info[1].IsObject()) {
+    Napi::TypeError::New(env, "Name and parameters required").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  std::string name = info[0].As<Napi::String>().Utf8Value();
+  Napi::Object params = info[1].As<Napi::Object>();
+  
+  // Determine media type based on parameters
+  bool isAudio = params.Has("sampleRate");
+  
+  // Find the appropriate buffer source filter
+  const AVFilter* buffersrc = avfilter_get_by_name(isAudio ? "abuffer" : "buffer");
+  if (!buffersrc) {
+    Napi::Error::New(env, "Failed to find buffersrc filter").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  // Build args string based on media type
+  std::string args;
+  if (isAudio) {
+    // Audio buffer source parameters
+    if (params.Has("sampleRate") && params.Has("sampleFormat") && params.Has("channelLayout")) {
+      int sampleRate = params.Get("sampleRate").As<Napi::Number>().Int32Value();
+      int sampleFormat = params.Get("sampleFormat").As<Napi::Number>().Int32Value();
+      
+      // Get channel layout
+      std::string channelLayoutStr = "stereo"; // Default
+      if (params.Has("channelLayoutString")) {
+        channelLayoutStr = params.Get("channelLayoutString").As<Napi::String>().Utf8Value();
+      }
+      
+      char buffer[512];
+      snprintf(buffer, sizeof(buffer), 
+               "sample_rate=%d:sample_fmt=%s:channel_layout=%s",
+               sampleRate,
+               av_get_sample_fmt_name((AVSampleFormat)sampleFormat),
+               channelLayoutStr.c_str());
+      args = buffer;
+    }
+  } else {
+    // Video buffer source parameters
+    if (params.Has("width") && params.Has("height") && params.Has("pixelFormat")) {
+      int width = params.Get("width").As<Napi::Number>().Int32Value();
+      int height = params.Get("height").As<Napi::Number>().Int32Value();
+      int pixelFormat = params.Get("pixelFormat").As<Napi::Number>().Int32Value();
+      
+      // Get time base
+      AVRational timeBase = {1, 25}; // Default
+      if (params.Has("timeBase") && params.Get("timeBase").IsObject()) {
+        Napi::Object tb = params.Get("timeBase").As<Napi::Object>();
+        if (tb.Has("num") && tb.Has("den")) {
+          timeBase.num = tb.Get("num").As<Napi::Number>().Int32Value();
+          timeBase.den = tb.Get("den").As<Napi::Number>().Int32Value();
+        }
+      }
+      
+      // Get sample aspect ratio
+      AVRational sampleAspectRatio = {1, 1}; // Default
+      if (params.Has("sampleAspectRatio") && params.Get("sampleAspectRatio").IsObject()) {
+        Napi::Object sar = params.Get("sampleAspectRatio").As<Napi::Object>();
+        if (sar.Has("num") && sar.Has("den")) {
+          sampleAspectRatio.num = sar.Get("num").As<Napi::Number>().Int32Value();
+          sampleAspectRatio.den = sar.Get("den").As<Napi::Number>().Int32Value();
+        }
+      }
+      
+      char buffer[512];
+      snprintf(buffer, sizeof(buffer), 
+               "video_size=%dx%d:pix_fmt=%s:time_base=%d/%d:pixel_aspect=%d/%d",
+               width, height,
+               av_get_pix_fmt_name((AVPixelFormat)pixelFormat),
+               timeBase.num, timeBase.den,
+               sampleAspectRatio.num, sampleAspectRatio.den);
+      args = buffer;
+    }
+  }
+  
+  // Create the filter context
+  AVFilterContext* filter_ctx = nullptr;
+  int ret = avfilter_graph_create_filter(&filter_ctx, buffersrc, name.c_str(),
+                                         args.c_str(), nullptr, graph_);
+  if (ret < 0) {
+    CheckFFmpegError(env, ret, "Failed to create buffersrc filter");
+    return env.Null();
+  }
+  
+  // Create and return FilterContext wrapper
+  if (FilterContext::constructor.IsEmpty()) {
+    Napi::Error::New(env, "FilterContext class not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  Napi::Object ctxObj = FilterContext::constructor.New({});
+  FilterContext* ctx = Napi::ObjectWrap<FilterContext>::Unwrap(ctxObj);
+  ctx->SetContext(filter_ctx);
+  
+  return ctxObj;
+}
+
+Napi::Value FilterGraph::CreateBuffersinkFilter(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!graph_) {
+    Napi::Error::New(env, "Filter graph is null").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  if (info.Length() < 1 || !info[0].IsString()) {
+    Napi::TypeError::New(env, "Name required").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  std::string name = info[0].As<Napi::String>().Utf8Value();
+  
+  // Determine media type - can be specified or auto-detected
+  bool isAudio = false;
+  if (info.Length() > 1 && info[1].IsBoolean()) {
+    isAudio = info[1].As<Napi::Boolean>().Value();
+  }
+  
+  // Find the appropriate buffer sink filter
+  const AVFilter* buffersink = avfilter_get_by_name(isAudio ? "abuffersink" : "buffersink");
+  if (!buffersink) {
+    Napi::Error::New(env, "Failed to find buffersink filter").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  // Create the filter context (buffersink typically doesn't need args)
+  AVFilterContext* filter_ctx = nullptr;
+  int ret = avfilter_graph_create_filter(&filter_ctx, buffersink, name.c_str(),
+                                         nullptr, nullptr, graph_);
+  if (ret < 0) {
+    CheckFFmpegError(env, ret, "Failed to create buffersink filter");
+    return env.Null();
+  }
+  
+  // Create and return FilterContext wrapper
+  if (FilterContext::constructor.IsEmpty()) {
+    Napi::Error::New(env, "FilterContext class not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  Napi::Object ctxObj = FilterContext::constructor.New({});
+  FilterContext* ctx = Napi::ObjectWrap<FilterContext>::Unwrap(ctxObj);
+  ctx->SetContext(filter_ctx);
+  
+  return ctxObj;
+}
+
+Napi::Value FilterGraph::ParseWithInOut(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 3 || !info[0].IsString() || !info[1].IsObject() || !info[2].IsObject()) {
+    Napi::TypeError::New(env, "Filter string, inputs and outputs required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  std::string filters = info[0].As<Napi::String>().Utf8Value();
+  Napi::Object inputsObj = info[1].As<Napi::Object>();
+  Napi::Object outputsObj = info[2].As<Napi::Object>();
+  
+  // Create AVFilterInOut structures
+  AVFilterInOut* inputs = avfilter_inout_alloc();
+  AVFilterInOut* outputs = avfilter_inout_alloc();
+  
+  if (!inputs || !outputs) {
+    if (inputs) avfilter_inout_free(&inputs);
+    if (outputs) avfilter_inout_free(&outputs);
+    Napi::Error::New(env, "Failed to allocate filter inout structures").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Configure outputs (source)
+  if (inputsObj.Has("name") && inputsObj.Has("filterContext")) {
+    outputs->name = av_strdup(inputsObj.Get("name").As<Napi::String>().Utf8Value().c_str());
+    FilterContext* srcCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, inputsObj.Get("filterContext"), "FilterContext");
+    if (srcCtx) {
+      outputs->filter_ctx = srcCtx->GetContext();
+    }
+    outputs->pad_idx = 0;
+    if (inputsObj.Has("padIdx")) {
+      outputs->pad_idx = inputsObj.Get("padIdx").As<Napi::Number>().Int32Value();
+    }
+    outputs->next = nullptr;
+  }
+  
+  // Configure inputs (sink)
+  if (outputsObj.Has("name") && outputsObj.Has("filterContext")) {
+    inputs->name = av_strdup(outputsObj.Get("name").As<Napi::String>().Utf8Value().c_str());
+    FilterContext* sinkCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, outputsObj.Get("filterContext"), "FilterContext");
+    if (sinkCtx) {
+      inputs->filter_ctx = sinkCtx->GetContext();
+    }
+    inputs->pad_idx = 0;
+    if (outputsObj.Has("padIdx")) {
+      inputs->pad_idx = outputsObj.Get("padIdx").As<Napi::Number>().Int32Value();
+    }
+    inputs->next = nullptr;
+  }
+  
+  // Parse the filter graph
+  int ret = avfilter_graph_parse_ptr(graph_, filters.c_str(), &inputs, &outputs, nullptr);
+  
+  // Clean up
+  avfilter_inout_free(&inputs);
+  avfilter_inout_free(&outputs);
+  
+  if (ret < 0) {
+    CheckFFmpegError(env, ret, "Failed to parse filter graph");
+  }
+  
+  return env.Undefined();
 }
 
 Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {

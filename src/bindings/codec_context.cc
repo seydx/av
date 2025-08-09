@@ -4,6 +4,8 @@
 #include "dictionary.h"
 #include "option.h"
 #include "codec.h"
+#include "hardware_device_context.h"
+#include "hardware_frames_context.h"
 
 namespace ffmpeg {
 
@@ -42,6 +44,10 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&CodecContext::GetFlags, &CodecContext::SetFlags>("flags"),
     InstanceAccessor<&CodecContext::GetFlags2, &CodecContext::SetFlags2>("flags2"),
     InstanceAccessor<&CodecContext::GetExtraData, &CodecContext::SetExtraData>("extraData"),
+    
+    // Hardware acceleration
+    InstanceAccessor<&CodecContext::GetHwDeviceContext, &CodecContext::SetHwDeviceContext>("hwDeviceContext"),
+    InstanceAccessor<&CodecContext::GetHwFramesContext, &CodecContext::SetHwFramesContext>("hwFramesContext"),
     
     // Properties - Video
     InstanceAccessor<&CodecContext::GetWidth, &CodecContext::SetWidth>("width"),
@@ -575,6 +581,58 @@ Napi::Value CodecContext::GetRateControlBufferSize(const Napi::CallbackInfo& inf
 
 void CodecContext::SetRateControlBufferSize(const Napi::CallbackInfo& info, const Napi::Value& value) {
   context_.Get()->rc_buffer_size = value.As<Napi::Number>().Int32Value();
+}
+
+// Hardware Acceleration
+Napi::Value CodecContext::GetHwDeviceContext(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  // Return the hardware device context if set
+  // For now, return undefined as we need to wrap AVHWDeviceContext
+  return env.Undefined();
+}
+
+void CodecContext::SetHwDeviceContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  Napi::Env env = info.Env();
+  
+  if (value.IsNull() || value.IsUndefined()) {
+    context_.Get()->hw_device_ctx = nullptr;
+    return;
+  }
+  
+  // Extract HardwareDeviceContext from the JavaScript object
+  auto hwDeviceCtx = ffmpeg::UnwrapNativeObject<HardwareDeviceContext>(env, value, "HardwareDeviceContext");
+  if (hwDeviceCtx && hwDeviceCtx->GetContext()) {
+    // Increase reference count and set
+    context_.Get()->hw_device_ctx = av_buffer_ref(hwDeviceCtx->GetContext());
+  }
+}
+
+Napi::Value CodecContext::GetHwFramesContext(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  // Return the hardware frames context if set
+  // For now, return undefined as we need to wrap AVHWFramesContext
+  return env.Undefined();
+}
+
+void CodecContext::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  Napi::Env env = info.Env();
+  
+  if (value.IsNull() || value.IsUndefined()) {
+    if (context_.Get()->hw_frames_ctx) {
+      av_buffer_unref(&context_.Get()->hw_frames_ctx);
+    }
+    return;
+  }
+  
+  // Extract HardwareFramesContext from the JavaScript object
+  auto hwFramesCtx = ffmpeg::UnwrapNativeObject<HardwareFramesContext>(env, value, "HardwareFramesContext");
+  if (hwFramesCtx && hwFramesCtx->GetContext()) {
+    // Increase reference count and set
+    if (context_.Get()->hw_frames_ctx) {
+      av_buffer_unref(&context_.Get()->hw_frames_ctx);
+    }
+    context_.Get()->hw_frames_ctx = av_buffer_ref(hwFramesCtx->GetContext());
+  }
 }
 
 // Utility

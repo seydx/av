@@ -7,9 +7,6 @@ Napi::FunctionReference HardwareFramesContext::constructor;
 
 Napi::Object HardwareFramesContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "HardwareFramesContext", {
-    // Static factory method
-    StaticMethod<&HardwareFramesContext::Alloc>("alloc"),
-    
     // Methods
     InstanceMethod<&HardwareFramesContext::Initialize>("initialize"),
     InstanceMethod<&HardwareFramesContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
@@ -31,7 +28,24 @@ Napi::Object HardwareFramesContext::Init(Napi::Env env, Napi::Object exports) {
 
 HardwareFramesContext::HardwareFramesContext(const Napi::CallbackInfo& info)
   : Napi::ObjectWrap<HardwareFramesContext>(info), context_(nullptr) {
-  // Constructor is private, use Alloc() static method
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "Hardware device context required").ThrowAsJavaScriptException();
+    return;
+  }
+  
+  HardwareDeviceContext* hdc = ffmpeg::UnwrapNativeObject<HardwareDeviceContext>(env, info[0], "HardwareDeviceContext");
+  if (!hdc || !hdc->GetContext()) {
+    Napi::TypeError::New(env, "Invalid hardware device context").ThrowAsJavaScriptException();
+    return;
+  }
+  
+  context_ = av_hwframe_ctx_alloc(hdc->GetContext());
+  if (!context_) {
+    Napi::Error::New(env, "Failed to allocate hardware frames context").ThrowAsJavaScriptException();
+    return;
+  }
 }
 
 HardwareFramesContext::~HardwareFramesContext() {
@@ -49,31 +63,6 @@ AVHWFramesContext* HardwareFramesContext::GetData() {
   return reinterpret_cast<AVHWFramesContext*>(context_->data);
 }
 
-// Static factory method
-Napi::Value HardwareFramesContext::Alloc(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 1 || !info[0].IsObject()) {
-    Napi::TypeError::New(env, "Hardware device context required").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  Napi::Object hdcObj = info[0].As<Napi::Object>();
-  HardwareDeviceContext* hdc = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(hdcObj);
-  
-  AVBufferRef* framesContext = av_hwframe_ctx_alloc(hdc->GetContext());
-  if (!framesContext) {
-    Napi::Error::New(env, "Failed to allocate hardware frames context").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  // Create wrapper object
-  Napi::Object obj = constructor.New({});
-  HardwareFramesContext* hfc = Napi::ObjectWrap<HardwareFramesContext>::Unwrap(obj);
-  hfc->context_ = framesContext;
-  
-  return obj;
-}
 
 // Initialize
 Napi::Value HardwareFramesContext::Initialize(const Napi::CallbackInfo& info) {

@@ -67,6 +67,12 @@ class CodecContext : public Napi::ObjectWrap<CodecContext> {
   Napi::Value GetExtraData(const Napi::CallbackInfo& info);
   void SetExtraData(const Napi::CallbackInfo& info, const Napi::Value& value);
   
+  // Hardware acceleration
+  Napi::Value GetHwDeviceContext(const Napi::CallbackInfo& info);
+  void SetHwDeviceContext(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetHwFramesContext(const Napi::CallbackInfo& info);
+  void SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
   // Properties - Video
   Napi::Value GetWidth(const Napi::CallbackInfo& info);
   void SetWidth(const Napi::CallbackInfo& info, const Napi::Value& value);

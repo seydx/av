@@ -188,6 +188,38 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   }
 
   /**
+   * Get/set hardware device context for hardware acceleration
+   */
+  get hwDeviceContext(): any {
+    return this.native.hwDeviceContext;
+  }
+
+  set hwDeviceContext(value: any) {
+    // If it's a HardwareDeviceContext wrapper, extract the native object
+    if (value && typeof value.getNative === 'function') {
+      this.native.hwDeviceContext = value.getNative();
+    } else {
+      this.native.hwDeviceContext = value;
+    }
+  }
+
+  /**
+   * Get/set hardware frames context for hardware acceleration
+   */
+  get hwFramesContext(): any {
+    return this.native.hwFramesContext;
+  }
+
+  set hwFramesContext(value: any) {
+    // If it's a HardwareFramesContext wrapper, extract the native object
+    if (value && typeof value.getNative === 'function') {
+      this.native.hwFramesContext = value.getNative();
+    } else {
+      this.native.hwFramesContext = value;
+    }
+  }
+
+  /**
    * Get AVOptions for this codec context
    * Allows runtime configuration of codec parameters
    */

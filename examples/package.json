@@ -10,7 +10,9 @@
     "transcoding": "tsx transcoding/index.ts",
     "filtering": "tsx filtering/index.ts",
     "scaling-video": "tsx scaling-video/index.ts",
-    "resampling-audio": "tsx resampling-audio/index.ts"
+    "resampling-audio": "tsx resampling-audio/index.ts",
+    "hardware-encoding": "tsx hardware-encoding/index.ts",
+    "hardware-transcoding": "tsx hardware-transcoding/index.ts"
   },
   "dependencies": {
     "@seydx/ffmpeg": "file:..",

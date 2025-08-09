@@ -78,8 +78,8 @@ test('FilterGraph async operations', async (t) => {
     inputFrame.allocBuffer();
 
     // Send frame asynchronously
-    const sendRet = await bufferSrc.bufferSrcAddFrameAsync(inputFrame);
-    assert.ok(sendRet >= 0, 'Should send frame successfully');
+    await bufferSrc.bufferSrcAddFrameAsync(inputFrame);
+    // bufferSrcAddFrameAsync returns void, no need to check return value
 
     // Receive filtered frame asynchronously
     const outputFrame = new Frame();

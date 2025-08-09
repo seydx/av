@@ -23,8 +23,11 @@ public:
   
   // Filter creation
   Napi::Value CreateFilter(const Napi::CallbackInfo& info);
+  Napi::Value CreateBuffersrcFilter(const Napi::CallbackInfo& info);
+  Napi::Value CreateBuffersinkFilter(const Napi::CallbackInfo& info);
   Napi::Value Parse(const Napi::CallbackInfo& info);
   Napi::Value ParsePtr(const Napi::CallbackInfo& info);
+  Napi::Value ParseWithInOut(const Napi::CallbackInfo& info);
   
   // Properties
   Napi::Value GetNbFilters(const Napi::CallbackInfo& info);
