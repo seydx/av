@@ -24,7 +24,6 @@ describe('HardwareDeviceContext', () => {
 
     // Should have at least some hardware types
     // The exact types depend on the system
-    console.log('Supported hardware types:', types);
   });
 
   it('should find type by name', () => {
@@ -144,7 +143,7 @@ describe('Hardware Pipeline Integration', () => {
 
     // Check for VideoToolbox support on macOS
     if (process.platform === 'darwin') {
-      const vtConfig = hwConfigs.find(c => c.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+      const vtConfig = hwConfigs.find((c) => c.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
       if (vtConfig) {
         assert.strictEqual(vtConfig.pixelFormat, AV_PIX_FMT_VIDEOTOOLBOX);
         assert(vtConfig.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX);
@@ -159,7 +158,7 @@ describe('Hardware Pipeline Integration', () => {
       assert(true);
       return;
     }
-    
+
     const encoder = Codec.findEncoderByName('h264_videotoolbox');
     if (!encoder) {
       console.log('h264_videotoolbox encoder not found');
@@ -172,7 +171,7 @@ describe('Hardware Pipeline Integration', () => {
     assert(Array.isArray(hwConfigs));
 
     // VideoToolbox encoder should support hardware configs
-    const vtConfig = hwConfigs.find(c => c.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+    const vtConfig = hwConfigs.find((c) => c.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
     if (vtConfig) {
       assert.strictEqual(vtConfig.pixelFormat, AV_PIX_FMT_VIDEOTOOLBOX);
       // h264_videotoolbox uses HW_FRAMES_CTX method
@@ -199,34 +198,33 @@ describe('Hardware Pipeline Integration', () => {
     try {
       // Create hardware device context
       using hwDevice = new HardwareDeviceContext(types[0].type);
-      
+
       // Create codec context
       using codecCtx = new CodecContext(decoder);
-      
+
       // Configure hardware acceleration
       codecCtx.hwDeviceContext = hwDevice;
-      
+
       // Set hardware pixel format
       const hwConfigs = decoder.getHardwareConfigs();
-      const hwConfig = hwConfigs.find(c => c.deviceType === types[0].type);
+      const hwConfig = hwConfigs.find((c) => c.deviceType === types[0].type);
       if (hwConfig) {
         codecCtx.setHardwarePixelFormat(hwConfig.pixelFormat);
       }
-      
+
       // Verify configuration
       assert(codecCtx.hwDeviceContext);
-      
+
       // Test advanced hardware configuration
       codecCtx.setHardwareConfig({
         preferredFormat: hwConfig?.pixelFormat || AV_PIX_FMT_VIDEOTOOLBOX,
         fallbackFormats: [AV_PIX_FMT_YUV420P],
-        requireHardware: false
+        requireHardware: false,
       });
-      
+
       // Clear and reconfigure
       codecCtx.clearHardwareConfig();
       codecCtx.setHardwarePixelFormat(hwConfig?.pixelFormat || AV_PIX_FMT_VIDEOTOOLBOX);
-      
     } catch (error) {
       console.log('Hardware configuration test skipped:', error);
     }
@@ -246,18 +244,17 @@ describe('Hardware Pipeline Integration', () => {
       swFrame.height = 480;
       swFrame.format = AV_PIX_FMT_YUV420P;
       swFrame.allocBuffer();
-      
+
       // Create hardware frame (mock for testing)
       using hwFrame = new Frame();
-      
+
       // Test transfer operations
       const ret1 = swFrame.transferDataTo(hwFrame);
       assert.strictEqual(typeof ret1, 'number');
-      
+
       using swFrame2 = new Frame();
       const ret2 = swFrame2.transferDataFrom(hwFrame);
       assert.strictEqual(typeof ret2, 'number');
-      
     } catch (error) {
       console.log('Frame transfer test skipped:', error);
     }
@@ -273,7 +270,7 @@ describe('Hardware Pipeline Integration', () => {
 
     const decoder = Codec.findDecoder(AV_CODEC_ID_H264);
     const encoder = Codec.findEncoderByName('h264_videotoolbox');
-    
+
     if (!decoder || !encoder) {
       console.log('Required codecs not available');
       return;
@@ -283,31 +280,28 @@ describe('Hardware Pipeline Integration', () => {
       // Create hardware contexts
       using hwDevice = new HardwareDeviceContext(types[0].type);
       using hwFrames = new HardwareFramesContext(hwDevice);
-      
+
       // Configure frames context
       hwFrames.width = 1920;
       hwFrames.height = 1080;
       hwFrames.softwarePixelFormat = AV_PIX_FMT_YUV420P;
       hwFrames.hardwarePixelFormat = AV_PIX_FMT_VIDEOTOOLBOX;
       hwFrames.initialPoolSize = 20;
-      
+
       // Create decoder context
       using decoderCtx = new CodecContext(decoder);
       decoderCtx.hwDeviceContext = hwDevice;
       decoderCtx.setHardwarePixelFormat(AV_PIX_FMT_VIDEOTOOLBOX);
-      
+
       // Create encoder context
       using encoderCtx = new CodecContext(encoder);
       encoderCtx.hwDeviceContext = hwDevice;
       encoderCtx.hwFramesContext = hwFrames;
-      
+
       // Verify the pipeline configuration
       assert(decoderCtx.hwDeviceContext);
       assert(encoderCtx.hwDeviceContext);
       assert(encoderCtx.hwFramesContext);
-      
-      console.log('Hardware pipeline configuration validated successfully');
-      
     } catch (error) {
       console.log('Hardware pipeline validation skipped:', error);
     }
