@@ -43,3 +43,4 @@ debug.txt
 /build
 .tmp
 go-astiav
+ffmpeg_examples

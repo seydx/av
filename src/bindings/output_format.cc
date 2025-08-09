@@ -59,6 +59,11 @@ Napi::Value OutputFormat::Find(const Napi::CallbackInfo& info) {
 Napi::Value OutputFormat::Guess(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     
+    // Store strings at function scope so they remain valid
+    std::string short_name_str;
+    std::string filename_str;
+    std::string mime_type_str;
+    
     const char* short_name = nullptr;
     const char* filename = nullptr;
     const char* mime_type = nullptr;
@@ -67,18 +72,18 @@ Napi::Value OutputFormat::Guess(const Napi::CallbackInfo& info) {
         Napi::Object options = info[0].As<Napi::Object>();
         
         if (options.Has("shortName") && options.Get("shortName").IsString()) {
-            std::string name = options.Get("shortName").As<Napi::String>().Utf8Value();
-            short_name = name.c_str();
+            short_name_str = options.Get("shortName").As<Napi::String>().Utf8Value();
+            short_name = short_name_str.c_str();
         }
         
         if (options.Has("filename") && options.Get("filename").IsString()) {
-            std::string fname = options.Get("filename").As<Napi::String>().Utf8Value();
-            filename = fname.c_str();
+            filename_str = options.Get("filename").As<Napi::String>().Utf8Value();
+            filename = filename_str.c_str();
         }
         
         if (options.Has("mimeType") && options.Get("mimeType").IsString()) {
-            std::string mime = options.Get("mimeType").As<Napi::String>().Utf8Value();
-            mime_type = mime.c_str();
+            mime_type_str = options.Get("mimeType").As<Napi::String>().Utf8Value();
+            mime_type = mime_type_str.c_str();
         }
     }
     

@@ -104,4 +104,83 @@ describe('Frame', () => {
       assert.strictEqual(frame.width, 800);
     }
   });
+
+  it('should transfer data to another frame', async () => {
+    const srcFrame = new Frame();
+    srcFrame.width = 640;
+    srcFrame.height = 480;
+    srcFrame.format = AV_PIX_FMT_YUV420P;
+    srcFrame.pts = 1000n;
+    srcFrame.allocBuffer();
+
+    const dstFrame = new Frame();
+    
+    // Transfer data from source to destination
+    const ret = srcFrame.transferDataTo(dstFrame);
+    assert.strictEqual(ret, 0);
+    
+    // Destination should have same properties
+    assert.strictEqual(dstFrame.width, 640);
+    assert.strictEqual(dstFrame.height, 480);
+    assert.strictEqual(dstFrame.format, AV_PIX_FMT_YUV420P);
+    assert.strictEqual(dstFrame.pts, 1000n);
+  });
+
+  it('should transfer data from another frame', async () => {
+    const srcFrame = new Frame();
+    srcFrame.width = 320;
+    srcFrame.height = 240;
+    srcFrame.format = AV_PIX_FMT_YUV420P;
+    srcFrame.pts = 2000n;
+    srcFrame.allocBuffer();
+
+    const dstFrame = new Frame();
+    
+    // Transfer data from source to destination
+    const ret = dstFrame.transferDataFrom(srcFrame);
+    assert.strictEqual(ret, 0);
+    
+    // Destination should have same properties
+    assert.strictEqual(dstFrame.width, 320);
+    assert.strictEqual(dstFrame.height, 240);
+    assert.strictEqual(dstFrame.format, AV_PIX_FMT_YUV420P);
+    assert.strictEqual(dstFrame.pts, 2000n);
+  });
+
+  it('should handle hardware transfer methods', async () => {
+    const frame1 = new Frame();
+    frame1.width = 1920;
+    frame1.height = 1080;
+    frame1.format = AV_PIX_FMT_YUV420P;
+    frame1.allocBuffer();
+
+    const frame2 = new Frame();
+    
+    // Test transferDataTo
+    assert.doesNotThrow(() => {
+      frame1.transferDataTo(frame2);
+    });
+    
+    // Test transferDataFrom
+    const frame3 = new Frame();
+    assert.doesNotThrow(() => {
+      frame3.transferDataFrom(frame1);
+    });
+    
+    // Verify properties were transferred
+    assert.strictEqual(frame2.width, 1920);
+    assert.strictEqual(frame2.height, 1080);
+    assert.strictEqual(frame3.width, 1920);
+    assert.strictEqual(frame3.height, 1080);
+  });
+
+  it('should handle transfer with uninitialized frames', async () => {
+    const emptyFrame = new Frame();
+    const targetFrame = new Frame();
+    
+    // Transfer from empty frame should handle gracefully
+    const ret = emptyFrame.transferDataTo(targetFrame);
+    // May return error code but shouldn't crash
+    assert.strictEqual(typeof ret, 'number');
+  });
 });

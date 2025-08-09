@@ -1,458 +1,439 @@
-#!/usr/bin/env node
-
 /**
- * Full Hardware Transcoding Example (VideoToolbox)
+ * Hardware Transcoding Example
  *
- * This example demonstrates complete hardware acceleration:
- * - Hardware-accelerated decoding
- * - Hardware-accelerated encoding
- * - Zero-copy pipeline (frames stay on GPU)
+ * This example demonstrates full GPU-accelerated transcoding:
+ * 1. Hardware-accelerated video decoding (GPU)
+ * 2. Frames stay in GPU memory (zero-copy)
+ * 3. Hardware-accelerated encoding (GPU)
+ * 4. Minimal CPU involvement
  *
- * VideoToolbox is Apple's hardware acceleration framework for macOS/iOS.
+ * This provides maximum performance for video transcoding by keeping
+ * all video data on the GPU throughout the entire pipeline.
  *
- * Usage:
- *   npm run hardware-transcoding -- -i input.mp4 -o output.mp4
+ * The pipeline:
+ * Input -> HW Decoder (GPU) -> GPU Memory -> HW Encoder (GPU) -> Output
+ *
+ * Key concepts:
+ * - HardwareDeviceContext: Manages the GPU device
+ * - Hardware pixel format (AV_PIX_FMT_VIDEOTOOLBOX)
+ * - Zero-copy frame transfer between decoder and encoder
+ * - Checking hardware configuration support
  */
 
 import {
   AV_CODEC_FLAG_GLOBAL_HEADER,
+  AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
+  AV_ERROR_EAGAIN,
   AV_ERROR_EOF,
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
   AV_IO_FLAG_WRITE,
-  AV_LOG_ERROR,
+  AV_LOG_DEBUG,
+  AV_LOG_INFO,
   AV_MEDIA_TYPE_VIDEO,
-  AV_PIX_FMT_NV12,
   AV_PIX_FMT_VIDEOTOOLBOX,
+  AV_PIX_FMT_YUV420P,
   Codec,
   CodecContext,
+  FFmpegError,
   FormatContext,
   Frame,
   HardwareDeviceContext,
-  HardwareFramesContext,
   IOContext,
   OutputFormat,
   Packet,
-  setLogCallback,
-  setLogLevel,
+  Rational,
+  type AVPixelFormat,
 } from '@seydx/ffmpeg';
-import { parseArgs } from 'node:util';
 
-// Parse command line arguments
-const { values } = parseArgs({
-  options: {
-    input: {
-      type: 'string',
-      short: 'i',
-    },
-    output: {
-      type: 'string',
-      short: 'o',
-    },
-    decoder: {
-      type: 'string',
-      short: 'd',
-      default: 'h264_videotoolbox', // Hardware decoder
-    },
-    encoder: {
-      type: 'string',
-      short: 'e',
-      default: 'h264_videotoolbox', // Hardware encoder
-    },
-  },
-});
+import { config, ffmpegLog } from '../index.js';
 
-if (!values.input || !values.output) {
-  console.error('Error: Input and output paths are required');
-  console.log('Usage: npm run hardware-transcoding -- -i <input.mp4> -o <output.mp4> [-d <decoder>] [-e <encoder>]');
-  console.log('Hardware decoders:');
-  console.log('  h264_videotoolbox  - H.264 hardware decoder');
-  console.log('  hevc_videotoolbox  - H.265/HEVC hardware decoder');
-  console.log('Hardware encoders:');
-  console.log('  h264_videotoolbox  - H.264 hardware encoder');
-  console.log('  hevc_videotoolbox  - H.265/HEVC hardware encoder');
-  process.exit(1);
-}
+import type { Stream } from '@seydx/ffmpeg';
 
-const disposables: { [Symbol.dispose]: () => void }[] = [];
-let inputFormatContext: FormatContext;
-let outputFormatContext: FormatContext;
-let ioContext: IOContext | null = null;
-let hwDeviceContext: HardwareDeviceContext | null = null;
-
+// Stream processing state
 interface StreamState {
-  inputStream: any;
-  decCodec: Codec;
-  decCodecContext: CodecContext;
-  encCodec: Codec;
-  encCodecContext: CodecContext;
-  outputStream: any;
-  decFrame: Frame;
-  encPacket: Packet;
+  // Input/Decoding
+  inputStream: Stream;
+  decoder: Codec;
+  decoderContext: CodecContext;
+
+  // Output/Encoding
+  encoder: Codec;
+  encoderContext: CodecContext;
+  outputStream: Stream;
+
+  // Hardware
+  hwDevice: HardwareDeviceContext;
+  hwPixelFormat: AVPixelFormat;
+
+  // Statistics
   framesDecoded: number;
   framesEncoded: number;
 }
 
-let streamState: StreamState | null = null;
+/**
+ * Check if a codec supports hardware acceleration
+ */
+function checkHardwareSupport(codec: Codec, deviceType: number): AVPixelFormat | null {
+  const configs = codec.getHardwareConfigs();
 
-async function main() {
-  try {
-    // Set up logging
-    setLogLevel(AV_LOG_ERROR);
-    setLogCallback((level, msg) => {
-      console.log(`[FFmpeg ${level}] ${msg}`);
-    });
-
-    console.log(`Input file: ${values.input}`);
-    console.log(`Output file: ${values.output}`);
-    console.log(`Decoder: ${values.decoder}`);
-    console.log(`Encoder: ${values.encoder}`);
-
-    // Create hardware device context (shared between decoder and encoder)
-    hwDeviceContext = new HardwareDeviceContext(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
-    disposables.push(hwDeviceContext);
-    console.log('Created VideoToolbox hardware device context');
-
-    // Open input file
-    await openInputFile();
-
-    // Open output file
-    await openOutputFile();
-
-    // Process frames
-    await processFrames();
-
-    // Write trailer
-    await outputFormatContext.writeTrailerAsync();
-
-    console.log('\nHardware transcoding completed successfully!');
-    console.log(`Frames decoded: ${streamState?.framesDecoded ?? 0}`);
-    console.log(`Frames encoded: ${streamState?.framesEncoded ?? 0}`);
-  } catch (error) {
-    console.error('Error during hardware transcoding:', error);
-    process.exit(1);
-  } finally {
-    // Clean up resources
-    for (const disposable of disposables) {
-      disposable[Symbol.dispose]();
+  for (const config of configs) {
+    if (config.deviceType === deviceType && config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) {
+      return config.pixelFormat;
     }
-
-    // Remove log callback
-    setLogCallback(null);
   }
+
+  return null;
 }
 
-async function openInputFile() {
-  console.log('Opening input file...');
+async function main() {
+  // Setup FFmpeg logging
+  ffmpegLog('hw-transcode', config.verbose ? AV_LOG_DEBUG : AV_LOG_INFO);
 
-  // Allocate input format context
-  inputFormatContext = new FormatContext();
-  disposables.push(inputFormatContext);
+  // Use 'using' for automatic resource cleanup
+  using inputFormat = new FormatContext();
+  using decodePacket = new Packet();
+  using hwFrame = new Frame();
+  using cpuFrame = new Frame(); // Fallback for software processing
+  using encodePacket = new Packet();
 
-  // Open input
-  await inputFormatContext.openInputAsync(values.input!);
-  await inputFormatContext.findStreamInfoAsync();
+  // Output resources (manual management)
+  let outputFormat: FormatContext | null = null;
+  let ioContext: IOContext | null = null;
+  let streamState: StreamState | null = null;
+  let hwDevice: HardwareDeviceContext | null = null;
 
-  // Find first video stream
-  const streams = inputFormatContext.streams;
-  for (let i = 0; i < streams.length; i++) {
-    const stream = streams[i];
-    if (!stream) continue;
+  try {
+    const inputFile = config.inputFile;
+    const outputFile = config.outputFile('hw_transcoded');
+    const hwEncoder = config.hardware.encoder;
 
-    const codecParams = stream.codecParameters;
-    if (!codecParams) continue;
+    console.log(`Input: ${inputFile}`);
+    console.log(`Output: ${outputFile}`);
+    console.log(`Hardware encoder: ${hwEncoder}`);
+    console.log('');
 
-    // Only process video streams
-    if (codecParams.codecType !== AV_MEDIA_TYPE_VIDEO) {
-      continue;
+    // Step 1: Create hardware device context
+    console.log('Initializing hardware device...');
+    try {
+      hwDevice = new HardwareDeviceContext(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+      console.log('  Device: VideoToolbox');
+      console.log(`  Type: ${HardwareDeviceContext.getTypeName(AV_HWDEVICE_TYPE_VIDEOTOOLBOX)}`);
+    } catch (error) {
+      throw new Error(`Failed to create hardware device: ${error}`);
     }
 
-    // Find hardware decoder
-    let decoder = Codec.findDecoderByName(values.decoder);
-    if (!decoder) {
-      // Fall back to software decoder
-      decoder = Codec.findDecoder(codecParams.codecId);
-      if (!decoder) {
-        throw new Error(`Decoder not found for codec ID ${codecParams.codecId}`);
+    // Step 2: Open input file
+    console.log('\nOpening input file...');
+    await inputFormat.openInputAsync(inputFile);
+    await inputFormat.findStreamInfoAsync();
+
+    console.log(`Format: ${inputFormat.inputFormat?.name ?? 'unknown'}`);
+    console.log(`Duration: ${inputFormat.duration / 1000000n}s`);
+
+    // Find video stream
+    let videoStream: Stream | null = null;
+    for (const stream of inputFormat.streams) {
+      if (stream.codecParameters?.codecType === AV_MEDIA_TYPE_VIDEO) {
+        videoStream = stream;
+        break;
       }
-      console.log(`Hardware decoder '${values.decoder}' not found, using software decoder: ${decoder.name}`);
+    }
+
+    if (!videoStream?.codecParameters) {
+      throw new Error('No video stream found in input file');
+    }
+
+    // Step 3: Setup hardware decoder
+    console.log('\nSetting up hardware decoder...');
+    const decoder = Codec.findDecoder(videoStream.codecParameters.codecId);
+    if (!decoder) {
+      throw new Error('Decoder not found');
+    }
+
+    // Check if decoder supports hardware acceleration
+    const hwPixelFormat = checkHardwareSupport(decoder, AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+    if (!hwPixelFormat) {
+      console.warn('  Hardware decoding not supported for this codec');
+      console.log('  Falling back to software decoding');
     } else {
-      console.log(`Using hardware decoder: ${decoder.name}`);
+      console.log(`  Hardware pixel format: ${hwPixelFormat}`);
     }
 
-    // Allocate codec context
-    const decCodecContext = new CodecContext(decoder);
-    disposables.push(decCodecContext);
+    const decoderContext = new CodecContext(decoder);
+    videoStream.codecParameters.toCodecContext(decoderContext);
 
-    // Copy parameters to codec context
-    codecParams.toCodecContext(decCodecContext);
-
-    // Set up hardware acceleration for decoder if using hardware codec
-    if (decoder.name?.includes('videotoolbox')) {
-      decCodecContext.hwDeviceContext = hwDeviceContext;
-
-      // Create hardware frames context for decoder
-      const hwFramesContext = new HardwareFramesContext(hwDeviceContext!);
-      disposables.push(hwFramesContext);
-
-      // Configure hardware frames for decoder
-      hwFramesContext.width = decCodecContext.width;
-      hwFramesContext.height = decCodecContext.height;
-      hwFramesContext.hardwarePixelFormat = AV_PIX_FMT_VIDEOTOOLBOX;
-      hwFramesContext.softwarePixelFormat = AV_PIX_FMT_NV12; // VideoToolbox prefers NV12
-      hwFramesContext.initialPoolSize = 20;
-
-      // Initialize hardware frames context
-      hwFramesContext.initialize();
-
-      // Set hardware frames context on decoder
-      decCodecContext.hwFramesContext = hwFramesContext;
-
-      console.log('Hardware acceleration configured for decoder');
+    // Configure hardware acceleration for decoder
+    if (hwPixelFormat) {
+      decoderContext.hwDeviceContext = hwDevice;
+      decoderContext.setHardwarePixelFormat(hwPixelFormat);
+      console.log('  Hardware acceleration enabled for decoder');
     }
 
-    // Open decoder
-    await decCodecContext.openAsync();
+    await decoderContext.openAsync();
+    console.log(`  Decoder: ${decoder.name}`);
+    console.log(`  Resolution: ${decoderContext.width}x${decoderContext.height}`);
+
+    // Step 4: Setup hardware encoder
+    console.log('\nSetting up hardware encoder...');
+
+    let encoder = Codec.findEncoderByName(hwEncoder);
+    if (!encoder) {
+      console.log(`  Hardware encoder '${hwEncoder}' not available`);
+      encoder = Codec.findEncoder(decoder.id);
+      if (!encoder) {
+        throw new Error('No suitable encoder found');
+      }
+      console.log(`  Using software encoder: ${encoder.name}`);
+    } else {
+      console.log(`  Using hardware encoder: ${encoder.name}`);
+    }
+
+    // Step 5: Setup output format
+    console.log('\nSetting up output...');
+
+    const outputFormatType = OutputFormat.guess({ filename: outputFile });
+    if (!outputFormatType) {
+      throw new Error('Could not determine output format');
+    }
+
+    outputFormat = new FormatContext('output', outputFormatType, undefined, outputFile);
+    const outputStream = outputFormat.newStream();
+    if (!outputStream) {
+      throw new Error('Failed to create output stream');
+    }
+
+    // Configure encoder
+    const encoderContext = new CodecContext(encoder);
+    encoderContext.width = decoderContext.width;
+    encoderContext.height = decoderContext.height;
+    // Use the same timebase as the input stream for proper timing
+    encoderContext.timeBase = videoStream.timeBase;
+    encoderContext.framerate = videoStream.rFrameRate || new Rational(30, 1);
+    encoderContext.bitRate = config.transcoding.videoBitrate;
+    encoderContext.sampleAspectRatio = decoderContext.sampleAspectRatio;
+
+    // Configure hardware acceleration for encoder
+    if (encoder.name?.includes('videotoolbox')) {
+      encoderContext.hwDeviceContext = hwDevice;
+      // Use hardware pixel format if decoder outputs hardware frames
+      if (hwPixelFormat) {
+        encoderContext.pixelFormat = AV_PIX_FMT_VIDEOTOOLBOX;
+        console.log('  Hardware acceleration enabled for encoder');
+        console.log('  Zero-copy pipeline: GPU frames stay in GPU memory');
+      } else {
+        // Software decode -> hardware encode
+        encoderContext.pixelFormat = AV_PIX_FMT_YUV420P;
+        console.log('  Mixed pipeline: Software decode -> Hardware encode');
+      }
+    } else {
+      encoderContext.pixelFormat = AV_PIX_FMT_YUV420P;
+      console.log('  Software encoding');
+    }
+
+    // Set global header flag if needed
+    if (outputFormat.outputFormat?.flags && 0x0040) {
+      encoderContext.flags = AV_CODEC_FLAG_GLOBAL_HEADER;
+    }
+
+    await encoderContext.openAsync();
+    console.log(`  Output resolution: ${encoderContext.width}x${encoderContext.height}`);
+    console.log(`  Bitrate: ${encoderContext.bitRate / 1000n}kbps`);
+
+    // Copy encoder parameters to output stream
+    outputStream.codecParameters?.fromCodecContext(encoderContext);
+    outputStream.timeBase = encoderContext.timeBase;
 
     // Initialize stream state
     streamState = {
-      inputStream: stream,
-      decCodec: decoder,
-      decCodecContext,
-      encCodec: null!,
-      encCodecContext: null!,
-      outputStream: null,
-      decFrame: new Frame(),
-      encPacket: new Packet(),
+      inputStream: videoStream,
+      decoder,
+      decoderContext,
+      encoder,
+      encoderContext,
+      outputStream,
+      hwDevice,
+      hwPixelFormat: hwPixelFormat ?? AV_PIX_FMT_YUV420P,
       framesDecoded: 0,
       framesEncoded: 0,
     };
 
-    disposables.push(streamState.decFrame);
-    disposables.push(streamState.encPacket);
-
-    console.log(`Video stream found: ${decCodecContext.width}x${decCodecContext.height}`);
-    console.log(`Decoder pixel format: ${decCodecContext.pixelFormat}`);
-    break;
-  }
-
-  if (!streamState) {
-    throw new Error('No video stream found in input file');
-  }
-}
-
-async function openOutputFile() {
-  if (!streamState) {
-    throw new Error('Stream not initialized');
-  }
-
-  console.log('Opening output file...');
-
-  // Allocate output format context
-  const outputFormat = OutputFormat.guess({ filename: values.output! });
-  if (!outputFormat) {
-    throw new Error('Could not guess output format');
-  }
-
-  outputFormatContext = new FormatContext('output', outputFormat, undefined, values.output);
-  disposables.push(outputFormatContext);
-
-  // Find hardware encoder
-  let encoder = Codec.findEncoderByName(values.encoder);
-  if (!encoder) {
-    // Try software encoder
-    encoder = Codec.findEncoder(streamState.decCodec.id);
-    if (!encoder) {
-      throw new Error(`Encoder not found: ${values.encoder}`);
-    }
-    console.log(`Hardware encoder '${values.encoder}' not found, using software encoder: ${encoder.name}`);
-  } else {
-    console.log(`Using hardware encoder: ${encoder.name}`);
-  }
-  streamState.encCodec = encoder;
-
-  // Create output stream
-  streamState.outputStream = outputFormatContext.newStream();
-  if (!streamState.outputStream) {
-    throw new Error('Failed to create output stream');
-  }
-
-  // Allocate encoder context
-  streamState.encCodecContext = new CodecContext(encoder);
-  disposables.push(streamState.encCodecContext);
-
-  // Set encoder parameters
-  streamState.encCodecContext.width = streamState.decCodecContext.width;
-  streamState.encCodecContext.height = streamState.decCodecContext.height;
-  streamState.encCodecContext.timeBase = streamState.inputStream.timeBase;
-  streamState.encCodecContext.bitRate = 2000000n; // 2 Mbps
-  streamState.encCodecContext.framerate = streamState.decCodecContext.framerate;
-  streamState.encCodecContext.sampleAspectRatio = streamState.decCodecContext.sampleAspectRatio;
-
-  // Configure hardware acceleration for encoder
-  if (encoder.name?.includes('videotoolbox')) {
-    // Set hardware device context on encoder
-    streamState.encCodecContext.hwDeviceContext = hwDeviceContext;
-
-    // Check if decoder is also hardware-accelerated
-    if (streamState.decCodec.name?.includes('videotoolbox')) {
-      // Full hardware pipeline - frames stay on GPU
-      // Create hardware frames context for encoder (can share with decoder)
-      const hwFramesContext = new HardwareFramesContext(hwDeviceContext!);
-      disposables.push(hwFramesContext);
-
-      // Configure hardware frames for encoder
-      hwFramesContext.width = streamState.encCodecContext.width;
-      hwFramesContext.height = streamState.encCodecContext.height;
-      hwFramesContext.hardwarePixelFormat = AV_PIX_FMT_VIDEOTOOLBOX;
-      hwFramesContext.softwarePixelFormat = AV_PIX_FMT_NV12;
-      hwFramesContext.initialPoolSize = 20;
-
-      // Initialize hardware frames context
-      hwFramesContext.initialize();
-
-      // Set hardware frames context on encoder
-      streamState.encCodecContext.hwFramesContext = hwFramesContext;
-      streamState.encCodecContext.pixelFormat = AV_PIX_FMT_VIDEOTOOLBOX;
-
-      console.log('Full hardware pipeline configured (zero-copy)');
-    } else {
-      // Software decode -> hardware encode
-      // Encoder will handle GPU upload internally
-      streamState.encCodecContext.pixelFormat = AV_PIX_FMT_NV12; // VideoToolbox prefers NV12
-      console.log('Hardware encoding with software decoding configured');
-    }
-  } else {
-    // Software encoder
-    streamState.encCodecContext.pixelFormat = streamState.decCodecContext.pixelFormat;
-  }
-
-  // Some formats require global headers
-  if (outputFormatContext.outputFormat && outputFormatContext.outputFormat.flags & 0x0040) {
-    streamState.encCodecContext.flags = AV_CODEC_FLAG_GLOBAL_HEADER;
-  }
-
-  // Open encoder
-  await streamState.encCodecContext.openAsync();
-
-  // Copy encoder parameters to output stream
-  const outputCodecParams = streamState.outputStream.codecParameters;
-  if (outputCodecParams) {
-    outputCodecParams.fromCodecContext(streamState.encCodecContext);
-  }
-
-  // Set stream time base
-  streamState.outputStream.timeBase = streamState.encCodecContext.timeBase;
-
-  // Open output file
-  if (outputFormatContext.outputFormat?.needsFile) {
-    ioContext = new IOContext();
-    disposables.push(ioContext);
-    await ioContext.openAsync(values.output!, AV_IO_FLAG_WRITE);
-    outputFormatContext.pb = ioContext;
-  }
-
-  // Write header
-  await outputFormatContext.writeHeaderAsync();
-
-  console.log(`Output format: ${outputFormatContext.outputFormat?.name ?? 'unknown'}`);
-}
-
-async function processFrames() {
-  if (!streamState) {
-    return;
-  }
-
-  console.log('\nProcessing frames...');
-
-  using packet = new Packet();
-
-  // Read and process all packets
-  while (true) {
-    // Read next packet
-    const ret = await inputFormatContext.readFrameAsync(packet);
-    if (ret === AV_ERROR_EOF) {
-      break;
+    // Open output file
+    if (outputFormat.outputFormat?.needsFile) {
+      ioContext = new IOContext();
+      await ioContext.openAsync(outputFile, AV_IO_FLAG_WRITE);
+      outputFormat.pb = ioContext;
     }
 
-    // Skip non-video packets
-    if (packet.streamIndex !== streamState.inputStream.index) {
-      packet.unref();
-      continue;
-    }
+    // Write file header
+    await outputFormat.writeHeaderAsync();
 
-    // Send packet to decoder
-    await streamState.decCodecContext.sendPacketAsync(packet);
-    packet.unref();
+    // Step 6: Process video frames
+    console.log('\nProcessing video...\n');
 
-    // Receive decoded frames
+    // Helper function to encode frame
+    const encodeFrame = async (frame: Frame | null) => {
+      if (!streamState) return;
+
+      await streamState.encoderContext.sendFrameAsync(frame);
+
+      while (true) {
+        try {
+          const ret = await streamState.encoderContext.receivePacketAsync(encodePacket);
+          if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+            break;
+          }
+
+          // Set packet stream index and rescale timestamps
+          encodePacket.streamIndex = streamState.outputStream.index;
+          encodePacket.rescaleTs(streamState.encoderContext.timeBase, streamState.outputStream.timeBase);
+
+          // Write packet to output
+          await outputFormat!.writeInterleavedFrameAsync(encodePacket);
+          streamState.framesEncoded++;
+
+          // Log progress periodically
+          if (streamState.framesEncoded === 1 || streamState.framesEncoded % 30 === 0) {
+            console.log(`  Frame ${streamState.framesEncoded} encoded`);
+          }
+
+          encodePacket.unref();
+        } catch (error) {
+          if (error instanceof FFmpegError) {
+            if (error.code === AV_ERROR_EAGAIN || error.code === AV_ERROR_EOF) {
+              break;
+            }
+          }
+          throw error;
+        }
+      }
+    };
+
+    // Main processing loop
     while (true) {
-      const recvRet = await streamState.decCodecContext.receiveFrameAsync(streamState.decFrame);
-      if (recvRet < 0) {
+      // Read packet from input
+      const ret = await inputFormat.readFrameAsync(decodePacket);
+      if (ret === AV_ERROR_EOF) {
+        console.log('\nEnd of input file reached');
         break;
       }
 
-      streamState.framesDecoded++;
+      // Process only video packets
+      if (decodePacket.streamIndex !== videoStream.index) {
+        decodePacket.unref();
+        continue;
+      }
 
-      // Encode frame
-      await encodeFrame(streamState.decFrame);
+      // Decode packet
+      await decoderContext.sendPacketAsync(decodePacket);
+      decodePacket.unref();
 
-      streamState.decFrame.unref();
-    }
-  }
+      // Get decoded frames and encode them
+      while (true) {
+        try {
+          // Use hardware frame for zero-copy pipeline
+          const frame = hwPixelFormat ? hwFrame : cpuFrame;
+          const ret = await decoderContext.receiveFrameAsync(frame);
+          if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+            break;
+          }
 
-  // Flush decoder
-  await streamState.decCodecContext.sendPacketAsync(null);
-  while (true) {
-    const recvRet = await streamState.decCodecContext.receiveFrameAsync(streamState.decFrame);
-    if (recvRet < 0) {
-      break;
-    }
+          streamState.framesDecoded++;
 
-    streamState.framesDecoded++;
-    await encodeFrame(streamState.decFrame);
-    streamState.decFrame.unref();
-  }
+          // Preserve frame timestamps for proper duration
+          frame.pts = frame.bestEffortTimestamp || frame.pts;
 
-  // Flush encoder
-  await encodeFrame(null);
-}
+          // For hardware frames, check if transfer is needed
+          if (hwPixelFormat && frame.format === hwPixelFormat) {
+            // Frame is already in GPU memory - direct encode (zero-copy)
+            await encodeFrame(frame);
+          } else if (!hwPixelFormat && encoderContext.pixelFormat === AV_PIX_FMT_VIDEOTOOLBOX) {
+            // Software decode -> hardware encode (frame will be uploaded by encoder)
+            await encodeFrame(frame);
+          } else {
+            // Software pipeline or format conversion needed
+            await encodeFrame(frame);
+          }
 
-async function encodeFrame(frame: Frame | null) {
-  if (!streamState) {
-    return;
-  }
-
-  // Send frame to encoder
-  await streamState.encCodecContext.sendFrameAsync(frame);
-
-  // Receive encoded packets
-  while (true) {
-    const ret = await streamState.encCodecContext.receivePacketAsync(streamState.encPacket);
-    if (ret < 0) {
-      break;
-    }
-
-    // Set packet stream index
-    streamState.encPacket.streamIndex = streamState.outputStream.index;
-
-    // Rescale timestamps
-    streamState.encPacket.rescaleTs(streamState.encCodecContext.timeBase, streamState.outputStream.timeBase);
-
-    // Write packet
-    await outputFormatContext.writeInterleavedFrameAsync(streamState.encPacket);
-    streamState.framesEncoded++;
-
-    // Log progress
-    if (streamState.framesEncoded % 30 === 0) {
-      console.log(`Transcoded ${streamState.framesEncoded} frames...`);
+          frame.unref();
+        } catch (error) {
+          if (error instanceof FFmpegError) {
+            if (error.code === AV_ERROR_EAGAIN || error.code === AV_ERROR_EOF) {
+              break;
+            }
+          }
+          throw error;
+        }
+      }
     }
 
-    streamState.encPacket.unref();
+    // Step 7: Flush pipeline
+    console.log('\nFlushing pipeline...');
+
+    // Flush decoder
+    await decoderContext.sendPacketAsync(null);
+    while (true) {
+      try {
+        const frame = hwPixelFormat ? hwFrame : cpuFrame;
+        const ret = await decoderContext.receiveFrameAsync(frame);
+        if (ret === AV_ERROR_EOF) {
+          break;
+        }
+
+        streamState.framesDecoded++;
+
+        // Preserve frame timestamps for proper duration
+        frame.pts = frame.bestEffortTimestamp || frame.pts;
+
+        await encodeFrame(frame);
+        frame.unref();
+      } catch (error) {
+        if (error instanceof FFmpegError && error.code === AV_ERROR_EOF) {
+          break;
+        }
+        break;
+      }
+    }
+
+    // Flush encoder
+    await encodeFrame(null);
+
+    // Write file trailer
+    await outputFormat.writeTrailerAsync();
+
+    // Summary
+    console.log('\n=== Summary ===');
+    console.log(`Frames decoded: ${streamState.framesDecoded}`);
+    console.log(`Frames encoded: ${streamState.framesEncoded}`);
+    console.log(`Output saved to: ${outputFile}`);
+
+    if (hwPixelFormat && encoder.name?.includes('videotoolbox')) {
+      console.log('Pipeline: Full hardware acceleration (zero-copy)');
+    } else if (hwPixelFormat) {
+      console.log('Pipeline: Hardware decode -> Software encode');
+    } else if (encoder.name?.includes('videotoolbox')) {
+      console.log('Pipeline: Software decode -> Hardware encode');
+    } else {
+      console.log('Pipeline: Full software processing');
+    }
+    console.log('Success!');
+  } catch (error) {
+    console.error('Error:', error);
+    process.exit(1);
+  } finally {
+    // Cleanup
+    streamState?.decoderContext.close();
+    streamState?.encoderContext.close();
+    streamState?.decoderContext[Symbol.dispose]();
+    streamState?.encoderContext[Symbol.dispose]();
+    hwDevice?.[Symbol.dispose]();
+
+    outputFormat?.closeInput();
+    outputFormat?.[Symbol.dispose]();
+    ioContext?.[Symbol.dispose]();
+
+    inputFormat.closeInput();
   }
 }
 
 // Run the example
-main().catch((err) => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+main().catch(console.error);

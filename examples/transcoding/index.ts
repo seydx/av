@@ -1,498 +1,458 @@
-#!/usr/bin/env node
-
 /**
  * Transcoding Example
  *
- * This example demonstrates how to:
- * - Decode video and audio from input file
- * - Apply filters (format conversion, scaling, etc.)
- * - Re-encode to different codecs
- * - Write to output file
+ * This example demonstrates complete transcoding:
+ * 1. Decode video and audio from input file
+ * 2. Apply filters for format conversion and processing
+ * 3. Re-encode with different codecs and settings
+ * 4. Write to output file with new format
  *
- * Usage:
- *   npm run transcoding -- -i input.mp4 -o output.mp4
+ * Transcoding vs Remuxing:
+ * - Remuxing: Just copies packets (fast, no quality loss)
+ * - Transcoding: Decodes and re-encodes (slower, allows format changes)
+ *
+ * Use cases:
+ * - Change video/audio codecs
+ * - Reduce file size (compression)
+ * - Change resolution or aspect ratio
+ * - Convert between incompatible formats
+ * - Apply filters and effects
+ *
+ * Pipeline:
+ * Input -> Decode -> Filter -> Encode -> Output
  */
 
-import type { FilterContext, Stream } from '@seydx/ffmpeg';
 import {
-  AV_CODEC_ID_AAC,
-  AV_CODEC_ID_H264,
-  AV_FMT_GLOBALHEADER,
-  AV_FMT_NOFILE,
+  AV_CODEC_FLAG_GLOBAL_HEADER,
+  AV_ERROR_EAGAIN,
+  AV_ERROR_EOF,
   AV_IO_FLAG_WRITE,
-  AV_LOG_ERROR,
+  AV_LOG_DEBUG,
+  AV_LOG_INFO,
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_VIDEO,
-  AV_PICTURE_TYPE_NONE,
+  AV_PIX_FMT_YUV420P,
+  AV_SAMPLE_FMT_FLTP,
   Codec,
   CodecContext,
   FilterGraph,
   FormatContext,
   Frame,
   IOContext,
+  OutputFormat,
   Packet,
   Rational,
-  setLogCallback,
-  setLogLevel,
 } from '@seydx/ffmpeg';
-import { parseArgs } from 'node:util';
 
-// Parse command line arguments
-const { values } = parseArgs({
-  options: {
-    input: {
-      type: 'string',
-      short: 'i',
-    },
-    output: {
-      type: 'string',
-      short: 'o',
-    },
-  },
-});
+import { config, ffmpegLog } from '../index.js';
 
-if (!values.input || !values.output) {
-  console.error('Error: Input and output paths are required');
-  console.log('Usage: npm run transcoding -- -i <input.mp4> -o <output.mp4>');
-  process.exit(1);
-}
+import type { FilterContext, Stream } from '@seydx/ffmpeg';
 
-// Stream information
-interface StreamInfo {
-  // Filter components
-  buffersinkContext?: FilterContext;
-  buffersrcContext?: FilterContext;
-  filterGraph?: FilterGraph;
-  filterFrame?: Frame;
-
-  // Decoder components
-  decCodec?: Codec;
-  decCodecContext?: CodecContext;
-  decFrame?: Frame;
-
-  // Encoder components
-  encCodec?: Codec;
-  encCodecContext?: CodecContext;
-  encPkt?: Packet;
-
-  // Stream references
+// Stream processing context
+interface StreamContext {
+  // Input
   inputStream: Stream;
-  outputStream?: Stream;
-}
+  decoder: Codec;
+  decoderContext: CodecContext;
 
-// Global variables
-let inputFormatContext: FormatContext;
-let outputFormatContext: FormatContext;
-const streams = new Map<number, StreamInfo>(); // Indexed by input stream index
-const disposables: { [Symbol.dispose]: () => void }[] = [];
+  // Filtering
+  filterGraph: FilterGraph;
+  buffersrcContext: FilterContext;
+  buffersinkContext: FilterContext;
+
+  // Output
+  encoder: Codec;
+  encoderContext: CodecContext;
+  outputStream: Stream;
+
+  // Frames
+  decodeFrame: Frame;
+  filterFrame: Frame;
+
+  // Stats
+  decodedFrames: number;
+  encodedFrames: number;
+}
 
 async function main() {
+  // Setup FFmpeg logging
+  ffmpegLog('transcoding', config.verbose ? AV_LOG_DEBUG : AV_LOG_INFO);
+
+  // Resources with automatic cleanup
+  using inputFormat = new FormatContext();
+  using packet = new Packet();
+  using encodePacket = new Packet();
+
+  // Output resources
+  let outputFormat: FormatContext | null = null;
+  let ioContext: IOContext | null = null;
+
+  // Stream contexts (one per stream)
+  const streamContexts = new Map<number, StreamContext>();
+
   try {
-    // Set up logging
-    setLogLevel(AV_LOG_ERROR);
-    setLogCallback((level, msg) => {
-      console.log(`[FFmpeg ${level}] ${msg}`);
-    });
+    const outputFile = config.outputFile('transcoded');
 
-    console.log(`Transcoding from ${values.input} to ${values.output}`);
+    console.log(`📂 Input: ${config.inputFile}`);
+    console.log(`💾 Output: ${outputFile}`);
+    console.log('');
+    console.log('🎬 Transcoding settings:');
+    console.log(`  Video: ${config.transcoding.videoCodec} @ ${config.transcoding.videoBitrate / 1000000n} Mbps`);
+    console.log(`  Audio: ${config.transcoding.audioCodec} @ ${config.transcoding.audioBitrate / 1000n} kbps`);
+    console.log(`  Resolution: ${config.transcoding.outputWidth}x${config.transcoding.outputHeight}`);
+    console.log('');
 
-    // Open input file
-    await openInputFile();
+    // Step 1: Open input file
+    console.log('📖 Opening input file...');
+    await inputFormat.openInputAsync(config.inputFile);
+    await inputFormat.findStreamInfoAsync();
 
-    // Open output file
-    await openOutputFile();
+    console.log(`📦 Format: ${inputFormat.inputFormat?.name ?? 'unknown'}`);
+    console.log(`⏱️  Duration: ${inputFormat.duration / 1000000n}s`);
+    console.log('');
 
-    // Initialize filters
-    await initFilters();
+    // Step 2: Setup output format
+    console.log('📤 Setting up output...');
+    const outputFormatType = OutputFormat.guess({ filename: outputFile });
+    if (!outputFormatType) {
+      throw new Error('❌ Could not determine output format');
+    }
 
-    // Allocate packet for reading
-    using pkt = new Packet();
+    outputFormat = new FormatContext('output', outputFormatType, undefined, outputFile);
 
-    // Main transcoding loop
-    while (true) {
-      // Read frame from input
-      const ret = await inputFormatContext.readFrameAsync(pkt);
-      if (ret < 0) {
-        break; // End of file
+    // Step 3: Process each stream
+    console.log('🔧 Setting up streams...');
+
+    for (const inputStream of inputFormat.streams) {
+      if (!inputStream.codecParameters) continue;
+
+      const mediaType = inputStream.codecParameters.codecType;
+
+      // Only process audio and video
+      if (mediaType !== AV_MEDIA_TYPE_VIDEO && mediaType !== AV_MEDIA_TYPE_AUDIO) {
+        continue;
       }
 
-      // Get stream
-      const stream = streams.get(pkt.streamIndex);
-      if (!stream) {
-        pkt.unref();
-        continue; // Skip unknown streams
+      // Setup decoder
+      const decoder = Codec.findDecoder(inputStream.codecParameters.codecId);
+      if (!decoder) {
+        console.warn(`  ⚠️  No decoder for stream ${inputStream.index}`);
+        continue;
       }
 
-      // Rescale packet timestamps
-      pkt.rescaleTs(stream.inputStream.timeBase, stream.decCodecContext!.timeBase);
+      const decoderContext = new CodecContext(decoder);
+      inputStream.codecParameters.toCodecContext(decoderContext);
+      await decoderContext.openAsync();
 
-      // Send packet to decoder
-      await stream.decCodecContext!.sendPacketAsync(pkt);
-      pkt.unref();
+      // Create output stream
+      const outputStream = outputFormat.newStream();
+      if (!outputStream) {
+        throw new Error('❌ Failed to create output stream');
+      }
 
-      // Receive and process decoded frames
-      while (true) {
-        const recvRet = await stream.decCodecContext!.receiveFrameAsync(stream.decFrame!);
-        if (recvRet < 0) {
-          break; // No more frames available
+      // Setup encoder based on media type
+      let encoder: Codec | null = null;
+      let encoderContext: CodecContext;
+      let filterGraph: FilterGraph | null = null;
+      let buffersrcContext: FilterContext | null = null;
+      let buffersinkContext: FilterContext | null = null;
+
+      if (mediaType === AV_MEDIA_TYPE_VIDEO) {
+        // Video encoder setup
+        encoder = Codec.findEncoderByName(config.transcoding.videoCodec);
+        if (!encoder) {
+          throw new Error(`❌ Video encoder '${config.transcoding.videoCodec}' not found`);
         }
 
-        // Filter, encode and write frame
-        await filterEncodeWriteFrame(stream.decFrame!, stream);
-        stream.decFrame!.unref();
+        // Create encoder context with the encoder
+        encoderContext = new CodecContext(encoder);
+        encoderContext.width = config.transcoding.outputWidth;
+        encoderContext.height = config.transcoding.outputHeight;
+        encoderContext.pixelFormat = AV_PIX_FMT_YUV420P;
+        encoderContext.bitRate = config.transcoding.videoBitrate;
+        encoderContext.timeBase = new Rational(1, 25);
+        encoderContext.framerate = new Rational(25, 1);
+        encoderContext.gopSize = 12;
+        encoderContext.maxBFrames = 2;
+
+        // Set encoder options
+        if (config.transcoding.videoPreset) {
+          encoderContext.options.set('preset', config.transcoding.videoPreset);
+        }
+        if (config.transcoding.videoCrf) {
+          encoderContext.options.set('crf', String(config.transcoding.videoCrf));
+        }
+
+        // Create video filter graph
+        filterGraph = new FilterGraph();
+
+        // Input buffer
+        buffersrcContext = filterGraph.createBuffersrcFilter('in', {
+          width: decoderContext.width,
+          height: decoderContext.height,
+          pixelFormat: decoderContext.pixelFormat,
+          timeBase: inputStream.timeBase,
+          sampleAspectRatio: decoderContext.sampleAspectRatio,
+        });
+
+        // Output buffer
+        buffersinkContext = filterGraph.createBuffersinkFilter('out', false);
+
+        // Build filter string for scaling and format conversion
+        const filterStr = `scale=${config.transcoding.outputWidth}:${config.transcoding.outputHeight},format=yuv420p`;
+
+        filterGraph.parseWithInOut(filterStr, { name: 'in', filterContext: buffersrcContext, padIdx: 0 }, { name: 'out', filterContext: buffersinkContext, padIdx: 0 });
+
+        await filterGraph.configAsync();
+
+        console.log(`  🎬 Video: ${decoder.name} -> ${encoder.name}`);
+        console.log(`     ${decoderContext.width}x${decoderContext.height} -> ${encoderContext.width}x${encoderContext.height}`);
+      } else if (mediaType === AV_MEDIA_TYPE_AUDIO) {
+        // Audio encoder setup
+        encoder = Codec.findEncoderByName(config.transcoding.audioCodec);
+        if (!encoder) {
+          throw new Error(`❌ Audio encoder '${config.transcoding.audioCodec}' not found`);
+        }
+
+        // Create encoder context with the encoder
+        encoderContext = new CodecContext(encoder);
+        encoderContext.sampleRate = config.transcoding.audioSampleRate;
+        encoderContext.sampleFormat = AV_SAMPLE_FMT_FLTP;
+        encoderContext.channelLayout = {
+          nbChannels: config.transcoding.audioChannels,
+          order: 1,
+          mask: config.transcoding.audioChannels === 2 ? 3n : 1n, // Stereo or Mono
+        };
+        encoderContext.bitRate = config.transcoding.audioBitrate;
+        encoderContext.timeBase = new Rational(1, config.transcoding.audioSampleRate);
+
+        // Create audio filter graph
+        filterGraph = new FilterGraph();
+
+        // Input buffer
+        const inputLayout = decoderContext.channelLayout;
+        buffersrcContext = filterGraph.createBuffersrcFilter('in', {
+          sampleRate: decoderContext.sampleRate,
+          sampleFormat: decoderContext.sampleFormat,
+          channelLayout: inputLayout,
+          timeBase: inputStream.timeBase,
+        });
+
+        // Output buffer
+        buffersinkContext = filterGraph.createBuffersinkFilter('out');
+
+        // Build filter string for audio format conversion
+        const filterStr = `aformat=sample_rates=${config.transcoding.audioSampleRate}:sample_fmts=fltp:channel_layouts=stereo`;
+
+        filterGraph.parseWithInOut(filterStr, { name: 'in', filterContext: buffersrcContext, padIdx: 0 }, { name: 'out', filterContext: buffersinkContext, padIdx: 0 });
+
+        await filterGraph.configAsync();
+
+        console.log(`  🎵 Audio: ${decoder.name} -> ${encoder.name}`);
+        console.log(`     ${decoderContext.sampleRate} Hz -> ${encoderContext.sampleRate} Hz`);
+      } else {
+        throw new Error('Unsupported media type');
+      }
+
+      // Set global header flag if needed
+      if (outputFormat.outputFormat && outputFormat.outputFormat.flags & 0x0040) {
+        encoderContext.flags = AV_CODEC_FLAG_GLOBAL_HEADER;
+      }
+
+      // Open encoder
+      await encoderContext.openAsync();
+
+      // Copy parameters to output stream
+      outputStream.codecParameters?.fromCodecContext(encoderContext);
+      outputStream.timeBase = encoderContext.timeBase;
+
+      // Store context
+      const streamContext: StreamContext = {
+        inputStream,
+        decoder,
+        decoderContext,
+        filterGraph: filterGraph,
+        buffersrcContext: buffersrcContext,
+        buffersinkContext: buffersinkContext,
+        encoder: encoder,
+        encoderContext,
+        outputStream,
+        decodeFrame: new Frame(),
+        filterFrame: new Frame(),
+        decodedFrames: 0,
+        encodedFrames: 0,
+      };
+
+      streamContexts.set(inputStream.index, streamContext);
+    }
+
+    if (streamContexts.size === 0) {
+      throw new Error('❌ No streams to transcode');
+    }
+
+    // Step 4: Open output file
+    if (outputFormat.outputFormat?.needsFile) {
+      ioContext = new IOContext();
+      await ioContext.openAsync(outputFile, AV_IO_FLAG_WRITE);
+      outputFormat.pb = ioContext;
+    }
+
+    // Write header
+    await outputFormat.writeHeaderAsync();
+
+    // Step 5: Main transcoding loop
+    console.log('\n▶️  Transcoding...\n');
+    const startTime = Date.now();
+
+    while (true) {
+      // Read packet from input
+      const ret = await inputFormat.readFrameAsync(packet);
+      if (ret === AV_ERROR_EOF) {
+        break;
+      }
+
+      // Get stream context
+      const streamCtx = streamContexts.get(packet.streamIndex);
+      if (!streamCtx) {
+        packet.unref();
+        continue;
+      }
+
+      // Decode packet
+      await streamCtx.decoderContext.sendPacketAsync(packet);
+      packet.unref();
+
+      // Process decoded frames
+      while (true) {
+        const ret = await streamCtx.decoderContext.receiveFrameAsync(streamCtx.decodeFrame);
+        if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+          break;
+        }
+
+        streamCtx.decodedFrames++;
+
+        // Send through filter
+        await streamCtx.buffersrcContext.bufferSrcAddFrameAsync(streamCtx.decodeFrame);
+        streamCtx.decodeFrame.unref();
+
+        // Get filtered frames
+        while (true) {
+          const ret = await streamCtx.buffersinkContext.bufferSinkGetFrameAsync(streamCtx.filterFrame);
+          if (ret < 0) {
+            break;
+          }
+
+          // Encode frame
+          await streamCtx.encoderContext.sendFrameAsync(streamCtx.filterFrame);
+          streamCtx.filterFrame.unref();
+
+          // Get encoded packets
+          while (true) {
+            const ret = await streamCtx.encoderContext.receivePacketAsync(encodePacket);
+            if (ret < 0) {
+              break;
+            }
+
+            // Write to output
+            encodePacket.streamIndex = streamCtx.outputStream.index;
+            encodePacket.rescaleTs(streamCtx.encoderContext.timeBase, streamCtx.outputStream.timeBase);
+
+            await outputFormat.writeInterleavedFrameAsync(encodePacket);
+            streamCtx.encodedFrames++;
+            encodePacket.unref();
+          }
+        }
+      }
+
+      // Show progress
+      const totalDecoded = Array.from(streamContexts.values()).reduce((sum, ctx) => sum + ctx.decodedFrames, 0);
+      if (totalDecoded % 100 === 0) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        console.log(`  ⏳ Progress: ${totalDecoded} frames decoded (${(totalDecoded / elapsed).toFixed(1)} fps)`);
       }
     }
 
-    // Flush all streams
-    for (const stream of streams.values()) {
+    // Step 6: Flush all streams
+    console.log('\n🚿 Flushing...');
+
+    for (const streamCtx of streamContexts.values()) {
+      // Flush decoder
+      await streamCtx.decoderContext.sendPacketAsync(null);
+      while (true) {
+        const ret = await streamCtx.decoderContext.receiveFrameAsync(streamCtx.decodeFrame);
+        if (ret < 0) break;
+
+        await streamCtx.buffersrcContext.bufferSrcAddFrameAsync(streamCtx.decodeFrame);
+        streamCtx.decodeFrame.unref();
+      }
+
       // Flush filter
-      await filterEncodeWriteFrame(null, stream);
+      await streamCtx.buffersrcContext.bufferSrcAddFrameAsync(null);
+      while (true) {
+        const ret = await streamCtx.buffersinkContext.bufferSinkGetFrameAsync(streamCtx.filterFrame);
+        if (ret < 0) break;
+
+        await streamCtx.encoderContext.sendFrameAsync(streamCtx.filterFrame);
+        streamCtx.filterFrame.unref();
+      }
 
       // Flush encoder
-      await encodeWriteFrame(null, stream);
+      await streamCtx.encoderContext.sendFrameAsync(null);
+      while (true) {
+        const ret = await streamCtx.encoderContext.receivePacketAsync(encodePacket);
+        if (ret < 0) break;
+
+        encodePacket.streamIndex = streamCtx.outputStream.index;
+        encodePacket.rescaleTs(streamCtx.encoderContext.timeBase, streamCtx.outputStream.timeBase);
+
+        await outputFormat.writeInterleavedFrameAsync(encodePacket);
+        streamCtx.encodedFrames++;
+        encodePacket.unref();
+      }
     }
 
     // Write trailer
-    await outputFormatContext.writeTrailerAsync();
+    await outputFormat.writeTrailerAsync();
 
-    console.log('Transcoding completed successfully!');
+    // Calculate statistics
+    const elapsed = (Date.now() - startTime) / 1000;
+
+    // Summary
+    console.log('\n📊 === Summary ===');
+    for (const [index, ctx] of streamContexts) {
+      const type = ctx.inputStream.codecParameters?.codecType === AV_MEDIA_TYPE_VIDEO ? '🎬 Video' : '🎵 Audio';
+      console.log(`${type} stream ${index}:`);
+      console.log(`  Decoded: ${ctx.decodedFrames} frames`);
+      console.log(`  Encoded: ${ctx.encodedFrames} frames`);
+    }
+    console.log(`⏱️  Time: ${elapsed.toFixed(2)}s`);
+    console.log(`💾 Output: ${outputFile}`);
+    console.log('✅ Transcoding completed!');
   } catch (error) {
-    console.error('Error during transcoding:', error);
+    console.error('❌ Error:', error);
     process.exit(1);
   } finally {
-    // Clean up resources
-    for (const disposable of disposables) {
-      disposable[Symbol.dispose]();
+    // Cleanup
+    for (const ctx of streamContexts.values()) {
+      ctx.decoderContext.close();
+      ctx.decoderContext[Symbol.dispose]();
+      ctx.encoderContext.close();
+      ctx.encoderContext[Symbol.dispose]();
+      ctx.decodeFrame[Symbol.dispose]();
+      ctx.filterFrame[Symbol.dispose]();
+      ctx.filterGraph[Symbol.dispose]();
     }
 
-    // Remove log callback to allow process to exit
-    setLogCallback(null);
+    inputFormat.closeInput();
+
+    if (outputFormat) {
+      outputFormat[Symbol.dispose]();
+    }
+    if (ioContext) {
+      ioContext[Symbol.dispose]();
+    }
   }
 }
 
-async function openInputFile() {
-  console.log('Opening input file...');
-
-  // Allocate input format context
-  inputFormatContext = new FormatContext();
-  disposables.push(inputFormatContext);
-
-  // Open input
-  await inputFormatContext.openInputAsync(values.input!);
-  await inputFormatContext.findStreamInfoAsync();
-
-  // Process each stream
-  const inputStreams = inputFormatContext.streams;
-  for (let i = 0; i < inputStreams.length; i++) {
-    const inputStream = inputStreams[i];
-    if (!inputStream) continue;
-
-    const codecParams = inputStream.codecParameters;
-    if (!codecParams) continue;
-
-    // Only process audio and video streams
-    const mediaType = codecParams.codecType;
-    if (mediaType !== AV_MEDIA_TYPE_AUDIO && mediaType !== AV_MEDIA_TYPE_VIDEO) {
-      continue;
-    }
-
-    // Create stream info
-    const streamInfo: StreamInfo = {
-      inputStream: inputStream,
-    };
-
-    // Find decoder
-    const decoder = Codec.findDecoder(codecParams.codecId);
-    if (!decoder) {
-      throw new Error(`Decoder not found for codec ID ${codecParams.codecId}`);
-    }
-    streamInfo.decCodec = decoder;
-
-    // Allocate codec context
-    streamInfo.decCodecContext = new CodecContext(streamInfo.decCodec);
-    disposables.push(streamInfo.decCodecContext);
-
-    // Copy parameters to codec context
-    codecParams.toCodecContext(streamInfo.decCodecContext);
-
-    // Set framerate for video
-    if (mediaType === AV_MEDIA_TYPE_VIDEO) {
-      // TODO: Implement guessFrameRate
-      // streamInfo.decCodecContext.framerate = inputFormatContext.guessFrameRate(inputStream, null);
-    }
-
-    // Open decoder
-    await streamInfo.decCodecContext.openAsync();
-
-    // Set time base
-    streamInfo.decCodecContext.timeBase = inputStream.timeBase;
-
-    // Allocate frame for decoding
-    streamInfo.decFrame = new Frame();
-    disposables.push(streamInfo.decFrame);
-
-    // Store stream info
-    streams.set(i, streamInfo);
-  }
-
-  console.log(`Found ${streams.size} streams to transcode`);
-}
-
-async function openOutputFile() {
-  console.log('Opening output file...');
-
-  // Allocate output format context
-  outputFormatContext = new FormatContext('output', null, '', values.output);
-  disposables.push(outputFormatContext);
-
-  // Create output streams
-  for (const streamInfo of streams.values()) {
-    // Create new stream
-    streamInfo.outputStream = outputFormatContext.newStream(null);
-    if (!streamInfo.outputStream) {
-      throw new Error('Failed to create output stream');
-    }
-
-    // Choose output codec
-    const codecId = streamInfo.decCodecContext!.mediaType === AV_MEDIA_TYPE_VIDEO ? AV_CODEC_ID_H264 : AV_CODEC_ID_AAC;
-
-    // Find encoder
-    const encoder = Codec.findEncoder(codecId);
-    if (!encoder) {
-      throw new Error(`Encoder not found for codec ID ${codecId}`);
-    }
-    streamInfo.encCodec = encoder;
-
-    // Allocate encoder context
-    streamInfo.encCodecContext = new CodecContext(streamInfo.encCodec);
-    disposables.push(streamInfo.encCodecContext);
-
-    // Configure encoder based on media type
-    if (streamInfo.decCodecContext!.mediaType === AV_MEDIA_TYPE_AUDIO) {
-      // Audio encoder configuration
-      const channelLayouts = streamInfo.encCodec.getChannelLayouts();
-      if (channelLayouts && channelLayouts.length > 0) {
-        streamInfo.encCodecContext.channelLayout = channelLayouts[0];
-      } else {
-        streamInfo.encCodecContext.channelLayout = streamInfo.decCodecContext!.channelLayout;
-      }
-
-      streamInfo.encCodecContext.sampleRate = streamInfo.decCodecContext!.sampleRate;
-
-      const sampleFormats = streamInfo.encCodec.getSampleFormats();
-      if (sampleFormats && sampleFormats.length > 0) {
-        streamInfo.encCodecContext.sampleFormat = sampleFormats[0];
-      } else {
-        streamInfo.encCodecContext.sampleFormat = streamInfo.decCodecContext!.sampleFormat;
-      }
-
-      streamInfo.encCodecContext.timeBase = new Rational(1, streamInfo.encCodecContext.sampleRate);
-    } else {
-      // Video encoder configuration
-      streamInfo.encCodecContext.height = streamInfo.decCodecContext!.height;
-
-      const pixelFormats = streamInfo.encCodec.getPixelFormats();
-      if (pixelFormats && pixelFormats.length > 0) {
-        streamInfo.encCodecContext.pixelFormat = pixelFormats[0];
-      } else {
-        streamInfo.encCodecContext.pixelFormat = streamInfo.decCodecContext!.pixelFormat;
-      }
-
-      streamInfo.encCodecContext.sampleAspectRatio = streamInfo.decCodecContext!.sampleAspectRatio;
-      streamInfo.encCodecContext.timeBase = streamInfo.decCodecContext!.timeBase;
-      streamInfo.encCodecContext.width = streamInfo.decCodecContext!.width;
-    }
-
-    // Set global header flag if required
-    if (outputFormatContext.outputFormat?.flags && outputFormatContext.outputFormat.flags & AV_FMT_GLOBALHEADER) {
-      // TODO: Fix flags type
-      // streamInfo.encCodecContext.flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-    }
-
-    // Open encoder
-    await streamInfo.encCodecContext.openAsync();
-
-    // Copy encoder parameters to output stream
-    if (streamInfo.outputStream.codecParameters) {
-      streamInfo.outputStream.codecParameters.fromCodecContext(streamInfo.encCodecContext);
-    }
-
-    // Set output stream time base
-    streamInfo.outputStream.timeBase = streamInfo.encCodecContext.timeBase;
-
-    // Allocate encoding packet
-    streamInfo.encPkt = new Packet();
-    disposables.push(streamInfo.encPkt);
-  }
-
-  // Open output file if needed
-  if (outputFormatContext.outputFormat?.flags && !(outputFormatContext.outputFormat.flags & AV_FMT_NOFILE)) {
-    const ioContext = new IOContext();
-    await ioContext.openAsync(values.output!, AV_IO_FLAG_WRITE);
-    outputFormatContext.pb = ioContext;
-    disposables.push(ioContext);
-  }
-
-  // Write header
-  await outputFormatContext.writeHeaderAsync();
-}
-
-async function initFilters() {
-  console.log('Initializing filters...');
-
-  for (const streamInfo of streams.values()) {
-    if (!streamInfo.decCodecContext || !streamInfo.encCodecContext) {
-      continue;
-    }
-
-    // Allocate filter graph
-    streamInfo.filterGraph = new FilterGraph();
-    disposables.push(streamInfo.filterGraph);
-
-    // Determine media type
-    const isAudio = streamInfo.decCodecContext.mediaType === AV_MEDIA_TYPE_AUDIO;
-
-    // Create buffer source parameters
-    const buffersrcParams: any = {};
-    let filterSpec = '';
-
-    if (isAudio) {
-      // Audio buffer source parameters
-      buffersrcParams.sampleRate = streamInfo.decCodecContext.sampleRate;
-      buffersrcParams.sampleFormat = streamInfo.decCodecContext.sampleFormat;
-      buffersrcParams.channelLayout = streamInfo.decCodecContext.channelLayout;
-      buffersrcParams.channelLayoutString = 'stereo'; // TODO: Get actual layout string
-
-      // Create filter specification for audio format conversion
-      const sampleFormatName = getSampleFormatName(streamInfo.encCodecContext.sampleFormat);
-      filterSpec = `aformat=sample_fmts=${sampleFormatName}:channel_layouts=stereo`;
-    } else {
-      // Video buffer source parameters
-      buffersrcParams.width = streamInfo.decCodecContext.width;
-      buffersrcParams.height = streamInfo.decCodecContext.height;
-      buffersrcParams.pixelFormat = streamInfo.decCodecContext.pixelFormat;
-      buffersrcParams.timeBase = streamInfo.inputStream.timeBase;
-      buffersrcParams.sampleAspectRatio = streamInfo.decCodecContext.sampleAspectRatio;
-
-      // Create filter specification for video format conversion
-      const pixelFormatName = getPixelFormatName(streamInfo.encCodecContext.pixelFormat);
-      filterSpec = `format=pix_fmts=${pixelFormatName}`;
-    }
-
-    // Create buffer source and sink
-    streamInfo.buffersrcContext = streamInfo.filterGraph.createBuffersrcFilter('in', buffersrcParams);
-    streamInfo.buffersinkContext = streamInfo.filterGraph.createBuffersinkFilter('out', isAudio);
-
-    // Parse the filter graph with connections
-    streamInfo.filterGraph.parseWithInOut(
-      filterSpec,
-      { name: 'in', filterContext: streamInfo.buffersrcContext, padIdx: 0 },
-      { name: 'out', filterContext: streamInfo.buffersinkContext, padIdx: 0 },
-    );
-
-    // Configure the filter graph
-    await streamInfo.filterGraph.configAsync();
-
-    // Allocate filter frame
-    streamInfo.filterFrame = new Frame();
-    disposables.push(streamInfo.filterFrame);
-  }
-}
-
-// Helper functions to get format names (simplified versions)
-function getSampleFormatName(format: number): string {
-  // Map common sample formats
-  const formats: Record<number, string> = {
-    0: 'u8',
-    1: 's16',
-    2: 's32',
-    3: 'flt',
-    4: 'dbl',
-    5: 'u8p',
-    6: 's16p',
-    7: 's32p',
-    8: 'fltp',
-    9: 'dblp',
-  };
-  return formats[format] || 'fltp';
-}
-
-function getPixelFormatName(format: number): string {
-  // Map common pixel formats
-  const formats: Record<number, string> = {
-    0: 'yuv420p',
-    1: 'yuyv422',
-    2: 'rgb24',
-    3: 'bgr24',
-    4: 'yuv422p',
-    5: 'yuv444p',
-    12: 'yuv420p',
-    26: 'bgra',
-    28: 'rgba',
-  };
-  return formats[format] || 'yuv420p';
-}
-
-async function filterEncodeWriteFrame(frame: Frame | null, stream: StreamInfo) {
-  if (!stream.buffersrcContext || !stream.buffersinkContext || !stream.filterFrame) {
-    // No filters configured, pass frame directly to encoder
-    if (frame) {
-      await encodeWriteFrame(frame, stream);
-    }
-    return;
-  }
-
-  // Add frame to buffer source (null signals end of stream)
-  await stream.buffersrcContext.bufferSrcAddFrameAsync(frame);
-
-  // Pull filtered frames from buffer sink
-  while (true) {
-    const ret = await stream.buffersinkContext.bufferSinkGetFrameAsync(stream.filterFrame);
-    if (ret < 0) {
-      // No more frames available (EAGAIN) or end of stream (EOF)
-      break;
-    }
-
-    // Reset picture type for encoder
-    if (stream.decCodecContext?.mediaType === AV_MEDIA_TYPE_VIDEO) {
-      stream.filterFrame.pictType = AV_PICTURE_TYPE_NONE; // AV_PICTURE_TYPE_NONE
-    }
-
-    // Encode and write the filtered frame
-    await encodeWriteFrame(stream.filterFrame, stream);
-    stream.filterFrame.unref();
-  }
-}
-
-async function encodeWriteFrame(frame: Frame | null, stream: StreamInfo) {
-  if (!stream.encCodecContext || !stream.encPkt || !stream.outputStream) {
-    return;
-  }
-
-  // Send frame to encoder
-  await stream.encCodecContext.sendFrameAsync(frame);
-
-  // Receive encoded packets
-  while (true) {
-    const ret = await stream.encCodecContext.receivePacketAsync(stream.encPkt);
-    if (ret < 0) {
-      break; // No more packets
-    }
-
-    // Set packet stream index
-    stream.encPkt.streamIndex = stream.outputStream.index;
-
-    // Rescale timestamps
-    stream.encPkt.rescaleTs(stream.encCodecContext.timeBase, stream.outputStream.timeBase);
-
-    // Write packet
-    await outputFormatContext.writeInterleavedFrameAsync(stream.encPkt);
-    stream.encPkt.unref();
-  }
-}
-
-// Run the transcoding
-main().catch((err) => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+// Run the example
+main().catch(console.error);

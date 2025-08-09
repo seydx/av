@@ -243,12 +243,12 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
     const inputConfig = {
       name: inputs.name,
       filterContext: inputs.filterContext.getNative(),
-      padIdx: inputs.padIdx || 0,
+      padIdx: inputs.padIdx ?? 0,
     };
     const outputConfig = {
       name: outputs.name,
       filterContext: outputs.filterContext.getNative(),
-      padIdx: outputs.padIdx || 0,
+      padIdx: outputs.padIdx ?? 0,
     };
     this.graph.parseWithInOut(filters, inputConfig, outputConfig);
   }

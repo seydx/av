@@ -267,6 +267,8 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_CODEC_FLAG';
       } else if (name.startsWith('AV_CODEC_CAP_')) {
         prefix = 'AV_CODEC_CAP';
+      } else if (name.startsWith('AV_CODEC_HW_CONFIG_METHOD_')) {
+        prefix = 'AV_CODEC_HW_CONFIG_METHOD';
       } else if (name.startsWith('AV_PKT_FLAG_')) {
         prefix = 'AV_PKT_FLAG';
       } else if (name.startsWith('AV_FRAME_FLAG_')) {
@@ -598,6 +600,20 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
       }
     }
     output += '\n';
+  }
+
+  // Add hardware configuration method constants
+  // These are defined as anonymous enum values in codec.h
+  if (!processedTypes.has('AVCodecHWConfigMethod')) {
+    output += `// ============================================================================\n`;
+    output += `// AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods\n`;
+    output += `// ============================================================================\n\n`;
+    output += `export const AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;\n`;
+    output += `export const AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX = 0x02;\n`;
+    output += `export const AV_CODEC_HW_CONFIG_METHOD_INTERNAL = 0x04;\n`;
+    output += `export const AV_CODEC_HW_CONFIG_METHOD_AD_HOC = 0x08;\n`;
+    output += `\n`;
+    processedTypes.add('AVCodecHWConfigMethod');
   }
 
   // Extract and process AVERROR constants from error.h

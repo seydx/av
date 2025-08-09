@@ -220,6 +220,44 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   }
 
   /**
+   * Enable hardware pixel format for decoding
+   * Sets up the decoder to use hardware acceleration with the specified format
+   * @param hardwareFormat The hardware pixel format to use (e.g., AV_PIX_FMT_VIDEOTOOLBOX)
+   * @example
+   * ```typescript
+   * // Simple hardware setup
+   * codecContext.hwDeviceContext = hwDevice;
+   * codecContext.setHardwarePixelFormat(AV_PIX_FMT_VIDEOTOOLBOX);
+   * ```
+   */
+  setHardwarePixelFormat(hardwareFormat: AVPixelFormat): void {
+    this.native.setHardwarePixelFormat(hardwareFormat);
+  }
+
+  /**
+   * Configure hardware acceleration with advanced options
+   * @param config Hardware configuration options
+   * @example
+   * ```typescript
+   * codecContext.setHardwareConfig({
+   *   preferredFormat: AV_PIX_FMT_VIDEOTOOLBOX,
+   *   fallbackFormats: [AV_PIX_FMT_YUV420P],
+   *   requireHardware: false
+   * });
+   * ```
+   */
+  setHardwareConfig(config: { preferredFormat?: AVPixelFormat; fallbackFormats?: AVPixelFormat[]; requireHardware?: boolean }): void {
+    this.native.setHardwareConfig(config);
+  }
+
+  /**
+   * Clear hardware configuration and reset to default behavior
+   */
+  clearHardwareConfig(): void {
+    this.native.clearHardwareConfig();
+  }
+
+  /**
    * Get AVOptions for this codec context
    * Allows runtime configuration of codec parameters
    */

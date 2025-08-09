@@ -16,6 +16,18 @@ export interface CodecProfile {
 }
 
 /**
+ * Hardware configuration for a codec
+ */
+export interface CodecHardwareConfig {
+  /** Hardware pixel format */
+  pixelFormat: AVPixelFormat;
+  /** Hardware configuration methods */
+  methods: number;
+  /** Hardware device type */
+  deviceType: number;
+}
+
+/**
  * FFmpeg codec wrapper for encoding and decoding
  *
  * Represents an encoder or decoder that can process audio/video data.
@@ -239,6 +251,14 @@ export class Codec implements NativeWrapper<NativeCodec> {
    */
   getProfiles(): CodecProfile[] {
     return this.native.getProfiles();
+  }
+
+  /**
+   * Get hardware configurations for this codec
+   * @returns Array of hardware configurations
+   */
+  getHardwareConfigs(): CodecHardwareConfig[] {
+    return this.native.getHardwareConfigs();
   }
 
   /**

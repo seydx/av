@@ -2,21 +2,26 @@
  * Demuxing and Decoding Example
  *
  * This example demonstrates how to:
- * 1. Open a media file
+ * 1. Open a media file (demuxing)
  * 2. Find and setup decoders for audio/video streams
  * 3. Read packets from the file
  * 4. Decode frames from packets
  *
- * Based on go-astiav's demuxing_decoding example
+ * Key concepts:
+ * - FormatContext: Container for media file handling
+ * - Packet: Compressed data read from file
+ * - Frame: Decoded audio/video data
+ * - CodecContext: Decoder state and configuration
+ *
+ * The data flow is:
+ * File -> FormatContext -> Packet -> CodecContext -> Frame
  */
 
-import { parseArgs } from 'node:util';
-
-import type { Stream } from '@seydx/ffmpeg';
 import {
   AV_ERROR_EAGAIN,
   AV_ERROR_EOF,
   AV_LOG_DEBUG,
+  AV_LOG_INFO,
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_VIDEO,
   Codec,
@@ -25,10 +30,11 @@ import {
   FormatContext,
   Frame,
   Packet,
-  getLogLevelName,
-  setLogCallback,
-  setLogLevel,
 } from '@seydx/ffmpeg';
+
+import { config, ffmpegLog } from '../index.js';
+
+import type { Stream } from '@seydx/ffmpeg';
 
 // Stream info for decoding
 interface StreamInfo {
@@ -37,83 +43,62 @@ interface StreamInfo {
   inputStream: Stream;
 }
 
-// Parse command line arguments
-const { values } = parseArgs({
-  options: {
-    input: {
-      type: 'string',
-      short: 'i',
-    },
-    verbose: {
-      type: 'boolean',
-      short: 'v',
-      default: false,
-    },
-  },
-});
-
-if (!values.input) {
-  console.error('Usage: demuxing-decoding.ts -i <input file>');
-  process.exit(1);
-}
-
 async function main() {
-  // Setup FFmpeg logging if verbose
-  if (values.verbose) {
-    setLogLevel(AV_LOG_DEBUG);
-    setLogCallback((level, message) => {
-      const levelName = getLogLevelName(level);
-      console.log(`[${levelName}] ${message}`);
-    });
-  }
+  // Setup FFmpeg logging
+  ffmpegLog('demux-decode', config.verbose ? AV_LOG_DEBUG : AV_LOG_INFO);
 
-  // Resources that need cleanup
-  const packet = new Packet();
-  const frame = new Frame();
-  const formatContext = new FormatContext();
+  // Use 'using' for automatic resource cleanup
+  using packet = new Packet();
+  using frame = new Frame();
+  using formatContext = new FormatContext();
+
   const streams = new Map<number, StreamInfo>();
 
   try {
-    console.log(`Opening input file: ${values.input}`);
+    console.log(`Opening input file: ${config.inputFile}`);
 
-    // Open input file
-    await formatContext.openInputAsync(values.input!);
+    // Step 1: Open the input file
+    // This identifies the container format (e.g., MP4, MKV, AVI)
+    await formatContext.openInputAsync(config.inputFile);
 
-    // Find stream information
+    // Step 2: Analyze the file to find all streams
+    // This reads headers to identify codecs, duration, etc.
     await formatContext.findStreamInfoAsync();
 
     console.log(`Format: ${formatContext.inputFormat?.name ?? 'unknown'}`);
     console.log(`Duration: ${formatContext.duration / 1000000n}s`);
     console.log(`Number of streams: ${formatContext.nbStreams}`);
+    console.log('');
 
-    // Setup decoders for each audio/video stream
+    // Step 3: Setup decoders for each audio/video stream
     for (const stream of formatContext.streams) {
       const codecParams = stream.codecParameters;
       if (!codecParams) continue;
 
-      // Skip non audio/video streams
+      // We only handle audio and video streams in this example
       const mediaType = codecParams.codecType;
       if (mediaType !== AV_MEDIA_TYPE_AUDIO && mediaType !== AV_MEDIA_TYPE_VIDEO) {
         continue;
       }
 
-      // Find decoder
+      // Find the appropriate decoder for this stream
       const decoder = Codec.findDecoder(codecParams.codecId);
       if (!decoder) {
         console.warn(`No decoder found for codec ID ${codecParams.codecId} on stream ${stream.index}`);
         continue;
       }
 
-      // Create and configure codec context
+      // Create a decoder context (holds decoder state)
       const codecContext = new CodecContext(decoder);
 
-      // Copy codec parameters to context
+      // Copy stream parameters to the decoder
+      // This includes resolution, sample rate, etc.
       codecParams.toCodecContext(codecContext);
 
-      // Open codec
+      // Initialize the decoder
       await codecContext.openAsync();
 
-      // Store stream info
+      // Store stream info for later use
       const streamInfo: StreamInfo = {
         decoder,
         codecContext,
@@ -122,13 +107,17 @@ async function main() {
 
       streams.set(stream.index, streamInfo);
 
-      const typeStr = mediaType === AV_MEDIA_TYPE_VIDEO ? 'video' : 'audio';
-      console.log(`Stream #${stream.index}: ${typeStr} (${decoder.name})`);
+      // Log stream information
+      const typeStr = mediaType === AV_MEDIA_TYPE_VIDEO ? 'Video' : 'Audio';
+      console.log(`${typeStr} Stream #${stream.index}: ${decoder.name}`);
 
       if (mediaType === AV_MEDIA_TYPE_VIDEO) {
         console.log(`  Resolution: ${codecContext.width}x${codecContext.height}`);
         console.log(`  Pixel format: ${codecContext.pixelFormat}`);
-        console.log(`  Frame rate: ${stream.rFrameRate?.num}/${stream.rFrameRate?.den}`);
+        const fps = stream.rFrameRate;
+        if (fps) {
+          console.log(`  Frame rate: ${fps.num}/${fps.den} fps`);
+        }
       } else {
         console.log(`  Sample rate: ${codecContext.sampleRate} Hz`);
         console.log(`  Channels: ${codecContext.channels}`);
@@ -137,7 +126,7 @@ async function main() {
     }
 
     if (streams.size === 0) {
-      throw new Error('No audio or video streams found');
+      throw new Error('No audio or video streams found in file');
     }
 
     console.log('\nStarting demuxing and decoding...\n');
@@ -145,80 +134,93 @@ async function main() {
     let frameCount = 0;
     let packetCount = 0;
 
-    // Main demuxing loop
+    // Step 4: Main demuxing loop - read packets from file
     while (true) {
+      // Read next packet from the file
+      const ret = await formatContext.readFrameAsync(packet);
+      if (ret === AV_ERROR_EOF) {
+        console.log('\nEnd of file reached');
+        break;
+      }
+
+      packetCount++;
+
+      // Get the decoder for this packet's stream
+      const streamInfo = streams.get(packet.streamIndex);
+      if (!streamInfo) {
+        // This packet is from a stream we're not decoding
+        packet.unref();
+        continue;
+      }
+
+      // Step 5: Send packet to decoder
+      // The decoder may buffer the packet internally
       try {
-        // Read next packet
-        const ret = await formatContext.readFrameAsync(packet);
-        if (ret === AV_ERROR_EOF) {
-          console.log('\nEnd of file reached');
-          break;
+        await streamInfo.codecContext.sendPacketAsync(packet);
+      } catch (error) {
+        // EAGAIN means the decoder's input buffer is full
+        // We need to read frames before sending more packets
+        if (error instanceof FFmpegError && error.code !== AV_ERROR_EAGAIN) {
+          throw error;
         }
+      }
 
-        packetCount++;
-
-        // Get stream info for this packet
-        const streamInfo = streams.get(packet.streamIndex);
-        if (!streamInfo) {
-          packet.unref();
-          continue;
-        }
-
-        // Send packet to decoder
+      // Step 6: Receive decoded frames
+      // One packet may produce multiple frames (or none)
+      while (true) {
         try {
-          await streamInfo.codecContext.sendPacketAsync(packet);
-        } catch (error) {
-          if (error instanceof FFmpegError && error.code !== AV_ERROR_EAGAIN) {
-            throw error;
+          const ret = await streamInfo.codecContext.receiveFrameAsync(frame);
+          if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+            // No more frames available right now
+            break;
           }
-        }
 
-        // Receive all available frames
-        while (true) {
-          try {
-            const ret = await streamInfo.codecContext.receiveFrameAsync(frame);
-            if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+          frameCount++;
+
+          const mediaType = streamInfo.inputStream.codecParameters?.codecType;
+          const typeStr = mediaType === AV_MEDIA_TYPE_VIDEO ? 'Video' : 'Audio';
+
+          // Log frame information
+          if (mediaType === AV_MEDIA_TYPE_VIDEO) {
+            if (frameCount % 30 === 0) {
+              // Log every 30th frame to reduce output
+              console.log(`${typeStr} Frame #${frameCount} - Stream: ${packet.streamIndex}, PTS: ${frame.pts}, Size: ${frame.width}x${frame.height}`);
+            }
+          } else {
+            if (frameCount % 100 === 0) {
+              // Log every 100th audio frame
+              console.log(`${typeStr} Frame #${frameCount} - Stream: ${packet.streamIndex}, PTS: ${frame.pts}, Samples: ${frame.nbSamples}`);
+            }
+          }
+
+          // This is where you would process the decoded frame:
+          // - Apply filters
+          // - Convert pixel/sample format
+          // - Encode to another format
+          // - Save to file
+          // - Display on screen
+          // - Send over network
+          // etc.
+
+          // Release frame data for reuse
+          frame.unref();
+        } catch (error) {
+          if (error instanceof FFmpegError) {
+            if (error.code === AV_ERROR_EAGAIN || error.code === AV_ERROR_EOF) {
               break;
             }
-
-            frameCount++;
-
-            const mediaType = streamInfo.inputStream.codecParameters?.codecType;
-            const typeStr = mediaType === AV_MEDIA_TYPE_VIDEO ? 'video' : 'audio';
-
-            // Log frame info
-            if (mediaType === AV_MEDIA_TYPE_VIDEO) {
-              console.log(`[${typeStr}] Frame #${frameCount} - Stream: ${packet.streamIndex}, PTS: ${frame.pts}, Size: ${frame.width}x${frame.height}`);
-            } else {
-              console.log(`[${typeStr}] Frame #${frameCount} - Stream: ${packet.streamIndex}, PTS: ${frame.pts}, Samples: ${frame.nbSamples}`);
-            }
-
-            // In a real application, you would process the frame here
-            // For example: convert, filter, encode, save to file, etc.
-
-            frame.unref();
-          } catch (error) {
-            if (error instanceof FFmpegError) {
-              if (error.code === AV_ERROR_EAGAIN || error.code === AV_ERROR_EOF) {
-                break;
-              }
-            }
-            throw error;
           }
+          throw error;
         }
-
-        packet.unref();
-      } catch (error) {
-        if (error instanceof FFmpegError && error.code === AV_ERROR_EOF) {
-          console.log('\nEnd of file reached');
-          break;
-        }
-        throw error;
       }
+
+      // Release packet data for reuse
+      packet.unref();
     }
 
-    // Flush decoders
+    // Step 7: Flush decoders to get remaining frames
     console.log('\nFlushing decoders...');
+
     for (const [streamIndex, streamInfo] of streams) {
       // Send null packet to signal end of stream
       try {
@@ -227,7 +229,8 @@ async function main() {
         // Ignore errors during flush
       }
 
-      // Receive remaining frames
+      // Receive remaining buffered frames
+      let flushedFrames = 0;
       while (true) {
         try {
           const ret = await streamInfo.codecContext.receiveFrameAsync(frame);
@@ -235,11 +238,8 @@ async function main() {
             break;
           }
 
+          flushedFrames++;
           frameCount++;
-          const mediaType = streamInfo.inputStream.codecParameters?.codecType;
-          const typeStr = mediaType === AV_MEDIA_TYPE_VIDEO ? 'video' : 'audio';
-          console.log(`[${typeStr}] Flushed frame from stream ${streamIndex}, PTS: ${frame.pts}`);
-
           frame.unref();
         } catch (error) {
           if (error instanceof FFmpegError && error.code === AV_ERROR_EOF) {
@@ -249,8 +249,15 @@ async function main() {
           break;
         }
       }
+
+      if (flushedFrames > 0) {
+        const mediaType = streamInfo.inputStream.codecParameters?.codecType;
+        const typeStr = mediaType === AV_MEDIA_TYPE_VIDEO ? 'Video' : 'Audio';
+        console.log(`  ${typeStr} stream ${streamIndex}: ${flushedFrames} frames flushed`);
+      }
     }
 
+    // Print summary
     console.log('\n=== Summary ===');
     console.log(`Total packets processed: ${packetCount}`);
     console.log(`Total frames decoded: ${frameCount}`);
@@ -259,16 +266,13 @@ async function main() {
     console.error('Error:', error);
     process.exit(1);
   } finally {
-    // Cleanup
-    packet[Symbol.dispose]();
-    frame[Symbol.dispose]();
-
-    // Close codec contexts
+    // Cleanup: Close all codec contexts
     for (const streamInfo of streams.values()) {
       streamInfo.codecContext.close();
+      streamInfo.codecContext[Symbol.dispose]();
     }
 
-    // Close input
+    // Close input (formatContext will be disposed automatically via 'using')
     formatContext.closeInput();
   }
 }

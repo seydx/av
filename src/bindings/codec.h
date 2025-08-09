@@ -31,6 +31,7 @@ public:
     Napi::Value GetSampleRates(const Napi::CallbackInfo& info);
     Napi::Value GetChannelLayouts(const Napi::CallbackInfo& info);
     Napi::Value GetProfiles(const Napi::CallbackInfo& info);
+    Napi::Value GetHardwareConfigs(const Napi::CallbackInfo& info);
     
     // Static methods
     static Napi::Value FindDecoder(const Napi::CallbackInfo& info);

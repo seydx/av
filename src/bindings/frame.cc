@@ -1,4 +1,8 @@
 #include "frame.h"
+
+extern "C" {
+#include <libavutil/hwcontext.h>
+}
 #include <cstring>
 
 namespace ffmpeg {
@@ -43,6 +47,12 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Frame::Clone>("clone"),
     InstanceMethod<&Frame::MakeWritable>("makeWritable"),
     InstanceMethod<&Frame::GetBuffer>("getBuffer"),
+    
+    // Hardware acceleration
+    InstanceMethod<&Frame::TransferDataTo>("transferDataTo"),
+    InstanceMethod<&Frame::TransferDataFrom>("transferDataFrom"),
+    InstanceAccessor<&Frame::GetHwFramesContext, &Frame::SetHwFramesContext>("hwFramesContext"),
+    
     InstanceMethod<&Frame::Dispose>(disposeSymbol),
   });
   
@@ -411,6 +421,138 @@ Napi::Value Frame::GetBuffer(const Napi::CallbackInfo& info) {
   }
   
   return env.Null();
+}
+
+// Hardware acceleration / Frame transfer
+Napi::Value Frame::TransferDataTo(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "Destination frame required").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, -1);
+  }
+  
+  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  if (!dst) {
+    Napi::TypeError::New(env, "Invalid destination frame").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, -1);
+  }
+  
+  AVFrame* src_frame = frame_.Get();
+  AVFrame* dst_frame = dst->GetFrame();
+  
+  int ret = 0;
+  
+  // Check if this is a hardware frame transfer
+  if (src_frame->hw_frames_ctx) {
+    // Hardware to software transfer
+    ret = av_hwframe_transfer_data(dst_frame, src_frame, 0);
+  } else if (dst_frame->hw_frames_ctx) {
+    // Software to hardware transfer
+    ret = av_hwframe_transfer_data(dst_frame, src_frame, 0);
+  } else {
+    // Regular frame copy for software frames
+    // First ensure destination has the same format
+    dst_frame->format = src_frame->format;
+    dst_frame->width = src_frame->width;
+    dst_frame->height = src_frame->height;
+    dst_frame->ch_layout = src_frame->ch_layout;
+    dst_frame->sample_rate = src_frame->sample_rate;
+    dst_frame->nb_samples = src_frame->nb_samples;
+    
+    // Allocate buffer if needed
+    if (dst_frame->width > 0 && dst_frame->height > 0) {
+      ret = av_frame_get_buffer(dst_frame, 0);
+      if (ret >= 0) {
+        ret = av_frame_copy(dst_frame, src_frame);
+      }
+    } else if (dst_frame->nb_samples > 0) {
+      ret = av_frame_get_buffer(dst_frame, 0);
+      if (ret >= 0) {
+        ret = av_frame_copy(dst_frame, src_frame);
+      }
+    }
+  }
+  
+  if (ret < 0) {
+    return Napi::Number::New(env, ret);
+  }
+  
+  // Copy properties
+  av_frame_copy_props(dst_frame, src_frame);
+  
+  return Napi::Number::New(env, 0);
+}
+
+Napi::Value Frame::TransferDataFrom(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "Source frame required").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, -1);
+  }
+  
+  Frame* src = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  if (!src) {
+    Napi::TypeError::New(env, "Invalid source frame").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, -1);
+  }
+  
+  AVFrame* src_frame = src->GetFrame();
+  AVFrame* dst_frame = frame_.Get();
+  
+  int ret = 0;
+  
+  // Check if this is a hardware frame transfer
+  if (src_frame->hw_frames_ctx) {
+    // Hardware to software transfer
+    ret = av_hwframe_transfer_data(dst_frame, src_frame, 0);
+  } else if (dst_frame->hw_frames_ctx) {
+    // Software to hardware transfer  
+    ret = av_hwframe_transfer_data(dst_frame, src_frame, 0);
+  } else {
+    // Regular frame copy for software frames
+    // First ensure destination has the same format
+    dst_frame->format = src_frame->format;
+    dst_frame->width = src_frame->width;
+    dst_frame->height = src_frame->height;
+    dst_frame->ch_layout = src_frame->ch_layout;
+    dst_frame->sample_rate = src_frame->sample_rate;
+    dst_frame->nb_samples = src_frame->nb_samples;
+    
+    // Allocate buffer if needed
+    if (dst_frame->width > 0 && dst_frame->height > 0) {
+      ret = av_frame_get_buffer(dst_frame, 0);
+      if (ret >= 0) {
+        ret = av_frame_copy(dst_frame, src_frame);
+      }
+    } else if (dst_frame->nb_samples > 0) {
+      ret = av_frame_get_buffer(dst_frame, 0);
+      if (ret >= 0) {
+        ret = av_frame_copy(dst_frame, src_frame);
+      }
+    }
+  }
+  
+  if (ret < 0) {
+    return Napi::Number::New(env, ret);
+  }
+  
+  // Copy properties
+  av_frame_copy_props(dst_frame, src_frame);
+  
+  return Napi::Number::New(env, 0);
+}
+
+Napi::Value Frame::GetHwFramesContext(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  // For now, return undefined as we need to wrap AVBufferRef
+  return env.Undefined();
+}
+
+void Frame::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  // For now, do nothing
+  // TODO: Implement when we have proper AVBufferRef wrapper
 }
 
 Napi::Value Frame::Dispose(const Napi::CallbackInfo& info) {

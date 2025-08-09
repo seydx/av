@@ -372,6 +372,58 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
     return this.native.getBuffer();
   }
 
+  // ==================== Hardware Acceleration ====================
+
+  /**
+   * Transfer frame data to another frame (typically GPU to CPU)
+   * @param dst Destination frame to transfer data to
+   * @returns 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * const cpuFrame = new Frame();
+   * const ret = gpuFrame.transferDataTo(cpuFrame);
+   * if (ret === 0) {
+   *   // cpuFrame now contains the data from gpuFrame
+   * }
+   * ```
+   */
+  transferDataTo(dst: Frame): number {
+    return this.native.transferDataTo(dst.native);
+  }
+
+  /**
+   * Transfer frame data from another frame (typically CPU to GPU)
+   * @param src Source frame to transfer data from
+   * @returns 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * const gpuFrame = new Frame();
+   * const ret = gpuFrame.transferDataFrom(cpuFrame);
+   * if (ret === 0) {
+   *   // gpuFrame now contains the data from cpuFrame
+   * }
+   * ```
+   */
+  transferDataFrom(src: Frame): number {
+    return this.native.transferDataFrom(src.native);
+  }
+
+  /**
+   * Get hardware frames context
+   * @returns Hardware frames context or undefined
+   */
+  get hwFramesContext(): any {
+    return this.native.hwFramesContext;
+  }
+
+  /**
+   * Set hardware frames context
+   * @param value Hardware frames context
+   */
+  set hwFramesContext(value: any) {
+    this.native.hwFramesContext = value;
+  }
+
   /**
    * Dispose of the frame and free resources
    */

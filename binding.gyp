@@ -10,6 +10,7 @@
         "src/bindings/codec.cc",
         "src/bindings/codec_context.cc",
         "src/bindings/codec_context_async.cc",
+        "src/bindings/codec_context_hw.cc",
         "src/bindings/codec_parameters.cc",
         "src/bindings/dictionary.cc",
         "src/bindings/format_context.cc",

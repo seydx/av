@@ -24,6 +24,7 @@ Napi::Object Codec::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod<&Codec::GetSampleRates>("getSampleRates"),
         InstanceMethod<&Codec::GetChannelLayouts>("getChannelLayouts"),
         InstanceMethod<&Codec::GetProfiles>("getProfiles"),
+        InstanceMethod<&Codec::GetHardwareConfigs>("getHardwareConfigs"),
         
         // Static methods
         StaticMethod<&Codec::FindDecoder>("findDecoder"),
@@ -282,6 +283,34 @@ Napi::Value Codec::GetAllCodecs(const Napi::CallbackInfo& info) {
     }
     
     return codecs;
+}
+
+// Hardware configuration
+Napi::Value Codec::GetHardwareConfigs(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (!codec_) {
+        return env.Null();
+    }
+    
+    Napi::Array configs = Napi::Array::New(env);
+    int index = 0;
+    
+    for (int i = 0;; i++) {
+        const AVCodecHWConfig *config = avcodec_get_hw_config(codec_, i);
+        if (!config) {
+            break;
+        }
+        
+        Napi::Object configObj = Napi::Object::New(env);
+        configObj.Set("pixelFormat", Napi::Number::New(env, config->pix_fmt));
+        configObj.Set("methods", Napi::Number::New(env, config->methods));
+        configObj.Set("deviceType", Napi::Number::New(env, config->device_type));
+        
+        configs.Set(index++, configObj);
+    }
+    
+    return configs;
 }
 
 // Static factory

@@ -1,7 +1,17 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_CODEC_ID_H264, AV_MEDIA_TYPE_VIDEO, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, CodecContext, Rational } from '../src/lib/index.js';
+import { 
+  AV_CODEC_ID_H264, 
+  AV_MEDIA_TYPE_VIDEO, 
+  AV_PIX_FMT_YUV420P, 
+  AV_PIX_FMT_VIDEOTOOLBOX,
+  AV_SAMPLE_FMT_FLTP, 
+  CodecContext, 
+  HardwareDeviceContext,
+  HardwareFramesContext,
+  Rational 
+} from '../src/lib/index.js';
 
 describe('CodecContext', () => {
   it('should create a new codec context', () => {
@@ -130,5 +140,85 @@ describe('CodecContext', () => {
 
     ctx.flags2 = 0x0002 as any;
     assert.strictEqual(ctx.flags2 as any, 0x0002);
+  });
+
+  it('should set hardware pixel format', () => {
+    const ctx = new CodecContext();
+    
+    // This should not throw
+    assert.doesNotThrow(() => {
+      ctx.setHardwarePixelFormat(AV_PIX_FMT_VIDEOTOOLBOX);
+    });
+  });
+
+  it('should configure hardware with advanced options', () => {
+    const ctx = new CodecContext();
+    
+    // Test setting hardware config
+    assert.doesNotThrow(() => {
+      ctx.setHardwareConfig({
+        preferredFormat: AV_PIX_FMT_VIDEOTOOLBOX,
+        fallbackFormats: [AV_PIX_FMT_YUV420P],
+        requireHardware: false
+      });
+    });
+
+    // Test partial config
+    assert.doesNotThrow(() => {
+      ctx.setHardwareConfig({
+        preferredFormat: AV_PIX_FMT_VIDEOTOOLBOX
+      });
+    });
+
+    // Test clearing config
+    assert.doesNotThrow(() => {
+      ctx.clearHardwareConfig();
+    });
+  });
+
+  it('should handle hardware device context', () => {
+    const ctx = new CodecContext();
+    
+    // Test that we can set and get hardware device context
+    // Note: We can't use mock objects here as the native code expects real hardware contexts
+    // Just test that the property exists and can be set to null
+    ctx.hwDeviceContext = null;
+    assert.strictEqual(ctx.hwDeviceContext, null);
+    
+    // The actual hardware context can only be tested with real hardware contexts
+    // which are tested in hardware-context.test.ts
+  });
+
+  it('should handle hardware frames context', () => {
+    const ctx = new CodecContext();
+    
+    // Test that we can set and get hardware frames context
+    // Note: We can't use mock objects here as the native code expects real hardware contexts
+    // Just test that the property exists and can be set to null
+    ctx.hwFramesContext = null;
+    assert.strictEqual(ctx.hwFramesContext, null);
+    
+    // The actual hardware context can only be tested with real hardware contexts
+    // which are tested in hardware-context.test.ts
+  });
+
+  it('should work with multiple hardware configuration methods', () => {
+    const ctx = new CodecContext();
+    
+    // Simulate a hardware configuration sequence (without actual hardware contexts)
+    assert.doesNotThrow(() => {      
+      // Configure hardware pixel format
+      ctx.setHardwarePixelFormat(AV_PIX_FMT_VIDEOTOOLBOX);
+      
+      // Or use advanced config
+      ctx.setHardwareConfig({
+        preferredFormat: AV_PIX_FMT_VIDEOTOOLBOX,
+        fallbackFormats: [AV_PIX_FMT_YUV420P],
+        requireHardware: true
+      });
+      
+      // Clear if needed
+      ctx.clearHardwareConfig();
+    });
   });
 });

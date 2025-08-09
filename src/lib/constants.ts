@@ -1893,6 +1893,15 @@ export const AV_TIMECODE_STR_SIZE = 23;
 export const AV_TS_MAX_STRING_SIZE = 32;
 export const AV_UUID_LEN = 16;
 
+// ============================================================================
+// AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods
+// ============================================================================
+
+export const AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;
+export const AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX = 0x02;
+export const AV_CODEC_HW_CONFIG_METHOD_INTERNAL = 0x04;
+export const AV_CODEC_HW_CONFIG_METHOD_AD_HOC = 0x08;
+
 // Error codes
 export type AVError = number & { readonly [__ffmpeg_brand]: 'AVError' };
 

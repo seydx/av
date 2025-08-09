@@ -14,6 +14,7 @@ class CodecContext : public Napi::ObjectWrap<CodecContext> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   CodecContext(const Napi::CallbackInfo& info);
+  ~CodecContext();
   
   AVCodecContext* Get() { return context_.Get(); }
   void SetContext(AVCodecContext* ctx);
@@ -112,10 +113,20 @@ class CodecContext : public Napi::ObjectWrap<CodecContext> {
   Napi::Value GetRateControlBufferSize(const Napi::CallbackInfo& info);
   void SetRateControlBufferSize(const Napi::CallbackInfo& info, const Napi::Value& value);
   
+  // Hardware Configuration (C++ managed)
+  Napi::Value SetHardwarePixelFormat(const Napi::CallbackInfo& info);
+  Napi::Value SetHardwareConfig(const Napi::CallbackInfo& info);
+  Napi::Value ClearHardwareConfig(const Napi::CallbackInfo& info);
+  
   // Utility
   Napi::Value IsEncoder(const Napi::CallbackInfo& info);
   Napi::Value IsDecoder(const Napi::CallbackInfo& info);
   Napi::Value FlushBuffers(const Napi::CallbackInfo& info);
+
+private:
+  // Store references to hardware contexts so we can return them
+  Napi::ObjectReference hwDeviceContextRef_;
+  Napi::ObjectReference hwFramesContextRef_;
 };
 
 }  // namespace ffmpeg

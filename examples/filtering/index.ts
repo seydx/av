@@ -1,25 +1,32 @@
-#!/usr/bin/env node
-
 /**
- * Filtering Example
+ * Video Filtering Example
  *
  * This example demonstrates how to:
- * - Decode video frames from a file
- * - Apply video filters using a filter graph
- * - Process filtered frames
+ * 1. Decode video frames from a file
+ * 2. Apply video filters using FFmpeg's filter graph
+ * 3. Encode the filtered frames to a new file
  *
- * The example applies a "transpose=cclock" filter which rotates
- * the video 90 degrees clockwise.
+ * Filter graphs allow you to chain multiple filters together,
+ * creating complex video processing pipelines. This example
+ * shows various filters like scaling, rotation, and effects.
  *
- * Usage:
- *   npm run filtering -- -i input.mp4
+ * The filter pipeline:
+ * Input -> Decoder -> Filter Graph -> Encoder -> Output
+ *
+ * Common filters demonstrated:
+ * - scale: Resize video
+ * - transpose: Rotate video
+ * - hflip/vflip: Mirror video
+ * - crop: Extract a region
  */
 
-import type { FilterContext, Stream } from '@seydx/ffmpeg';
 import {
   AV_CODEC_FLAG_GLOBAL_HEADER,
+  AV_ERROR_EAGAIN,
+  AV_ERROR_EOF,
   AV_IO_FLAG_WRITE,
-  AV_LOG_ERROR,
+  AV_LOG_DEBUG,
+  AV_LOG_INFO,
   AV_MEDIA_TYPE_VIDEO,
   Codec,
   CodecContext,
@@ -29,452 +36,351 @@ import {
   IOContext,
   OutputFormat,
   Packet,
-  setLogCallback,
-  setLogLevel,
 } from '@seydx/ffmpeg';
-import { parseArgs } from 'node:util';
 
-// Parse command line arguments
-const { values } = parseArgs({
-  options: {
-    input: {
-      type: 'string',
-      short: 'i',
-    },
-    output: {
-      type: 'string',
-      short: 'o',
-    },
-    filter: {
-      type: 'string',
-      short: 'f',
-      default: 'transpose=cclock', // Default filter: rotate 90 degrees clockwise
-    },
-  },
-});
+import { config, ffmpegLog } from '../index.js';
 
-if (!values.input || !values.output) {
-  console.error('Error: Input and output paths are required');
-  console.log('Usage: npm run filtering -- -i <input.mp4> -o <output.mp4> [-f <filter_string>]');
-  console.log('Default filter: transpose=cclock (rotate 90 degrees clockwise)');
-  console.log('Other examples:');
-  console.log('  -f "scale=640:480"           # Scale to 640x480');
-  console.log('  -f "hflip"                    # Horizontal flip');
-  console.log('  -f "vflip"                    # Vertical flip');
-  console.log('  -f "negate"                   # Negate colors');
-  console.log('  -f "edgedetect"               # Edge detection');
-  console.log('  -f "scale=iw*2:ih*2"          # Double the size');
-  console.log('  -f "crop=100:100:0:0"         # Crop 100x100 from top-left');
-  process.exit(1);
-}
+import type { FilterContext, Stream } from '@seydx/ffmpeg';
 
-// Stream state
+// Stream processing state
 interface StreamState {
-  buffersinkContext?: FilterContext;
-  buffersrcContext?: FilterContext;
-  decCodec?: Codec;
-  decCodecContext?: CodecContext;
-  decFrame?: Frame;
-  filterFrame?: Frame;
-  filterGraph?: FilterGraph;
-  inputStream?: any;
-  encCodec?: Codec;
-  encCodecContext?: CodecContext;
-  encPacket?: Packet;
-  outputStream?: Stream;
-  frameCount: number;
+  // Decoding
+  inputStream: Stream;
+  decoder: Codec;
+  decoderContext: CodecContext;
+
+  // Filtering
+  filterGraph: FilterGraph;
+  buffersrcContext: FilterContext;
+  buffersinkContext: FilterContext;
+
+  // Encoding
+  encoder: Codec;
+  encoderContext: CodecContext;
+  outputStream: Stream;
+
+  // Statistics
+  processedFrames: number;
   encodedFrames: number;
 }
 
-const disposables: { [Symbol.dispose]: () => void }[] = [];
-let inputFormatContext: FormatContext;
-let outputFormatContext: FormatContext;
-let ioContext: IOContext | null = null;
-let streamState: StreamState | null = null;
-
 async function main() {
+  // Setup FFmpeg logging
+  ffmpegLog('filtering', config.verbose ? AV_LOG_DEBUG : AV_LOG_INFO);
+
+  // Resources with automatic cleanup via 'using'
+  using inputFormat = new FormatContext();
+  using decodeFrame = new Frame();
+  using filterFrame = new Frame();
+  using packet = new Packet();
+  using encodePacket = new Packet();
+
+  // Output resources (manual management needed)
+  let outputFormat: FormatContext | null = null;
+  let ioContext: IOContext | null = null;
+  let streamState: StreamState | null = null;
+
   try {
-    // Set up logging
-    setLogLevel(AV_LOG_ERROR);
-    setLogCallback((level, msg) => {
-      console.log(`[FFmpeg ${level}] ${msg}`);
+    // Different filter examples - uncomment the one you want to try
+    const filterString = config.filter1; // Default: scale to 640x360
+    // const filterString = config.filter2; // Rotate 90 degrees counter-clockwise
+    // const filterString = config.filter3; // Horizontal flip
+    // const filterString = config.filter4; // Vertical flip
+    // const filterString = config.filter5; // Crop 100x100 from top-left
+    // const filterString = 'scale=640:360,transpose=cclock'; // Chain multiple filters
+
+    const outputFile = config.outputFile('filtered');
+
+    console.log(`Input: ${config.inputFile}`);
+    console.log(`Filter: ${filterString}`);
+    console.log(`Output: ${outputFile}`);
+    console.log('');
+
+    // Step 1: Open input file and find video stream
+    console.log('Opening input file...');
+    await inputFormat.openInputAsync(config.inputFile);
+    await inputFormat.findStreamInfoAsync();
+
+    // Find first video stream
+    let videoStream: Stream | null = null;
+    for (const stream of inputFormat.streams) {
+      if (stream.codecParameters?.codecType === AV_MEDIA_TYPE_VIDEO) {
+        videoStream = stream;
+        break;
+      }
+    }
+
+    if (!videoStream?.codecParameters) {
+      throw new Error('No video stream found in input file');
+    }
+
+    // Step 2: Setup decoder
+    console.log('Setting up decoder...');
+    const decoder = Codec.findDecoder(videoStream.codecParameters.codecId);
+    if (!decoder) {
+      throw new Error('Decoder not found');
+    }
+
+    const decoderContext = new CodecContext(decoder);
+    videoStream.codecParameters.toCodecContext(decoderContext);
+    await decoderContext.openAsync();
+
+    console.log(`  Input: ${decoderContext.width}x${decoderContext.height}`);
+    console.log(`  Pixel format: ${decoderContext.pixelFormat}`);
+
+    // Step 3: Setup filter graph
+    console.log('Setting up filter graph...');
+    using filterGraph = new FilterGraph();
+
+    // Create buffer source (input to filter graph)
+    const buffersrcContext = filterGraph.createBuffersrcFilter('in', {
+      width: decoderContext.width,
+      height: decoderContext.height,
+      pixelFormat: decoderContext.pixelFormat,
+      timeBase: videoStream.timeBase,
+      sampleAspectRatio: decoderContext.sampleAspectRatio,
     });
 
-    console.log(`Input file: ${values.input}`);
-    console.log(`Output file: ${values.output}`);
-    console.log(`Filter: ${values.filter}`);
+    // Create buffer sink (output from filter graph)
+    const buffersinkContext = filterGraph.createBuffersinkFilter('out', false);
 
-    // Open input file
-    await openInputFile();
+    // Parse and configure the filter chain
+    // The filter string describes the processing pipeline
+    filterGraph.parseWithInOut(filterString, { name: 'in', filterContext: buffersrcContext, padIdx: 0 }, { name: 'out', filterContext: buffersinkContext, padIdx: 0 });
 
-    // Initialize filter
-    await initFilter();
+    await filterGraph.configAsync();
+    console.log('  Filter graph configured');
 
-    // Open output file
-    await openOutputFile();
+    // Step 4: Setup output format and encoder
+    console.log('Setting up output...');
 
-    // Process all frames
-    await processFrames();
-
-    // Write trailer
-    await outputFormatContext.writeTrailerAsync();
-
-    console.log('\nFiltering completed successfully!');
-    console.log(`Total frames processed: ${streamState?.frameCount ?? 0}`);
-    console.log(`Total frames encoded: ${streamState?.encodedFrames ?? 0}`);
-    console.log(`Output written to: ${values.output}`);
-  } catch (error) {
-    console.error('Error during filtering:', error);
-    process.exit(1);
-  } finally {
-    // Clean up resources
-    for (const disposable of disposables) {
-      disposable[Symbol.dispose]();
+    const outputFormatType = OutputFormat.guess({ filename: outputFile });
+    if (!outputFormatType) {
+      throw new Error('Could not determine output format');
     }
 
-    // Remove log callback to allow process to exit
-    setLogCallback(null);
-  }
-}
-
-async function openInputFile() {
-  console.log('Opening input file...');
-
-  // Allocate input format context
-  inputFormatContext = new FormatContext();
-  disposables.push(inputFormatContext);
-
-  // Open input
-  await inputFormatContext.openInputAsync(values.input!);
-  await inputFormatContext.findStreamInfoAsync();
-
-  // Find first video stream
-  const streams = inputFormatContext.streams;
-  for (let i = 0; i < streams.length; i++) {
-    const stream = streams[i];
-    if (!stream) continue;
-
-    const codecParams = stream.codecParameters;
-    if (!codecParams) continue;
-
-    // Only process video streams
-    if (codecParams.codecType !== AV_MEDIA_TYPE_VIDEO) {
-      continue;
+    outputFormat = new FormatContext('output', outputFormatType, undefined, outputFile);
+    const outputStream = outputFormat.newStream();
+    if (!outputStream) {
+      throw new Error('Failed to create output stream');
     }
 
-    // Initialize stream state
+    // Find encoder (use same codec as input)
+    const encoder = Codec.findEncoder(decoder.id);
+    if (!encoder) {
+      throw new Error('Encoder not found');
+    }
+
+    const encoderContext = new CodecContext(encoder);
+
+    // Configure encoder based on filter output
+    // Some filters change dimensions (e.g., transpose swaps width/height)
+    if (filterString.includes('transpose')) {
+      // Transpose swaps dimensions
+      encoderContext.width = decoderContext.height;
+      encoderContext.height = decoderContext.width;
+    } else if (filterString.includes('scale=')) {
+      // Parse scale dimensions from filter
+      const match = /scale=(\d+):(\d+)/.exec(filterString);
+      if (match) {
+        encoderContext.width = parseInt(match[1], 10);
+        encoderContext.height = parseInt(match[2], 10);
+      } else {
+        encoderContext.width = decoderContext.width;
+        encoderContext.height = decoderContext.height;
+      }
+    } else if (filterString.includes('crop=')) {
+      // Parse crop dimensions
+      const match = /crop=(\d+):(\d+)/.exec(filterString);
+      if (match) {
+        encoderContext.width = parseInt(match[1], 10);
+        encoderContext.height = parseInt(match[2], 10);
+      } else {
+        encoderContext.width = decoderContext.width;
+        encoderContext.height = decoderContext.height;
+      }
+    } else {
+      // Default: use original dimensions
+      encoderContext.width = decoderContext.width;
+      encoderContext.height = decoderContext.height;
+    }
+
+    // Copy other encoder settings
+    encoderContext.pixelFormat = decoderContext.pixelFormat;
+    encoderContext.timeBase = videoStream.timeBase;
+    encoderContext.framerate = decoderContext.framerate;
+    encoderContext.sampleAspectRatio = decoderContext.sampleAspectRatio;
+    encoderContext.bitRate = 400000n; // 400 kbps
+
+    // Some containers require global headers
+    if (outputFormat.outputFormat && outputFormat.outputFormat.flags & 0x0040) {
+      encoderContext.flags = AV_CODEC_FLAG_GLOBAL_HEADER;
+    }
+
+    await encoderContext.openAsync();
+    console.log(`  Output: ${encoderContext.width}x${encoderContext.height}`);
+
+    // Copy encoder parameters to output stream
+    outputStream.codecParameters?.fromCodecContext(encoderContext);
+    outputStream.timeBase = encoderContext.timeBase;
+
+    // Open output file for writing
+    if (outputFormat.outputFormat?.needsFile) {
+      ioContext = new IOContext();
+      await ioContext.openAsync(outputFile, AV_IO_FLAG_WRITE);
+      outputFormat.pb = ioContext;
+    }
+
+    // Write file header
+    await outputFormat.writeHeaderAsync();
+
+    // Store state
     streamState = {
-      inputStream: stream,
-      frameCount: 0,
+      inputStream: videoStream,
+      decoder,
+      decoderContext,
+      filterGraph,
+      buffersrcContext,
+      buffersinkContext,
+      encoder,
+      encoderContext,
+      outputStream,
+      processedFrames: 0,
       encodedFrames: 0,
     };
 
-    // Find decoder
-    const decoder = Codec.findDecoder(codecParams.codecId);
-    if (!decoder) {
-      throw new Error(`Decoder not found for codec ID ${codecParams.codecId}`);
-    }
-    streamState.decCodec = decoder;
+    // Step 5: Process video frames
+    console.log('\nProcessing video...\n');
 
-    // Allocate codec context
-    streamState.decCodecContext = new CodecContext(decoder);
-    disposables.push(streamState.decCodecContext);
-
-    // Copy parameters to codec context
-    codecParams.toCodecContext(streamState.decCodecContext);
-
-    // Open decoder
-    await streamState.decCodecContext.openAsync();
-
-    // Allocate frame for decoding
-    streamState.decFrame = new Frame();
-    disposables.push(streamState.decFrame);
-
-    console.log(`Video stream found: ${streamState.decCodecContext.width}x${streamState.decCodecContext.height}`);
-    console.log(`Pixel format: ${streamState.decCodecContext.pixelFormat}`);
-    console.log(`Framerate: ${streamState.decCodecContext.framerate?.num}/${streamState.decCodecContext.framerate?.den}`);
-
-    break; // Only process first video stream
-  }
-
-  if (!streamState) {
-    throw new Error('No video stream found in input file');
-  }
-}
-
-async function initFilter() {
-  if (!streamState?.decCodecContext) {
-    throw new Error('Stream not initialized');
-  }
-
-  console.log('Initializing filter graph...');
-
-  // Allocate filter graph
-  streamState.filterGraph = new FilterGraph();
-  disposables.push(streamState.filterGraph);
-
-  // Create buffer source parameters
-  const buffersrcParams = {
-    width: streamState.decCodecContext.width,
-    height: streamState.decCodecContext.height,
-    pixelFormat: streamState.decCodecContext.pixelFormat,
-    timeBase: streamState.inputStream.timeBase,
-    sampleAspectRatio: streamState.decCodecContext.sampleAspectRatio,
-  };
-
-  // Create buffer source and sink
-  streamState.buffersrcContext = streamState.filterGraph.createBuffersrcFilter('in', buffersrcParams);
-  streamState.buffersinkContext = streamState.filterGraph.createBuffersinkFilter('out', false);
-
-  // Parse the filter graph with the user-specified filter
-  streamState.filterGraph.parseWithInOut(
-    values.filter,
-    { name: 'in', filterContext: streamState.buffersrcContext, padIdx: 0 },
-    { name: 'out', filterContext: streamState.buffersinkContext, padIdx: 0 },
-  );
-
-  // Configure the filter graph
-  await streamState.filterGraph.configAsync();
-
-  // Allocate frame for filtered output
-  streamState.filterFrame = new Frame();
-  disposables.push(streamState.filterFrame);
-
-  console.log('Filter graph configured successfully');
-}
-
-async function openOutputFile() {
-  if (!streamState?.decCodecContext || !streamState.buffersinkContext) {
-    throw new Error('Stream not initialized');
-  }
-
-  console.log('Opening output file...');
-
-  // Allocate output format context
-  const outputFormat = OutputFormat.guess({ filename: values.output! });
-  if (!outputFormat) {
-    throw new Error('Could not guess output format');
-  }
-
-  outputFormatContext = new FormatContext('output', outputFormat, undefined, values.output);
-  disposables.push(outputFormatContext);
-
-  // Find encoder
-  const encoder = Codec.findEncoder(streamState.decCodec!.id);
-  if (!encoder) {
-    throw new Error('Encoder not found');
-  }
-  streamState.encCodec = encoder;
-
-  // Create output stream
-  streamState.outputStream = outputFormatContext.newStream();
-  if (!streamState.outputStream) {
-    throw new Error('Failed to create output stream');
-  }
-
-  // Allocate encoder context
-  streamState.encCodecContext = new CodecContext(encoder);
-  disposables.push(streamState.encCodecContext);
-
-  // Set encoder properties
-  // For filters that change dimensions (e.g., transpose swaps width/height)
-  // we need to handle this specially
-  if (values.filter?.includes('transpose')) {
-    // Transpose swaps width and height
-    streamState.encCodecContext.width = streamState.decCodecContext.height;
-    streamState.encCodecContext.height = streamState.decCodecContext.width;
-  } else if (values.filter?.includes('scale=')) {
-    // Parse scale dimensions from filter string
-    const scaleMatch = /scale=(\d+|iw\*\d+|iw\/\d+):(\d+|ih\*\d+|ih\/\d+)/.exec(values.filter);
-    if (scaleMatch) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const parseScaleDim = (dim: string, original: number) => {
-        if (dim.includes('iw')) {
-          dim = dim.replace('iw', String(streamState!.decCodecContext!.width));
-        }
-        if (dim.includes('ih')) {
-          dim = dim.replace('ih', String(streamState!.decCodecContext!.height));
-        }
-        return parseInt(dim, 10);
-      };
-      streamState.encCodecContext.width = parseScaleDim(scaleMatch[1], streamState.decCodecContext.width);
-      streamState.encCodecContext.height = parseScaleDim(scaleMatch[2], streamState.decCodecContext.height);
-    } else {
-      streamState.encCodecContext.width = streamState.decCodecContext.width;
-      streamState.encCodecContext.height = streamState.decCodecContext.height;
-    }
-  } else {
-    // Default: use original dimensions
-    streamState.encCodecContext.width = streamState.decCodecContext.width;
-    streamState.encCodecContext.height = streamState.decCodecContext.height;
-  }
-
-  streamState.encCodecContext.pixelFormat = streamState.decCodecContext.pixelFormat;
-  streamState.encCodecContext.timeBase = streamState.inputStream.timeBase;
-
-  // Set encoder parameters
-  streamState.encCodecContext.bitRate = 400000n; // 400 kbps
-  streamState.encCodecContext.framerate = streamState.decCodecContext.framerate;
-  streamState.encCodecContext.sampleAspectRatio = streamState.decCodecContext.sampleAspectRatio;
-
-  // Some formats require global headers
-  if (outputFormatContext.outputFormat && outputFormatContext.outputFormat.flags & 0x0040) {
-    // AVFMT_GLOBALHEADER
-    streamState.encCodecContext.flags = AV_CODEC_FLAG_GLOBAL_HEADER;
-  }
-
-  // Open encoder
-  await streamState.encCodecContext.openAsync();
-
-  // Copy encoder parameters to output stream
-  const outputCodecParams = streamState.outputStream.codecParameters;
-  if (outputCodecParams) {
-    outputCodecParams.fromCodecContext(streamState.encCodecContext);
-  }
-
-  // Set stream time base
-  streamState.outputStream.timeBase = streamState.encCodecContext.timeBase;
-
-  // Check if we need an IO context (for file output)
-  if (outputFormatContext.outputFormat?.needsFile) {
-    // Open IO context for writing
-    ioContext = new IOContext();
-    disposables.push(ioContext);
-    await ioContext.openAsync(values.output!, AV_IO_FLAG_WRITE);
-    outputFormatContext.pb = ioContext;
-  }
-
-  // Write header
-  await outputFormatContext.writeHeaderAsync();
-
-  // Allocate packet for encoding
-  streamState.encPacket = new Packet();
-  disposables.push(streamState.encPacket);
-
-  console.log(`Output encoder: ${streamState.encCodecContext.width}x${streamState.encCodecContext.height}`);
-  console.log(`Output format: ${outputFormatContext.outputFormat?.name ?? 'unknown'}`);
-}
-
-async function processFrames() {
-  if (!streamState?.decCodecContext) {
-    return;
-  }
-
-  console.log('\nProcessing frames...');
-
-  using packet = new Packet();
-
-  // Read and process all packets
-  while (true) {
-    // Read next packet
-    const ret = await inputFormatContext.readFrameAsync(packet);
-    if (ret < 0) {
-      break; // End of file
-    }
-
-    // Skip non-video packets
-    if (packet.streamIndex !== streamState.inputStream.index) {
-      packet.unref();
-      continue;
-    }
-
-    // Send packet to decoder
-    await streamState.decCodecContext.sendPacketAsync(packet);
-    packet.unref();
-
-    // Receive and filter decoded frames
+    // Main processing loop
     while (true) {
-      const recvRet = await streamState.decCodecContext.receiveFrameAsync(streamState.decFrame!);
-      if (recvRet < 0) {
-        break; // No more frames available
+      // Read packet from input
+      const ret = await inputFormat.readFrameAsync(packet);
+      if (ret === AV_ERROR_EOF) {
+        break;
       }
 
-      // Filter the frame
-      await filterFrame(streamState.decFrame!);
-      streamState.decFrame!.unref();
+      // Skip non-video packets
+      if (packet.streamIndex !== videoStream.index) {
+        packet.unref();
+        continue;
+      }
+
+      // Decode packet to frame
+      await decoderContext.sendPacketAsync(packet);
+      packet.unref();
+
+      // Process all frames from packet
+      while (true) {
+        const ret = await decoderContext.receiveFrameAsync(decodeFrame);
+        if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+          break;
+        }
+
+        // Send frame through filter graph
+        await buffersrcContext.bufferSrcAddFrameAsync(decodeFrame);
+        decodeFrame.unref();
+
+        // Get filtered frames
+        while (true) {
+          const ret = await buffersinkContext.bufferSinkGetFrameAsync(filterFrame);
+          if (ret < 0) {
+            break;
+          }
+
+          streamState.processedFrames++;
+
+          // Log progress periodically
+          if (streamState.processedFrames === 1 || streamState.processedFrames % 30 === 0) {
+            console.log(`  Frame ${streamState.processedFrames}: ${filterFrame.width}x${filterFrame.height}, pts=${filterFrame.pts}`);
+          }
+
+          // Encode filtered frame
+          await encoderContext.sendFrameAsync(filterFrame);
+          filterFrame.unref();
+
+          // Get encoded packets
+          while (true) {
+            const ret = await encoderContext.receivePacketAsync(encodePacket);
+            if (ret < 0) {
+              break;
+            }
+
+            // Write packet to output
+            encodePacket.streamIndex = outputStream.index;
+            encodePacket.rescaleTs(encoderContext.timeBase, outputStream.timeBase);
+            await outputFormat.writeInterleavedFrameAsync(encodePacket);
+            streamState.encodedFrames++;
+            encodePacket.unref();
+          }
+        }
+      }
+    }
+
+    // Step 6: Flush pipeline
+    console.log('\nFlushing pipeline...');
+
+    // Flush decoder
+    await decoderContext.sendPacketAsync(null);
+    while (true) {
+      const ret = await decoderContext.receiveFrameAsync(decodeFrame);
+      if (ret < 0) break;
+
+      await buffersrcContext.bufferSrcAddFrameAsync(decodeFrame);
+      decodeFrame.unref();
+    }
+
+    // Flush filter
+    await buffersrcContext.bufferSrcAddFrameAsync(null);
+    while (true) {
+      const ret = await buffersinkContext.bufferSinkGetFrameAsync(filterFrame);
+      if (ret < 0) break;
+
+      await encoderContext.sendFrameAsync(filterFrame);
+      filterFrame.unref();
+      streamState.processedFrames++;
+    }
+
+    // Flush encoder
+    await encoderContext.sendFrameAsync(null);
+    while (true) {
+      const ret = await encoderContext.receivePacketAsync(encodePacket);
+      if (ret < 0) break;
+
+      encodePacket.streamIndex = outputStream.index;
+      encodePacket.rescaleTs(encoderContext.timeBase, outputStream.timeBase);
+      await outputFormat.writeInterleavedFrameAsync(encodePacket);
+      streamState.encodedFrames++;
+      encodePacket.unref();
+    }
+
+    // Write trailer
+    await outputFormat.writeTrailerAsync();
+
+    // Summary
+    console.log('\n=== Summary ===');
+    console.log(`Frames processed: ${streamState.processedFrames}`);
+    console.log(`Frames encoded: ${streamState.encodedFrames}`);
+    console.log(`Output saved to: ${outputFile}`);
+    console.log('Success!');
+  } catch (error) {
+    console.error('Error:', error);
+    process.exit(1);
+  } finally {
+    // Cleanup
+    streamState?.decoderContext.close();
+    streamState?.decoderContext[Symbol.dispose]();
+    streamState?.encoderContext.close();
+    streamState?.encoderContext[Symbol.dispose]();
+
+    if (outputFormat) {
+      outputFormat[Symbol.dispose]();
+    }
+    if (ioContext) {
+      ioContext[Symbol.dispose]();
     }
   }
-
-  // Flush decoder
-  await streamState.decCodecContext.sendPacketAsync(null);
-  while (true) {
-    const recvRet = await streamState.decCodecContext.receiveFrameAsync(streamState.decFrame!);
-    if (recvRet < 0) {
-      break;
-    }
-    await filterFrame(streamState.decFrame!);
-    streamState.decFrame!.unref();
-  }
-
-  // Flush filter
-  await filterFrame(null);
-
-  // Flush encoder
-  await encodeFrame(null);
 }
 
-async function encodeFrame(frame: Frame | null) {
-  if (!streamState?.encCodecContext || !streamState.encPacket) {
-    return;
-  }
-
-  // Send frame to encoder (null signals flush)
-  await streamState.encCodecContext.sendFrameAsync(frame);
-
-  // Receive encoded packets
-  while (true) {
-    const ret = await streamState.encCodecContext.receivePacketAsync(streamState.encPacket);
-    if (ret < 0) {
-      break; // No more packets
-    }
-
-    // Set packet stream index
-    streamState.encPacket.streamIndex = streamState.outputStream!.index;
-
-    // Rescale timestamps from encoder timebase to stream timebase
-    streamState.encPacket.rescaleTs(streamState.encCodecContext.timeBase, streamState.outputStream!.timeBase);
-
-    // Write packet to output
-    await outputFormatContext.writeInterleavedFrameAsync(streamState.encPacket);
-    streamState.encodedFrames++;
-
-    streamState.encPacket.unref();
-  }
-}
-
-async function filterFrame(frame: Frame | null) {
-  if (!streamState?.buffersrcContext || !streamState.buffersinkContext || !streamState.filterFrame) {
-    return;
-  }
-
-  // Add frame to buffer source (null signals end of stream)
-  await streamState.buffersrcContext.bufferSrcAddFrameAsync(frame);
-
-  // Pull filtered frames from buffer sink
-  while (true) {
-    const ret = await streamState.buffersinkContext.bufferSinkGetFrameAsync(streamState.filterFrame);
-    if (ret < 0) {
-      // No more frames available (EAGAIN) or end of stream (EOF)
-      break;
-    }
-
-    // Process the filtered frame
-    streamState.frameCount++;
-
-    // Log frame info periodically
-    if (streamState.frameCount === 1 || streamState.frameCount % 30 === 0) {
-      console.log(`Frame ${streamState.frameCount}: ${streamState.filterFrame.width}x${streamState.filterFrame.height}`, `pts=${streamState.filterFrame.pts}`);
-    }
-
-    // Encode the filtered frame
-    await encodeFrame(streamState.filterFrame);
-
-    streamState.filterFrame.unref();
-  }
-}
-
-// Run the filtering
-main().catch((err) => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+// Run the example
+main().catch(console.error);

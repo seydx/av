@@ -74,6 +74,12 @@ class Frame : public Napi::ObjectWrap<Frame> {
   Napi::Value MakeWritable(const Napi::CallbackInfo& info);
   Napi::Value GetBuffer(const Napi::CallbackInfo& info);
   
+  // Hardware acceleration
+  Napi::Value TransferDataTo(const Napi::CallbackInfo& info);
+  Napi::Value TransferDataFrom(const Napi::CallbackInfo& info);
+  Napi::Value GetHwFramesContext(const Napi::CallbackInfo& info);
+  void SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
   // Symbol.dispose support
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   

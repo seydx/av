@@ -6,6 +6,7 @@
 #include "codec.h"
 #include "hardware_device_context.h"
 #include "hardware_frames_context.h"
+#include "codec_context_hw.h"
 
 namespace ffmpeg {
 
@@ -72,6 +73,11 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&CodecContext::GetRateControlMinRate, &CodecContext::SetRateControlMinRate>("rcMinRate"),
     InstanceAccessor<&CodecContext::GetRateControlBufferSize, &CodecContext::SetRateControlBufferSize>("rcBufferSize"),
     
+    // Hardware Configuration (C++ managed)
+    InstanceMethod<&CodecContext::SetHardwarePixelFormat>("setHardwarePixelFormat"),
+    InstanceMethod<&CodecContext::SetHardwareConfig>("setHardwareConfig"),
+    InstanceMethod<&CodecContext::ClearHardwareConfig>("clearHardwareConfig"),
+    
     // Utility
     InstanceAccessor<&CodecContext::IsEncoder>("isEncoder"),
     InstanceAccessor<&CodecContext::IsDecoder>("isDecoder"),
@@ -120,6 +126,23 @@ CodecContext::CodecContext(const Napi::CallbackInfo& info)
       return;
     }
     context_.Reset(ctx);
+  }
+}
+
+CodecContext::~CodecContext() {
+  // Clean up hardware configuration when object is destroyed
+  if (context_.Get()) {
+    ffmpeg::ClearHardwareConfig(context_.Get());
+  }
+  
+  // Clean up JavaScript references
+  if (!hwDeviceContextRef_.IsEmpty()) {
+    hwDeviceContextRef_.Unref();
+    hwDeviceContextRef_.Reset();
+  }
+  if (!hwFramesContextRef_.IsEmpty()) {
+    hwFramesContextRef_.Unref();
+    hwFramesContextRef_.Reset();
   }
 }
 
@@ -586,22 +609,52 @@ void CodecContext::SetRateControlBufferSize(const Napi::CallbackInfo& info, cons
 // Hardware Acceleration
 Napi::Value CodecContext::GetHwDeviceContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  // Return the hardware device context if set
-  // For now, return undefined as we need to wrap AVHWDeviceContext
-  return env.Undefined();
+  
+  // Return the stored JavaScript object reference if we have one
+  if (!hwDeviceContextRef_.IsEmpty()) {
+    return hwDeviceContextRef_.Value();
+  }
+  
+  // If we have a native context but no JS reference, we can't return it properly
+  // This shouldn't happen in normal usage
+  if (context_.Get()->hw_device_ctx) {
+    // We have a native context but lost the JS reference
+    // Return true to indicate it's set
+    return Napi::Boolean::New(env, true);
+  }
+  
+  // Return null instead of undefined for consistency
+  return env.Null();
 }
 
 void CodecContext::SetHwDeviceContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
   Napi::Env env = info.Env();
   
+  // Clear old reference
+  if (!hwDeviceContextRef_.IsEmpty()) {
+    hwDeviceContextRef_.Unref();
+    hwDeviceContextRef_.Reset();
+  }
+  
   if (value.IsNull() || value.IsUndefined()) {
-    context_.Get()->hw_device_ctx = nullptr;
+    if (context_.Get()->hw_device_ctx) {
+      av_buffer_unref(&context_.Get()->hw_device_ctx);
+    }
     return;
+  }
+  
+  // Store JavaScript reference
+  if (value.IsObject()) {
+    hwDeviceContextRef_ = Napi::Persistent(value.As<Napi::Object>());
   }
   
   // Extract HardwareDeviceContext from the JavaScript object
   auto hwDeviceCtx = ffmpeg::UnwrapNativeObject<HardwareDeviceContext>(env, value, "HardwareDeviceContext");
   if (hwDeviceCtx && hwDeviceCtx->GetContext()) {
+    // Unref old context if exists
+    if (context_.Get()->hw_device_ctx) {
+      av_buffer_unref(&context_.Get()->hw_device_ctx);
+    }
     // Increase reference count and set
     context_.Get()->hw_device_ctx = av_buffer_ref(hwDeviceCtx->GetContext());
   }
@@ -609,13 +662,30 @@ void CodecContext::SetHwDeviceContext(const Napi::CallbackInfo& info, const Napi
 
 Napi::Value CodecContext::GetHwFramesContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  // Return the hardware frames context if set
-  // For now, return undefined as we need to wrap AVHWFramesContext
-  return env.Undefined();
+  
+  // Return the stored JavaScript object reference if we have one
+  if (!hwFramesContextRef_.IsEmpty()) {
+    return hwFramesContextRef_.Value();
+  }
+  
+  // If we have a native context but no JS reference, we can't return it properly
+  if (context_.Get()->hw_frames_ctx) {
+    // We have a native context but lost the JS reference
+    // Return true to indicate it's set
+    return Napi::Boolean::New(env, true);
+  }
+  
+  return env.Null();
 }
 
 void CodecContext::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
   Napi::Env env = info.Env();
+  
+  // Clear old reference
+  if (!hwFramesContextRef_.IsEmpty()) {
+    hwFramesContextRef_.Unref();
+    hwFramesContextRef_.Reset();
+  }
   
   if (value.IsNull() || value.IsUndefined()) {
     if (context_.Get()->hw_frames_ctx) {
@@ -624,13 +694,19 @@ void CodecContext::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi
     return;
   }
   
+  // Store JavaScript reference
+  if (value.IsObject()) {
+    hwFramesContextRef_ = Napi::Persistent(value.As<Napi::Object>());
+  }
+  
   // Extract HardwareFramesContext from the JavaScript object
   auto hwFramesCtx = ffmpeg::UnwrapNativeObject<HardwareFramesContext>(env, value, "HardwareFramesContext");
   if (hwFramesCtx && hwFramesCtx->GetContext()) {
-    // Increase reference count and set
+    // Unref old context if exists
     if (context_.Get()->hw_frames_ctx) {
       av_buffer_unref(&context_.Get()->hw_frames_ctx);
     }
+    // Increase reference count and set
     context_.Get()->hw_frames_ctx = av_buffer_ref(hwFramesCtx->GetContext());
   }
 }
@@ -646,6 +722,76 @@ Napi::Value CodecContext::IsDecoder(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   const AVCodec* codec = context_.Get()->codec;
   return Napi::Boolean::New(env, codec && av_codec_is_decoder(codec));
+}
+
+// Hardware Configuration (C++ managed)
+Napi::Value CodecContext::SetHardwarePixelFormat(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Pixel format (number) required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  AVPixelFormat format = static_cast<AVPixelFormat>(info[0].As<Napi::Number>().Int32Value());
+  
+  // Create simple hardware config with just the preferred format
+  HardwareConfig config;
+  config.preferred_format = format;
+  config.require_hardware = false; // Don't fail if hardware not available
+  
+  // Set the configuration
+  ffmpeg::SetHardwareConfig(context_.Get(), config);
+  
+  return env.Undefined();
+}
+
+Napi::Value CodecContext::SetHardwareConfig(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "Configuration object required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Napi::Object obj = info[0].As<Napi::Object>();
+  HardwareConfig config;
+  
+  // Parse configuration
+  if (obj.Has("preferredFormat") && obj.Get("preferredFormat").IsNumber()) {
+    config.preferred_format = static_cast<AVPixelFormat>(
+      obj.Get("preferredFormat").As<Napi::Number>().Int32Value()
+    );
+  }
+  
+  if (obj.Has("fallbackFormats") && obj.Get("fallbackFormats").IsArray()) {
+    Napi::Array formats = obj.Get("fallbackFormats").As<Napi::Array>();
+    for (uint32_t i = 0; i < formats.Length(); i++) {
+      if (formats.Get(i).IsNumber()) {
+        config.fallback_formats.push_back(
+          static_cast<AVPixelFormat>(formats.Get(i).As<Napi::Number>().Int32Value())
+        );
+      }
+    }
+  }
+  
+  if (obj.Has("requireHardware") && obj.Get("requireHardware").IsBoolean()) {
+    config.require_hardware = obj.Get("requireHardware").As<Napi::Boolean>().Value();
+  }
+  
+  // Set the configuration
+  ffmpeg::SetHardwareConfig(context_.Get(), config);
+  
+  return env.Undefined();
+}
+
+Napi::Value CodecContext::ClearHardwareConfig(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  // Clear the configuration
+  ffmpeg::ClearHardwareConfig(context_.Get());
+  
+  return env.Undefined();
 }
 
 }  // namespace ffmpeg

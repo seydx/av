@@ -1,7 +1,16 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_CODEC_ID_H264, AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO, Codec } from '../src/lib/index.js';
+import { 
+  AV_CODEC_ID_H264, 
+  AV_MEDIA_TYPE_AUDIO, 
+  AV_MEDIA_TYPE_VIDEO,
+  AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
+  AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX,
+  AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+  AV_PIX_FMT_VIDEOTOOLBOX,
+  Codec 
+} from '../src/lib/index.js';
 
 describe('Codec', () => {
   it('should find H264 decoder', () => {
@@ -147,5 +156,66 @@ describe('Codec', () => {
 
     const str = codec.toString();
     assert.strictEqual(str, codec.name);
+  });
+
+  it('should get hardware configurations', () => {
+    const codec = Codec.findDecoder(AV_CODEC_ID_H264);
+    assert(codec);
+
+    const hwConfigs = codec.getHardwareConfigs();
+    assert(Array.isArray(hwConfigs));
+    
+    // Check if any hardware configs are available
+    if (hwConfigs.length > 0) {
+      const config = hwConfigs[0];
+      assert('pixelFormat' in config);
+      assert('methods' in config);
+      assert('deviceType' in config);
+      assert.strictEqual(typeof config.pixelFormat, 'number');
+      assert.strictEqual(typeof config.methods, 'number');
+      assert.strictEqual(typeof config.deviceType, 'number');
+    }
+  });
+
+  it('should find hardware encoder configurations', () => {
+    // Try to find h264_videotoolbox encoder on macOS
+    const encoder = Codec.findEncoderByName('h264_videotoolbox');
+    if (encoder) {
+      const hwConfigs = encoder.getHardwareConfigs();
+      assert(Array.isArray(hwConfigs));
+      
+      // h264_videotoolbox should have hardware configs
+      if (hwConfigs.length > 0) {
+        const vt_config = hwConfigs.find(c => c.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+        if (vt_config) {
+          assert.strictEqual(vt_config.pixelFormat, AV_PIX_FMT_VIDEOTOOLBOX);
+          // h264_videotoolbox uses HW_FRAMES_CTX method
+          assert(vt_config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX);
+        }
+      }
+    } else {
+      // Encoder not available, that's OK
+      assert(true);
+    }
+  });
+
+  it('should check for hardware support methods', () => {
+    const codec = Codec.findDecoder(AV_CODEC_ID_H264);
+    assert(codec);
+
+    const hwConfigs = codec.getHardwareConfigs();
+    if (hwConfigs.length > 0) {
+      // Check if any config supports HW_DEVICE_CTX method
+      const supportsDeviceCtx = hwConfigs.some(
+        config => config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX
+      );
+      assert.strictEqual(typeof supportsDeviceCtx, 'boolean');
+
+      // Check if any config supports HW_FRAMES_CTX method
+      const supportsFramesCtx = hwConfigs.some(
+        config => config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX
+      );
+      assert.strictEqual(typeof supportsFramesCtx, 'boolean');
+    }
   });
 });

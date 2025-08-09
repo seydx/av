@@ -51,6 +51,11 @@ export interface NativeCodec {
     profile: number;
     name?: string;
   }[];
+  getHardwareConfigs(): {
+    pixelFormat: AVPixelFormat;
+    methods: number;
+    deviceType: number;
+  }[];
 }
 
 /**
@@ -122,6 +127,13 @@ export interface NativeCodecContext {
   readonly isEncoder: boolean;
   readonly isDecoder: boolean;
   readonly options: NativeOptions;
+
+  // Hardware acceleration
+  hwDeviceContext: any;
+  hwFramesContext: any;
+  setHardwarePixelFormat(format: AVPixelFormat): void;
+  setHardwareConfig(config: { preferredFormat?: AVPixelFormat; fallbackFormats?: AVPixelFormat[]; requireHardware?: boolean }): void;
+  clearHardwareConfig(): void;
 
   // Symbol.dispose
   [Symbol.dispose](): void;
@@ -235,6 +247,13 @@ export interface NativeFrame {
   makeWritable(): void;
   getData(plane: number): Buffer | null;
   setData(plane: number, data: Buffer): void;
+  getBuffer(): Buffer | null;
+  allocBuffer(align?: number): void;
+
+  // Hardware acceleration
+  transferDataTo(dst: NativeFrame): void;
+  transferDataFrom(src: NativeFrame): void;
+  hwFramesContext: any;
 
   // Symbol.dispose
   [Symbol.dispose](): void;

@@ -18,13 +18,13 @@ export * from './packet.js';
 export * from './stream.js';
 
 // Re-export filter types
-export * from './filter.js';
 export * from './filter-context.js';
 export * from './filter-graph.js';
+export * from './filter.js';
 
 // Re-export software scaling/resampling
-export * from './software-scale-context.js';
 export * from './software-resample-context.js';
+export * from './software-scale-context.js';
 
 // Re-export hardware acceleration
 export * from './hardware-device-context.js';
@@ -34,17 +34,17 @@ export * from './hardware-frames-context.js';
 export * from './audio-fifo.js';
 
 // Re-export utilities
-export * from './media-types.js';
-export * from './mathematics.js';
-export * from './color-types.js';
-export * from './discard.js';
-export * from './level.js';
-export * from './profile.js';
-export * from './field-order.js';
+export * from './bit-stream-filter.js';
+export * from './channel-layout.js';
 export * from './chroma-location.js';
 export * from './codec-id.js';
-export * from './pixel-format.js';
+export * from './color-types.js';
+export * from './discard.js';
+export * from './field-order.js';
+export * from './level.js';
 export * from './log.js';
-export * from './channel-layout.js';
+export * from './mathematics.js';
+export * from './media-types.js';
 export * from './option.js';
-export * from './bit-stream-filter.js';
+export * from './pixel-format.js';
+export * from './profile.js';
