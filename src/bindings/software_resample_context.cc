@@ -25,10 +25,73 @@ SoftwareResampleContext::SoftwareResampleContext(const Napi::CallbackInfo& info)
   : Napi::ObjectWrap<SoftwareResampleContext>(info) {
   Napi::Env env = info.Env();
   
+  if (info.Length() < 6) {
+    Napi::TypeError::New(env, "Expected 6 arguments: srcChannelLayout, srcSampleRate, srcSampleFormat, dstChannelLayout, dstSampleRate, dstSampleFormat").ThrowAsJavaScriptException();
+    return;
+  }
+  
+  // Parse source channel layout
+  if (!info[0].IsObject()) {
+    Napi::TypeError::New(env, "Source channel layout must be an object").ThrowAsJavaScriptException();
+    return;
+  }
+  Napi::Object srcLayout = info[0].As<Napi::Object>();
+  AVChannelLayout src_ch_layout = {};
+  if (srcLayout.Has("nbChannels") && srcLayout.Has("order") && srcLayout.Has("mask")) {
+    src_ch_layout.nb_channels = srcLayout.Get("nbChannels").As<Napi::Number>().Int32Value();
+    src_ch_layout.order = static_cast<AVChannelOrder>(srcLayout.Get("order").As<Napi::Number>().Int32Value());
+    bool lossless;
+    src_ch_layout.u.mask = srcLayout.Get("mask").As<Napi::BigInt>().Uint64Value(&lossless);
+  }
+  
+  // Parse source sample rate
+  int src_sample_rate = info[1].As<Napi::Number>().Int32Value();
+  
+  // Parse source sample format
+  AVSampleFormat src_sample_fmt = static_cast<AVSampleFormat>(info[2].As<Napi::Number>().Int32Value());
+  
+  // Parse destination channel layout
+  if (!info[3].IsObject()) {
+    Napi::TypeError::New(env, "Destination channel layout must be an object").ThrowAsJavaScriptException();
+    return;
+  }
+  Napi::Object dstLayout = info[3].As<Napi::Object>();
+  AVChannelLayout dst_ch_layout = {};
+  if (dstLayout.Has("nbChannels") && dstLayout.Has("order") && dstLayout.Has("mask")) {
+    dst_ch_layout.nb_channels = dstLayout.Get("nbChannels").As<Napi::Number>().Int32Value();
+    dst_ch_layout.order = static_cast<AVChannelOrder>(dstLayout.Get("order").As<Napi::Number>().Int32Value());
+    bool lossless;
+    dst_ch_layout.u.mask = dstLayout.Get("mask").As<Napi::BigInt>().Uint64Value(&lossless);
+  }
+  
+  // Parse destination sample rate
+  int dst_sample_rate = info[4].As<Napi::Number>().Int32Value();
+  
+  // Parse destination sample format
+  AVSampleFormat dst_sample_fmt = static_cast<AVSampleFormat>(info[5].As<Napi::Number>().Int32Value());
+  
   // Allocate resample context
   context_ = swr_alloc();
   if (!context_) {
     Napi::Error::New(env, "Failed to allocate resample context").ThrowAsJavaScriptException();
+    return;
+  }
+  
+  // Set options
+  av_opt_set_chlayout(context_, "in_chlayout", &src_ch_layout, 0);
+  av_opt_set_int(context_, "in_sample_rate", src_sample_rate, 0);
+  av_opt_set_sample_fmt(context_, "in_sample_fmt", src_sample_fmt, 0);
+  
+  av_opt_set_chlayout(context_, "out_chlayout", &dst_ch_layout, 0);
+  av_opt_set_int(context_, "out_sample_rate", dst_sample_rate, 0);
+  av_opt_set_sample_fmt(context_, "out_sample_fmt", dst_sample_fmt, 0);
+  
+  // Initialize the resampling context
+  int ret = swr_init(context_);
+  if (ret < 0) {
+    swr_free(&context_);
+    context_ = nullptr;
+    CheckFFmpegError(env, ret, "Failed to initialize resample context");
     return;
   }
 }
