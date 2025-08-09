@@ -13,7 +13,9 @@
     "resampling-audio": "tsx resampling-audio/index.ts"
   },
   "dependencies": {
-    "@seydx/ffmpeg": "file:.."
+    "@seydx/ffmpeg": "file:..",
+    "@types/pngjs": "^6.0.5",
+    "pngjs": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.2.1",

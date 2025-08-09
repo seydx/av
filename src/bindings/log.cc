@@ -151,6 +151,9 @@ public:
       1   // One thread
     );
     
+    // Unref the thread-safe function so it doesn't keep the event loop alive
+    tsfn.Unref(env);
+    
     // Activate callback
     callback_active = true;
     
