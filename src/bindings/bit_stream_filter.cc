@@ -119,10 +119,11 @@ Napi::Object BitStreamFilterContext::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "BitStreamFilterContext", {
-        StaticMethod("alloc", &BitStreamFilterContext::Alloc),
         InstanceMethod("init", &BitStreamFilterContext::Init),
         InstanceMethod("sendPacket", &BitStreamFilterContext::SendPacket),
         InstanceMethod("receivePacket", &BitStreamFilterContext::ReceivePacket),
+        InstanceMethod("sendPacketAsync", &BitStreamFilterContext::SendPacketAsync),
+        InstanceMethod("receivePacketAsync", &BitStreamFilterContext::ReceivePacketAsync),
         InstanceMethod("flush", &BitStreamFilterContext::Flush),
         InstanceMethod("free", &BitStreamFilterContext::Free),
         InstanceAccessor("filter", &BitStreamFilterContext::GetFilter, nullptr),
@@ -140,6 +141,27 @@ Napi::Object BitStreamFilterContext::Init(Napi::Env env, Napi::Object exports) {
 
 BitStreamFilterContext::BitStreamFilterContext(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<BitStreamFilterContext>(info), ctx_(nullptr), initialized_(false) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "BitStreamFilter expected").ThrowAsJavaScriptException();
+        return;
+    }
+
+    BitStreamFilter* filter = ffmpeg::UnwrapNativeObjectRequired<BitStreamFilter>(env, info[0], "BitStreamFilter");
+    if (!filter) return;
+    if (!filter->GetNative()) {
+        Napi::Error::New(env, "Invalid BitStreamFilter").ThrowAsJavaScriptException();
+        return;
+    }
+
+    int ret = av_bsf_alloc(filter->GetNative(), &ctx_);
+    if (ret < 0) {
+        char errbuf[AV_ERROR_MAX_STRING_SIZE];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        Napi::Error::New(env, std::string("Failed to allocate BSF context: ") + errbuf).ThrowAsJavaScriptException();
+        return;
+    }
 }
 
 BitStreamFilterContext::~BitStreamFilterContext() {
@@ -148,34 +170,6 @@ BitStreamFilterContext::~BitStreamFilterContext() {
     }
 }
 
-Napi::Value BitStreamFilterContext::Alloc(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsObject()) {
-        Napi::TypeError::New(env, "BitStreamFilter expected").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    BitStreamFilter* filter = ffmpeg::UnwrapNativeObjectRequired<BitStreamFilter>(env, info[0], "BitStreamFilter");
-    if (!filter) return env.Null();
-    if (!filter->GetNative()) {
-        Napi::Error::New(env, "Invalid BitStreamFilter").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    Napi::Object instance = constructor.New({});
-    BitStreamFilterContext* context = Napi::ObjectWrap<BitStreamFilterContext>::Unwrap(instance);
-
-    int ret = av_bsf_alloc(filter->GetNative(), &context->ctx_);
-    if (ret < 0) {
-        char errbuf[AV_ERROR_MAX_STRING_SIZE];
-        av_strerror(ret, errbuf, sizeof(errbuf));
-        Napi::Error::New(env, std::string("Failed to allocate BSF context: ") + errbuf).ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    return instance;
-}
 
 Napi::Value BitStreamFilterContext::Init(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();

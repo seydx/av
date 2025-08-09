@@ -36,13 +36,12 @@ public:
     BitStreamFilterContext(const Napi::CallbackInfo& info);
     ~BitStreamFilterContext();
 
-    // Static methods
-    static Napi::Value Alloc(const Napi::CallbackInfo& info);
-
     // Instance methods
     Napi::Value Init(const Napi::CallbackInfo& info);
     Napi::Value SendPacket(const Napi::CallbackInfo& info);
     Napi::Value ReceivePacket(const Napi::CallbackInfo& info);
+    Napi::Value SendPacketAsync(const Napi::CallbackInfo& info);
+    Napi::Value ReceivePacketAsync(const Napi::CallbackInfo& info);
     Napi::Value Flush(const Napi::CallbackInfo& info);
     Napi::Value Free(const Napi::CallbackInfo& info);
 

@@ -30,6 +30,7 @@
         "src/bindings/audio_fifo.cc",
         "src/bindings/option.cc",
         "src/bindings/bit_stream_filter.cc",
+        "src/bindings/bit_stream_filter_async.cc",
         "src/bindings/io_context.cc"
       ],
       "include_dirs": [

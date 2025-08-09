@@ -266,6 +266,34 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
   }
 
   /**
+   * Send a packet to the filter (async version)
+   * @param packet Packet to filter (null to flush)
+   * @returns Promise resolving to 0 on success, negative error code on failure
+   * @throws FFmpegError on fatal errors (not EAGAIN or EOF)
+   */
+  async sendPacketAsync(packet: Packet | null): Promise<number> {
+    const ret = await this.native.sendPacketAsync(packet ? packet.getNative() : null);
+    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to send packet to bitstream filter');
+    }
+    return ret;
+  }
+
+  /**
+   * Receive a filtered packet (async version)
+   * @param packet Packet to receive filtered data into
+   * @returns Promise resolving to 0 on success, EAGAIN if needs more input, EOF on end
+   * @throws FFmpegError on fatal errors (not EAGAIN or EOF)
+   */
+  async receivePacketAsync(packet: Packet): Promise<number> {
+    const ret = await this.native.receivePacketAsync(packet.getNative());
+    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+      throw new FFmpegError(ret, 'Failed to receive packet from bitstream filter');
+    }
+    return ret;
+  }
+
+  /**
    * Filter a packet (convenience method)
    * Combines sendPacket and receivePacket
    * @param input Input packet
@@ -286,6 +314,29 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
 
     // Receive filtered packet
     return this.receivePacket(output);
+  }
+
+  /**
+   * Filter a packet (async convenience method)
+   * Combines sendPacketAsync and receivePacketAsync
+   * @param input Input packet
+   * @param output Output packet
+   * @returns Promise resolving to 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * const result = await context.filterPacketAsync(inputPacket, outputPacket);
+   * if (result >= 0) {
+   *   // outputPacket contains filtered data
+   * }
+   * ```
+   */
+  async filterPacketAsync(input: Packet, output: Packet): Promise<number> {
+    // Send input packet
+    const ret = await this.sendPacketAsync(input);
+    if (ret < 0) return ret;
+
+    // Receive filtered packet
+    return await this.receivePacketAsync(output);
   }
 
   /**
