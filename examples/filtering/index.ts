@@ -131,7 +131,7 @@ async function main() {
     using filterGraph = new FilterGraph();
 
     // Build the complete filter pipeline with one call
-    await filterGraph.buildPipeline({
+    filterGraph.buildPipeline({
       input: {
         width: decoderContext.width,
         height: decoderContext.height,

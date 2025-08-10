@@ -61,7 +61,7 @@ function checkHardwareSupport(codec: Codec, deviceType: number): AVPixelFormat |
 /**
  * Initialize the filter graph for hardware frames
  */
-async function initFilter(decodedFrame: Frame, hardwarePixelFormat: number, filterString: string, decoderContext: CodecContext): Promise<void> {
+function initFilter(decodedFrame: Frame, hardwarePixelFormat: number, filterString: string, decoderContext: CodecContext): void {
   console.log('\nInitializing filter graph...');
   console.log(`  Frame format: ${decodedFrame.format}`);
   console.log(`  Frame width: ${decodedFrame.width}`);
@@ -93,7 +93,7 @@ async function initFilter(decodedFrame: Frame, hardwarePixelFormat: number, filt
   };
 
   // Build the pipeline
-  await filterGraph.buildPipeline(config);
+  filterGraph.buildPipeline(config);
 
   console.log(`Filter graph initialized with: ${filterString || 'null'}`);
 }
@@ -267,7 +267,7 @@ async function hardwareDecodingFiltering(inputFile: string, filterString: string
       if (filterString) {
         // Initialize filter on first frame
         if (!filterGraph) {
-          await initFilter(decodedHardwareFrame, hwPixelFormat ?? AV_PIX_FMT_VIDEOTOOLBOX, filterString, decoderContext);
+          initFilter(decodedHardwareFrame, hwPixelFormat ?? AV_PIX_FMT_VIDEOTOOLBOX, filterString, decoderContext);
         }
 
         // Filter the frame

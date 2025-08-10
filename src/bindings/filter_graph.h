@@ -27,7 +27,6 @@ public:
   
   // Main API methods
   Napi::Value BuildPipeline(const Napi::CallbackInfo& info);
-  Napi::Value BuildPipelineAsync(const Napi::CallbackInfo& info);
   Napi::Value ProcessFrame(const Napi::CallbackInfo& info);
   Napi::Value ProcessFrameAsync(const Napi::CallbackInfo& info);
   Napi::Value GetFilteredFrame(const Napi::CallbackInfo& info);
@@ -61,25 +60,6 @@ private:
   AVFilterGraph* graph_;
   AVFilterContext* buffersrc_ctx_;
   AVFilterContext* buffersink_ctx_;
-};
-
-// Async worker for BuildPipeline
-class BuildPipelineWorker : public Napi::AsyncWorker {
-public:
-  BuildPipelineWorker(
-    Napi::Function& callback,
-    FilterGraph* graph,
-    Napi::Object config
-  );
-  
-  void Execute() override;
-  void OnOK() override;
-  void OnError(const Napi::Error& error) override;
-
-private:
-  FilterGraph* graph_;
-  Napi::ObjectReference config_;
-  int result_;
 };
 
 // Async worker for ProcessFrame

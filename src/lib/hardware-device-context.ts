@@ -83,17 +83,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
-   * Wrap an existing native hardware device context
-   * @param native Native hardware device context
-   * @returns Wrapped HardwareDeviceContext or null
-   * @internal
-   */
-  static wrap(native: NativeHardwareDeviceContext | null): HardwareDeviceContext | null {
-    if (!native) return null;
-    return new HardwareDeviceContext(native);
-  }
-
-  /**
    * Find hardware device type by name
    * @param name Device type name (e.g., "cuda", "vaapi", "videotoolbox")
    * @returns Hardware device type or NONE if not found

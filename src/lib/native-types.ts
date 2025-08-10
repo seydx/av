@@ -487,14 +487,26 @@ export interface NativeFilter {
  *
  * @internal
  */
-export interface NativeFilterContext {
+export interface NativeFilterContext extends Disposable {
   readonly __brand: 'NativeFilterContext';
 
-  // ===== Properties (minimal for advanced users) =====
+  // ===== Properties =====
   readonly name: string | null;
   readonly filterName: string | null;
+  readonly filter: NativeFilter;
+  readonly nbInputs: number;
+  readonly nbOutputs: number;
 
-  // Note: No Symbol.dispose - filter contexts are managed by FilterGraph
+  // ===== Methods =====
+  addFrame(frame: NativeFrame | null): number;
+  addFrameAsync(frame: NativeFrame | null): Promise<number>;
+  getFrame(frame: NativeFrame): number;
+  getFrameAsync(frame: NativeFrame): Promise<number>;
+  setFrameSize(frameSize: number): void;
+
+  // ===== Resource Management =====
+  free(): void;
+  [Symbol.dispose](): void;
 }
 
 /**
@@ -510,7 +522,6 @@ export interface NativeFilterGraph extends Disposable {
 
   // ===== Main API Methods =====
   buildPipeline(config: object): void;
-  buildPipelineAsync(config: object): Promise<void>;
   processFrame(inputFrame: NativeFrame | null, outputFrame: NativeFrame): number;
   processFrameAsync(inputFrame: NativeFrame | null, outputFrame: NativeFrame): Promise<number>;
   getFilteredFrame(outputFrame: NativeFrame): number;

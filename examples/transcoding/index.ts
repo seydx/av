@@ -199,7 +199,7 @@ async function main() {
           filters: filterStr,
         };
 
-        await filterGraph.buildPipeline(filterConfig);
+        filterGraph.buildPipeline(filterConfig);
 
         console.log(`  Video: ${decoder.name} -> ${encoder.name}`);
         console.log(`     ${decoderContext.width}x${decoderContext.height} -> ${encoderContext.width}x${encoderContext.height}`);
@@ -240,7 +240,7 @@ async function main() {
           filters: filterStr,
         };
 
-        await filterGraph.buildPipeline(filterConfig);
+        filterGraph.buildPipeline(filterConfig);
 
         console.log(`  Audio: ${decoder.name} -> ${encoder.name}`);
         console.log(`     ${decoderContext.sampleRate} Hz -> ${encoderContext.sampleRate} Hz`);

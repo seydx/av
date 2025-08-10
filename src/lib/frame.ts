@@ -364,8 +364,13 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Set hardware frames context
    * @param value Hardware frames context
    */
-  set hwFramesContext(value: NativeHardwareFramesContext | null) {
-    this.native.hwFramesContext = value;
+  set hwFramesContext(value: NativeHardwareFramesContext | NativeWrapper<NativeHardwareFramesContext> | null) {
+    // If it's a HardwareFramesContext wrapper, extract the native object
+    if (value && 'getNative' in value && typeof value.getNative === 'function') {
+      this.native.hwFramesContext = value.getNative();
+    } else {
+      this.native.hwFramesContext = value as NativeHardwareFramesContext | null;
+    }
   }
 
   /**

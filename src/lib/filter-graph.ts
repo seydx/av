@@ -3,8 +3,7 @@ import { FilterContext } from './filter-context.js';
 
 import type { AVPixelFormat, AVSampleFormat } from './constants.js';
 import type { Frame } from './frame.js';
-import type { HardwareDeviceContext } from './hardware-device-context.js';
-import type { NativeFilterGraph, NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
+import type { NativeFilterGraph, NativeHardwareDeviceContext, NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
 import type { Rational } from './rational.js';
 import type { ChannelLayout } from './types.js';
 
@@ -62,7 +61,7 @@ export interface FilterOutput {
  */
 export interface HardwareConfig {
   /** Hardware device context (applied to filters with AVFILTER_FLAG_HWDEVICE) */
-  deviceContext: HardwareDeviceContext;
+  deviceContext: NativeHardwareDeviceContext;
 }
 
 /**
@@ -174,12 +173,12 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * @param config Pipeline configuration
    * @throws FFmpegError if configuration fails
    */
-  async buildPipeline(config: FilterPipelineConfig): Promise<void> {
+  buildPipeline(config: FilterPipelineConfig): void {
     // Validate basic requirements
     this.validateConfig(config);
 
-    // Build the pipeline
-    await this.native.buildPipelineAsync(config);
+    // Build the pipeline (synchronous)
+    this.native.buildPipeline(config);
 
     // Get input/output contexts for direct access
     const inputNative = this.native.getInputContext();

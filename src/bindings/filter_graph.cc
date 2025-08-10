@@ -22,7 +22,6 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterGraph", {
     // Main API
     InstanceMethod<&FilterGraph::BuildPipeline>("buildPipeline"),
-    InstanceMethod<&FilterGraph::BuildPipelineAsync>("buildPipelineAsync"),
     InstanceMethod<&FilterGraph::ProcessFrame>("processFrame"),
     InstanceMethod<&FilterGraph::ProcessFrameAsync>("processFrameAsync"),
     InstanceMethod<&FilterGraph::GetFilteredFrame>("getFilteredFrame"),
@@ -151,34 +150,6 @@ Napi::Value FilterGraph::BuildPipeline(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
-}
-
-Napi::Value FilterGraph::BuildPipelineAsync(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 1 || !info[0].IsObject()) {
-    Napi::TypeError::New(env, "Configuration object required").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  Napi::Object config = info[0].As<Napi::Object>();
-  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-  
-  // Create promise callback
-  Napi::Function callback = Napi::Function::New(env, [deferred](const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    if (info.Length() > 0 && info[0].IsObject()) {
-      // Error occurred
-      deferred.Reject(info[0]);
-    } else {
-      deferred.Resolve(env.Undefined());
-    }
-  });
-  
-  BuildPipelineWorker* worker = new BuildPipelineWorker(callback, this, config);
-  worker->Queue();
-  
-  return deferred.Promise();
 }
 
 Napi::Value FilterGraph::ProcessFrame(const Napi::CallbackInfo& info) {
@@ -717,113 +688,6 @@ int FilterGraph::ApplyHardwareContext(AVBufferRef* hw_device_ctx) {
 
 
 // Async workers
-BuildPipelineWorker::BuildPipelineWorker(
-  Napi::Function& callback,
-  FilterGraph* graph,
-  Napi::Object config
-) : Napi::AsyncWorker(callback), graph_(graph), config_(Napi::Persistent(config)), result_(0) {}
-
-void BuildPipelineWorker::Execute() {
-  // The actual building will be done in OnOK on the main thread
-  // since it needs to interact with JavaScript objects
-  result_ = 0;
-}
-
-void BuildPipelineWorker::OnOK() {
-  Napi::HandleScope scope(Env());
-  
-  // Build the pipeline on the main thread (required for JS object access)
-  try {
-    Napi::Object config = config_.Value();
-    
-    // Extract configuration
-    if (!config.Has("input") || !config.Get("input").IsObject()) {
-      Napi::Error::New(Env(), "Input configuration required").ThrowAsJavaScriptException();
-      return;
-    }
-    
-    if (!config.Has("filters") || !config.Get("filters").IsString()) {
-      Napi::Error::New(Env(), "Filter string required").ThrowAsJavaScriptException();
-      return;
-    }
-    
-    Napi::Object input = config.Get("input").As<Napi::Object>();
-    std::string filters = config.Get("filters").As<Napi::String>().Utf8Value();
-    
-    // Create buffer source
-    int ret = graph_->CreateBufferSource(input);
-    if (ret < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(ret, errbuf, sizeof(errbuf));
-      Napi::Error::New(Env(), std::string("Failed to create buffer source: ") + errbuf).ThrowAsJavaScriptException();
-      return;
-    }
-    
-    // Hardware frames context is now handled in CreateBufferSource
-    
-    // Create buffer sink
-    Napi::Object output = config.Has("output") && config.Get("output").IsObject() 
-      ? config.Get("output").As<Napi::Object>() 
-      : Napi::Object::New(Env());
-    
-    ret = graph_->CreateBufferSink(output);
-    if (ret < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(ret, errbuf, sizeof(errbuf));
-      Napi::Error::New(Env(), std::string("Failed to create buffer sink: ") + errbuf).ThrowAsJavaScriptException();
-      return;
-    }
-    
-    // Parse filter string
-    ret = graph_->ParseFilterString(filters);
-    if (ret < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(ret, errbuf, sizeof(errbuf));
-      Napi::Error::New(Env(), std::string("Failed to parse filter string: ") + errbuf).ThrowAsJavaScriptException();
-      return;
-    }
-    
-    // Apply hardware device context if provided
-    if (config.Has("hardware") && config.Get("hardware").IsObject()) {
-      Napi::Object hardware = config.Get("hardware").As<Napi::Object>();
-      
-      if (hardware.Has("deviceContext") && hardware.Get("deviceContext").IsObject()) {
-        Napi::Object deviceCtxObj = hardware.Get("deviceContext").As<Napi::Object>();
-        
-        HardwareDeviceContext* hwDeviceCtx = UnwrapNativeObject<HardwareDeviceContext>(
-          Env(), deviceCtxObj, "HardwareDeviceContext");
-        if (hwDeviceCtx && hwDeviceCtx->GetContext()) {
-          ret = graph_->ApplyHardwareContext(hwDeviceCtx->GetContext());
-          if (ret < 0) {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE];
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            Napi::Error::New(Env(), std::string("Failed to apply hardware device context: ") + errbuf).ThrowAsJavaScriptException();
-            return;
-          }
-        }
-      }
-    }
-    
-    // Configure the graph
-    ret = avfilter_graph_config(graph_->GetGraph(), nullptr);
-    if (ret < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(ret, errbuf, sizeof(errbuf));
-      Napi::Error::New(Env(), std::string("Failed to configure filter graph: ") + errbuf).ThrowAsJavaScriptException();
-      return;
-    }
-    
-    // Success - call callback with no error
-    Callback().Call({});
-  } catch (const std::exception& e) {
-    Napi::Error err = Napi::Error::New(Env(), e.what());
-    Callback().Call({err.Value()});
-  }
-}
-
-void BuildPipelineWorker::OnError(const Napi::Error& error) {
-  Callback().Call({error.Value()});
-}
 
 ProcessFrameWorker::ProcessFrameWorker(
   Napi::Function& callback,
