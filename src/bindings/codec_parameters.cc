@@ -53,6 +53,15 @@ CodecParameters::CodecParameters(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<CodecParameters>(info), params_(nullptr), owns_params_(true) {
     Napi::Env env = info.Env();
     
+    // Check if we're wrapping an existing AVCodecParameters
+    if (info.Length() > 0 && info[0].IsExternal()) {
+        Napi::External<void> external = info[0].As<Napi::External<void>>();
+        params_ = static_cast<AVCodecParameters*>(external.Data());
+        owns_params_ = false;  // We don't own externally provided params
+        return;
+    }
+    
+    // Otherwise allocate new parameters
     params_ = avcodec_parameters_alloc();
     if (!params_) {
         Napi::Error::New(env, "Failed to allocate codec parameters").ThrowAsJavaScriptException();
