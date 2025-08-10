@@ -62,6 +62,11 @@ FilterGraph::FilterGraph(const Napi::CallbackInfo& info)
 FilterGraph::~FilterGraph() {
   if (graph_) {
     avfilter_graph_free(&graph_);
+    // When the graph is freed, all filter contexts are also freed
+    // So we must null our pointers to avoid use-after-free
+    graph_ = nullptr;
+    buffersrc_ctx_ = nullptr;
+    buffersink_ctx_ = nullptr;
   }
 }
 
@@ -97,6 +102,9 @@ Napi::Value FilterGraph::BuildPipeline(const Napi::CallbackInfo& info) {
   // Create buffer source
   int ret = CreateBufferSource(input);
   if (ret < 0) {
+    // Clean up on error
+    buffersrc_ctx_ = nullptr;
+    buffersink_ctx_ = nullptr;
     CheckFFmpegError(env, ret, "Failed to create buffer source");
     return env.Undefined();
   }
@@ -110,6 +118,9 @@ Napi::Value FilterGraph::BuildPipeline(const Napi::CallbackInfo& info) {
   
   ret = CreateBufferSink(output);
   if (ret < 0) {
+    // Clean up on error - contexts are owned by the graph and will be freed with it
+    buffersrc_ctx_ = nullptr;
+    buffersink_ctx_ = nullptr;
     CheckFFmpegError(env, ret, "Failed to create buffer sink");
     return env.Undefined();
   }
@@ -117,6 +128,9 @@ Napi::Value FilterGraph::BuildPipeline(const Napi::CallbackInfo& info) {
   // Parse filter string
   ret = ParseFilterString(filters);
   if (ret < 0) {
+    // Clean up on error - contexts are owned by the graph and will be freed with it
+    buffersrc_ctx_ = nullptr;
+    buffersink_ctx_ = nullptr;
     CheckFFmpegError(env, ret, "Failed to parse filter string");
     return env.Undefined();
   }
@@ -133,6 +147,9 @@ Napi::Value FilterGraph::BuildPipeline(const Napi::CallbackInfo& info) {
       if (hwDeviceCtx && hwDeviceCtx->GetContext()) {
         ret = ApplyHardwareContext(hwDeviceCtx->GetContext());
         if (ret < 0) {
+          // Clean up on error
+          buffersrc_ctx_ = nullptr;
+          buffersink_ctx_ = nullptr;
           CheckFFmpegError(env, ret, "Failed to apply hardware device context");
           return env.Undefined();
         }
@@ -143,6 +160,9 @@ Napi::Value FilterGraph::BuildPipeline(const Napi::CallbackInfo& info) {
   // Configure the graph
   ret = avfilter_graph_config(graph_, nullptr);
   if (ret < 0) {
+    // Clean up on error - contexts are owned by the graph and will be freed with it
+    buffersrc_ctx_ = nullptr;
+    buffersink_ctx_ = nullptr;
     char errbuf[AV_ERROR_MAX_STRING_SIZE];
     av_strerror(ret, errbuf, sizeof(errbuf));
     CheckFFmpegError(env, ret, "Failed to configure filter graph");
@@ -432,6 +452,8 @@ void FilterGraph::SetThreadType(const Napi::CallbackInfo& info, const Napi::Valu
 Napi::Value FilterGraph::Free(const Napi::CallbackInfo& info) {
   if (graph_) {
     avfilter_graph_free(&graph_);
+    // When the graph is freed, all filter contexts are also freed
+    // So we must null our pointers to avoid use-after-free
     graph_ = nullptr;
     buffersrc_ctx_ = nullptr;
     buffersink_ctx_ = nullptr;
@@ -588,8 +610,7 @@ int FilterGraph::CreateBufferSink(const Napi::Object& output) {
       }
       
       if (!pix_fmts.empty()) {
-        // Add AV_PIX_FMT_NONE terminator
-        pix_fmts.push_back(AV_PIX_FMT_NONE);
+        // Don't add terminator - av_opt_set_bin handles it
         
         // Set pixel formats on buffer sink
         ret = av_opt_set_bin(buffersink_ctx_, "pix_fmts",
@@ -616,8 +637,7 @@ int FilterGraph::CreateBufferSink(const Napi::Object& output) {
       }
       
       if (!sample_fmts.empty()) {
-        // Add AV_SAMPLE_FMT_NONE terminator
-        sample_fmts.push_back(AV_SAMPLE_FMT_NONE);
+        // Don't add terminator - av_opt_set_bin handles it
         
         // Set sample formats on buffer sink
         ret = av_opt_set_bin(buffersink_ctx_, "sample_fmts",

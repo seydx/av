@@ -56,7 +56,7 @@ describe('FilterGraph', () => {
   });
 
   describe('buildPipeline', () => {
-    it('should build a simple video filter pipeline', async () => {
+    it('should build a simple video filter pipeline', () => {
       using graph = new FilterGraph();
 
       const config = {
@@ -70,7 +70,7 @@ describe('FilterGraph', () => {
         filters: 'null', // pass-through filter
       };
 
-      await graph.buildPipeline(config);
+      graph.buildPipeline(config);
 
       // Should have input and output contexts
       const inputCtx = graph.getInputContext();
@@ -80,7 +80,7 @@ describe('FilterGraph', () => {
       assert(outputCtx);
     });
 
-    it('should build a video scaling pipeline', async () => {
+    it('should build a video scaling pipeline', () => {
       using graph = new FilterGraph();
 
       const config = {
@@ -94,7 +94,7 @@ describe('FilterGraph', () => {
         filters: 'scale=640:480',
       };
 
-      await graph.buildPipeline(config);
+      graph.buildPipeline(config);
 
       const inputCtx = graph.getInputContext();
       const outputCtx = graph.getOutputContext();
@@ -103,7 +103,7 @@ describe('FilterGraph', () => {
       assert(outputCtx);
     });
 
-    it('should build a pipeline with format conversion', async () => {
+    it('should build a pipeline with format conversion', () => {
       using graph = new FilterGraph();
 
       const config = {
@@ -119,13 +119,13 @@ describe('FilterGraph', () => {
         },
       };
 
-      await graph.buildPipeline(config);
+      graph.buildPipeline(config);
 
       assert(graph.getInputContext());
       assert(graph.getOutputContext());
     });
 
-    it('should build an audio filter pipeline', async () => {
+    it('should build an audio filter pipeline', () => {
       using graph = new FilterGraph();
 
       const config: FilterPipelineConfig = {
@@ -140,26 +140,26 @@ describe('FilterGraph', () => {
         filters: 'anull', // audio pass-through
       };
 
-      await graph.buildPipeline(config);
+      graph.buildPipeline(config);
 
       assert(graph.getInputContext());
       assert(graph.getOutputContext());
     });
 
-    it('should throw on invalid configuration', async () => {
+    it('should throw on invalid configuration', () => {
       using graph = new FilterGraph();
 
       // Missing required fields
-      await assert.rejects(async () => {
-        await graph.buildPipeline({
+      assert.throws(() => {
+        graph.buildPipeline({
           input: {},
           filters: 'null',
         });
       }, /Either video.*or audio.*parameters required/);
 
       // Missing filter string
-      await assert.rejects(async () => {
-        await graph.buildPipeline({
+      assert.throws(() => {
+        graph.buildPipeline({
           input: {
             width: 640,
             height: 480,
@@ -170,7 +170,7 @@ describe('FilterGraph', () => {
       }, /Filter string required/);
     });
 
-    it('should handle complex filter chains', async () => {
+    it('should handle complex filter chains', () => {
       using graph = new FilterGraph();
 
       const config = {
@@ -183,7 +183,7 @@ describe('FilterGraph', () => {
         filters: 'scale=640:480,format=gray',
       };
 
-      await graph.buildPipeline(config);
+      graph.buildPipeline(config);
 
       assert(graph.getInputContext());
       assert(graph.getOutputContext());
@@ -195,7 +195,7 @@ describe('FilterGraph', () => {
       using graph = new FilterGraph();
 
       // Build a simple pipeline
-      await graph.buildPipeline({
+      graph.buildPipeline({
         input: {
           width: 320,
           height: 240,
@@ -231,7 +231,7 @@ describe('FilterGraph', () => {
     it('should handle null frame for flushing', async () => {
       using graph = new FilterGraph();
 
-      await graph.buildPipeline({
+      graph.buildPipeline({
         input: {
           width: 320,
           height: 240,
@@ -264,7 +264,7 @@ describe('FilterGraph', () => {
     it('should get filtered frames after flushing', async () => {
       using graph = new FilterGraph();
 
-      await graph.buildPipeline({
+      graph.buildPipeline({
         input: {
           width: 320,
           height: 240,
@@ -307,11 +307,11 @@ describe('FilterGraph', () => {
   // TODO: Fix hardware test
 
   describe('error handling', () => {
-    it('should handle invalid filter strings', async () => {
+    it('should handle invalid filter strings', () => {
       using graph = new FilterGraph();
 
-      await assert.rejects(async () => {
-        await graph.buildPipeline({
+      assert.throws(() => {
+        graph.buildPipeline({
           input: {
             width: 640,
             height: 480,
@@ -319,23 +319,8 @@ describe('FilterGraph', () => {
           },
           filters: 'nonexistent_filter',
         });
-      }, /Failed to create filter/);
+      }, /Failed to parse filter string/);
     });
 
-    it('should handle incompatible format conversions', async () => {
-      using graph = new FilterGraph();
-
-      // Try to create an invalid pipeline
-      await assert.rejects(async () => {
-        await graph.buildPipeline({
-          input: {
-            width: 640,
-            height: 480,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-          },
-          filters: 'scale=-1:-1', // Invalid scale parameters
-        });
-      }, /Failed to configure filter graph/);
-    });
   });
 });

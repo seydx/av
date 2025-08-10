@@ -25,7 +25,7 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     
     // Resource management
     InstanceMethod<&FilterContext::Free>("free"),
-    InstanceMethod<&FilterContext::Dispose>(Napi::Symbol::For(env, "nodejs.dispose")),
+    InstanceMethod<&FilterContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
   constructor = Napi::Persistent(func);
