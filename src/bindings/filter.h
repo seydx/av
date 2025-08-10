@@ -10,28 +10,26 @@ extern "C" {
 
 namespace ffmpeg {
 
+// Minimal Filter wrapper for filter discovery only
 class Filter : public Napi::ObjectWrap<Filter> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
+  static Napi::FunctionReference constructor;
+  
   Filter(const Napi::CallbackInfo& info);
   ~Filter() = default;
   
-  // Static methods
+  // Static methods for discovery
   static Napi::Value FindByName(const Napi::CallbackInfo& info);
-  static Napi::Value GetAll(const Napi::CallbackInfo& info);
   
   // Properties
   Napi::Value GetName(const Napi::CallbackInfo& info);
   Napi::Value GetDescription(const Napi::CallbackInfo& info);
   Napi::Value GetFlags(const Napi::CallbackInfo& info);
-  Napi::Value GetNbInputs(const Napi::CallbackInfo& info);
-  Napi::Value GetNbOutputs(const Napi::CallbackInfo& info);
   
-  // Internal use
+  // Internal
   void SetFilter(const AVFilter* filter) { filter_ = filter; }
   const AVFilter* GetFilter() const { return filter_; }
-  
-  static Napi::FunctionReference constructor;
 
 private:
   const AVFilter* filter_;

@@ -40,7 +40,7 @@ import {
 
 import { config, ffmpegLog } from '../index.js';
 
-import type { FilterContext, Stream } from '../../src/lib/index.js';
+import type { Stream } from '../../src/lib/index.js';
 
 // Stream processing state
 interface StreamState {
@@ -51,8 +51,6 @@ interface StreamState {
 
   // Filtering
   filterGraph: FilterGraph;
-  buffersrcContext: FilterContext;
-  buffersinkContext: FilterContext;
 
   // Encoding
   encoder: Codec;
@@ -128,27 +126,22 @@ async function main() {
     console.log(`  Input: ${decoderContext.width}x${decoderContext.height}`);
     console.log(`  Pixel format: ${decoderContext.pixelFormat}`);
 
-    // Step 3: Setup filter graph
+    // Step 3: Setup filter graph using the new unified API
     console.log('Setting up filter graph...');
     using filterGraph = new FilterGraph();
 
-    // Create buffer source (input to filter graph)
-    const buffersrcContext = filterGraph.createBuffersrcFilter('in', {
-      width: decoderContext.width,
-      height: decoderContext.height,
-      pixelFormat: decoderContext.pixelFormat,
-      timeBase: videoStream.timeBase,
-      sampleAspectRatio: decoderContext.sampleAspectRatio,
+    // Build the complete filter pipeline with one call
+    await filterGraph.buildPipeline({
+      input: {
+        width: decoderContext.width,
+        height: decoderContext.height,
+        pixelFormat: decoderContext.pixelFormat,
+        timeBase: videoStream.timeBase,
+        sampleAspectRatio: decoderContext.sampleAspectRatio,
+      },
+      filters: filterString,
     });
 
-    // Create buffer sink (output from filter graph)
-    const buffersinkContext = filterGraph.createBuffersinkFilter('out', false);
-
-    // Parse and configure the filter chain
-    // The filter string describes the processing pipeline
-    filterGraph.parseWithInOut(filterString, { name: 'in', filterContext: buffersrcContext, padIdx: 0 }, { name: 'out', filterContext: buffersinkContext, padIdx: 0 });
-
-    await filterGraph.configAsync();
     console.log('  Filter graph configured');
 
     // Step 4: Setup output format and encoder
@@ -240,8 +233,6 @@ async function main() {
       decoder,
       decoderContext,
       filterGraph,
-      buffersrcContext,
-      buffersinkContext,
       encoder,
       encoderContext,
       outputStream,
@@ -277,17 +268,13 @@ async function main() {
           break;
         }
 
-        // Send frame through filter graph
-        await buffersrcContext.bufferSrcAddFrameAsync(decodeFrame);
+        // Process frame through filter graph using the new unified API
+        const filterRet = await filterGraph.processFrame(decodeFrame, filterFrame);
         decodeFrame.unref();
 
-        // Get filtered frames
-        while (true) {
-          const ret = await buffersinkContext.bufferSinkGetFrameAsync(filterFrame);
-          if (ret < 0) {
-            break;
-          }
-
+        // Check result
+        if (filterRet === 0) {
+          // Success - we got a filtered frame
           streamState.processedFrames++;
 
           // Log progress periodically
@@ -313,6 +300,15 @@ async function main() {
             streamState.encodedFrames++;
             encodePacket.unref();
           }
+        } else if (filterRet === AV_ERROR_EAGAIN) {
+          // Filter needs more input frames - continue
+          continue;
+        } else if (filterRet === AV_ERROR_EOF) {
+          // Filter finished - should not happen in normal processing
+          break;
+        } else if (filterRet < 0) {
+          // Error occurred
+          throw new Error(`Filter processing failed: ${filterRet}`);
         }
       }
     }
@@ -326,20 +322,65 @@ async function main() {
       const ret = await decoderContext.receiveFrameAsync(decodeFrame);
       if (ret < 0) break;
 
-      await buffersrcContext.bufferSrcAddFrameAsync(decodeFrame);
+      const filterRet = await filterGraph.processFrame(decodeFrame, filterFrame);
       decodeFrame.unref();
+
+      if (filterRet === 0) {
+        await encoderContext.sendFrameAsync(filterFrame);
+        filterFrame.unref();
+        streamState.processedFrames++;
+      }
     }
 
-    // Flush filter
-    await buffersrcContext.bufferSrcAddFrameAsync(null);
+    // Flush filter by sending null frame
+    // This signals EOF to the filter and allows us to get any buffered frames
+    console.log('Flushing filter...');
+    const flushRet = await filterGraph.processFrame(null, filterFrame);
+    // Process the first frame from flush if we got one
+    if (flushRet === 0 && filterFrame.width > 0 && filterFrame.height > 0) {
+      try {
+        await encoderContext.sendFrameAsync(filterFrame);
+        filterFrame.unref();
+        streamState.processedFrames++;
+      } catch (e) {
+        console.warn('Could not encode buffered frame after flush:', e);
+      }
+    }
+
+    // Now retrieve any remaining buffered frames using getFilteredFrame
+    // This method only retrieves frames without sending null again
+    console.log('Getting remaining buffered frames from filter...');
     while (true) {
-      const ret = await buffersinkContext.bufferSinkGetFrameAsync(filterFrame);
-      if (ret < 0) break;
+      const ret = await filterGraph.getFilteredFrame(filterFrame);
 
-      await encoderContext.sendFrameAsync(filterFrame);
-      filterFrame.unref();
-      streamState.processedFrames++;
+      if (ret === AV_ERROR_EOF || ret === AV_ERROR_EAGAIN || ret < 0) {
+        // No more frames available
+        if (ret === AV_ERROR_EOF) {
+          console.log('  No more frames from filter (EOF)');
+        } else if (ret === AV_ERROR_EAGAIN) {
+          console.log('  No more frames from filter (EAGAIN)');
+        } else if (ret < 0) {
+          console.log(`  Error getting filtered frame: ${ret}`);
+        }
+        break;
+      }
+
+      // Check if frame is valid before encoding
+      if (filterFrame.width > 0 && filterFrame.height > 0) {
+        try {
+          await encoderContext.sendFrameAsync(filterFrame);
+          filterFrame.unref();
+          streamState.processedFrames++;
+        } catch (e) {
+          console.warn('Could not encode buffered frame after flush:', e);
+        }
+      } else {
+        // Invalid frame, skip
+        filterFrame.unref();
+      }
     }
+
+    // Most simple filters like scale don't buffer frames
 
     // Flush encoder
     await encoderContext.sendFrameAsync(null);

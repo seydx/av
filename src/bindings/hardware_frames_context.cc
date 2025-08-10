@@ -33,7 +33,13 @@ HardwareFramesContext::HardwareFramesContext(const Napi::CallbackInfo& info)
   : Napi::ObjectWrap<HardwareFramesContext>(info), context_(nullptr) {
   Napi::Env env = info.Env();
   
-  if (info.Length() < 1 || !info[0].IsObject()) {
+  // Allow creating without arguments for wrapping existing contexts
+  if (info.Length() == 0) {
+    // Will be set later via SetContext
+    return;
+  }
+  
+  if (!info[0].IsObject()) {
     Napi::TypeError::New(env, "Hardware device context required").ThrowAsJavaScriptException();
     return;
   }

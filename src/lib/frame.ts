@@ -417,14 +417,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   }
 
   /**
-   * Get frame data as single buffer (first plane only)
-   * @returns Buffer containing frame data or null if no data
-   */
-  getBuffer(): Buffer | null {
-    return this.native.getBuffer();
-  }
-
-  /**
    * Check if frame is writable
    * @returns true if frame data can be modified
    */

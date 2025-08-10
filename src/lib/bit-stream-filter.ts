@@ -95,13 +95,6 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   }
 
   /**
-   * Get private class name (for debugging)
-   */
-  get privClassName(): string | null {
-    return this.native.getPrivClass();
-  }
-
-  /**
    * Check if this filter supports a specific codec
    * @param codecId Codec ID to check
    * @returns true if supported, false otherwise

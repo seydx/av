@@ -199,6 +199,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Set I/O context for custom I/O operations
+   * @param value IOContext instance or null
    */
   set pb(value: NativeIOContext | NativeWrapper<NativeIOContext> | null) {
     if (value && 'getNative' in value && typeof value.getNative === 'function') {
@@ -210,6 +211,8 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Get I/O context
+   * @returns IOContext wrapper if set, null otherwise
+   * Note: This returns a non-owning wrapper when the context was created internally by FFmpeg
    */
   get pb(): NativeIOContext | null {
     return this.context.pb;

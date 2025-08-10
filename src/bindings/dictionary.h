@@ -32,9 +32,10 @@ public:
 
     AVDictionary* GetDict() { return dict_; }
     void SetDict(AVDictionary* dict);
+    
+    static Napi::FunctionReference constructor;
 
 private:
-    static Napi::FunctionReference constructor;
     AVDictionary* dict_;
 };
 

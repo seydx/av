@@ -36,12 +36,12 @@ Napi::Object IOContext::Init(Napi::Env env, Napi::Object exports) {
 }
 
 IOContext::IOContext(const Napi::CallbackInfo& info) 
-  : Napi::ObjectWrap<IOContext>(info), context_(nullptr) {
+  : Napi::ObjectWrap<IOContext>(info), context_(nullptr), owns_context_(true) {
   // Constructor doesn't open anything - use open() method
 }
 
 IOContext::~IOContext() {
-  if (context_) {
+  if (context_ && owns_context_) {
     avio_closep(&context_);
   }
 }
@@ -85,6 +85,7 @@ Napi::Value IOContext::Open(const Napi::CallbackInfo& info) {
   }
   
   int ret = avio_open2(&context_, url.c_str(), flags, nullptr, &options);
+  owns_context_ = true;  // We created it, we own it
   
   if (options) {
     av_dict_free(&options);

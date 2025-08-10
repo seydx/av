@@ -73,7 +73,6 @@ class Frame : public Napi::ObjectWrap<Frame> {
   Napi::Value AllocBuffer(const Napi::CallbackInfo& info);
   Napi::Value Clone(const Napi::CallbackInfo& info);
   Napi::Value MakeWritable(const Napi::CallbackInfo& info);
-  Napi::Value GetBuffer(const Napi::CallbackInfo& info);
   Napi::Value Unref(const Napi::CallbackInfo& info);  // Clear data but keep structure
   
   // Additional data access methods
@@ -96,10 +95,10 @@ class Frame : public Napi::ObjectWrap<Frame> {
   AVFrame* GetFrame() { return frame_.Get(); }
   void SetFrame(AVFrame* frame);
   
+  static Napi::FunctionReference constructor;
+  
  private:
   FrameResource frame_;
-  
-  static Napi::FunctionReference constructor;
 };
 
 }  // namespace ffmpeg

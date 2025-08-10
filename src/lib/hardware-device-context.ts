@@ -63,17 +63,34 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
 
   /**
    * Create a hardware device context
-   * @param type Hardware device type (e.g., CUDA, VAAPI)
+   * @param type Hardware device type (e.g., CUDA, VAAPI) or native context to wrap
    * @param device Optional device name (e.g., GPU index '0')
    * @param options Optional configuration dictionary
    * @throws Error if device creation fails
    */
-  constructor(type: AVHWDeviceType, device?: string, options?: Dictionary) {
-    this.context = new bindings.HardwareDeviceContext(type, device, options?.getNative());
+  constructor(type: AVHWDeviceType | NativeHardwareDeviceContext, device?: string, options?: Dictionary) {
+    if (typeof type === 'object') {
+      // Wrapping an existing native context
+      this.context = type;
+    } else {
+      // Creating a new hardware device context
+      this.context = new bindings.HardwareDeviceContext(type, device, options?.getNative());
 
-    if (!this.context) {
-      throw new Error(`Failed to create hardware device context for type ${type}`);
+      if (!this.context) {
+        throw new Error(`Failed to create hardware device context for type ${type}`);
+      }
     }
+  }
+
+  /**
+   * Wrap an existing native hardware device context
+   * @param native Native hardware device context
+   * @returns Wrapped HardwareDeviceContext or null
+   * @internal
+   */
+  static wrap(native: NativeHardwareDeviceContext | null): HardwareDeviceContext | null {
+    if (!native) return null;
+    return new HardwareDeviceContext(native);
   }
 
   /**

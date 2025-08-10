@@ -1,4 +1,5 @@
 #include "frame.h"
+#include "hardware_frames_context.h"
 
 extern "C" {
 #include <libavutil/hwcontext.h>
@@ -45,7 +46,6 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Frame::AllocBuffer>("allocBuffer"),
     InstanceMethod<&Frame::Clone>("clone"),
     InstanceMethod<&Frame::MakeWritable>("makeWritable"),
-    InstanceMethod<&Frame::GetBuffer>("getBuffer"),
     InstanceMethod<&Frame::Unref>("unref"),
     
     // Additional data access methods
@@ -400,30 +400,6 @@ Napi::Value Frame::MakeWritable(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value Frame::GetBuffer(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  AVFrame* frame = frame_.Get();
-  
-  // For now, return the first data plane as a buffer
-  if (frame->data[0] && frame->linesize[0] > 0) {
-    int size = 0;
-    
-    if (frame->width > 0 && frame->height > 0) {
-      // Video frame
-      size = frame->linesize[0] * frame->height;
-    } else if (frame->nb_samples > 0) {
-      // Audio frame
-      size = frame->linesize[0];
-    }
-    
-    if (size > 0) {
-      return Napi::Buffer<uint8_t>::Copy(env, frame->data[0], size);
-    }
-  }
-  
-  return env.Null();
-}
-
 Napi::Value Frame::Unref(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -439,14 +415,13 @@ Napi::Value Frame::Unref(const Napi::CallbackInfo& info) {
 Napi::Value Frame::TransferDataTo(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (info.Length() < 1 || !info[0].IsObject()) {
+  if (info.Length() < 1) {
     Napi::TypeError::New(env, "Destination frame required").ThrowAsJavaScriptException();
     return Napi::Number::New(env, -1);
   }
   
-  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  Frame* dst = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
   if (!dst) {
-    Napi::TypeError::New(env, "Invalid destination frame").ThrowAsJavaScriptException();
     return Napi::Number::New(env, -1);
   }
   
@@ -499,14 +474,13 @@ Napi::Value Frame::TransferDataTo(const Napi::CallbackInfo& info) {
 Napi::Value Frame::TransferDataFrom(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (info.Length() < 1 || !info[0].IsObject()) {
+  if (info.Length() < 1) {
     Napi::TypeError::New(env, "Source frame required").ThrowAsJavaScriptException();
     return Napi::Number::New(env, -1);
   }
   
-  Frame* src = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  Frame* src = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
   if (!src) {
-    Napi::TypeError::New(env, "Invalid source frame").ThrowAsJavaScriptException();
     return Napi::Number::New(env, -1);
   }
   
@@ -558,14 +532,49 @@ Napi::Value Frame::TransferDataFrom(const Napi::CallbackInfo& info) {
 
 Napi::Value Frame::GetHwFramesContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  // For now, return null as we need to wrap AVBufferRef
-  // TODO: Implement when we have proper AVBufferRef wrapper
-  return env.Null();
+  
+  AVFrame* frame = frame_.Get();
+  if (!frame || !frame->hw_frames_ctx) {
+    return env.Null();
+  }
+  
+  // Create a new HardwareFramesContext wrapper
+  Napi::Object hwFramesCtxObj = HardwareFramesContext::constructor.New({});
+  HardwareFramesContext* hwFramesCtx = Napi::ObjectWrap<HardwareFramesContext>::Unwrap(hwFramesCtxObj);
+  
+  // Reference the existing context (increase ref count)
+  AVBufferRef* ref = av_buffer_ref(frame->hw_frames_ctx);
+  if (!ref) {
+    return env.Null();
+  }
+  
+  hwFramesCtx->SetContext(ref);
+  return hwFramesCtxObj;
 }
 
 void Frame::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  // For now, do nothing
-  // TODO: Implement when we have proper AVBufferRef wrapper
+  Napi::Env env = info.Env();
+  
+  AVFrame* frame = frame_.Get();
+  if (!frame) {
+    Napi::Error::New(env, "Frame not allocated").ThrowAsJavaScriptException();
+    return;
+  }
+  
+  // Clear existing context
+  if (frame->hw_frames_ctx) {
+    av_buffer_unref(&frame->hw_frames_ctx);
+  }
+  
+  if (value.IsNull() || value.IsUndefined()) {
+    frame->hw_frames_ctx = nullptr;
+    return;
+  }
+  
+  HardwareFramesContext* hwFramesCtx = UnwrapNativeObject<HardwareFramesContext>(env, value, "HardwareFramesContext");
+  if (hwFramesCtx && hwFramesCtx->GetContext()) {
+    frame->hw_frames_ctx = av_buffer_ref(hwFramesCtx->GetContext());
+  }
 }
 
 Napi::Value Frame::Free(const Napi::CallbackInfo& info) {

@@ -46,7 +46,7 @@ import {
 
 import { config, ffmpegLog } from '../index.js';
 
-import type { FilterContext, Stream } from '../../src/lib/index.js';
+import type { FilterPipelineConfig, Stream } from '../../src/lib/index.js';
 
 // Stream processing context
 interface StreamContext {
@@ -57,8 +57,6 @@ interface StreamContext {
 
   // Filtering
   filterGraph: FilterGraph;
-  buffersrcContext: FilterContext;
-  buffersinkContext: FilterContext;
 
   // Output
   encoder: Codec;
@@ -154,8 +152,6 @@ async function main() {
       let encoder: Codec | null = null;
       let encoderContext: CodecContext;
       let filterGraph: FilterGraph | null = null;
-      let buffersrcContext: FilterContext | null = null;
-      let buffersinkContext: FilterContext | null = null;
 
       if (mediaType === AV_MEDIA_TYPE_VIDEO) {
         // Video encoder setup
@@ -185,27 +181,25 @@ async function main() {
           encoderContext.options.set('crf', String(config.transcoding.videoCrf));
         }
 
-        // Create video filter graph
+        // Create video filter graph with new API
         filterGraph = new FilterGraph();
-
-        // Input buffer
-        buffersrcContext = filterGraph.createBuffersrcFilter('in', {
-          width: decoderContext.width,
-          height: decoderContext.height,
-          pixelFormat: decoderContext.pixelFormat,
-          timeBase: inputStream.timeBase,
-          sampleAspectRatio: decoderContext.sampleAspectRatio,
-        });
-
-        // Output buffer
-        buffersinkContext = filterGraph.createBuffersinkFilter('out', false);
 
         // Build filter string for scaling and format conversion
         const filterStr = `scale=${config.transcoding.outputWidth}:${config.transcoding.outputHeight},format=yuv420p`;
 
-        filterGraph.parseWithInOut(filterStr, { name: 'in', filterContext: buffersrcContext, padIdx: 0 }, { name: 'out', filterContext: buffersinkContext, padIdx: 0 });
+        // Configure filter pipeline
+        const filterConfig: FilterPipelineConfig = {
+          input: {
+            width: decoderContext.width,
+            height: decoderContext.height,
+            pixelFormat: decoderContext.pixelFormat,
+            timeBase: inputStream.timeBase,
+            sampleAspectRatio: decoderContext.sampleAspectRatio,
+          },
+          filters: filterStr,
+        };
 
-        await filterGraph.configAsync();
+        await filterGraph.buildPipeline(filterConfig);
 
         console.log(`  Video: ${decoder.name} -> ${encoder.name}`);
         console.log(`     ${decoderContext.width}x${decoderContext.height} -> ${encoderContext.width}x${encoderContext.height}`);
@@ -228,28 +222,25 @@ async function main() {
         encoderContext.bitRate = config.transcoding.audioBitrate;
         encoderContext.timeBase = new Rational(1, config.transcoding.audioSampleRate);
 
-        // Create audio filter graph
+        // Create audio filter graph with new API
         filterGraph = new FilterGraph();
-
-        // Input buffer
-        const inputLayout = decoderContext.channelLayout;
-        buffersrcContext = filterGraph.createBuffersrcFilter('in', {
-          sampleRate: decoderContext.sampleRate,
-          sampleFormat: decoderContext.sampleFormat,
-          channelLayout: inputLayout,
-          timeBase: inputStream.timeBase,
-        });
-
-        // Output buffer (true for audio)
-        buffersinkContext = filterGraph.createBuffersinkFilter('out', true);
 
         // Build filter string for audio format conversion
         // Add asetnsamples to ensure correct frame size for AAC encoder
         const filterStr = `aformat=sample_rates=${config.transcoding.audioSampleRate}:sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=1`;
 
-        filterGraph.parseWithInOut(filterStr, { name: 'in', filterContext: buffersrcContext, padIdx: 0 }, { name: 'out', filterContext: buffersinkContext, padIdx: 0 });
+        // Configure filter pipeline
+        const filterConfig: FilterPipelineConfig = {
+          input: {
+            sampleRate: decoderContext.sampleRate,
+            sampleFormat: decoderContext.sampleFormat,
+            channelLayout: decoderContext.channelLayout,
+            timeBase: inputStream.timeBase,
+          },
+          filters: filterStr,
+        };
 
-        await filterGraph.configAsync();
+        await filterGraph.buildPipeline(filterConfig);
 
         console.log(`  Audio: ${decoder.name} -> ${encoder.name}`);
         console.log(`     ${decoderContext.sampleRate} Hz -> ${encoderContext.sampleRate} Hz`);
@@ -275,8 +266,6 @@ async function main() {
         decoder,
         decoderContext,
         filterGraph: filterGraph,
-        buffersrcContext: buffersrcContext,
-        buffersinkContext: buffersinkContext,
         encoder: encoder,
         encoderContext,
         outputStream,
@@ -335,17 +324,11 @@ async function main() {
         streamCtx.decodedFrames++;
 
         // Send through filter
-        await streamCtx.buffersrcContext.bufferSrcAddFrameAsync(streamCtx.decodeFrame);
+        const filterRet = await streamCtx.filterGraph.processFrame(streamCtx.decodeFrame, streamCtx.filterFrame);
         streamCtx.decodeFrame.unref();
 
-        // Get filtered frames
-        while (true) {
-          const ret = await streamCtx.buffersinkContext.bufferSinkGetFrameAsync(streamCtx.filterFrame);
-          if (ret < 0) {
-            break;
-          }
-
-          // Encode frame
+        if (filterRet >= 0) {
+          // Encode filtered frame
           await streamCtx.encoderContext.sendFrameAsync(streamCtx.filterFrame);
           streamCtx.filterFrame.unref();
 
@@ -385,14 +368,22 @@ async function main() {
         const ret = await streamCtx.decoderContext.receiveFrameAsync(streamCtx.decodeFrame);
         if (ret < 0) break;
 
-        await streamCtx.buffersrcContext.bufferSrcAddFrameAsync(streamCtx.decodeFrame);
+        // Send the last decoded frame through the filter
+        const filterRet = await streamCtx.filterGraph.processFrame(streamCtx.decodeFrame, streamCtx.filterFrame);
         streamCtx.decodeFrame.unref();
+
+        if (filterRet >= 0) {
+          await streamCtx.encoderContext.sendFrameAsync(streamCtx.filterFrame);
+          streamCtx.filterFrame.unref();
+        }
       }
 
       // Flush filter
-      await streamCtx.buffersrcContext.bufferSrcAddFrameAsync(null);
+      await streamCtx.filterGraph.processFrame(null, streamCtx.filterFrame);
+
+      // Get any remaining frames from filter
       while (true) {
-        const ret = await streamCtx.buffersinkContext.bufferSinkGetFrameAsync(streamCtx.filterFrame);
+        const ret = await streamCtx.filterGraph.getFilteredFrame(streamCtx.filterFrame);
         if (ret < 0) break;
 
         await streamCtx.encoderContext.sendFrameAsync(streamCtx.filterFrame);

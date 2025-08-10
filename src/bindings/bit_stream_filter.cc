@@ -18,7 +18,6 @@ Napi::Object BitStreamFilter::Init(Napi::Env env, Napi::Object exports) {
         StaticMethod("iterate", &BitStreamFilter::Iterate),
         InstanceMethod("getName", &BitStreamFilter::GetName),
         InstanceMethod("getCodecIds", &BitStreamFilter::GetCodecIds),
-        InstanceMethod("getPrivClass", &BitStreamFilter::GetPrivClass),
     });
 
     constructor = Napi::Persistent(func);
@@ -101,17 +100,6 @@ Napi::Value BitStreamFilter::GetCodecIds(const Napi::CallbackInfo& info) {
     }
 
     return result;
-}
-
-Napi::Value BitStreamFilter::GetPrivClass(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-
-    if (!bsf_ || !bsf_->priv_class) {
-        return env.Null();
-    }
-
-    // Return the class name for now
-    return Napi::String::New(env, bsf_->priv_class->class_name);
 }
 
 // BitStreamFilterContext implementation

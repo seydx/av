@@ -282,7 +282,6 @@ export interface NativeFrame extends Disposable {
   // ===== Methods =====
   clone(): NativeFrame;
   makeWritable(): void;
-  getBuffer(): Buffer | null;
   allocBuffer(align?: number): void;
   unref(): void; // Clear data but keep structure for reuse
 
@@ -491,20 +490,9 @@ export interface NativeFilter {
 export interface NativeFilterContext {
   readonly __brand: 'NativeFilterContext';
 
-  // ===== Methods =====
-  link(dst: NativeFilterContext, srcPad: number, dstPad: number): void;
-  unlink(srcPad: number): void;
-  bufferSrcAddFrame(frame: NativeFrame | null): number;
-  bufferSrcAddFrameAsync(frame: NativeFrame | null): Promise<number>;
-  bufferSinkGetFrame(frame: NativeFrame): number;
-  bufferSinkGetFrameAsync(frame: NativeFrame): Promise<number>;
-
-  // ===== Properties (all readonly) =====
-  readonly filter: NativeFilter;
-  readonly name: string;
-  readonly nbInputs: number;
-  readonly nbOutputs: number;
-  readonly options: NativeOptions;
+  // ===== Properties (minimal for advanced users) =====
+  readonly name: string | null;
+  readonly filterName: string | null;
 
   // Note: No Symbol.dispose - filter contexts are managed by FilterGraph
 }
@@ -520,20 +508,17 @@ export interface NativeFilterContext {
 export interface NativeFilterGraph extends Disposable {
   readonly __brand: 'NativeFilterGraph';
 
-  // ===== Configuration Methods =====
-  config(): void;
-  configAsync(): Promise<void>;
-  createFilter(filter: NativeFilter, name: string, args: string | null): NativeFilterContext;
-  createBuffersrcFilter(name: string, params: object): NativeFilterContext;
-  createBuffersinkFilter(name: string, isAudio?: boolean): NativeFilterContext;
-  parse(filters: string, inputs?: NativeFilterContext, outputs?: NativeFilterContext): void;
-  parseWithInOut(filters: string, inputs: object, outputs: object): void;
-  parsePtr(filters: string, inputs?: NativeFilterContext, outputs?: NativeFilterContext): void;
-  dump(): string;
+  // ===== Main API Methods =====
+  buildPipeline(config: object): void;
+  buildPipelineAsync(config: object): Promise<void>;
+  processFrame(inputFrame: NativeFrame | null, outputFrame: NativeFrame): number;
+  processFrameAsync(inputFrame: NativeFrame | null, outputFrame: NativeFrame): Promise<number>;
+  getFilteredFrame(outputFrame: NativeFrame): number;
+  getFilteredFrameAsync(outputFrame: NativeFrame): Promise<number>;
 
-  // ===== Properties (readonly) =====
-  readonly nbFilters: number;
-  readonly filters: NativeFilterContext[];
+  // ===== Context Access =====
+  getInputContext(): NativeFilterContext;
+  getOutputContext(): NativeFilterContext;
 
   // ===== Properties (read-write) =====
   threadType: number;
@@ -726,7 +711,6 @@ export interface NativeBitStreamFilter {
   // ===== Methods =====
   getName(): string;
   getCodecIds(): AVCodecID[] | null;
-  getPrivClass(): string | null;
 
   // Note: No Symbol.dispose - filter descriptors don't need cleanup
 }

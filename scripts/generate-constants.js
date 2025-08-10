@@ -297,6 +297,8 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_CPU_FLAG';
       } else if (name.startsWith('AV_DICT_')) {
         prefix = 'AV_DICT';
+      } else if (name.startsWith('AVFILTER_FLAG_')) {
+        prefix = 'AV_FILTER_FLAG';
       } else if (name.startsWith('AV_PIX_FMT_')) {
         prefix = 'AV_PIX_FMT';
       } else if (name.startsWith('AV_PROFILE_')) {

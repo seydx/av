@@ -2,6 +2,7 @@ import { bindings } from './binding.js';
 import { AV_ERROR_EAGAIN, AV_ERROR_EOF } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { FFmpegError } from './error.js';
+import { HardwareDeviceContext } from './hardware-device-context.js';
 import { Options } from './option.js';
 import { Rational } from './rational.js';
 
@@ -176,8 +177,9 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Get/set hardware device context for hardware acceleration
    */
-  get hwDeviceContext(): NativeHardwareDeviceContext | null {
-    return this.native.hwDeviceContext;
+  get hwDeviceContext(): HardwareDeviceContext | null {
+    const native = this.native.hwDeviceContext;
+    return native ? HardwareDeviceContext.wrap(native) : null;
   }
 
   set hwDeviceContext(value: NativeHardwareDeviceContext | NativeWrapper<NativeHardwareDeviceContext> | null) {

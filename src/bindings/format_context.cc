@@ -609,6 +609,7 @@ Napi::Value FormatContext::GetOutputFormat(const Napi::CallbackInfo& info) {
   return format;
 }
 
+
 // I/O Context
 Napi::Value FormatContext::GetPb(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -617,12 +618,20 @@ Napi::Value FormatContext::GetPb(const Napi::CallbackInfo& info) {
     return env.Null();
   }
   
-  // Return the raw pointer as an external - we'll wrap it properly later
-  // For now, just return something so the API works
-  return env.Null();
+  // Create a non-owning wrapper for the AVIOContext
+  // This is safe because the FormatContext owns the pb context
+  Napi::Object ioContextObj = IOContext::constructor.New({});
+  IOContext* ioContext = Napi::ObjectWrap<IOContext>::Unwrap(ioContextObj);
+  if (ioContext) {
+    ioContext->SetContext(context_->pb, false);  // false = we don't own it
+  }
+  
+  return ioContextObj;
 }
 
 void FormatContext::SetPb(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  Napi::Env env = info.Env();
+  
   if (!context_) {
     return;
   }
@@ -632,17 +641,10 @@ void FormatContext::SetPb(const Napi::CallbackInfo& info, const Napi::Value& val
     return;
   }
   
-  // Extract AVIOContext from IOContext object
-  if (value.IsObject()) {
-    Napi::Object obj = value.As<Napi::Object>();
-    
-    // First check if it's a wrapped IOContext object
-    IOContext* ioContext = nullptr;
-    napi_status status = napi_unwrap(info.Env(), obj, reinterpret_cast<void**>(&ioContext));
-    
-    if (status == napi_ok && ioContext) {
-      context_->pb = ioContext->Get();
-    }
+  // Check if it's an IOContext instance
+  IOContext* ioContext = UnwrapNativeObject<IOContext>(env, value, "IOContext");
+  if (ioContext) {
+    context_->pb = ioContext->Get();
   }
 }
 
@@ -703,9 +705,10 @@ Napi::Value FormatContext::AllocOutputFormatContext(const Napi::CallbackInfo& in
   
   // First parameter: OutputFormat object or null
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Napi::Object outputFormatObj = info[0].As<Napi::Object>();
-    OutputFormat* outputFormatWrapper = Napi::ObjectWrap<OutputFormat>::Unwrap(outputFormatObj);
-    output_format = const_cast<AVOutputFormat*>(outputFormatWrapper->GetFormat());
+    OutputFormat* outputFormatWrapper = UnwrapNativeObject<OutputFormat>(env, info[0], "OutputFormat");
+    if (outputFormatWrapper) {
+      output_format = const_cast<AVOutputFormat*>(outputFormatWrapper->GetFormat());
+    }
   }
   
   // Second parameter: format name

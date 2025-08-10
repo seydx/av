@@ -1,10 +1,18 @@
 #include "filter_graph.h"
-#include "filter.h"
 #include "filter_context.h"
-#include "dictionary.h"
+#include "frame.h"
+#include "hardware_device_context.h"
+#include "hardware_frames_context.h"
 #include "common.h"
-#include <vector>
+
 #include <sstream>
+
+extern "C" {
+#include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
+#include <libavutil/channel_layout.h>
+#include <libavfilter/buffersink.h>
+}
 
 namespace ffmpeg {
 
@@ -12,30 +20,25 @@ Napi::FunctionReference FilterGraph::constructor;
 
 Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterGraph", {
-    // Lifecycle
-    InstanceMethod<&FilterGraph::Config>("config"),
-    InstanceMethod<&FilterGraph::ConfigAsync>("configAsync"),
+    // Main API
+    InstanceMethod<&FilterGraph::BuildPipeline>("buildPipeline"),
+    InstanceMethod<&FilterGraph::BuildPipelineAsync>("buildPipelineAsync"),
+    InstanceMethod<&FilterGraph::ProcessFrame>("processFrame"),
+    InstanceMethod<&FilterGraph::ProcessFrameAsync>("processFrameAsync"),
+    InstanceMethod<&FilterGraph::GetFilteredFrame>("getFilteredFrame"),
+    InstanceMethod<&FilterGraph::GetFilteredFrameAsync>("getFilteredFrameAsync"),
+    
+    // Context access
+    InstanceMethod<&FilterGraph::GetInputContext>("getInputContext"),
+    InstanceMethod<&FilterGraph::GetOutputContext>("getOutputContext"),
+    
+    // Properties
+    InstanceAccessor<&FilterGraph::GetNbThreads, &FilterGraph::SetNbThreads>("nbThreads"),
+    InstanceAccessor<&FilterGraph::GetThreadType, &FilterGraph::SetThreadType>("threadType"),
     
     // Resource management
     InstanceMethod<&FilterGraph::Free>("free"),
     InstanceMethod<&FilterGraph::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
-    
-    // Filter creation
-    InstanceMethod<&FilterGraph::CreateFilter>("createFilter"),
-    InstanceMethod<&FilterGraph::CreateBuffersrcFilter>("createBuffersrcFilter"),
-    InstanceMethod<&FilterGraph::CreateBuffersinkFilter>("createBuffersinkFilter"),
-    InstanceMethod<&FilterGraph::Parse>("parse"),
-    InstanceMethod<&FilterGraph::ParsePtr>("parsePtr"),
-    InstanceMethod<&FilterGraph::ParseWithInOut>("parseWithInOut"),
-    
-    // Properties
-    InstanceAccessor<&FilterGraph::GetNbFilters>("nbFilters"),
-    InstanceAccessor<&FilterGraph::GetFilters>("filters"),
-    InstanceAccessor<&FilterGraph::GetThreadType, &FilterGraph::SetThreadType>("threadType"),
-    InstanceAccessor<&FilterGraph::GetNbThreads, &FilterGraph::SetNbThreads>("nbThreads"),
-    
-    // Utility
-    InstanceMethod<&FilterGraph::Dump>("dump"),
   });
   
   constructor = Napi::Persistent(func);
@@ -46,29 +49,103 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
 }
 
 FilterGraph::FilterGraph(const Napi::CallbackInfo& info)
-  : Napi::ObjectWrap<FilterGraph>(info) {
-  Napi::Env env = info.Env();
+  : Napi::ObjectWrap<FilterGraph>(info), 
+    graph_(nullptr),
+    buffersrc_ctx_(nullptr),
+    buffersink_ctx_(nullptr) {
   
   graph_ = avfilter_graph_alloc();
   if (!graph_) {
-    Napi::Error::New(env, "Failed to allocate filter graph").ThrowAsJavaScriptException();
-    return;
+    Napi::Error::New(info.Env(), "Failed to allocate filter graph").ThrowAsJavaScriptException();
   }
 }
 
 FilterGraph::~FilterGraph() {
   if (graph_) {
     avfilter_graph_free(&graph_);
-    graph_ = nullptr;
   }
 }
 
-// Lifecycle
-Napi::Value FilterGraph::Config(const Napi::CallbackInfo& info) {
+Napi::Value FilterGraph::BuildPipeline(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  int ret = avfilter_graph_config(graph_, nullptr);
+  if (!graph_) {
+    Napi::Error::New(env, "Filter graph not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "Configuration object required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Napi::Object config = info[0].As<Napi::Object>();
+  
+  // Extract configuration
+  if (!config.Has("input") || !config.Get("input").IsObject()) {
+    Napi::TypeError::New(env, "Input configuration required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!config.Has("filters") || !config.Get("filters").IsString()) {
+    Napi::TypeError::New(env, "Filter string required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Napi::Object input = config.Get("input").As<Napi::Object>();
+  std::string filters = config.Get("filters").As<Napi::String>().Utf8Value();
+  
+  // Create buffer source
+  int ret = CreateBufferSource(input);
   if (ret < 0) {
+    CheckFFmpegError(env, ret, "Failed to create buffer source");
+    return env.Undefined();
+  }
+  
+  // Hardware frames context is now handled in CreateBufferSource
+  
+  // Create buffer sink
+  Napi::Object output = config.Has("output") && config.Get("output").IsObject() 
+    ? config.Get("output").As<Napi::Object>() 
+    : Napi::Object::New(env);
+  
+  ret = CreateBufferSink(output);
+  if (ret < 0) {
+    CheckFFmpegError(env, ret, "Failed to create buffer sink");
+    return env.Undefined();
+  }
+  
+  // Parse filter string
+  ret = ParseFilterString(filters);
+  if (ret < 0) {
+    CheckFFmpegError(env, ret, "Failed to parse filter string");
+    return env.Undefined();
+  }
+  
+  // Apply hardware device context if provided
+  if (config.Has("hardware") && config.Get("hardware").IsObject()) {
+    Napi::Object hardware = config.Get("hardware").As<Napi::Object>();
+    
+    if (hardware.Has("deviceContext") && hardware.Get("deviceContext").IsObject()) {
+      Napi::Object deviceCtxObj = hardware.Get("deviceContext").As<Napi::Object>();
+      
+      HardwareDeviceContext* hwDeviceCtx = UnwrapNativeObject<HardwareDeviceContext>(
+        env, deviceCtxObj, "HardwareDeviceContext");
+      if (hwDeviceCtx && hwDeviceCtx->GetContext()) {
+        ret = ApplyHardwareContext(hwDeviceCtx->GetContext());
+        if (ret < 0) {
+          CheckFFmpegError(env, ret, "Failed to apply hardware device context");
+          return env.Undefined();
+        }
+      }
+    }
+  }
+  
+  // Configure the graph
+  ret = avfilter_graph_config(graph_, nullptr);
+  if (ret < 0) {
+    char errbuf[AV_ERROR_MAX_STRING_SIZE];
+    av_strerror(ret, errbuf, sizeof(errbuf));
     CheckFFmpegError(env, ret, "Failed to configure filter graph");
     return env.Undefined();
   }
@@ -76,450 +153,287 @@ Napi::Value FilterGraph::Config(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value FilterGraph::Free(const Napi::CallbackInfo& info) {
+Napi::Value FilterGraph::BuildPipelineAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (graph_) {
-    avfilter_graph_free(&graph_);
-    graph_ = nullptr;
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "Configuration object required").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
   
-  return env.Undefined();
-}
-
-Napi::Value FilterGraph::Dispose(const Napi::CallbackInfo& info) {
-  return Free(info);
-}
-
-// Filter creation
-Napi::Value FilterGraph::CreateFilter(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
+  Napi::Object config = info[0].As<Napi::Object>();
+  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
   
-  if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsString()) {
-    Napi::TypeError::New(env, "Filter and name required").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  Filter* filter = ffmpeg::UnwrapNativeObjectRequired<Filter>(env, info[0], "Filter");
-  if (!filter) return env.Null();
-  std::string name = info[1].As<Napi::String>().Utf8Value();
-  
-  std::string args;
-  if (info.Length() > 2 && info[2].IsString()) {
-    args = info[2].As<Napi::String>().Utf8Value();
-  }
-  
-  AVFilterContext* filter_ctx = nullptr;
-  // Note: avfilter_graph_create_filter creates AND initializes the filter
-  // Do NOT call init() on the returned FilterContext!
-  int ret = avfilter_graph_create_filter(&filter_ctx, filter->GetFilter(), name.c_str(),
-                                         args.empty() ? nullptr : args.c_str(),
-                                         nullptr, graph_);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to create filter");
-    return env.Null();
-  }
-  
-  // Check if FilterContext constructor is initialized
-  if (FilterContext::constructor.IsEmpty()) {
-    Napi::Error::New(env, "FilterContext class not initialized").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  Napi::Object ctxObj = FilterContext::constructor.New({});
-  FilterContext* ctx = Napi::ObjectWrap<FilterContext>::Unwrap(ctxObj);
-  ctx->SetContext(filter_ctx);
-  
-  return ctxObj;
-}
-
-Napi::Value FilterGraph::CreateBuffersrcFilter(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!graph_) {
-    Napi::Error::New(env, "Filter graph is null").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  if (info.Length() < 2 || !info[0].IsString() || !info[1].IsObject()) {
-    Napi::TypeError::New(env, "Name and parameters required").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  std::string name = info[0].As<Napi::String>().Utf8Value();
-  Napi::Object params = info[1].As<Napi::Object>();
-  
-  // Determine media type based on parameters
-  bool isAudio = params.Has("sampleRate");
-  
-  // Find the appropriate buffer source filter
-  const AVFilter* buffersrc = avfilter_get_by_name(isAudio ? "abuffer" : "buffer");
-  if (!buffersrc) {
-    Napi::Error::New(env, "Failed to find buffersrc filter").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  // Build args string based on media type
-  std::string args;
-  if (isAudio) {
-    // Audio buffer source parameters
-    if (params.Has("sampleRate") && params.Has("sampleFormat") && params.Has("channelLayout")) {
-      int sampleRate = params.Get("sampleRate").As<Napi::Number>().Int32Value();
-      int sampleFormat = params.Get("sampleFormat").As<Napi::Number>().Int32Value();
-      
-      // Get channel layout
-      std::string channelLayoutStr = "stereo"; // Default
-      if (params.Has("channelLayoutString")) {
-        channelLayoutStr = params.Get("channelLayoutString").As<Napi::String>().Utf8Value();
-      }
-      
-      char buffer[512];
-      snprintf(buffer, sizeof(buffer), 
-               "sample_rate=%d:sample_fmt=%s:channel_layout=%s",
-               sampleRate,
-               av_get_sample_fmt_name((AVSampleFormat)sampleFormat),
-               channelLayoutStr.c_str());
-      args = buffer;
+  // Create promise callback
+  Napi::Function callback = Napi::Function::New(env, [deferred](const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() > 0 && info[0].IsObject()) {
+      // Error occurred
+      deferred.Reject(info[0]);
+    } else {
+      deferred.Resolve(env.Undefined());
     }
+  });
+  
+  BuildPipelineWorker* worker = new BuildPipelineWorker(callback, this, config);
+  worker->Queue();
+  
+  return deferred.Promise();
+}
+
+Napi::Value FilterGraph::ProcessFrame(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!buffersrc_ctx_ || !buffersink_ctx_) {
+    Napi::Error::New(env, "Pipeline not configured. Call buildPipeline first.").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Input and output frames required").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  // Input frame can be null for flushing
+  AVFrame* inputAVFrame = nullptr;
+  if (!info[0].IsNull() && !info[0].IsUndefined()) {
+    if (!info[0].IsObject()) {
+      Napi::TypeError::New(env, "Input must be a Frame object or null").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+    Frame* inputFrame = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
+    if (!inputFrame) {
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+    inputAVFrame = inputFrame->GetFrame();
+  }
+  
+  // Output frame is required
+  Frame* outputFrame = UnwrapNativeObjectRequired<Frame>(env, info[1], "Frame");
+  if (!outputFrame) {
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  // If we have an input frame, add it to buffer source
+  if (inputAVFrame) {
+    int ret = av_buffersrc_add_frame_flags(buffersrc_ctx_, inputAVFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+    if (ret < 0) {
+      return Napi::Number::New(env, ret);
+    }
+    
+    // Try to get frame from buffer sink
+    ret = av_buffersink_get_frame(buffersink_ctx_, outputFrame->GetFrame());
+    return Napi::Number::New(env, ret);
   } else {
-    // Video buffer source parameters
-    if (params.Has("width") && params.Has("height") && params.Has("pixelFormat")) {
-      int width = params.Get("width").As<Napi::Number>().Int32Value();
-      int height = params.Get("height").As<Napi::Number>().Int32Value();
-      int pixelFormat = params.Get("pixelFormat").As<Napi::Number>().Int32Value();
+    // Signal EOF to the filter (only once)
+    int ret = av_buffersrc_add_frame(buffersrc_ctx_, nullptr);
+    if (ret < 0 && ret != AVERROR_EOF) {
+      return Napi::Number::New(env, ret);
+    }
+    
+    // After signaling EOF, try to get any remaining frames
+    ret = av_buffersink_get_frame(buffersink_ctx_, outputFrame->GetFrame());
+    
+    // Validate frame after flush
+    if (ret == 0 && outputFrame->GetFrame()) {
+      AVFrame* frame = outputFrame->GetFrame();
+      bool hasValidData = false;
       
-      // Get time base
-      AVRational timeBase = {1, 25}; // Default
-      if (params.Has("timeBase") && params.Get("timeBase").IsObject()) {
-        Napi::Object tb = params.Get("timeBase").As<Napi::Object>();
-        if (tb.Has("num") && tb.Has("den")) {
-          timeBase.num = tb.Get("num").As<Napi::Number>().Int32Value();
-          timeBase.den = tb.Get("den").As<Napi::Number>().Int32Value();
+      if (frame->width > 0 && frame->height > 0 && frame->format >= 0) {
+        // Video frame - check for buffer
+        if (frame->buf[0] != nullptr) {
+          hasValidData = true;
+        }
+      } else if (frame->nb_samples > 0 && frame->format >= 0) {
+        // Audio frame - check for buffer
+        if (frame->buf[0] != nullptr) {
+          hasValidData = true;
         }
       }
       
-      // Get sample aspect ratio
-      AVRational sampleAspectRatio = {1, 1}; // Default
-      if (params.Has("sampleAspectRatio") && params.Get("sampleAspectRatio").IsObject()) {
-        Napi::Object sar = params.Get("sampleAspectRatio").As<Napi::Object>();
-        if (sar.Has("num") && sar.Has("den")) {
-          sampleAspectRatio.num = sar.Get("num").As<Napi::Number>().Int32Value();
-          sampleAspectRatio.den = sar.Get("den").As<Napi::Number>().Int32Value();
-        }
+      if (!hasValidData) {
+        av_frame_unref(frame);
+        return Napi::Number::New(env, AVERROR(EAGAIN));
       }
-      
-      char buffer[512];
-      snprintf(buffer, sizeof(buffer), 
-               "video_size=%dx%d:pix_fmt=%s:time_base=%d/%d:pixel_aspect=%d/%d",
-               width, height,
-               av_get_pix_fmt_name((AVPixelFormat)pixelFormat),
-               timeBase.num, timeBase.den,
-               sampleAspectRatio.num, sampleAspectRatio.den);
-      args = buffer;
+    }
+    
+    return Napi::Number::New(env, ret);
+  }
+}
+
+Napi::Value FilterGraph::ProcessFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Input and output frames required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Input frame can be null for flushing
+  Frame* inputFrame = nullptr;
+  if (!info[0].IsNull() && !info[0].IsUndefined()) {
+    if (!info[0].IsObject()) {
+      Napi::TypeError::New(env, "Input must be a Frame object or null").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    inputFrame = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
+    if (!inputFrame) {
+      return env.Undefined();
     }
   }
   
-  // Create the filter context
-  AVFilterContext* filter_ctx = nullptr;
-  int ret = avfilter_graph_create_filter(&filter_ctx, buffersrc, name.c_str(),
-                                         args.c_str(), nullptr, graph_);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to create buffersrc filter");
+  // Output frame is required
+  Frame* outputFrame = UnwrapNativeObjectRequired<Frame>(env, info[1], "Frame");
+  
+  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+  
+  // Create promise callback
+  Napi::Function callback = Napi::Function::New(env, [deferred](const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() > 0 && !info[0].IsNull()) {
+      // Error occurred (first arg is error)
+      deferred.Reject(info[0]);
+    } else if (info.Length() > 1 && info[1].IsNumber()) {
+      // Success with return code (second arg is result)
+      deferred.Resolve(info[1]);
+    } else {
+      deferred.Resolve(Napi::Number::New(env, 0));
+    }
+  });
+  
+  ProcessFrameWorker* worker = new ProcessFrameWorker(callback, this, inputFrame, outputFrame);
+  worker->Queue();
+  
+  return deferred.Promise();
+}
+
+Napi::Value FilterGraph::GetFilteredFrame(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Output frame required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Frame* outputFrame = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
+  if (!outputFrame) {
+    return env.Undefined();
+  }
+  
+  if (!buffersink_ctx_) {
+    Napi::Error::New(env, "Pipeline not configured").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Get frame from buffer sink without adding input
+  AVFrame* frame = outputFrame->GetFrame();
+  if (!frame) {
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  // Clear any existing frame data first
+  av_frame_unref(frame);
+  
+  // Try to get a frame from the buffer sink
+  int ret = av_buffersink_get_frame(buffersink_ctx_, frame);
+  
+  // Validate frame if av_buffersink_get_frame returned success
+  if (ret == 0) {
+    // Check for completely empty frame
+    if (frame->width == 0 && frame->height == 0 && frame->nb_samples == 0) {
+      av_frame_unref(frame);
+      return Napi::Number::New(env, AVERROR(EAGAIN));
+    }
+    
+    // Verify frame has actual data buffer
+    bool hasValidData = false;
+    
+    if (frame->width > 0 && frame->height > 0 && frame->format >= 0) {
+      // Video frame - check for buffer
+      if (frame->buf[0] != nullptr) {
+        hasValidData = true;
+      }
+    } else if (frame->nb_samples > 0 && frame->format >= 0) {
+      // Audio frame - check for buffer
+      if (frame->buf[0] != nullptr) {
+        hasValidData = true;
+      }
+    }
+    
+    if (!hasValidData) {
+      av_frame_unref(frame);
+      return Napi::Number::New(env, AVERROR(EAGAIN));
+    }
+  }
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value FilterGraph::GetFilteredFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Output frame required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Frame* outputFrame = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
+  if (!outputFrame) {
+    return env.Undefined();
+  }
+  
+  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+  
+  // Create promise callback
+  Napi::Function callback = Napi::Function::New(env, [deferred](const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() > 0 && !info[0].IsNull()) {
+      // Error occurred (first arg is error)
+      deferred.Reject(info[0]);
+    } else if (info.Length() > 1 && info[1].IsNumber()) {
+      // Success with return code (second arg is result)
+      deferred.Resolve(info[1]);
+    } else {
+      deferred.Resolve(Napi::Number::New(env, 0));
+    }
+  });
+  
+  GetFilteredFrameWorker* worker = new GetFilteredFrameWorker(callback, this, outputFrame);
+  worker->Queue();
+  
+  return deferred.Promise();
+}
+
+Napi::Value FilterGraph::GetInputContext(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!buffersrc_ctx_) {
+    Napi::Error::New(env, "Pipeline not configured").ThrowAsJavaScriptException();
     return env.Null();
   }
   
-  // Create and return FilterContext wrapper
-  if (FilterContext::constructor.IsEmpty()) {
-    Napi::Error::New(env, "FilterContext class not initialized").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
+  // Create FilterContext wrapper
   Napi::Object ctxObj = FilterContext::constructor.New({});
   FilterContext* ctx = Napi::ObjectWrap<FilterContext>::Unwrap(ctxObj);
-  ctx->SetContext(filter_ctx);
+  ctx->SetContext(buffersrc_ctx_);
   
   return ctxObj;
 }
 
-Napi::Value FilterGraph::CreateBuffersinkFilter(const Napi::CallbackInfo& info) {
+Napi::Value FilterGraph::GetOutputContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!graph_) {
-    Napi::Error::New(env, "Filter graph is null").ThrowAsJavaScriptException();
+  if (!buffersink_ctx_) {
+    Napi::Error::New(env, "Pipeline not configured").ThrowAsJavaScriptException();
     return env.Null();
   }
   
-  if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "Name required").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  std::string name = info[0].As<Napi::String>().Utf8Value();
-  
-  // Determine media type - can be specified or auto-detected
-  bool isAudio = false;
-  if (info.Length() > 1 && info[1].IsBoolean()) {
-    isAudio = info[1].As<Napi::Boolean>().Value();
-  }
-  
-  // Find the appropriate buffer sink filter
-  const AVFilter* buffersink = avfilter_get_by_name(isAudio ? "abuffersink" : "buffersink");
-  if (!buffersink) {
-    Napi::Error::New(env, "Failed to find buffersink filter").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  // Create the filter context (buffersink typically doesn't need args)
-  AVFilterContext* filter_ctx = nullptr;
-  int ret = avfilter_graph_create_filter(&filter_ctx, buffersink, name.c_str(),
-                                         nullptr, nullptr, graph_);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to create buffersink filter");
-    return env.Null();
-  }
-  
-  // Create and return FilterContext wrapper
-  if (FilterContext::constructor.IsEmpty()) {
-    Napi::Error::New(env, "FilterContext class not initialized").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
+  // Create FilterContext wrapper
   Napi::Object ctxObj = FilterContext::constructor.New({});
   FilterContext* ctx = Napi::ObjectWrap<FilterContext>::Unwrap(ctxObj);
-  ctx->SetContext(filter_ctx);
+  ctx->SetContext(buffersink_ctx_);
   
   return ctxObj;
-}
-
-Napi::Value FilterGraph::ParseWithInOut(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 3 || !info[0].IsString() || !info[1].IsObject() || !info[2].IsObject()) {
-    Napi::TypeError::New(env, "Filter string, inputs and outputs required").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  std::string filters = info[0].As<Napi::String>().Utf8Value();
-  Napi::Object inputsObj = info[1].As<Napi::Object>();
-  Napi::Object outputsObj = info[2].As<Napi::Object>();
-  
-  // Create AVFilterInOut structures
-  AVFilterInOut* inputs = avfilter_inout_alloc();
-  AVFilterInOut* outputs = avfilter_inout_alloc();
-  
-  if (!inputs || !outputs) {
-    if (inputs) avfilter_inout_free(&inputs);
-    if (outputs) avfilter_inout_free(&outputs);
-    Napi::Error::New(env, "Failed to allocate filter inout structures").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  // Configure outputs (source)
-  if (inputsObj.Has("name") && inputsObj.Has("filterContext")) {
-    outputs->name = av_strdup(inputsObj.Get("name").As<Napi::String>().Utf8Value().c_str());
-    FilterContext* srcCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, inputsObj.Get("filterContext"), "FilterContext");
-    if (srcCtx) {
-      outputs->filter_ctx = srcCtx->GetContext();
-    }
-    outputs->pad_idx = 0;
-    if (inputsObj.Has("padIdx")) {
-      outputs->pad_idx = inputsObj.Get("padIdx").As<Napi::Number>().Int32Value();
-    }
-    outputs->next = nullptr;
-  }
-  
-  // Configure inputs (sink)
-  if (outputsObj.Has("name") && outputsObj.Has("filterContext")) {
-    inputs->name = av_strdup(outputsObj.Get("name").As<Napi::String>().Utf8Value().c_str());
-    FilterContext* sinkCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, outputsObj.Get("filterContext"), "FilterContext");
-    if (sinkCtx) {
-      inputs->filter_ctx = sinkCtx->GetContext();
-    }
-    inputs->pad_idx = 0;
-    if (outputsObj.Has("padIdx")) {
-      inputs->pad_idx = outputsObj.Get("padIdx").As<Napi::Number>().Int32Value();
-    }
-    inputs->next = nullptr;
-  }
-  
-  // Parse the filter graph
-  int ret = avfilter_graph_parse_ptr(graph_, filters.c_str(), &inputs, &outputs, nullptr);
-  
-  // Clean up
-  avfilter_inout_free(&inputs);
-  avfilter_inout_free(&outputs);
-  
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to parse filter graph");
-    return env.Undefined();
-  }
-  
-  return env.Undefined();
-}
-
-Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "Filter string required").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  std::string filters = info[0].As<Napi::String>().Utf8Value();
-  
-  AVFilterInOut* inputs = nullptr;
-  AVFilterInOut* outputs = nullptr;
-  
-  // Handle input filter context if provided
-  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined() && info[1].IsObject()) {
-    FilterContext* inputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[1], "FilterContext");
-    if (!inputCtx) {
-      return env.Undefined();
-    }
-    
-    // Create AVFilterInOut for input
-    inputs = avfilter_inout_alloc();
-    if (!inputs) {
-      Napi::Error::New(env, "Failed to allocate input structure").ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-    inputs->filter_ctx = inputCtx->GetContext();
-    inputs->pad_idx = 0;
-    inputs->next = nullptr;
-    inputs->name = av_strdup("in");
-  }
-  
-  // Handle output filter context if provided
-  if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined() && info[2].IsObject()) {
-    FilterContext* outputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[2], "FilterContext");
-    if (!outputCtx) {
-      avfilter_inout_free(&inputs);
-      return env.Undefined();
-    }
-    
-    // Create AVFilterInOut for output
-    outputs = avfilter_inout_alloc();
-    if (!outputs) {
-      avfilter_inout_free(&inputs);
-      Napi::Error::New(env, "Failed to allocate output structure").ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-    outputs->filter_ctx = outputCtx->GetContext();
-    outputs->pad_idx = 0;
-    outputs->next = nullptr;
-    outputs->name = av_strdup("out");
-  }
-  
-  // Parse the filter graph with proper input/output connections
-  int ret = avfilter_graph_parse_ptr(graph_, filters.c_str(), &inputs, &outputs, nullptr);
-  
-  // Clean up
-  avfilter_inout_free(&inputs);
-  avfilter_inout_free(&outputs);
-  
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to parse filter graph");
-    return env.Undefined();
-  }
-  
-  return env.Undefined();
-}
-
-Napi::Value FilterGraph::ParsePtr(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "Filter string required").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  std::string filters = info[0].As<Napi::String>().Utf8Value();
-  
-  AVFilterInOut* inputs = nullptr;
-  AVFilterInOut* outputs = nullptr;
-  
-  // Parse with inputs/outputs for complex graphs
-  if (info.Length() > 1 && info[1].IsObject()) {
-    // Handle input filter context
-    FilterContext* inputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[1], "FilterContext");
-    if (!inputCtx) {
-      return env.Undefined();
-    }
-    
-    inputs = avfilter_inout_alloc();
-    inputs->filter_ctx = inputCtx->GetContext();
-    inputs->pad_idx = 0;
-    inputs->next = nullptr;
-    inputs->name = av_strdup("in");
-  }
-  
-  if (info.Length() > 2 && info[2].IsObject()) {
-    // Handle output filter context
-    FilterContext* outputCtx = ffmpeg::UnwrapNativeObject<FilterContext>(env, info[2], "FilterContext");
-    if (!outputCtx) {
-      avfilter_inout_free(&inputs);
-      return env.Undefined();
-    }
-    
-    outputs = avfilter_inout_alloc();
-    outputs->filter_ctx = outputCtx->GetContext();
-    outputs->pad_idx = 0;
-    outputs->next = nullptr;
-    outputs->name = av_strdup("out");
-  }
-  
-  int ret = avfilter_graph_parse_ptr(graph_, filters.c_str(), &inputs, &outputs, nullptr);
-  
-  avfilter_inout_free(&inputs);
-  avfilter_inout_free(&outputs);
-  
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to parse filter graph");
-    return env.Undefined();
-  }
-  
-  return env.Undefined();
-}
-
-// Properties
-Napi::Value FilterGraph::GetNbFilters(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  return Napi::Number::New(env, graph_ ? graph_->nb_filters : 0);
-}
-
-Napi::Value FilterGraph::GetFilters(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!graph_) {
-    return Napi::Array::New(env, 0);
-  }
-  
-  Napi::Array filters = Napi::Array::New(env, graph_->nb_filters);
-  
-  for (unsigned int i = 0; i < graph_->nb_filters; i++) {
-    // Check if FilterContext constructor is initialized
-    if (FilterContext::constructor.IsEmpty()) {
-      continue;  // Skip if not initialized
-    }
-    
-    Napi::Object ctxObj = FilterContext::constructor.New({});
-    FilterContext* ctx = Napi::ObjectWrap<FilterContext>::Unwrap(ctxObj);
-    ctx->SetContext(graph_->filters[i]);
-    filters[i] = ctxObj;
-  }
-  
-  return filters;
-}
-
-Napi::Value FilterGraph::GetThreadType(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  return Napi::Number::New(env, graph_ ? graph_->thread_type : 0);
-}
-
-void FilterGraph::SetThreadType(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  if (graph_) {
-    graph_->thread_type = value.As<Napi::Number>().Int32Value();
-  }
 }
 
 Napi::Value FilterGraph::GetNbThreads(const Napi::CallbackInfo& info) {
@@ -528,28 +442,532 @@ Napi::Value FilterGraph::GetNbThreads(const Napi::CallbackInfo& info) {
 }
 
 void FilterGraph::SetNbThreads(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  if (graph_) {
+  if (graph_ && value.IsNumber()) {
     graph_->nb_threads = value.As<Napi::Number>().Int32Value();
   }
 }
 
-// Utility
-Napi::Value FilterGraph::Dump(const Napi::CallbackInfo& info) {
+Napi::Value FilterGraph::GetThreadType(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
+  return Napi::Number::New(env, graph_ ? graph_->thread_type : 0);
+}
+
+void FilterGraph::SetThreadType(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (graph_ && value.IsNumber()) {
+    graph_->thread_type = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value FilterGraph::Free(const Napi::CallbackInfo& info) {
+  if (graph_) {
+    avfilter_graph_free(&graph_);
+    graph_ = nullptr;
+    buffersrc_ctx_ = nullptr;
+    buffersink_ctx_ = nullptr;
+  }
+  return info.Env().Undefined();
+}
+
+Napi::Value FilterGraph::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
+}
+
+// Helper methods
+int FilterGraph::CreateBufferSource(const Napi::Object& input) {
+  const AVFilter* buffersrc = nullptr;
+  std::stringstream args;
+  AVBufferRef* hw_frames_ctx = nullptr;
   
-  if (!graph_) {
-    return Napi::String::New(env, "");
+  // Check for hardware frames context first
+  if (input.Has("hwFramesContext")) {
+    Napi::Value hwFramesCtxValue = input.Get("hwFramesContext");
+    HardwareFramesContext* hwFramesContext = UnwrapNativeObject<HardwareFramesContext>(
+      input.Env(), hwFramesCtxValue, "HardwareFramesContext");
+    if (hwFramesContext && hwFramesContext->GetContext()) {
+      hw_frames_ctx = hwFramesContext->GetContext();
+    }
   }
   
-  char* dump = avfilter_graph_dump(graph_, nullptr);
-  if (!dump) {
-    return Napi::String::New(env, "");
+  // Determine if this is video or audio
+  bool isVideo = input.Has("width") && input.Has("height");
+  
+  if (isVideo) {
+    buffersrc = avfilter_get_by_name("buffer");
+    
+    // Build video parameters
+    int width = input.Get("width").As<Napi::Number>().Int32Value();
+    int height = input.Get("height").As<Napi::Number>().Int32Value();
+    int pixelFormat = input.Get("pixelFormat").As<Napi::Number>().Int32Value();
+    
+    // Get time base
+    AVRational timeBase = {1, 25}; // Default
+    if (input.Has("timeBase") && input.Get("timeBase").IsObject()) {
+      Napi::Object tb = input.Get("timeBase").As<Napi::Object>();
+      if (tb.Has("num") && tb.Has("den")) {
+        timeBase.num = tb.Get("num").As<Napi::Number>().Int32Value();
+        timeBase.den = tb.Get("den").As<Napi::Number>().Int32Value();
+      }
+    }
+    
+    // Get sample aspect ratio
+    AVRational sar = {1, 1}; // Default
+    if (input.Has("sampleAspectRatio") && input.Get("sampleAspectRatio").IsObject()) {
+      Napi::Object sarObj = input.Get("sampleAspectRatio").As<Napi::Object>();
+      if (sarObj.Has("num") && sarObj.Has("den")) {
+        sar.num = sarObj.Get("num").As<Napi::Number>().Int32Value();
+        sar.den = sarObj.Get("den").As<Napi::Number>().Int32Value();
+      }
+    }
+    
+    // For hardware frames, we use the pixel format number directly if name is not available
+    const char* pixFmtName = av_get_pix_fmt_name((AVPixelFormat)pixelFormat);
+    if (pixFmtName) {
+      args << "video_size=" << width << "x" << height
+           << ":pix_fmt=" << pixFmtName
+           << ":time_base=" << timeBase.num << "/" << timeBase.den
+           << ":pixel_aspect=" << sar.num << "/" << sar.den;
+    } else {
+      // Use the pixel format number directly
+      args << "video_size=" << width << "x" << height
+           << ":pix_fmt=" << pixelFormat
+           << ":time_base=" << timeBase.num << "/" << timeBase.den
+           << ":pixel_aspect=" << sar.num << "/" << sar.den;
+    }
+  } else {
+    // Audio buffer source
+    buffersrc = avfilter_get_by_name("abuffer");
+    
+    int sampleRate = input.Get("sampleRate").As<Napi::Number>().Int32Value();
+    int sampleFormat = input.Get("sampleFormat").As<Napi::Number>().Int32Value();
+    
+    args << "sample_rate=" << sampleRate
+         << ":sample_fmt=" << av_get_sample_fmt_name((AVSampleFormat)sampleFormat)
+         << ":channel_layout=stereo"; // Default, should be configurable
   }
   
-  std::string result(dump);
-  av_free(dump);
+  if (!buffersrc) {
+    return AVERROR_FILTER_NOT_FOUND;
+  }
   
-  return Napi::String::New(env, result);
+  int ret = avfilter_graph_create_filter(&buffersrc_ctx_, buffersrc, "in",
+                                         args.str().c_str(), nullptr, graph_);
+  if (ret < 0) {
+    return ret;
+  }
+  
+  // Set hardware frames context if provided
+  if (hw_frames_ctx && buffersrc_ctx_) {
+    AVBufferSrcParameters* params = av_buffersrc_parameters_alloc();
+    if (!params) {
+      return AVERROR(ENOMEM);
+    }
+    
+    params->hw_frames_ctx = av_buffer_ref(hw_frames_ctx);
+    if (!params->hw_frames_ctx) {
+      av_free(params);
+      return AVERROR(ENOMEM);
+    }
+    
+    ret = av_buffersrc_parameters_set(buffersrc_ctx_, params);
+    av_buffer_unref(&params->hw_frames_ctx);
+    av_free(params);
+    
+    if (ret < 0) {
+      return ret;
+    }
+  } else {
+  }
+  
+  return 0;
+}
+
+int FilterGraph::CreateBufferSink(const Napi::Object& output) {
+  const AVFilter* buffersink = nullptr;
+  
+  // Determine if this is video or audio based on the source
+  bool isVideo = buffersrc_ctx_ && 
+                 strcmp(buffersrc_ctx_->filter->name, "buffer") == 0;
+  
+  if (isVideo) {
+    buffersink = avfilter_get_by_name("buffersink");
+  } else {
+    buffersink = avfilter_get_by_name("abuffersink");
+  }
+  
+  if (!buffersink) {
+    return AVERROR_FILTER_NOT_FOUND;
+  }
+  
+  int ret = avfilter_graph_create_filter(&buffersink_ctx_, buffersink, "out",
+                                         nullptr, nullptr, graph_);
+  if (ret < 0) {
+    return ret;
+  }
+  
+  // Set output constraints if provided
+  if (output.Has("pixelFormats") && output.Get("pixelFormats").IsArray()) {
+    Napi::Array formats = output.Get("pixelFormats").As<Napi::Array>();
+    if (formats.Length() > 0) {
+      // Create array of pixel formats
+      std::vector<AVPixelFormat> pix_fmts;
+      for (uint32_t i = 0; i < formats.Length(); i++) {
+        if (formats.Get(i).IsNumber()) {
+          pix_fmts.push_back(static_cast<AVPixelFormat>(formats.Get(i).As<Napi::Number>().Int32Value()));
+        }
+      }
+      
+      if (!pix_fmts.empty()) {
+        // Add AV_PIX_FMT_NONE terminator
+        pix_fmts.push_back(AV_PIX_FMT_NONE);
+        
+        // Set pixel formats on buffer sink
+        ret = av_opt_set_bin(buffersink_ctx_, "pix_fmts",
+                            (uint8_t*)pix_fmts.data(),
+                            pix_fmts.size() * sizeof(AVPixelFormat),
+                            AV_OPT_SEARCH_CHILDREN);
+        if (ret < 0) {
+          return ret;
+        }
+      }
+    }
+  }
+  
+  // Similarly for sample formats (audio)
+  if (output.Has("sampleFormats") && output.Get("sampleFormats").IsArray()) {
+    Napi::Array formats = output.Get("sampleFormats").As<Napi::Array>();
+    if (formats.Length() > 0) {
+      // Create array of sample formats
+      std::vector<AVSampleFormat> sample_fmts;
+      for (uint32_t i = 0; i < formats.Length(); i++) {
+        if (formats.Get(i).IsNumber()) {
+          sample_fmts.push_back(static_cast<AVSampleFormat>(formats.Get(i).As<Napi::Number>().Int32Value()));
+        }
+      }
+      
+      if (!sample_fmts.empty()) {
+        // Add AV_SAMPLE_FMT_NONE terminator
+        sample_fmts.push_back(AV_SAMPLE_FMT_NONE);
+        
+        // Set sample formats on buffer sink
+        ret = av_opt_set_bin(buffersink_ctx_, "sample_fmts",
+                            (uint8_t*)sample_fmts.data(),
+                            sample_fmts.size() * sizeof(AVSampleFormat),
+                            AV_OPT_SEARCH_CHILDREN);
+        if (ret < 0) {
+          return ret;
+        }
+      }
+    }
+  }
+  
+  return 0;
+}
+
+int FilterGraph::ParseFilterString(const std::string& filters) {
+  if (!buffersrc_ctx_ || !buffersink_ctx_) {
+    return AVERROR(EINVAL);
+  }
+  
+  AVFilterInOut* outputs = avfilter_inout_alloc();
+  AVFilterInOut* inputs = avfilter_inout_alloc();
+  
+  if (!outputs || !inputs) {
+    avfilter_inout_free(&outputs);
+    avfilter_inout_free(&inputs);
+    return AVERROR(ENOMEM);
+  }
+  
+  outputs->name = av_strdup("in");
+  outputs->filter_ctx = buffersrc_ctx_;
+  outputs->pad_idx = 0;
+  outputs->next = nullptr;
+  
+  inputs->name = av_strdup("out");
+  inputs->filter_ctx = buffersink_ctx_;
+  inputs->pad_idx = 0;
+  inputs->next = nullptr;
+  
+  int ret = avfilter_graph_parse_ptr(graph_, filters.c_str(),
+                                     &inputs, &outputs, nullptr);
+  
+  avfilter_inout_free(&inputs);
+  avfilter_inout_free(&outputs);
+  
+  return ret;
+}
+
+int FilterGraph::ApplyHardwareContext(AVBufferRef* hw_device_ctx) {
+  if (!graph_ || !hw_device_ctx) {
+    return AVERROR(EINVAL);
+  }
+  
+  // Apply hardware device context to all filters that support it
+  for (unsigned int i = 0; i < graph_->nb_filters; i++) {
+    AVFilterContext* filter = graph_->filters[i];
+    if (filter->filter->flags & AVFILTER_FLAG_HWDEVICE) {
+      filter->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+      if (!filter->hw_device_ctx) {
+        return AVERROR(ENOMEM);
+      }
+    }
+  }
+  
+  return 0;
+}
+
+
+// Async workers
+BuildPipelineWorker::BuildPipelineWorker(
+  Napi::Function& callback,
+  FilterGraph* graph,
+  Napi::Object config
+) : Napi::AsyncWorker(callback), graph_(graph), config_(Napi::Persistent(config)), result_(0) {}
+
+void BuildPipelineWorker::Execute() {
+  // The actual building will be done in OnOK on the main thread
+  // since it needs to interact with JavaScript objects
+  result_ = 0;
+}
+
+void BuildPipelineWorker::OnOK() {
+  Napi::HandleScope scope(Env());
+  
+  // Build the pipeline on the main thread (required for JS object access)
+  try {
+    Napi::Object config = config_.Value();
+    
+    // Extract configuration
+    if (!config.Has("input") || !config.Get("input").IsObject()) {
+      Napi::Error::New(Env(), "Input configuration required").ThrowAsJavaScriptException();
+      return;
+    }
+    
+    if (!config.Has("filters") || !config.Get("filters").IsString()) {
+      Napi::Error::New(Env(), "Filter string required").ThrowAsJavaScriptException();
+      return;
+    }
+    
+    Napi::Object input = config.Get("input").As<Napi::Object>();
+    std::string filters = config.Get("filters").As<Napi::String>().Utf8Value();
+    
+    // Create buffer source
+    int ret = graph_->CreateBufferSource(input);
+    if (ret < 0) {
+      char errbuf[AV_ERROR_MAX_STRING_SIZE];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      Napi::Error::New(Env(), std::string("Failed to create buffer source: ") + errbuf).ThrowAsJavaScriptException();
+      return;
+    }
+    
+    // Hardware frames context is now handled in CreateBufferSource
+    
+    // Create buffer sink
+    Napi::Object output = config.Has("output") && config.Get("output").IsObject() 
+      ? config.Get("output").As<Napi::Object>() 
+      : Napi::Object::New(Env());
+    
+    ret = graph_->CreateBufferSink(output);
+    if (ret < 0) {
+      char errbuf[AV_ERROR_MAX_STRING_SIZE];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      Napi::Error::New(Env(), std::string("Failed to create buffer sink: ") + errbuf).ThrowAsJavaScriptException();
+      return;
+    }
+    
+    // Parse filter string
+    ret = graph_->ParseFilterString(filters);
+    if (ret < 0) {
+      char errbuf[AV_ERROR_MAX_STRING_SIZE];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      Napi::Error::New(Env(), std::string("Failed to parse filter string: ") + errbuf).ThrowAsJavaScriptException();
+      return;
+    }
+    
+    // Apply hardware device context if provided
+    if (config.Has("hardware") && config.Get("hardware").IsObject()) {
+      Napi::Object hardware = config.Get("hardware").As<Napi::Object>();
+      
+      if (hardware.Has("deviceContext") && hardware.Get("deviceContext").IsObject()) {
+        Napi::Object deviceCtxObj = hardware.Get("deviceContext").As<Napi::Object>();
+        
+        HardwareDeviceContext* hwDeviceCtx = UnwrapNativeObject<HardwareDeviceContext>(
+          Env(), deviceCtxObj, "HardwareDeviceContext");
+        if (hwDeviceCtx && hwDeviceCtx->GetContext()) {
+          ret = graph_->ApplyHardwareContext(hwDeviceCtx->GetContext());
+          if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            Napi::Error::New(Env(), std::string("Failed to apply hardware device context: ") + errbuf).ThrowAsJavaScriptException();
+            return;
+          }
+        }
+      }
+    }
+    
+    // Configure the graph
+    ret = avfilter_graph_config(graph_->GetGraph(), nullptr);
+    if (ret < 0) {
+      char errbuf[AV_ERROR_MAX_STRING_SIZE];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      Napi::Error::New(Env(), std::string("Failed to configure filter graph: ") + errbuf).ThrowAsJavaScriptException();
+      return;
+    }
+    
+    // Success - call callback with no error
+    Callback().Call({});
+  } catch (const std::exception& e) {
+    Napi::Error err = Napi::Error::New(Env(), e.what());
+    Callback().Call({err.Value()});
+  }
+}
+
+void BuildPipelineWorker::OnError(const Napi::Error& error) {
+  Callback().Call({error.Value()});
+}
+
+ProcessFrameWorker::ProcessFrameWorker(
+  Napi::Function& callback,
+  FilterGraph* graph,
+  Frame* inputFrame,
+  Frame* outputFrame
+) : Napi::AsyncWorker(callback), 
+    graph_(graph), 
+    inputFrame_(inputFrame), 
+    outputFrame_(outputFrame),
+    result_(0) {}
+
+void ProcessFrameWorker::Execute() {
+  // Process frame in worker thread
+  AVFilterContext* src = graph_->GetBufferSrcContext();
+  AVFilterContext* sink = graph_->GetBufferSinkContext();
+  
+  if (!src || !sink) {
+    result_ = AVERROR(EINVAL);
+    return;
+  }
+  
+  // Handle input frame or flush
+  if (inputFrame_) {
+    AVFrame* inputAVFrame = inputFrame_->GetFrame();
+    result_ = av_buffersrc_add_frame_flags(src, inputAVFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+    if (result_ < 0) {
+      return;
+    }
+    
+    // Try to get frame from buffer sink
+    result_ = av_buffersink_get_frame(sink, outputFrame_->GetFrame());
+  } else {
+    // Signal EOF to the filter
+    result_ = av_buffersrc_add_frame(src, nullptr);
+    if (result_ < 0 && result_ != AVERROR_EOF) {
+      return;
+    }
+    
+    // After signaling EOF, try to get any remaining frames
+    result_ = av_buffersink_get_frame(sink, outputFrame_->GetFrame());
+    
+    // Validate frame after flush
+    if (result_ == 0 && outputFrame_->GetFrame()) {
+      AVFrame* frame = outputFrame_->GetFrame();
+      bool hasValidData = false;
+      
+      if (frame->width > 0 && frame->height > 0 && frame->format >= 0) {
+        // Video frame - check for buffer
+        if (frame->buf[0] != nullptr) {
+          hasValidData = true;
+        }
+      } else if (frame->nb_samples > 0 && frame->format >= 0) {
+        // Audio frame - check for buffer
+        if (frame->buf[0] != nullptr) {
+          hasValidData = true;
+        }
+      }
+      
+      if (!hasValidData) {
+        av_frame_unref(frame);
+        result_ = AVERROR(EAGAIN);
+      }
+    }
+  }
+}
+
+void ProcessFrameWorker::OnOK() {
+  Napi::HandleScope scope(Env());
+  Callback().Call({Env().Null(), Napi::Number::New(Env(), result_)});
+}
+
+void ProcessFrameWorker::OnError(const Napi::Error& error) {
+  Callback().Call({error.Value()});
+}
+
+GetFilteredFrameWorker::GetFilteredFrameWorker(
+  Napi::Function& callback,
+  FilterGraph* graph,
+  Frame* outputFrame
+) : Napi::AsyncWorker(callback), 
+    graph_(graph), 
+    outputFrame_(outputFrame),
+    result_(0) {}
+
+void GetFilteredFrameWorker::Execute() {
+  // Get frame from buffer sink without adding input
+  AVFilterContext* sink = graph_->GetBufferSinkContext();
+  
+  if (!sink) {
+    result_ = AVERROR(EINVAL);
+    return;
+  }
+  
+  AVFrame* frame = outputFrame_->GetFrame();
+  if (!frame) {
+    result_ = AVERROR(EINVAL);
+    return;
+  }
+  
+  // Clear any existing frame data first
+  av_frame_unref(frame);
+  
+  // Try to get a frame from the buffer sink
+  result_ = av_buffersink_get_frame(sink, frame);
+  
+  // Validate frame if av_buffersink_get_frame returned success
+  if (result_ == 0) {
+    // Check for completely empty frame
+    if (frame->width == 0 && frame->height == 0 && frame->nb_samples == 0) {
+      av_frame_unref(frame);
+      result_ = AVERROR(EAGAIN);
+      return;
+    }
+    
+    // Verify frame has actual data buffer
+    bool hasValidData = false;
+    
+    if (frame->width > 0 && frame->height > 0 && frame->format >= 0) {
+      // Video frame - check for buffer
+      if (frame->buf[0] != nullptr) {
+        hasValidData = true;
+      }
+    } else if (frame->nb_samples > 0 && frame->format >= 0) {
+      // Audio frame - check for buffer
+      if (frame->buf[0] != nullptr) {
+        hasValidData = true;
+      }
+    }
+    
+    if (!hasValidData) {
+      av_frame_unref(frame);
+      result_ = AVERROR(EAGAIN);
+    }
+  }
+}
+
+void GetFilteredFrameWorker::OnOK() {
+  Napi::HandleScope scope(Env());
+  Callback().Call({Env().Null(), Napi::Number::New(Env(), result_)});
+}
+
+void GetFilteredFrameWorker::OnError(const Napi::Error& error) {
+  Callback().Call({error.Value()});
 }
 
 } // namespace ffmpeg

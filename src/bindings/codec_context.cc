@@ -164,8 +164,12 @@ Napi::Value CodecContext::Open(const Napi::CallbackInfo& info) {
   
   AVDictionary* options = nullptr;
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    // For now, skip dictionary handling - just use nullptr
-    // TODO: Fix Dictionary access
+    // Check if it's a Dictionary object
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
+    if (dict && dict->GetDict()) {
+      // Create a copy of the dictionary for avcodec_open2 to consume
+      av_dict_copy(&options, dict->GetDict(), 0);
+    }
   }
   
   int ret = avcodec_open2(context_.Get(), context_.Get()->codec, options ? &options : nullptr);

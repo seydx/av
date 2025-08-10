@@ -21,11 +21,17 @@ class IOContext : public Napi::ObjectWrap<IOContext> {
   ~IOContext();
   
   AVIOContext* Get() { return context_; }
+  void SetContext(AVIOContext* ctx, bool owned = true) { 
+    context_ = ctx; 
+    owns_context_ = owned;
+  }
+  
+  static Napi::FunctionReference constructor;
 
  private:
   friend class OpenIOWorker;  // Allow OpenIOWorker to access private members
-  static Napi::FunctionReference constructor;
   AVIOContext* context_;
+  bool owns_context_;  // Whether we own the context and should free it
   
   // Methods
   Napi::Value Open(const Napi::CallbackInfo& info);

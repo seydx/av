@@ -21,7 +21,6 @@ public:
     // Instance methods
     Napi::Value GetName(const Napi::CallbackInfo& info);
     Napi::Value GetCodecIds(const Napi::CallbackInfo& info);
-    Napi::Value GetPrivClass(const Napi::CallbackInfo& info);
 
     const AVBitStreamFilter* GetNative() const { return bsf_; }
 

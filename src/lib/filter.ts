@@ -1,34 +1,27 @@
 import { bindings } from './binding.js';
+import { AV_FILTER_FLAG_HWDEVICE } from './constants.js';
 
 import type { NativeFilter, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg filter for audio/video processing
+ * Filter type for discovery purposes
  *
- * Represents a filter type that can be instantiated in a FilterGraph.
- * Filters are the building blocks for complex audio/video processing pipelines.
+ * Used to discover available filters and check their capabilities.
+ * Most users should just pass filter strings to FilterGraph.buildPipeline().
  *
  * @example
  * ```typescript
- * // Find a filter by name
- * const scaleFilter = Filter.findByName('scale');
- * if (scaleFilter) {
- *   // Use in a filter graph
- *   const graph = new FilterGraph();
- *   const context = graph.createFilter(scaleFilter, 'scaler', '320:240');
+ * // Check if a filter exists and supports hardware
+ * const filter = Filter.findByName('scale_cuda');
+ * if (filter && filter.supportsHardwareDevice) {
+ *   console.log('CUDA scaling available');
  * }
- *
- * // List all available filters
- * const filters = Filter.getAll();
- * console.log(`Available filters: ${filters.length}`);
  * ```
  */
 export class Filter implements NativeWrapper<NativeFilter> {
-  private filter: NativeFilter; // Native filter binding
+  private filter: NativeFilter;
 
   /**
-   * Create a Filter wrapper
-   * @param filter Native filter object
    * @internal
    */
   constructor(filter: NativeFilter) {
@@ -37,37 +30,12 @@ export class Filter implements NativeWrapper<NativeFilter> {
 
   /**
    * Find a filter by name
-   * @param name Filter name (e.g., 'scale', 'overlay', 'format')
+   * @param name Filter name (e.g., 'scale', 'scale_cuda', 'format')
    * @returns Filter instance or null if not found
-   * @example
-   * ```typescript
-   * const filter = Filter.findByName('scale');
-   * ```
    */
   static findByName(name: string): Filter | null {
-    const filter = bindings.Filter.findByName(name);
-    return filter ? new Filter(filter) : null;
-  }
-
-  /**
-   * Get all available filters
-   * @returns Array of all registered filters
-   * @example
-   * ```typescript
-   * const filters = Filter.getAll();
-   * for (const filter of filters) {
-   *   console.log(`${filter.name}: ${filter.description}`);
-   * }
-   * ```
-   */
-  static getAll(): Filter[] {
-    try {
-      const natives = bindings.Filter.getAll();
-      return natives.map((native) => new Filter(native));
-    } catch (error) {
-      console.warn('Failed to get all filters:', error);
-      return [];
-    }
+    const native = bindings.Filter.findByName(name);
+    return native ? new Filter(native) : null;
   }
 
   /**
@@ -92,72 +60,17 @@ export class Filter implements NativeWrapper<NativeFilter> {
   }
 
   /**
-   * Get number of inputs
-   * @returns Number of input pads this filter has
+   * Check if filter supports hardware device contexts
    */
-  get nbInputs(): number {
-    return this.filter.nbInputs;
+  get supportsHardwareDevice(): boolean {
+    return (this.flags & AV_FILTER_FLAG_HWDEVICE) !== 0;
   }
 
   /**
-   * Get number of outputs
-   * @returns Number of output pads this filter has
-   */
-  get nbOutputs(): number {
-    return this.filter.nbOutputs;
-  }
-
-  /**
-   * Get native filter object for internal use
+   * Get native filter for internal use
    * @internal
    */
   getNative(): NativeFilter {
     return this.filter;
   }
 }
-
-/**
- * Common filter names for convenience
- */
-export const FilterNames = {
-  // Video filters
-  SCALE: 'scale',
-  CROP: 'crop',
-  PAD: 'pad',
-  OVERLAY: 'overlay',
-  FORMAT: 'format',
-  FPS: 'fps',
-  ROTATE: 'rotate',
-  FLIP: 'hflip',
-  VFLIP: 'vflip',
-  TRANSPOSE: 'transpose',
-  SETPTS: 'setpts',
-  FADE: 'fade',
-  DRAWTEXT: 'drawtext',
-  DEINTERLACE: 'yadif',
-
-  // Audio filters
-  VOLUME: 'volume',
-  AMERGE: 'amerge',
-  AMIX: 'amix',
-  AFORMAT: 'aformat',
-  ARESAMPLE: 'aresample',
-  ATEMPO: 'atempo',
-  ADELAY: 'adelay',
-  AECHO: 'aecho',
-  AFADE: 'afade',
-  HIGHPASS: 'highpass',
-  LOWPASS: 'lowpass',
-
-  // Source/Sink filters
-  BUFFER: 'buffer',
-  BUFFERSINK: 'buffersink',
-  ABUFFER: 'abuffer',
-  ABUFFERSINK: 'abuffersink',
-
-  // Special filters
-  NULLSRC: 'nullsrc',
-  NULLSINK: 'nullsink',
-  SPLIT: 'split',
-  ASPLIT: 'asplit',
-} as const;
