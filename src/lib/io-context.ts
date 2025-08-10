@@ -91,19 +91,17 @@ export class IOContext implements Disposable, NativeWrapper<NativeIOContext> {
   }
 
   /**
+   * Dispose of the I/O context
+   */
+  [Symbol.dispose](): void {
+    this.close();
+  }
+
+  /**
    * Get native binding object for internal use
    * @internal
    */
   getNative(): NativeIOContext {
     return this.native;
-  }
-
-  // ==================== Disposable ====================
-
-  /**
-   * Dispose of the I/O context
-   */
-  [Symbol.dispose](): void {
-    this.close();
   }
 }

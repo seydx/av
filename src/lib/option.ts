@@ -65,8 +65,6 @@ export enum OptionSearchFlags {
 export class Option implements NativeWrapper<NativeOption> {
   private native: NativeOption; // Native option binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create an Option wrapper
    * @param native Native option object
@@ -75,8 +73,6 @@ export class Option implements NativeWrapper<NativeOption> {
   constructor(native: NativeOption) {
     this.native = native;
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get option name
@@ -102,7 +98,7 @@ export class Option implements NativeWrapper<NativeOption> {
   /**
    * Get default value
    */
-  get defaultValue(): any {
+  get defaultValue(): string | number | boolean | null {
     return this.native.defaultValue;
   }
 
@@ -133,8 +129,6 @@ export class Option implements NativeWrapper<NativeOption> {
   get unit(): string | null {
     return this.native.unit;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Check if option is for encoding
@@ -247,8 +241,6 @@ export class Option implements NativeWrapper<NativeOption> {
     }
   }
 
-  // ==================== Internal Methods ====================
-
   /**
    * Get native option for internal use
    * @internal
@@ -286,8 +278,6 @@ export class Option implements NativeWrapper<NativeOption> {
 export class Options implements NativeWrapper<NativeOptions> {
   private native: NativeOptions; // Native options context
 
-  // ==================== Constructor ====================
-
   /**
    * Create an Options wrapper
    * @param native Native options context
@@ -297,8 +287,6 @@ export class Options implements NativeWrapper<NativeOptions> {
     this.native = native;
   }
 
-  // ==================== Static Methods ====================
-
   /**
    * Create options from native context
    * @internal
@@ -306,8 +294,6 @@ export class Options implements NativeWrapper<NativeOptions> {
   static fromNative(context: NativeOptions): Options {
     return new Options(context);
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Set string option

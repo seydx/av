@@ -30,8 +30,6 @@ import type { ChannelLayout } from './types.js';
 export class SoftwareResampleContext implements Disposable, NativeWrapper<NativeSoftwareResampleContext> {
   private context: NativeSoftwareResampleContext; // Native resample context binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new software resample context
    * @param srcChannelLayout Source channel layout
@@ -58,9 +56,11 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
     dstSampleFormat: number,
   ) {
     this.context = new bindings.SoftwareResampleContext(srcChannelLayout, srcSampleRate, srcSampleFormat, dstChannelLayout, dstSampleRate, dstSampleFormat);
-  }
 
-  // ==================== Public Methods ====================
+    if (!this.context) {
+      throw new Error('Failed to create software resample context');
+    }
+  }
 
   /**
    * Convert audio frame from source to destination format
@@ -103,8 +103,6 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   [Symbol.dispose](): void {
     this.context[Symbol.dispose]();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native resample context for internal use

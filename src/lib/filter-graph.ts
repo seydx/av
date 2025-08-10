@@ -74,16 +74,12 @@ export interface FilterInOutConfig {
 export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph> {
   private graph: NativeFilterGraph; // Native filter graph binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new filter graph
    */
   constructor() {
     this.graph = new bindings.FilterGraph();
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get number of filters in the graph
@@ -120,8 +116,6 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   set nbThreads(value: number) {
     this.graph.nbThreads = value;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Configure the filter graph (synchronous)
@@ -309,8 +303,6 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   [Symbol.dispose](): void {
     this.free();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native filter graph for internal use

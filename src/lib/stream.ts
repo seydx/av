@@ -36,16 +36,12 @@ export class Stream implements NativeWrapper<NativeStream> {
   private native: NativeStream; // Native stream binding
   private _options?: Options;
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new stream
    */
   constructor() {
     this.native = new bindings.Stream();
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Create a Stream from native binding
@@ -56,8 +52,6 @@ export class Stream implements NativeWrapper<NativeStream> {
     stream.native = nativeStream;
     return stream;
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get stream index in the container (read-only)
@@ -212,8 +206,6 @@ export class Stream implements NativeWrapper<NativeStream> {
     return this._options;
   }
 
-  // ==================== Public Methods ====================
-
   /**
    * Check if this is a video stream
    * @returns true if video stream
@@ -271,8 +263,6 @@ export class Stream implements NativeWrapper<NativeStream> {
   removeDisposition(flag: AVDisposition): void {
     this.disposition = (this.disposition & ~flag) as AVDisposition;
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native stream for internal use

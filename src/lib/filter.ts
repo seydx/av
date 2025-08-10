@@ -26,8 +26,6 @@ import type { NativeFilter, NativeWrapper } from './native-types.js';
 export class Filter implements NativeWrapper<NativeFilter> {
   private filter: NativeFilter; // Native filter binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create a Filter wrapper
    * @param filter Native filter object
@@ -36,8 +34,6 @@ export class Filter implements NativeWrapper<NativeFilter> {
   constructor(filter: NativeFilter) {
     this.filter = filter;
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Find a filter by name
@@ -73,8 +69,6 @@ export class Filter implements NativeWrapper<NativeFilter> {
       return [];
     }
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get filter name
@@ -112,8 +106,6 @@ export class Filter implements NativeWrapper<NativeFilter> {
   get nbOutputs(): number {
     return this.filter.nbOutputs;
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native filter object for internal use

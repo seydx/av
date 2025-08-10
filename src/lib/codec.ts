@@ -50,8 +50,6 @@ export interface CodecHardwareConfig {
 export class Codec implements NativeWrapper<NativeCodec> {
   private native: NativeCodec; // Native codec binding object
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new Codec instance
    * @internal Generally use static finder methods instead
@@ -59,8 +57,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
   constructor() {
     this.native = new bindings.Codec();
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Find a decoder by codec ID
@@ -158,8 +154,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
     return codec;
   }
 
-  // ==================== Getters/Setters ====================
-
   /**
    * Get the codec short name
    */
@@ -194,8 +188,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
   get capabilities(): AVCodecCap {
     return this.native.capabilities;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Check if this is a decoder
@@ -293,8 +285,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
   toString(): string {
     return this.name ?? 'unknown';
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native codec for internal use

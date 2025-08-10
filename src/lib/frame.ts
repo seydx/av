@@ -68,16 +68,12 @@ export enum ColorSpace {
 export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   private native: NativeFrame; // Native frame binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new frame
    */
   constructor() {
     this.native = new bindings.Frame();
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Create a frame from a native binding
@@ -92,8 +88,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
     });
     return frame;
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get/set presentation timestamp (PTS)
@@ -324,7 +318,53 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
     return this.nbSamples > 0 && this.sampleRate > 0;
   }
 
-  // ==================== Public Methods ====================
+  /**
+   * Get total size of frame data in bytes
+   * @returns Size in bytes
+   */
+  get dataSize(): number {
+    return this.native.getDataSize();
+  }
+
+  /**
+   * Get format as pixel format (for video frames)
+   * @returns Pixel format or undefined if audio frame
+   */
+  get pixelFormat(): AVPixelFormat | undefined {
+    // Video frames have width and height
+    if (this.width > 0 && this.height > 0) {
+      return this.format as AVPixelFormat;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get format as sample format (for audio frames)
+   * @returns Sample format or undefined if video frame
+   */
+  get sampleFormat(): AVSampleFormat | undefined {
+    // Audio frames have samples
+    if (this.nbSamples > 0) {
+      return this.format as AVSampleFormat;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get hardware frames context
+   * @returns Hardware frames context or undefined
+   */
+  get hwFramesContext(): NativeHardwareFramesContext | null {
+    return this.native.hwFramesContext;
+  }
+
+  /**
+   * Set hardware frames context
+   * @param value Hardware frames context
+   */
+  set hwFramesContext(value: NativeHardwareFramesContext | null) {
+    this.native.hwFramesContext = value;
+  }
 
   /**
    * Allocate buffer for frame data
@@ -371,8 +411,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
     return this.native.getBuffer();
   }
 
-  // ==================== Additional Data Access ====================
-
   /**
    * Check if frame is writable
    * @returns true if frame data can be modified
@@ -398,42 +436,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   setBytes(buffer: Buffer, align = 1): void {
     this.native.setBytes(buffer, align);
   }
-
-  /**
-   * Get total size of frame data in bytes
-   * @returns Size in bytes
-   */
-  get dataSize(): number {
-    return this.native.getDataSize();
-  }
-
-  // ==================== Format Helpers ====================
-
-  /**
-   * Get format as pixel format (for video frames)
-   * @returns Pixel format or undefined if audio frame
-   */
-  get pixelFormat(): AVPixelFormat | undefined {
-    // Video frames have width and height
-    if (this.width > 0 && this.height > 0) {
-      return this.format as AVPixelFormat;
-    }
-    return undefined;
-  }
-
-  /**
-   * Get format as sample format (for audio frames)
-   * @returns Sample format or undefined if video frame
-   */
-  get sampleFormat(): AVSampleFormat | undefined {
-    // Audio frames have samples
-    if (this.nbSamples > 0) {
-      return this.format as AVSampleFormat;
-    }
-    return undefined;
-  }
-
-  // ==================== Hardware Acceleration ====================
 
   /**
    * Transfer frame data to another frame (typically GPU to CPU)
@@ -470,22 +472,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   }
 
   /**
-   * Get hardware frames context
-   * @returns Hardware frames context or undefined
-   */
-  get hwFramesContext(): NativeHardwareFramesContext | null {
-    return this.native.hwFramesContext;
-  }
-
-  /**
-   * Set hardware frames context
-   * @param value Hardware frames context
-   */
-  set hwFramesContext(value: NativeHardwareFramesContext | null) {
-    this.native.hwFramesContext = value;
-  }
-
-  /**
    * Clear frame data but keep structure for reuse
    * Use this when you want to reuse the frame object
    */
@@ -507,8 +493,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   [Symbol.dispose](): void {
     this.free();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native frame for internal use

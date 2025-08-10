@@ -61,8 +61,6 @@ export interface HardwareFramesConstraints {
 export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHardwareDeviceContext> {
   private context: NativeHardwareDeviceContext; // Native hardware device context binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create a hardware device context
    * @param type Hardware device type (e.g., CUDA, VAAPI)
@@ -77,8 +75,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
       throw new Error(`Failed to create hardware device context for type ${type}`);
     }
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Find hardware device type by name
@@ -134,16 +130,12 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
     }
   }
 
-  // ==================== Getters/Setters ====================
-
   /**
    * Get hardware device type
    */
   get type(): AVHWDeviceType {
     return this.context.type;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Get hardware frames constraints
@@ -166,8 +158,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   [Symbol.dispose](): void {
     this.context[Symbol.dispose]();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native hardware device context for internal use

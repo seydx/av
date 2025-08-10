@@ -31,8 +31,6 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
 export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHardwareFramesContext> {
   private context: NativeHardwareFramesContext; // Native hardware frames context binding
 
-  // ==================== Constructor ====================
-
   /**
    * Allocate a hardware frames context
    * @param deviceContext Hardware device context to use
@@ -45,8 +43,6 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
       throw new Error('Failed to allocate hardware frames context');
     }
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get/set frame width in pixels
@@ -103,8 +99,6 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
     this.context.initialPoolSize = value;
   }
 
-  // ==================== Public Methods ====================
-
   /**
    * Initialize the hardware frames context
    * Must be called after setting all properties
@@ -127,8 +121,6 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   [Symbol.dispose](): void {
     this.context[Symbol.dispose]();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native hardware frames context for internal use

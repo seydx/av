@@ -42,8 +42,6 @@ export interface GuessFormatOptions {
 export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   private native: NativeOutputFormat; // Native output format binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create an OutputFormat wrapper
    * @param native Native output format object
@@ -52,8 +50,6 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   private constructor(native: NativeOutputFormat) {
     this.native = native;
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Find an output format by name
@@ -133,8 +129,6 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
     return new OutputFormat(native);
   }
 
-  // ==================== Getters/Setters ====================
-
   /**
    * Get format short name
    */
@@ -207,8 +201,6 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
     return (this.flags & 0x0040) !== 0; // AVFMT_GLOBALHEADER = 0x0040
   }
 
-  // ==================== Public Methods ====================
-
   /**
    * Check if format has a specific flag
    * @param flag AVFormatFlags constant
@@ -231,8 +223,6 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   toString(): string {
     return this.name ?? 'unknown';
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native output format for internal use

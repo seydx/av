@@ -26,8 +26,6 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
 export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {
   private context: NativeSoftwareScaleContext; // Native scale context binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new software scale context
    * @param srcWidth Source width in pixels
@@ -62,8 +60,6 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
       throw new Error('Failed to create software scale context');
     }
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get source frame width
@@ -114,8 +110,6 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
     return this.context.flags;
   }
 
-  // ==================== Public Methods ====================
-
   /**
    * Scale a video frame from source to destination format
    * @param src Source frame
@@ -142,8 +136,6 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
   [Symbol.dispose](): void {
     this.context[Symbol.dispose]();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native scale context for internal use

@@ -29,8 +29,6 @@ import type { NativeInputFormat, NativeWrapper } from './native-types.js';
 export class InputFormat implements NativeWrapper<NativeInputFormat> {
   private native: NativeInputFormat; // Native input format binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create an InputFormat wrapper
    * @param native Native input format object
@@ -39,8 +37,6 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   private constructor(native: NativeInputFormat) {
     this.native = native;
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Find an input format by name
@@ -92,8 +88,6 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
     return new InputFormat(native);
   }
 
-  // ==================== Getters/Setters ====================
-
   /**
    * Get format short name
    */
@@ -130,8 +124,6 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
     return this.native.mimeType;
   }
 
-  // ==================== Public Methods ====================
-
   /**
    * Check if format has a specific flag
    * @param flag AVFormatFlags constant
@@ -154,8 +146,6 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   toString(): string {
     return this.name ?? 'unknown';
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native input format for internal use

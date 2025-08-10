@@ -29,8 +29,6 @@ import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
 export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   private fifo: NativeAudioFifo; // Native audio FIFO binding
 
-  // ==================== Constructor ====================
-
   /**
    * Allocate a new audio FIFO buffer
    * @param sampleFormat Sample format of the audio data
@@ -44,8 +42,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
       throw new Error('Failed to allocate audio FIFO');
     }
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get the number of samples currently in the FIFO
@@ -62,8 +58,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   get space(): number {
     return this.fifo.space();
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Reallocate the FIFO buffer to a new size
@@ -104,8 +98,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   [Symbol.dispose](): void {
     this.free();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get the native FIFO object for internal use

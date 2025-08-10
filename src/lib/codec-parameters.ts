@@ -35,16 +35,12 @@ import type { ChannelLayout } from './types.js';
 export class CodecParameters implements Disposable, NativeWrapper<NativeCodecParameters> {
   private native: NativeCodecParameters; // Native codec parameters binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create new codec parameters
    */
   constructor() {
     this.native = new bindings.CodecParameters();
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Create CodecParameters from a native binding
@@ -59,8 +55,6 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
     });
     return params;
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get/set the codec type (audio/video/subtitle)
@@ -294,8 +288,6 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
     this.native.extraData = value;
   }
 
-  // ==================== Public Methods ====================
-
   /**
    * Copy parameters to another CodecParameters instance
    * @param dst Destination parameters
@@ -335,8 +327,6 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
   [Symbol.dispose](): void {
     this.free();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native codec parameters for internal use

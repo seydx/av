@@ -30,8 +30,6 @@ import type { NativeDictionary, NativeWrapper } from './native-types.js';
 export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   private native: NativeDictionary; // Native dictionary binding
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new Dictionary
    * @param native Optional native dictionary object (for internal use)
@@ -39,8 +37,6 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   constructor(native?: NativeDictionary) {
     this.native = native ?? new bindings.Dictionary();
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Create a Dictionary from an object
@@ -87,8 +83,6 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
     return new Dictionary(native);
   }
 
-  // ==================== Getters/Setters ====================
-
   /**
    * Get the number of entries in the dictionary
    */
@@ -102,8 +96,6 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   get size(): number {
     return this.count;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Set a key-value pair
@@ -200,8 +192,6 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
     return this.getAll();
   }
 
-  // ==================== Iteration Methods ====================
-
   /**
    * Iterate over entries
    * @yields Key-value pairs as tuples
@@ -256,8 +246,6 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   [Symbol.dispose](): void {
     this.free();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native dictionary for internal use

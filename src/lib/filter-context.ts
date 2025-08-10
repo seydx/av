@@ -26,8 +26,6 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
   private context: NativeFilterContext; // Native filter context binding
   private _options?: Options;
 
-  // ==================== Constructor ====================
-
   /**
    * Create a FilterContext wrapper
    * @param context Native filter context object
@@ -36,8 +34,6 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
   constructor(context: NativeFilterContext) {
     this.context = context;
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get filter instance name
@@ -76,8 +72,6 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
     this._options ??= new Options(this.context.options);
     return this._options;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Link this filter to another filter
@@ -152,8 +146,6 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
   async bufferSinkGetFrameAsync(frame: Frame): Promise<number> {
     return await this.context.bufferSinkGetFrameAsync(frame.getNative());
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native filter context for internal use

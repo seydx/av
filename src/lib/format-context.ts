@@ -54,8 +54,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   private context: NativeFormatContext; // Native format context binding
   private _options?: Options;
 
-  // ==================== Constructor ====================
-
   /**
    * Create a new FormatContext
    * @param type Type of context: 'input' (default) or 'output'
@@ -78,8 +76,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
       this.context = bindings.FormatContext.allocFormatContext();
     }
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get all streams in the container
@@ -218,8 +214,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   get pb(): NativeIOContext | null {
     return this.context.pb;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Allocate an output format context
@@ -495,8 +489,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   [Symbol.dispose](): void {
     this.free();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native format context for internal use

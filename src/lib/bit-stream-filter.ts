@@ -27,9 +27,7 @@ import type { Packet } from './packet.js';
  * ```
  */
 export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
-  private native: NativeBitStreamFilter; // Native binding with dynamic properties
-
-  // ==================== Constructor ====================
+  private native: NativeBitStreamFilter; // Native bitstream filter binding
 
   /**
    * Create a BitStreamFilter wrapper
@@ -39,8 +37,6 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   constructor(native: NativeBitStreamFilter) {
     this.native = native;
   }
-
-  // ==================== Static Methods ====================
 
   /**
    * Get bitstream filter by name
@@ -83,8 +79,6 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
     return Array.from(this.iterate());
   }
 
-  // ==================== Getters/Setters ====================
-
   /**
    * Get filter name
    */
@@ -107,8 +101,6 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
     return this.native.getPrivClass();
   }
 
-  // ==================== Public Methods ====================
-
   /**
    * Check if this filter supports a specific codec
    * @param codecId Codec ID to check
@@ -125,8 +117,6 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
     if (!ids) return true; // Supports all codecs
     return ids.includes(codecId);
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native filter object for internal use
@@ -158,11 +148,9 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
  * ```
  */
 export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeBitStreamFilterContext> {
-  private native: NativeBitStreamFilterContext; // Native binding with dynamic properties
+  private native: NativeBitStreamFilterContext; // Native bitstream filter context binding
   private _filter?: BitStreamFilter;
   private _codecParameters?: CodecParameters;
-
-  // ==================== Constructor ====================
 
   /**
    * Allocate a new bitstream filter context
@@ -175,8 +163,6 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
       throw new Error('Failed to allocate bitstream filter context');
     }
   }
-
-  // ==================== Getters/Setters ====================
 
   /**
    * Get the filter this context is using
@@ -226,8 +212,6 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
     }
     return this._codecParameters;
   }
-
-  // ==================== Public Methods ====================
 
   /**
    * Initialize the filter context
@@ -359,8 +343,6 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
   [Symbol.dispose](): void {
     this.free();
   }
-
-  // ==================== Internal Methods ====================
 
   /**
    * Get native filter context for internal use
