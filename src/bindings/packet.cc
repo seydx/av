@@ -149,6 +149,7 @@ void Packet::SetData(const Napi::CallbackInfo& info, const Napi::Value& value) {
   int ret = av_new_packet(pkt, buffer.Length());
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to allocate packet data");
+    return;
   }
   
   std::memcpy(pkt->data, buffer.Data(), buffer.Length());

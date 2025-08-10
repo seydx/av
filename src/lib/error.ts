@@ -166,4 +166,17 @@ export class FFmpegError extends Error {
   get shouldRetry(): boolean {
     return this.isEagain;
   }
+
+  /**
+   * Convert a native error with ffmpegCode property to FFmpegError
+   * @internal
+   */
+  static fromNativeError(error: any): Error {
+    // Check if this is an error from C++ with ffmpegCode property
+    if (error && typeof error.ffmpegCode === 'number') {
+      return new FFmpegError(error.ffmpegCode, error.message);
+    }
+    // Return original error if not an FFmpeg error
+    return error;
+  }
 }

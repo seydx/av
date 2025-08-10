@@ -1,4 +1,5 @@
 import { bindings } from './binding.js';
+import { FFmpegError } from './error.js';
 
 import type { AVDictionaryFlag } from './constants.js';
 import type { NativeDictionary, NativeWrapper } from './native-types.js';
@@ -102,9 +103,14 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * @param key The key
    * @param value The value
    * @param flags Optional flags for setting behavior
+   * @throws FFmpegError if setting the entry fails
    */
   set(key: string, value: string, flags?: AVDictionaryFlag): void {
-    this.native.set(key, value, flags);
+    try {
+      this.native.set(key, value, flags);
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
+    }
   }
 
   /**
@@ -137,9 +143,14 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   /**
    * Delete a key-value pair
    * @param key The key to delete
+   * @throws FFmpegError if deletion fails
    */
   delete(key: string): void {
-    this.native.delete(key);
+    try {
+      this.native.delete(key);
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
+    }
   }
 
   /**
@@ -153,9 +164,14 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Create a copy of this dictionary
    * @param flags Optional flags for copy behavior
    * @returns A new Dictionary instance with copied values
+   * @throws FFmpegError if copying fails
    */
   copy(flags?: AVDictionaryFlag): Dictionary {
-    return new Dictionary(this.native.copy(flags));
+    try {
+      return new Dictionary(this.native.copy(flags));
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
+    }
   }
 
   /**
@@ -164,6 +180,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * @param keyValSep Separator between key and value (default: '=')
    * @param pairsSep Separator between pairs (default: ' ')
    * @param flags Optional flags for parsing behavior
+   * @throws FFmpegError if parsing fails
    * @example
    * ```typescript
    * dict.parseString('key1=value1 key2=value2');
@@ -171,7 +188,11 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * ```
    */
   parseString(str: string, keyValSep = '=', pairsSep = ' ', flags?: AVDictionaryFlag): void {
-    this.native.parseString(str, keyValSep, pairsSep, flags);
+    try {
+      this.native.parseString(str, keyValSep, pairsSep, flags);
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
+    }
   }
 
   /**
@@ -179,9 +200,14 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * @param keyValSep Separator between key and value (default: '=')
    * @param pairsSep Separator between pairs (default: ' ')
    * @returns String representation of the dictionary
+   * @throws FFmpegError if conversion fails
    */
   toString(keyValSep = '=', pairsSep = ' '): string {
-    return this.native.toString(keyValSep, pairsSep);
+    try {
+      return this.native.toString(keyValSep, pairsSep);
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
+    }
   }
 
   /**
@@ -226,18 +252,18 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   }
 
   /**
+   * Free the dictionary and release resources
+   */
+  free(): void {
+    this.native.free();
+  }
+
+  /**
    * Make Dictionary iterable
    * @yields Key-value pairs as tuples
    */
   [Symbol.iterator](): IterableIterator<[string, string]> {
     return this.entries();
-  }
-
-  /**
-   * Free the dictionary and release resources
-   */
-  free(): void {
-    this.native.free();
   }
 
   /**

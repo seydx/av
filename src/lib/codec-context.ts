@@ -419,15 +419,19 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @throws FFmpegError if opening fails
    */
   open(options?: Dictionary | Record<string, any> | null): void {
-    let dict: Dictionary | null = null;
-    if (options && !(options instanceof Dictionary)) {
-      dict = Dictionary.fromObject(options);
-      this.native.open(dict.getNative());
-      dict[Symbol.dispose]();
-    } else if (options instanceof Dictionary) {
-      this.native.open(options.getNative());
-    } else {
-      this.native.open(null);
+    try {
+      let dict: Dictionary | null = null;
+      if (options && !(options instanceof Dictionary)) {
+        dict = Dictionary.fromObject(options);
+        this.native.open(dict.getNative());
+        dict[Symbol.dispose]();
+      } else if (options instanceof Dictionary) {
+        this.native.open(options.getNative());
+      } else {
+        this.native.open(null);
+      }
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
     }
   }
 
@@ -438,15 +442,19 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @throws FFmpegError if opening fails
    */
   async openAsync(options?: Dictionary | Record<string, any> | null): Promise<void> {
-    let dict: Dictionary | null = null;
-    if (options && !(options instanceof Dictionary)) {
-      dict = Dictionary.fromObject(options);
-      await this.native.openAsync(dict.getNative());
-      dict[Symbol.dispose]();
-    } else if (options instanceof Dictionary) {
-      await this.native.openAsync(options.getNative());
-    } else {
-      await this.native.openAsync(null);
+    try {
+      let dict: Dictionary | null = null;
+      if (options && !(options instanceof Dictionary)) {
+        dict = Dictionary.fromObject(options);
+        await this.native.openAsync(dict.getNative());
+        dict[Symbol.dispose]();
+      } else if (options instanceof Dictionary) {
+        await this.native.openAsync(options.getNative());
+      } else {
+        await this.native.openAsync(null);
+      }
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
     }
   }
 

@@ -96,6 +96,7 @@ Napi::Value SoftwareScaleContext::ScaleFrame(const Napi::CallbackInfo& info) {
   int ret = sws_scale_frame(context_, dst->GetFrame(), src->GetFrame());
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to scale frame");
+    return env.Undefined();
   }
   
   return env.Undefined();

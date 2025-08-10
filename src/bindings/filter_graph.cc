@@ -70,6 +70,7 @@ Napi::Value FilterGraph::Config(const Napi::CallbackInfo& info) {
   int ret = avfilter_graph_config(graph_, nullptr);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to configure filter graph");
+    return env.Undefined();
   }
   
   return env.Undefined();
@@ -350,6 +351,7 @@ Napi::Value FilterGraph::ParseWithInOut(const Napi::CallbackInfo& info) {
   
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to parse filter graph");
+    return env.Undefined();
   }
   
   return env.Undefined();
@@ -417,6 +419,7 @@ Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {
   
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to parse filter graph");
+    return env.Undefined();
   }
   
   return env.Undefined();
@@ -472,6 +475,7 @@ Napi::Value FilterGraph::ParsePtr(const Napi::CallbackInfo& info) {
   
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to parse filter graph");
+    return env.Undefined();
   }
   
   return env.Undefined();

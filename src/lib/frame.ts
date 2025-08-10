@@ -1,4 +1,5 @@
 import { bindings } from './binding.js';
+import { FFmpegError } from './error.js';
 import { Rational } from './rational.js';
 
 import type { AVColorRange, AVColorSpace, AVPictureType, AVPixelFormat, AVSampleFormat } from './constants.js';
@@ -70,6 +71,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
 
   /**
    * Create a new frame
+   * @throws Error if frame allocation fails
    */
   constructor() {
     this.native = new bindings.Frame();
@@ -369,6 +371,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Allocate buffer for frame data
    * @param align Alignment for buffer allocation (default: 0)
+   * @throws FFmpegError if buffer allocation fails
    * @example
    * ```typescript
    * frame.width = 1920;
@@ -378,12 +381,17 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * ```
    */
   allocBuffer(align = 0): void {
-    this.native.allocBuffer(align);
+    try {
+      this.native.allocBuffer(align);
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
+    }
   }
 
   /**
    * Create a copy of this frame
    * @returns A new Frame with copied data
+   * @throws Error if frame cloning fails
    * @example
    * ```typescript
    * const copy = frame.clone();
@@ -398,9 +406,14 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Make frame data writable
    * Ensures the frame owns its data and can be modified
+   * @throws FFmpegError if making frame writable fails
    */
   makeWritable(): void {
-    this.native.makeWritable();
+    try {
+      this.native.makeWritable();
+    } catch (error) {
+      throw FFmpegError.fromNativeError(error);
+    }
   }
 
   /**
@@ -432,6 +445,8 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Set frame data from buffer
    * @param buffer Source buffer
    * @param align Alignment (default: 1)
+   * @throws TypeError if buffer is not provided
+   * @throws Error if frame is not initialized or making frame writable fails
    */
   setBytes(buffer: Buffer, align = 1): void {
     this.native.setBytes(buffer, align);
@@ -441,6 +456,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Transfer frame data to another frame (typically GPU to CPU)
    * @param dst Destination frame to transfer data to
    * @returns 0 on success, negative error code on failure
+   * @throws TypeError if destination frame is invalid
    * @example
    * ```typescript
    * const cpuFrame = new Frame();
@@ -458,6 +474,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Transfer frame data from another frame (typically CPU to GPU)
    * @param src Source frame to transfer data from
    * @returns 0 on success, negative error code on failure
+   * @throws TypeError if source frame is invalid
    * @example
    * ```typescript
    * const gpuFrame = new Frame();

@@ -21,13 +21,18 @@ extern "C" {
 
 namespace ffmpeg {
 
-// Convert FFmpeg error code to Node.js error
+// Convert FFmpeg error code to Node.js error with code property
 inline void CheckFFmpegError(const Napi::Env& env, int ret, const std::string& message = "") {
   if (ret < 0) {
     char errbuf[AV_ERROR_MAX_STRING_SIZE];
     av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
     std::string errorMsg = message.empty() ? errbuf : message + ": " + errbuf;
-    throw Napi::Error::New(env, errorMsg);
+    
+    // Create error with code property
+    Napi::Error error = Napi::Error::New(env, errorMsg);
+    error.Set("code", Napi::Number::New(env, ret));
+    error.Set("ffmpegCode", Napi::Number::New(env, ret));
+    error.ThrowAsJavaScriptException();
   }
 }
 

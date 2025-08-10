@@ -240,6 +240,7 @@ Napi::Value FormatContext::FindStreamInfo(const Napi::CallbackInfo& info) {
   int ret = avformat_find_stream_info(context_, nullptr);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to find stream info");
+    return env.Undefined();
   }
   
   return env.Undefined();
@@ -295,6 +296,7 @@ Napi::Value FormatContext::ReadFrame(const Napi::CallbackInfo& info) {
       return Napi::Number::New(env, ret);
     }
     CheckFFmpegError(env, ret, "Failed to read frame");
+    return Napi::Number::New(env, ret);
   }
   
   return Napi::Number::New(env, ret);
@@ -316,6 +318,7 @@ Napi::Value FormatContext::SeekFrame(const Napi::CallbackInfo& info) {
   int ret = av_seek_frame(context_, stream_index, timestamp, flags);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to seek frame");
+    return Napi::Number::New(env, ret);
   }
   
   return Napi::Number::New(env, ret);
@@ -339,6 +342,7 @@ Napi::Value FormatContext::SeekFile(const Napi::CallbackInfo& info) {
   int ret = avformat_seek_file(context_, stream_index, min_ts, ts, max_ts, flags);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to seek file");
+    return Napi::Number::New(env, ret);
   }
   
   return Napi::Number::New(env, ret);
@@ -350,6 +354,7 @@ Napi::Value FormatContext::Flush(const Napi::CallbackInfo& info) {
   int ret = avformat_flush(context_);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to flush");
+    return env.Undefined();
   }
   
   return env.Undefined();
@@ -370,6 +375,7 @@ Napi::Value FormatContext::WriteHeader(const Napi::CallbackInfo& info) {
   int ret = avformat_write_header(context_, options ? &options : nullptr);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write header");
+    return env.Undefined();
   }
   
   return env.Undefined();
@@ -389,6 +395,7 @@ Napi::Value FormatContext::WriteFrame(const Napi::CallbackInfo& info) {
   int ret = av_write_frame(context_, pkt);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write frame");
+    return Napi::Number::New(env, ret);
   }
   
   return Napi::Number::New(env, ret);
@@ -408,6 +415,7 @@ Napi::Value FormatContext::WriteInterleavedFrame(const Napi::CallbackInfo& info)
   int ret = av_interleaved_write_frame(context_, pkt);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write interleaved frame");
+    return Napi::Number::New(env, ret);
   }
   
   return Napi::Number::New(env, ret);
@@ -419,6 +427,7 @@ Napi::Value FormatContext::WriteTrailer(const Napi::CallbackInfo& info) {
   int ret = av_write_trailer(context_);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to write trailer");
+    return env.Undefined();
   }
   
   return env.Undefined();

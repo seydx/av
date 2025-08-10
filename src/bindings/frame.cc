@@ -364,6 +364,7 @@ Napi::Value Frame::AllocBuffer(const Napi::CallbackInfo& info) {
   int ret = av_frame_get_buffer(frame_.Get(), align);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to allocate frame buffer");
+    return env.Undefined();  // Return after throwing
   }
   
   return env.Undefined();
@@ -393,6 +394,7 @@ Napi::Value Frame::MakeWritable(const Napi::CallbackInfo& info) {
   int ret = av_frame_make_writable(frame_.Get());
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to make frame writable");
+    return env.Undefined();  // Return after throwing
   }
   
   return env.Undefined();

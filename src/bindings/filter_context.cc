@@ -61,6 +61,7 @@ Napi::Value FilterContext::Link(const Napi::CallbackInfo& info) {
   int ret = avfilter_link(context_, srcPad, dst->GetContext(), dstPad);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to link filters");
+    return env.Undefined();
   }
   
   return env.Undefined();
@@ -101,6 +102,7 @@ Napi::Value FilterContext::BufferSrcAddFrame(const Napi::CallbackInfo& info) {
   int ret = av_buffersrc_add_frame_flags(context_, frame, flags);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to add frame to buffer source");
+    return Napi::Number::New(env, ret);
   }
   
   return Napi::Number::New(env, ret);
@@ -120,6 +122,7 @@ Napi::Value FilterContext::BufferSinkGetFrame(const Napi::CallbackInfo& info) {
   int ret = av_buffersink_get_frame(context_, frame->GetFrame());
   if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
     CheckFFmpegError(env, ret, "Failed to get frame from buffer sink");
+    return Napi::Number::New(env, ret);
   }
   
   return Napi::Number::New(env, ret);

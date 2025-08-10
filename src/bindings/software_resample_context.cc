@@ -139,6 +139,7 @@ Napi::Value SoftwareResampleContext::ConvertFrame(const Napi::CallbackInfo& info
   int ret = swr_convert_frame(context_, dst, src);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to convert frame");
+    return env.Undefined();
   }
   
   return env.Undefined();

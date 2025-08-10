@@ -79,6 +79,7 @@ Napi::Value HardwareFramesContext::Initialize(const Napi::CallbackInfo& info) {
   int ret = av_hwframe_ctx_init(context_);
   if (ret < 0) {
     CheckFFmpegError(env, ret, "Failed to initialize hardware frames context");
+    return env.Undefined();
   }
   
   return env.Undefined();

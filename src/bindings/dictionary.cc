@@ -64,7 +64,10 @@ Napi::Value Dictionary::Set(const Napi::CallbackInfo& info) {
     }
 
     int ret = av_dict_set(&dict_, key.c_str(), value.c_str(), flags);
-    ffmpeg::CheckFFmpegError(env, ret, "Failed to set dictionary entry");
+    if (ret < 0) {
+        ffmpeg::CheckFFmpegError(env, ret, "Failed to set dictionary entry");
+        return env.Undefined();
+    }
 
     return env.Undefined();
 }
@@ -130,7 +133,10 @@ Napi::Value Dictionary::Delete(const Napi::CallbackInfo& info) {
     
     // Set to null to delete the entry
     int ret = av_dict_set(&dict_, key.c_str(), nullptr, 0);
-    ffmpeg::CheckFFmpegError(env, ret, "Failed to delete dictionary entry");
+    if (ret < 0) {
+        ffmpeg::CheckFFmpegError(env, ret, "Failed to delete dictionary entry");
+        return env.Undefined();
+    }
 
     return env.Undefined();
 }
@@ -159,7 +165,10 @@ Napi::Value Dictionary::Copy(const Napi::CallbackInfo& info) {
     
     if (dict_) {
         int ret = av_dict_copy(&dict->dict_, dict_, flags);
-        ffmpeg::CheckFFmpegError(env, ret, "Failed to copy dictionary");
+        if (ret < 0) {
+            ffmpeg::CheckFFmpegError(env, ret, "Failed to copy dictionary");
+            return env.Null();
+        }
     }
 
     return newDict;
@@ -191,7 +200,10 @@ Napi::Value Dictionary::ParseString(const Napi::CallbackInfo& info) {
     }
 
     int ret = av_dict_parse_string(&dict_, str.c_str(), keyValSep.c_str(), pairsSep.c_str(), flags);
-    ffmpeg::CheckFFmpegError(env, ret, "Failed to parse dictionary string");
+    if (ret < 0) {
+        ffmpeg::CheckFFmpegError(env, ret, "Failed to parse dictionary string");
+        return env.Undefined();
+    }
 
     return env.Undefined();
 }
@@ -217,7 +229,10 @@ Napi::Value Dictionary::ToString(const Napi::CallbackInfo& info) {
 
     char* buffer = nullptr;
     int ret = av_dict_get_string(dict_, &buffer, keyValSep, pairsSep);
-    ffmpeg::CheckFFmpegError(env, ret, "Failed to convert dictionary to string");
+    if (ret < 0) {
+        ffmpeg::CheckFFmpegError(env, ret, "Failed to convert dictionary to string");
+        return Napi::String::New(env, "");
+    }
 
     std::string result;
     if (buffer) {
