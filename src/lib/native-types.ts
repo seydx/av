@@ -152,8 +152,8 @@ export interface NativeCodecContext extends Disposable {
   readonly options: NativeOptions;
 
   // ===== Hardware Acceleration =====
-  hwDeviceContext: any;
-  hwFramesContext: any;
+  hwDeviceContext: NativeHardwareDeviceContext | null;
+  hwFramesContext: NativeHardwareFramesContext | null;
   setHardwarePixelFormat(format: AVPixelFormat): void;
   setHardwareConfig(config: { preferredFormat?: AVPixelFormat; fallbackFormats?: AVPixelFormat[]; requireHardware?: boolean }): void;
   clearHardwareConfig(): void;
@@ -288,7 +288,7 @@ export interface NativeFrame extends Disposable {
   // ===== Hardware Acceleration =====
   transferDataTo(dst: NativeFrame): void;
   transferDataFrom(src: NativeFrame): void;
-  hwFramesContext: any;
+  hwFramesContext: NativeHardwareFramesContext | null;
 
   // ===== Resource Management =====
   free(): void;
@@ -356,7 +356,7 @@ export interface NativeFormatContext extends Disposable {
   flags: AVFormatFlag;
   maxAnalyzeDuration: bigint;
   probesize: bigint;
-  pb: any; // AVIOContext
+  pb: NativeIOContext | null; // AVIOContext (Protocol Buffer)
 
   // ===== Utility Methods =====
   dump(index: number, isOutput: boolean): void;
@@ -799,7 +799,7 @@ export interface NativeOption {
   readonly type: AVOptionType;
   readonly flags: AVOptionFlag;
   readonly unit: string | null;
-  readonly defaultValue: any;
+  readonly defaultValue: string | number | boolean | null;
   readonly min: number;
   readonly max: number;
 

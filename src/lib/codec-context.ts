@@ -10,7 +10,7 @@ import type { AVCodecFlag, AVCodecFlag2, AVCodecID, AVColorRange, AVColorSpace, 
 import type { Frame } from './frame.js';
 import type { Packet } from './packet.js';
 
-import type { NativeCodecContext, NativeWrapper } from './native-types.js';
+import type { NativeCodecContext, NativeHardwareDeviceContext, NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
 import type { ChannelLayout } from './types.js';
 
 /**
@@ -180,32 +180,32 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Get/set hardware device context for hardware acceleration
    */
-  get hwDeviceContext(): any {
+  get hwDeviceContext(): NativeHardwareDeviceContext | null {
     return this.native.hwDeviceContext;
   }
 
-  set hwDeviceContext(value: any) {
+  set hwDeviceContext(value: NativeHardwareDeviceContext | NativeWrapper<NativeHardwareDeviceContext> | null) {
     // If it's a HardwareDeviceContext wrapper, extract the native object
-    if (value && typeof value.getNative === 'function') {
+    if (value && 'getNative' in value && typeof value.getNative === 'function') {
       this.native.hwDeviceContext = value.getNative();
     } else {
-      this.native.hwDeviceContext = value;
+      this.native.hwDeviceContext = value as NativeHardwareDeviceContext | null;
     }
   }
 
   /**
    * Get/set hardware frames context for hardware acceleration
    */
-  get hwFramesContext(): any {
+  get hwFramesContext(): NativeHardwareFramesContext | null {
     return this.native.hwFramesContext;
   }
 
-  set hwFramesContext(value: any) {
+  set hwFramesContext(value: NativeHardwareFramesContext | NativeWrapper<NativeHardwareFramesContext> | null) {
     // If it's a HardwareFramesContext wrapper, extract the native object
-    if (value && typeof value.getNative === 'function') {
+    if (value && 'getNative' in value && typeof value.getNative === 'function') {
       this.native.hwFramesContext = value.getNative();
     } else {
-      this.native.hwFramesContext = value;
+      this.native.hwFramesContext = value as NativeHardwareFramesContext | null;
     }
   }
 

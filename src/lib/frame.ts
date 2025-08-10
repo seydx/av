@@ -2,7 +2,7 @@ import { bindings } from './binding.js';
 import { Rational } from './rational.js';
 
 import type { AVColorRange, AVColorSpace, AVPictureType, AVPixelFormat, AVSampleFormat } from './constants.js';
-import type { NativeFrame, NativeWrapper } from './native-types.js';
+import type { NativeFrame, NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
 import type { ChannelLayout } from './types.js';
 
 /**
@@ -66,7 +66,7 @@ export enum ColorSpace {
  * ```
  */
 export class Frame implements Disposable, NativeWrapper<NativeFrame> {
-  private native: NativeFrame; // Native frame binding - using any because native bindings have dynamic properties
+  private native: NativeFrame; // Native frame binding
 
   // ==================== Constructor ====================
 
@@ -399,7 +399,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Get hardware frames context
    * @returns Hardware frames context or undefined
    */
-  get hwFramesContext(): any {
+  get hwFramesContext(): NativeHardwareFramesContext | null {
     return this.native.hwFramesContext;
   }
 
@@ -407,7 +407,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Set hardware frames context
    * @param value Hardware frames context
    */
-  set hwFramesContext(value: any) {
+  set hwFramesContext(value: NativeHardwareFramesContext | null) {
     this.native.hwFramesContext = value;
   }
 

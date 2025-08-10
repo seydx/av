@@ -540,8 +540,9 @@ Napi::Value Frame::TransferDataFrom(const Napi::CallbackInfo& info) {
 
 Napi::Value Frame::GetHwFramesContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  // For now, return undefined as we need to wrap AVBufferRef
-  return env.Undefined();
+  // For now, return null as we need to wrap AVBufferRef
+  // TODO: Implement when we have proper AVBufferRef wrapper
+  return env.Null();
 }
 
 void Frame::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value) {

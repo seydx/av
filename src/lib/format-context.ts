@@ -8,7 +8,7 @@ import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
 import type { AVFormatFlag, AVMediaType } from './constants.js';
-import type { NativeCodec, NativeFormatContext, NativeWrapper } from './native-types.js';
+import type { NativeCodec, NativeFormatContext, NativeIOContext, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 
 /**
@@ -204,14 +204,18 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   /**
    * Set I/O context for custom I/O operations
    */
-  set pb(value: any) {
-    this.context.pb = value ? value.getNative() : null;
+  set pb(value: NativeIOContext | NativeWrapper<NativeIOContext> | null) {
+    if (value && 'getNative' in value && typeof value.getNative === 'function') {
+      this.context.pb = value.getNative();
+    } else {
+      this.context.pb = value as NativeIOContext | null;
+    }
   }
 
   /**
    * Get I/O context
    */
-  get pb(): any {
+  get pb(): NativeIOContext | null {
     return this.context.pb;
   }
 
