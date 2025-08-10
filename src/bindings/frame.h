@@ -33,6 +33,9 @@ class Frame : public Napi::ObjectWrap<Frame> {
   Napi::Value GetPictType(const Napi::CallbackInfo& info);
   void SetPictType(const Napi::CallbackInfo& info, const Napi::Value& value);
   
+  Napi::Value GetQuality(const Napi::CallbackInfo& info);
+  void SetQuality(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
   // Properties - Video
   Napi::Value GetWidth(const Napi::CallbackInfo& info);
   void SetWidth(const Napi::CallbackInfo& info, const Napi::Value& value);
@@ -72,6 +75,12 @@ class Frame : public Napi::ObjectWrap<Frame> {
   Napi::Value MakeWritable(const Napi::CallbackInfo& info);
   Napi::Value GetBuffer(const Napi::CallbackInfo& info);
   Napi::Value Unref(const Napi::CallbackInfo& info);  // Clear data but keep structure
+  
+  // Additional data access methods
+  Napi::Value IsWritable(const Napi::CallbackInfo& info);
+  Napi::Value GetBytes(const Napi::CallbackInfo& info);
+  Napi::Value SetBytes(const Napi::CallbackInfo& info);
+  Napi::Value GetDataSize(const Napi::CallbackInfo& info);
   
   // Hardware acceleration
   Napi::Value TransferDataTo(const Napi::CallbackInfo& info);

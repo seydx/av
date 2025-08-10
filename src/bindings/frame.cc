@@ -22,6 +22,7 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&Frame::GetPktDuration, &Frame::SetPktDuration>("pktDuration"),
     InstanceAccessor<&Frame::GetKeyFrame, &Frame::SetKeyFrame>("keyFrame"),
     InstanceAccessor<&Frame::GetPictType, &Frame::SetPictType>("pictType"),
+    InstanceAccessor<&Frame::GetQuality, &Frame::SetQuality>("quality"),
     
     // Properties - Video
     InstanceAccessor<&Frame::GetWidth, &Frame::SetWidth>("width"),
@@ -46,6 +47,12 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Frame::MakeWritable>("makeWritable"),
     InstanceMethod<&Frame::GetBuffer>("getBuffer"),
     InstanceMethod<&Frame::Unref>("unref"),
+    
+    // Additional data access methods
+    InstanceMethod<&Frame::IsWritable>("isWritable"),
+    InstanceMethod<&Frame::GetBytes>("getBytes"),
+    InstanceMethod<&Frame::SetBytes>("setBytes"),
+    InstanceMethod<&Frame::GetDataSize>("getDataSize"),
     
     // Hardware acceleration
     InstanceMethod<&Frame::TransferDataTo>("transferDataTo"),
@@ -165,6 +172,15 @@ Napi::Value Frame::GetPictType(const Napi::CallbackInfo& info) {
 
 void Frame::SetPictType(const Napi::CallbackInfo& info, const Napi::Value& value) {
   frame_.Get()->pict_type = static_cast<enum AVPictureType>(value.As<Napi::Number>().Int32Value());
+}
+
+Napi::Value Frame::GetQuality(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  return Napi::Number::New(env, frame_.Get()->quality);
+}
+
+void Frame::SetQuality(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  frame_.Get()->quality = value.As<Napi::Number>().Int32Value();
 }
 
 // Video properties
@@ -562,6 +578,165 @@ Napi::Value Frame::Dispose(const Napi::CallbackInfo& info) {
 
 void Frame::SetFrame(AVFrame* frame) {
   frame_.Reset(frame);
+}
+
+// Additional data access methods
+Napi::Value Frame::IsWritable(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFrame* frame = frame_.Get();
+  if (!frame) {
+    return Napi::Boolean::New(env, false);
+  }
+  // A frame is writable if it has data and the reference count is 1
+  bool writable = av_frame_is_writable(frame);
+  return Napi::Boolean::New(env, writable);
+}
+
+Napi::Value Frame::GetBytes(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFrame* frame = frame_.Get();
+  
+  if (!frame || !frame->data[0]) {
+    return env.Null();
+  }
+  
+  // Get alignment parameter (optional, default to 1)
+  int align = 1;
+  if (info.Length() > 0 && info[0].IsNumber()) {
+    align = info[0].As<Napi::Number>().Int32Value();
+    if (align <= 0) align = 1;
+  }
+  
+  // Calculate total size based on frame type
+  int size = 0;
+  
+  if (frame->nb_samples > 0 && frame->ch_layout.nb_channels > 0) {
+    // Audio frame
+    size = av_samples_get_buffer_size(
+      nullptr,
+      frame->ch_layout.nb_channels,
+      frame->nb_samples,
+      (AVSampleFormat)frame->format,
+      align
+    );
+  } else if (frame->width > 0 && frame->height > 0) {
+    // Video frame
+    size = av_image_get_buffer_size(
+      (AVPixelFormat)frame->format, 
+      frame->width, 
+      frame->height, 
+      align
+    );
+  }
+  
+  if (size <= 0) {
+    return env.Null();
+  }
+  
+  // Create buffer and copy data
+  Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::New(env, size);
+  uint8_t* dst = buffer.Data();
+  
+  // Copy frame data to buffer
+  if (frame->nb_samples > 0 && frame->ch_layout.nb_channels > 0) {
+    // Audio frame
+    av_samples_copy(&dst, frame->data, 0, 0, frame->nb_samples, 
+                    frame->ch_layout.nb_channels, (AVSampleFormat)frame->format);
+  } else {
+    // Video frame
+    av_image_copy_to_buffer(dst, size, 
+                           (const uint8_t* const*)frame->data,
+                           frame->linesize,
+                           (AVPixelFormat)frame->format,
+                           frame->width, frame->height, align);
+  }
+  
+  return buffer;
+}
+
+Napi::Value Frame::SetBytes(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsBuffer()) {
+    Napi::TypeError::New(env, "Buffer expected").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  AVFrame* frame = frame_.Get();
+  if (!frame) {
+    Napi::Error::New(env, "Frame not initialized").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
+  const uint8_t* src = buffer.Data();
+  
+  // Get alignment parameter (optional, default to 1)
+  int align = 1;
+  if (info.Length() > 1 && info[1].IsNumber()) {
+    align = info[1].As<Napi::Number>().Int32Value();
+    if (align <= 0) align = 1;
+  }
+  
+  // Make sure frame is writable
+  int ret = av_frame_make_writable(frame);
+  if (ret < 0) {
+    char errbuf[AV_ERROR_MAX_STRING_SIZE];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    Napi::Error::New(env, std::string("Failed to make frame writable: ") + errbuf)
+      .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Copy buffer to frame data
+  if (frame->nb_samples > 0 && frame->ch_layout.nb_channels > 0) {
+    // Audio frame
+    int linesize;
+    ret = av_samples_fill_arrays(frame->data, &linesize,
+                                src, frame->ch_layout.nb_channels,
+                                frame->nb_samples,
+                                (AVSampleFormat)frame->format, align);
+  } else {
+    // Video frame
+    av_image_fill_arrays(frame->data, frame->linesize,
+                        src, (AVPixelFormat)frame->format,
+                        frame->width, frame->height, align);
+  }
+  
+  return env.Undefined();
+}
+
+Napi::Value Frame::GetDataSize(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFrame* frame = frame_.Get();
+  
+  if (!frame || !frame->data[0]) {
+    return Napi::Number::New(env, 0);
+  }
+  
+  int size = 0;
+  
+  // Calculate total size based on frame type
+  if (frame->nb_samples > 0 && frame->ch_layout.nb_channels > 0) {
+    // Audio frame
+    size = av_samples_get_buffer_size(
+      nullptr,
+      frame->ch_layout.nb_channels,
+      frame->nb_samples,
+      (AVSampleFormat)frame->format,
+      1  // align
+    );
+  } else {
+    // Video frame
+    size = av_image_get_buffer_size(
+      (AVPixelFormat)frame->format,
+      frame->width,
+      frame->height,
+      1  // align
+    );
+  }
+  
+  return Napi::Number::New(env, size > 0 ? size : 0);
 }
 
 }  // namespace ffmpeg

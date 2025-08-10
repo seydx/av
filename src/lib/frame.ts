@@ -176,6 +176,18 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   }
 
   /**
+   * Quality factor (0 = worst, higher = better)
+   * Used by encoders to determine compression quality
+   */
+  get quality(): number {
+    return this.native.quality;
+  }
+
+  set quality(value: number) {
+    this.native.quality = value;
+  }
+
+  /**
    * Get/set video frame width in pixels
    */
   get width(): number {
@@ -357,6 +369,68 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    */
   getBuffer(): Buffer | null {
     return this.native.getBuffer();
+  }
+
+  // ==================== Additional Data Access ====================
+
+  /**
+   * Check if frame is writable
+   * @returns true if frame data can be modified
+   */
+  isWritable(): boolean {
+    return this.native.isWritable();
+  }
+
+  /**
+   * Get all frame data as a single buffer
+   * @param align Alignment (default: 1)
+   * @returns Buffer containing all frame data or null
+   */
+  getBytes(align = 1): Buffer | null {
+    return this.native.getBytes(align);
+  }
+
+  /**
+   * Set frame data from buffer
+   * @param buffer Source buffer
+   * @param align Alignment (default: 1)
+   */
+  setBytes(buffer: Buffer, align = 1): void {
+    this.native.setBytes(buffer, align);
+  }
+
+  /**
+   * Get total size of frame data in bytes
+   * @returns Size in bytes
+   */
+  get dataSize(): number {
+    return this.native.getDataSize();
+  }
+
+  // ==================== Format Helpers ====================
+
+  /**
+   * Get format as pixel format (for video frames)
+   * @returns Pixel format or undefined if audio frame
+   */
+  get pixelFormat(): AVPixelFormat | undefined {
+    // Video frames have width and height
+    if (this.width > 0 && this.height > 0) {
+      return this.format as AVPixelFormat;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get format as sample format (for audio frames)
+   * @returns Sample format or undefined if video frame
+   */
+  get sampleFormat(): AVSampleFormat | undefined {
+    // Audio frames have samples
+    if (this.nbSamples > 0) {
+      return this.format as AVSampleFormat;
+    }
+    return undefined;
   }
 
   // ==================== Hardware Acceleration ====================

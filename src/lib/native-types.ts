@@ -259,6 +259,7 @@ export interface NativeFrame extends Disposable {
   pktDuration: bigint;
   keyFrame: boolean;
   pictType: AVPictureType;
+  quality: number; // Quality factor (0 = worst, 1 = best)
   readonly bestEffortTimestamp: bigint; // Computed property
 
   // ===== Video Properties =====
@@ -284,6 +285,12 @@ export interface NativeFrame extends Disposable {
   getBuffer(): Buffer | null;
   allocBuffer(align?: number): void;
   unref(): void; // Clear data but keep structure for reuse
+
+  // Additional data access methods
+  isWritable(): boolean;
+  getBytes(align?: number): Buffer | null;
+  setBytes(buffer: Buffer, align?: number): void;
+  getDataSize(): number;
 
   // ===== Hardware Acceleration =====
   transferDataTo(dst: NativeFrame): void;

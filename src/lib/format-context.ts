@@ -227,7 +227,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * @param formatName Optional format name (e.g., 'mp4', 'mkv')
    * @param filename Optional filename
    */
-  allocOutputContext(outputFormat: OutputFormat | null, formatName: string, filename: string): void {
+  allocOutputContext(outputFormat: OutputFormat | null, formatName?: string, filename?: string): void {
     this.context = bindings.FormatContext.allocOutputFormatContext(outputFormat?.getNative() ?? null, formatName, filename);
   }
 
