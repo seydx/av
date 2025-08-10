@@ -2,11 +2,11 @@ import { bindings } from './binding.js';
 import { CodecParameters } from './codec-parameters.js';
 import { AV_ERROR_EAGAIN, AV_ERROR_EOF } from './constants.js';
 import { FFmpegError } from './error.js';
+import { Rational } from './rational.js';
 
 import type { AVCodecID } from './constants.js';
 import type { NativeBitStreamFilter, NativeBitStreamFilterContext, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
-import { Rational } from './rational.js';
 
 /**
  * BitStreamFilter - represents a specific bitstream filter type
@@ -27,7 +27,7 @@ import { Rational } from './rational.js';
  * ```
  */
 export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
-  private native: any; // Native binding with dynamic properties
+  private native: NativeBitStreamFilter; // Native binding with dynamic properties
 
   // ==================== Constructor ====================
 
@@ -36,7 +36,7 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
    * @param native Native filter object
    * @internal
    */
-  constructor(native: any) {
+  constructor(native: NativeBitStreamFilter) {
     this.native = native;
   }
 
@@ -132,7 +132,7 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
    * Get native filter object for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeBitStreamFilter {
     return this.native;
   }
 }
@@ -158,7 +158,7 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
  * ```
  */
 export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeBitStreamFilterContext> {
-  private native: any; // Native binding with dynamic properties
+  private native: NativeBitStreamFilterContext; // Native binding with dynamic properties
   private _filter?: BitStreamFilter;
   private _codecParameters?: CodecParameters;
 
@@ -366,7 +366,7 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
    * Get native filter context for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeBitStreamFilterContext {
     return this.native;
   }
 }

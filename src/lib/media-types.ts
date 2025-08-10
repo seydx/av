@@ -4,9 +4,6 @@
  */
 
 import {
-  type AVMediaType,
-  type AVPictureType,
-  type AVSampleFormat,
   AV_MEDIA_TYPE_ATTACHMENT,
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_DATA,
@@ -35,6 +32,8 @@ import {
   AV_SAMPLE_FMT_U8,
   AV_SAMPLE_FMT_U8P,
 } from './constants.js';
+
+import type { AVMediaType, AVPictureType, AVSampleFormat } from './constants.js';
 
 /**
  * Media Type utilities

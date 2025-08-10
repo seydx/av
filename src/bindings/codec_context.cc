@@ -85,7 +85,8 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     // Options
     InstanceAccessor<&CodecContext::GetOptions>("options"),
     
-    // Symbol.dispose
+    // Resource management
+    InstanceMethod<&CodecContext::Free>("free"),
     InstanceMethod<&CodecContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
@@ -188,10 +189,14 @@ Napi::Value CodecContext::Close(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   context_.Reset();
   return env.Undefined();
+}
+
+Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 // Options

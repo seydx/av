@@ -28,7 +28,7 @@ import type { NativeDictionary, NativeWrapper } from './native-types.js';
  * ```
  */
 export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
-  private native: any; // Native dictionary binding
+  private native: NativeDictionary; // Native dictionary binding
 
   // ==================== Constructor ====================
 
@@ -36,7 +36,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Create a new Dictionary
    * @param native Optional native dictionary object (for internal use)
    */
-  constructor(native?: any) {
+  constructor(native?: NativeDictionary) {
     this.native = native ?? new bindings.Dictionary();
   }
 
@@ -83,7 +83,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Create from native handle
    * @internal
    */
-  static fromNative(native: any): Dictionary {
+  static fromNative(native: NativeDictionary): Dictionary {
     return new Dictionary(native);
   }
 
@@ -244,10 +244,17 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   }
 
   /**
+   * Free the dictionary and release resources
+   */
+  free(): void {
+    this.native.free();
+  }
+
+  /**
    * Dispose of the dictionary and free resources
    */
   [Symbol.dispose](): void {
-    this.clear();
+    this.free();
   }
 
   // ==================== Internal Methods ====================

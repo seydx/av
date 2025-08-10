@@ -23,7 +23,7 @@ import type { NativeFilterContext, NativeWrapper } from './native-types.js';
  * ```
  */
 export class FilterContext implements NativeWrapper<NativeFilterContext> {
-  private context: any; // Native filter context binding
+  private context: NativeFilterContext; // Native filter context binding
   private _options?: Options;
 
   // ==================== Constructor ====================
@@ -33,7 +33,7 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
    * @param context Native filter context object
    * @internal
    */
-  constructor(context: any) {
+  constructor(context: NativeFilterContext) {
     this.context = context;
   }
 
@@ -105,7 +105,6 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
   /**
    * Add a frame to a buffer source filter
    * @param frame Frame to add (null to signal end of stream)
-   * @param flags Optional flags for the operation
    * @example
    * ```typescript
    * // Add a frame to buffer source
@@ -115,24 +114,22 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
    * await bufferSrcContext.bufferSrcAddFrameAsync(null);
    * ```
    */
-  bufferSrcAddFrame(frame: Frame | null, flags = 0): void {
-    this.context.bufferSrcAddFrame(frame?.getNative() ?? null, flags);
+  bufferSrcAddFrame(frame: Frame | null): void {
+    this.context.bufferSrcAddFrame(frame?.getNative() ?? null);
   }
 
   /**
    * Add a frame to a buffer source filter (async)
    * @param frame Frame to add (null to signal end of stream)
-   * @param flags Optional flags for the operation
    * @returns Promise that resolves when frame is added
    */
-  async bufferSrcAddFrameAsync(frame: Frame | null, flags = 0): Promise<void> {
-    await this.context.bufferSrcAddFrameAsync(frame?.getNative() ?? null, flags);
+  async bufferSrcAddFrameAsync(frame: Frame | null): Promise<void> {
+    await this.context.bufferSrcAddFrameAsync(frame?.getNative() ?? null);
   }
 
   /**
    * Get a frame from a buffer sink filter
    * @param frame Frame to receive the data
-   * @param flags Optional flags for the operation
    * @returns 0 on success, negative on error
    * @example
    * ```typescript
@@ -143,18 +140,17 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
    * }
    * ```
    */
-  bufferSinkGetFrame(frame: Frame, flags = 0): number {
-    return this.context.bufferSinkGetFrame(frame.getNative(), flags);
+  bufferSinkGetFrame(frame: Frame): number {
+    return this.context.bufferSinkGetFrame(frame.getNative());
   }
 
   /**
    * Get a frame from a buffer sink filter (async)
    * @param frame Frame to receive the data
-   * @param flags Optional flags for the operation
    * @returns Promise that resolves when frame is retrieved
    */
-  async bufferSinkGetFrameAsync(frame: Frame, flags = 0): Promise<number> {
-    return await this.context.bufferSinkGetFrameAsync(frame.getNative(), flags);
+  async bufferSinkGetFrameAsync(frame: Frame): Promise<number> {
+    return await this.context.bufferSinkGetFrameAsync(frame.getNative());
   }
 
   // ==================== Internal Methods ====================
@@ -163,7 +159,7 @@ export class FilterContext implements NativeWrapper<NativeFilterContext> {
    * Get native filter context for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeFilterContext {
     return this.context;
   }
 }

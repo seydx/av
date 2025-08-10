@@ -32,6 +32,7 @@ import {
   AV_MEDIA_TYPE_DATA,
   AV_MEDIA_TYPE_SUBTITLE,
   AV_MEDIA_TYPE_VIDEO,
+  Dictionary,
   FormatContext,
   IOContext,
   OutputFormat,
@@ -123,7 +124,8 @@ async function main() {
 
       // Copy additional metadata
       if (inputStream.metadata) {
-        outputStream.metadata = { ...inputStream.metadata };
+        const inputMetadata = inputStream.metadata.toObject();
+        outputStream.metadata = Dictionary.fromObject(inputMetadata);
       }
 
       // Store stream mapping
@@ -146,7 +148,7 @@ async function main() {
           break;
         case AV_MEDIA_TYPE_AUDIO:
           typeStr = 'Audio';
-          const channels = inputStream.codecParameters.channelLayout?.nbChannels || 0;
+          const channels = inputStream.codecParameters.channelLayout?.nbChannels ?? 0;
           details = ` - ${inputStream.codecParameters.sampleRate} Hz, ${channels} channels`;
           break;
         case AV_MEDIA_TYPE_SUBTITLE:

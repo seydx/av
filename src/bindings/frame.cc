@@ -42,17 +42,18 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     
     // Methods
     InstanceMethod<&Frame::AllocBuffer>("allocBuffer"),
-    InstanceMethod<&Frame::Ref>("ref"),
-    InstanceMethod<&Frame::Unref>("unref"),
     InstanceMethod<&Frame::Clone>("clone"),
     InstanceMethod<&Frame::MakeWritable>("makeWritable"),
     InstanceMethod<&Frame::GetBuffer>("getBuffer"),
+    InstanceMethod<&Frame::Unref>("unref"),
     
     // Hardware acceleration
     InstanceMethod<&Frame::TransferDataTo>("transferDataTo"),
     InstanceMethod<&Frame::TransferDataFrom>("transferDataFrom"),
     InstanceAccessor<&Frame::GetHwFramesContext, &Frame::SetHwFramesContext>("hwFramesContext"),
     
+    // Resource management
+    InstanceMethod<&Frame::Free>("free"),
     InstanceMethod<&Frame::Dispose>(disposeSymbol),
   });
   
@@ -352,24 +353,6 @@ Napi::Value Frame::AllocBuffer(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value Frame::Ref(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  // In FFmpeg, av_frame_ref() is used to create a new reference to a frame
-  // from another frame. Since we're not copying from another frame here,
-  // this is essentially a no-op. The frame's reference counting is handled
-  // automatically by FFmpeg when frames are passed between contexts.
-  // If we need to increase reference count, we would use av_frame_get_buffer()
-  // or work with the underlying AVBufferRef.
-  
-  return env.Undefined();
-}
-
-Napi::Value Frame::Unref(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  av_frame_unref(frame_.Get());
-  return env.Undefined();
-}
 
 Napi::Value Frame::Clone(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -421,6 +404,17 @@ Napi::Value Frame::GetBuffer(const Napi::CallbackInfo& info) {
   }
   
   return env.Null();
+}
+
+Napi::Value Frame::Unref(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFrame* frame = frame_.Get();
+  if (frame) {
+    av_frame_unref(frame);
+  }
+  
+  return env.Undefined();
 }
 
 // Hardware acceleration / Frame transfer
@@ -555,10 +549,14 @@ void Frame::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value
   // TODO: Implement when we have proper AVBufferRef wrapper
 }
 
-Napi::Value Frame::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value Frame::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   frame_.Reset();
   return env.Undefined();
+}
+
+Napi::Value Frame::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 void Frame::SetFrame(AVFrame* frame) {

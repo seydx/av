@@ -37,7 +37,8 @@ Napi::Object CodecParameters::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod<&CodecParameters::FromCodecContext>("fromCodecContext"),
         InstanceMethod<&CodecParameters::ToCodecContext>("toCodecContext"),
         
-        // Symbol.dispose
+        // Resource management
+        InstanceMethod<&CodecParameters::Free>("free"),
         InstanceMethod<&CodecParameters::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     });
     
@@ -371,11 +372,16 @@ Napi::Value CodecParameters::ToCodecContext(const Napi::CallbackInfo& info) {
     return env.Undefined();
 }
 
-void CodecParameters::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value CodecParameters::Free(const Napi::CallbackInfo& info) {
     if (owns_params_ && params_) {
         avcodec_parameters_free(&params_);
     }
     params_ = nullptr;
+    return info.Env().Undefined();
+}
+
+Napi::Value CodecParameters::Dispose(const Napi::CallbackInfo& info) {
+    return Free(info);
 }
 
 // Static factory

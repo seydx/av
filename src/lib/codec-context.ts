@@ -1,27 +1,17 @@
+import { bindings } from './binding.js';
 import { AV_ERROR_EAGAIN, AV_ERROR_EOF } from './constants.js';
+import { Dictionary } from './dictionary.js';
 import { FFmpegError } from './error.js';
 import { Options } from './option.js';
-
-import type { Codec } from './codec.js';
-import type { AVCodecFlag, AVCodecFlag2, AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
-import type { Frame } from './frame.js';
-import type { Packet } from './packet.js';
 import { Rational } from './rational.js';
 
-import { bindings } from './binding.js';
-import type { NativeCodecContext, NativeWrapper } from './native-types.js';
+import type { Codec } from './codec.js';
+import type { AVCodecFlag, AVCodecFlag2, AVCodecID, AVColorRange, AVColorSpace, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { Frame } from './frame.js';
+import type { Packet } from './packet.js';
 
-/**
- * Audio channel layout configuration
- */
-export interface ChannelLayout {
-  /** Number of channels */
-  nbChannels: number;
-  /** Channel order */
-  order: number;
-  /** Channel mask */
-  mask: bigint;
-}
+import type { NativeCodecContext, NativeWrapper } from './native-types.js';
+import type { ChannelLayout } from './types.js';
 
 /**
  * FFmpeg codec context for encoding and decoding
@@ -46,7 +36,7 @@ export interface ChannelLayout {
  * ```
  */
 export class CodecContext implements Disposable, NativeWrapper<NativeCodecContext> {
-  private native: any; // Native codec context binding
+  private native: NativeCodecContext; // Native codec context binding
   private _options?: Options;
 
   // ==================== Constructor ====================
@@ -71,7 +61,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Get/set codec ID
    */
   get codecID(): AVCodecID {
-    return this.native.codecID as AVCodecID;
+    return this.native.codecID;
   }
 
   set codecID(value: AVCodecID) {
@@ -82,7 +72,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Get/set media type (audio/video/subtitle)
    */
   get mediaType(): AVMediaType {
-    return this.native.mediaType as AVMediaType;
+    return this.native.mediaType;
   }
 
   set mediaType(value: AVMediaType) {
@@ -161,7 +151,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Example: ctx.flags |= AV_CODEC_FLAG_COPY_OPAQUE to pass opaque data through codec
    */
   get flags(): AVCodecFlag {
-    return this.native.flags as AVCodecFlag;
+    return this.native.flags;
   }
 
   set flags(value: AVCodecFlag) {
@@ -169,7 +159,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   }
 
   get flags2(): AVCodecFlag2 {
-    return this.native.flags2 as AVCodecFlag2;
+    return this.native.flags2;
   }
 
   set flags2(value: AVCodecFlag2) {
@@ -292,7 +282,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Get/set pixel format
    */
   get pixelFormat(): AVPixelFormat {
-    return this.native.pixelFormat as AVPixelFormat;
+    return this.native.pixelFormat;
   }
 
   set pixelFormat(value: AVPixelFormat) {
@@ -348,11 +338,11 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Get/set color space
    */
-  get colorSpace(): number {
+  get colorSpace(): AVColorSpace {
     return this.native.colorSpace;
   }
 
-  set colorSpace(value: number) {
+  set colorSpace(value: AVColorSpace) {
     this.native.colorSpace = value;
   }
 
@@ -363,7 +353,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
     return this.native.colorRange;
   }
 
-  set colorRange(value: number) {
+  set colorRange(value: AVColorRange) {
     this.native.colorRange = value;
   }
 
@@ -382,7 +372,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Get/set audio sample format
    */
   get sampleFormat(): AVSampleFormat {
-    return this.native.sampleFormat as AVSampleFormat;
+    return this.native.sampleFormat;
   }
 
   set sampleFormat(value: AVSampleFormat) {
@@ -469,21 +459,39 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
 
   /**
    * Open the codec context for encoding/decoding (synchronous)
-   * @param options Optional codec-specific options
+   * @param options Optional codec-specific options as Dictionary or plain object
    * @throws FFmpegError if opening fails
    */
-  open(options?: Record<string, any>): void {
-    this.native.open(options);
+  open(options?: Dictionary | Record<string, any> | null): void {
+    let dict: Dictionary | null = null;
+    if (options && !(options instanceof Dictionary)) {
+      dict = Dictionary.fromObject(options);
+      this.native.open(dict.getNative());
+      dict[Symbol.dispose]();
+    } else if (options instanceof Dictionary) {
+      this.native.open(options.getNative());
+    } else {
+      this.native.open(null);
+    }
   }
 
   /**
    * Open the codec context for encoding/decoding (asynchronous)
-   * @param options Optional codec-specific options
+   * @param options Optional codec-specific options as Dictionary or plain object
    * @returns Promise that resolves when codec is opened
    * @throws FFmpegError if opening fails
    */
-  async openAsync(options?: Record<string, any>): Promise<void> {
-    await this.native.openAsync(options);
+  async openAsync(options?: Dictionary | Record<string, any> | null): Promise<void> {
+    let dict: Dictionary | null = null;
+    if (options && !(options instanceof Dictionary)) {
+      dict = Dictionary.fromObject(options);
+      await this.native.openAsync(dict.getNative());
+      dict[Symbol.dispose]();
+    } else if (options instanceof Dictionary) {
+      await this.native.openAsync(options.getNative());
+    } else {
+      await this.native.openAsync(null);
+    }
   }
 
   /**
@@ -613,10 +621,17 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   }
 
   /**
+   * Free the codec context and release resources
+   */
+  free(): void {
+    this.native.free();
+  }
+
+  /**
    * Dispose of the codec context and free resources
    */
   [Symbol.dispose](): void {
-    this.native[Symbol.dispose]();
+    this.free();
   }
 
   // ==================== Internal Methods ====================
@@ -625,7 +640,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Get the native codec context object for use with C++ bindings
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeCodecContext {
     return this.native;
   }
 }

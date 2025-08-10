@@ -4,10 +4,6 @@
  */
 
 import {
-  type AVColorPrimaries,
-  type AVColorRange,
-  type AVColorSpace,
-  type AVColorTransferCharacteristic,
   AV_COLOR_PRIMARIES_BT2020,
   AV_COLOR_PRIMARIES_BT470BG,
   AV_COLOR_PRIMARIES_BT470M,
@@ -47,6 +43,8 @@ import {
   AV_COLOR_TRC_SMPTE428,
   AV_COLOR_TRC_UNSPECIFIED,
 } from './constants.js';
+
+import type { AVColorPrimaries, AVColorRange, AVColorSpace, AVColorTransferCharacteristic } from './constants.js';
 
 /**
  * Color Range utilities

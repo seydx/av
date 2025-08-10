@@ -21,10 +21,10 @@ Napi::Object Packet::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&Packet::GetData, &Packet::SetData>("data"),
     
     // Methods
-    InstanceMethod<&Packet::Ref>("ref"),
-    InstanceMethod<&Packet::Unref>("unref"),
     InstanceMethod<&Packet::RescaleTs>("rescaleTs"),
     InstanceMethod<&Packet::Clone>("clone"),
+    InstanceMethod<&Packet::Unref>("unref"),
+    InstanceMethod<&Packet::Free>("free"),
     InstanceMethod<&Packet::Dispose>(disposeSymbol),
   });
   
@@ -154,23 +154,6 @@ void Packet::SetData(const Napi::CallbackInfo& info, const Napi::Value& value) {
   std::memcpy(pkt->data, buffer.Data(), buffer.Length());
 }
 
-Napi::Value Packet::Ref(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  // In go-astiav, Ref() is typically used to copy a packet from another
-  // If we're implementing a self-reference increment, we should just increase ref count
-  // For now, this is a no-op as packet reference counting is handled automatically
-  // by FFmpeg when packets are passed between contexts
-  
-  return env.Undefined();
-}
-
-Napi::Value Packet::Unref(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  av_packet_unref(packet_.Get());
-  return env.Undefined();
-}
-
 Napi::Value Packet::RescaleTs(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -202,10 +185,25 @@ Napi::Value Packet::Clone(const Napi::CallbackInfo& info) {
   return instance;
 }
 
-Napi::Value Packet::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value Packet::Unref(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVPacket* pkt = packet_.Get();
+  if (pkt) {
+    av_packet_unref(pkt);
+  }
+  
+  return env.Undefined();
+}
+
+Napi::Value Packet::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   packet_.Reset();
   return env.Undefined();
+}
+
+Napi::Value Packet::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 void Packet::SetPacket(AVPacket* pkt) {

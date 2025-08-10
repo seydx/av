@@ -24,7 +24,7 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
  * ```
  */
 export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {
-  private context: any; // Native scale context binding
+  private context: NativeSoftwareScaleContext; // Native scale context binding
 
   // ==================== Constructor ====================
 
@@ -149,7 +149,7 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    * Get native scale context for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeSoftwareScaleContext {
     return this.context;
   }
 }

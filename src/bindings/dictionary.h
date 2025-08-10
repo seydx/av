@@ -25,6 +25,10 @@ public:
     
     // Getters
     Napi::Value GetCount(const Napi::CallbackInfo& info);
+    
+    // Resource management
+    Napi::Value Free(const Napi::CallbackInfo& info);
+    Napi::Value Dispose(const Napi::CallbackInfo& info);
 
     AVDictionary* GetDict() { return dict_; }
     void SetDict(AVDictionary* dict);

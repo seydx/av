@@ -4,7 +4,6 @@
  */
 
 import {
-  type AVPixelFormat,
   AV_PIX_FMT_ABGR,
   AV_PIX_FMT_ARGB,
   AV_PIX_FMT_BGR0,
@@ -35,6 +34,8 @@ import {
   AV_PIX_FMT_YUVJ422P,
   AV_PIX_FMT_YUVJ444P,
 } from './constants.js';
+
+import type { AVPixelFormat } from './constants.js';
 
 /**
  * Pixel format utilities

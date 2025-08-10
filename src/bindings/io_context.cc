@@ -20,7 +20,8 @@ Napi::Object IOContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&IOContext::GetEof>("eof"),
     InstanceAccessor<&IOContext::GetSeekable>("seekable"),
     
-    // Symbol.dispose
+    // Resource management
+    InstanceMethod<&IOContext::Free>("free"),
     InstanceMethod<&IOContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Static methods
@@ -264,12 +265,16 @@ Napi::Value IOContext::GetSeekable(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(env, context_->seekable != 0);
 }
 
-Napi::Value IOContext::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value IOContext::Free(const Napi::CallbackInfo& info) {
   if (context_) {
     avio_closep(&context_);
     context_ = nullptr;
   }
   return info.Env().Undefined();
+}
+
+Napi::Value IOContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 // Static method to open and return IOContext instance

@@ -69,7 +69,8 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     // Utility
     InstanceMethod<&FormatContext::Dump>("dump"),
     
-    // Symbol.dispose
+    // Resource management
+    InstanceMethod<&FormatContext::Free>("free"),
     InstanceMethod<&FormatContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Static methods
@@ -202,7 +203,7 @@ Napi::Value FormatContext::CloseInput(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value FormatContext::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value FormatContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (context_ && is_opened_) {
@@ -214,6 +215,10 @@ Napi::Value FormatContext::Dispose(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
+}
+
+Napi::Value FormatContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 // Options

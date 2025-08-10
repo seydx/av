@@ -1,4 +1,5 @@
 import { bindings } from './binding.js';
+
 import type { NativeFilter, NativeWrapper } from './native-types.js';
 
 /**
@@ -23,7 +24,7 @@ import type { NativeFilter, NativeWrapper } from './native-types.js';
  * ```
  */
 export class Filter implements NativeWrapper<NativeFilter> {
-  private filter: any; // Native filter binding
+  private filter: NativeFilter; // Native filter binding
 
   // ==================== Constructor ====================
 
@@ -32,7 +33,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    * @param filter Native filter object
    * @internal
    */
-  constructor(filter: any) {
+  constructor(filter: NativeFilter) {
     this.filter = filter;
   }
 
@@ -78,7 +79,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
   /**
    * Get filter name
    */
-  get name(): string {
+  get name(): string | null {
     return this.filter.name;
   }
 
@@ -118,7 +119,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    * Get native filter object for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeFilter {
     return this.filter;
   }
 }

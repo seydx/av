@@ -7,8 +7,8 @@ import { Options } from './option.js';
 import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
-import type { AVMediaType } from './constants.js';
-import type { NativeFormatContext, NativeWrapper } from './native-types.js';
+import type { AVFormatFlag, AVMediaType } from './constants.js';
+import type { NativeCodec, NativeFormatContext, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 
 /**
@@ -51,7 +51,7 @@ export enum SeekFlags {
  * ```
  */
 export class FormatContext implements Disposable, NativeWrapper<NativeFormatContext> {
-  private context: any; // Native format context binding
+  private context: NativeFormatContext; // Native format context binding
   private _options?: Options;
 
   // ==================== Constructor ====================
@@ -86,7 +86,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    */
   get streams(): Stream[] {
     const nativeStreams = this.context.streams;
-    return nativeStreams.map((s: any) => Stream.fromNative(s));
+    return nativeStreams.map((s) => Stream.fromNative(s));
   }
 
   /**
@@ -127,26 +127,28 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   /**
    * Get/set metadata dictionary
    */
-  get metadata(): Dictionary | null {
-    const native = this.context.metadata;
-    if (!native) return null;
-    // Convert the plain object to Dictionary
-    return Dictionary.fromObject(native);
+  get metadata(): Dictionary {
+    // Native binding returns a plain object, convert to Dictionary
+    const nativeMeta = this.context.metadata;
+    if (!nativeMeta) {
+      return new Dictionary();
+    }
+    return Dictionary.fromObject(nativeMeta);
   }
 
-  set metadata(value: Dictionary | null) {
-    // Convert Dictionary to plain object for native code
-    this.context.metadata = value?.toObject() ?? null;
+  set metadata(value: Dictionary) {
+    // Native binding expects a plain object
+    this.context.metadata = value.toObject() as any;
   }
 
   /**
    * Get/set format flags
    */
-  get flags(): number {
+  get flags(): AVFormatFlag {
     return this.context.flags;
   }
 
-  set flags(value: number) {
+  set flags(value: AVFormatFlag) {
     this.context.flags = value;
   }
 
@@ -462,8 +464,8 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * stream.codecParameters.codecId = AV_CODEC_ID_H264;
    * ```
    */
-  newStream(codec?: any): Stream {
-    const nativeStream = this.context.newStream(codec);
+  newStream(codec?: NativeCodec): Stream {
+    const nativeStream = this.context.newStream(codec ?? null);
     return Stream.fromNative(nativeStream);
   }
 
@@ -477,10 +479,17 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   }
 
   /**
+   * Free the format context and release resources
+   */
+  free(): void {
+    this.context.free();
+  }
+
+  /**
    * Dispose of the format context and free resources
    */
   [Symbol.dispose](): void {
-    this.context[Symbol.dispose]();
+    this.free();
   }
 
   // ==================== Internal Methods ====================
@@ -489,7 +498,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * Get native format context for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeFormatContext {
     return this.context;
   }
 }

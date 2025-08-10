@@ -1,21 +1,20 @@
 import { bindings } from './binding.js';
-
-import type { CodecContext } from './codec-context.js';
-import type { AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
-import type { NativeCodecParameters, NativeWrapper } from './native-types.js';
 import { Rational } from './rational.js';
 
-/**
- * Channel layout configuration
- */
-export interface CodecChannelLayout {
-  /** Number of channels */
-  nbChannels: number;
-  /** Channel order */
-  order: number;
-  /** Channel mask */
-  mask: bigint;
-}
+import type { CodecContext } from './codec-context.js';
+import type {
+  AVChromaLocation,
+  AVCodecID,
+  AVColorPrimaries,
+  AVColorRange,
+  AVColorSpace,
+  AVColorTransferCharacteristic,
+  AVMediaType,
+  AVPixelFormat,
+  AVSampleFormat,
+} from './constants.js';
+import type { NativeCodecParameters, NativeWrapper } from './native-types.js';
+import type { ChannelLayout } from './types.js';
 
 /**
  * Codec parameters for streams
@@ -34,7 +33,7 @@ export interface CodecChannelLayout {
  * ```
  */
 export class CodecParameters implements Disposable, NativeWrapper<NativeCodecParameters> {
-  private native: any; // Native codec parameters binding
+  private native: NativeCodecParameters; // Native codec parameters binding
 
   // ==================== Constructor ====================
 
@@ -51,7 +50,7 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
    * Create CodecParameters from a native binding
    * @internal
    */
-  static fromNative(nativeParams: any): CodecParameters {
+  static fromNative(nativeParams: NativeCodecParameters): CodecParameters {
     const params = Object.create(CodecParameters.prototype) as CodecParameters;
     Object.defineProperty(params, 'native', {
       value: nativeParams,
@@ -132,11 +131,11 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
   /**
    * Get/set format (generic)
    */
-  get format(): number {
-    return this.native.format;
+  get format(): AVPixelFormat {
+    return this.native.format as AVPixelFormat;
   }
 
-  set format(value: number) {
+  set format(value: AVPixelFormat) {
     this.native.format = value;
   }
 
@@ -144,7 +143,7 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
    * Get/set pixel format for video
    */
   get pixelFormat(): AVPixelFormat {
-    return this.native.format;
+    return this.native.format as AVPixelFormat;
   }
 
   set pixelFormat(value: AVPixelFormat) {
@@ -178,7 +177,7 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
    * Get/set audio sample format
    */
   get sampleFormat(): AVSampleFormat {
-    return this.native.format;
+    return this.native.format as AVSampleFormat;
   }
 
   set sampleFormat(value: AVSampleFormat) {
@@ -188,11 +187,11 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
   /**
    * Get/set channel layout configuration
    */
-  get channelLayout(): CodecChannelLayout {
+  get channelLayout(): ChannelLayout {
     return this.native.channelLayout;
   }
 
-  set channelLayout(value: CodecChannelLayout) {
+  set channelLayout(value: ChannelLayout) {
     this.native.channelLayout = value;
   }
 
@@ -232,55 +231,55 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
   /**
    * Get/set color range
    */
-  get colorRange(): number {
+  get colorRange(): AVColorRange {
     return this.native.colorRange;
   }
 
-  set colorRange(value: number) {
+  set colorRange(value: AVColorRange) {
     this.native.colorRange = value;
   }
 
   /**
    * Get/set color space
    */
-  get colorSpace(): number {
+  get colorSpace(): AVColorSpace {
     return this.native.colorSpace;
   }
 
-  set colorSpace(value: number) {
+  set colorSpace(value: AVColorSpace) {
     this.native.colorSpace = value;
   }
 
   /**
    * Get/set color primaries
    */
-  get colorPrimaries(): number {
+  get colorPrimaries(): AVColorPrimaries {
     return this.native.colorPrimaries;
   }
 
-  set colorPrimaries(value: number) {
+  set colorPrimaries(value: AVColorPrimaries) {
     this.native.colorPrimaries = value;
   }
 
   /**
    * Get/set color transfer characteristic
    */
-  get colorTransferCharacteristic(): number {
+  get colorTransferCharacteristic(): AVColorTransferCharacteristic {
     return this.native.colorTransferCharacteristic;
   }
 
-  set colorTransferCharacteristic(value: number) {
+  set colorTransferCharacteristic(value: AVColorTransferCharacteristic) {
     this.native.colorTransferCharacteristic = value;
   }
 
   /**
    * Get/set chroma sample location
    */
-  get chromaLocation(): number {
+  get chromaLocation(): AVChromaLocation {
     return this.native.chromaLocation;
   }
 
-  set chromaLocation(value: number) {
+  set chromaLocation(value: AVChromaLocation) {
     this.native.chromaLocation = value;
   }
 
@@ -324,10 +323,17 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
   }
 
   /**
+   * Free the codec parameters and release resources
+   */
+  free(): void {
+    this.native.free();
+  }
+
+  /**
    * Dispose of codec parameters and free resources
    */
   [Symbol.dispose](): void {
-    this.native[Symbol.dispose]();
+    this.free();
   }
 
   // ==================== Internal Methods ====================
@@ -336,7 +342,7 @@ export class CodecParameters implements Disposable, NativeWrapper<NativeCodecPar
    * Get native codec parameters for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeCodecParameters {
     return this.native;
   }
 }

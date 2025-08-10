@@ -1,5 +1,6 @@
 import { bindings } from './binding.js';
-import { type AVSampleFormat } from './constants.js';
+
+import type { AVSampleFormat } from './constants.js';
 import type { Frame } from './frame.js';
 import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
 
@@ -26,7 +27,7 @@ import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
  * ```
  */
 export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
-  private fifo: any; // Native audio FIFO binding
+  private fifo: NativeAudioFifo; // Native audio FIFO binding
 
   // ==================== Constructor ====================
 
@@ -91,10 +92,17 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   }
 
   /**
+   * Free the audio FIFO and release resources
+   */
+  free(): void {
+    this.fifo.free();
+  }
+
+  /**
    * Dispose of the audio FIFO and free resources
    */
   [Symbol.dispose](): void {
-    this.fifo[Symbol.dispose]();
+    this.free();
   }
 
   // ==================== Internal Methods ====================
@@ -103,7 +111,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    * Get the native FIFO object for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeAudioFifo {
     return this.fifo;
   }
 }

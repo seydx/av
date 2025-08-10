@@ -21,6 +21,9 @@ public:
   // Methods
   Napi::Value ConvertFrame(const Napi::CallbackInfo& info);
   Napi::Value GetDelay(const Napi::CallbackInfo& info);
+  
+  // Resource management
+  Napi::Value Free(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   // Internal

@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
-import { type AVHWDeviceType } from './constants.js';
 
+import type { AVHWDeviceType } from './constants.js';
 import type { Dictionary } from './dictionary.js';
 import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.js';
 
@@ -59,7 +59,7 @@ export interface HardwareFramesConstraints {
  * ```
  */
 export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHardwareDeviceContext> {
-  private context: any; // Native hardware device context binding
+  private context: NativeHardwareDeviceContext; // Native hardware device context binding
 
   // ==================== Constructor ====================
 
@@ -173,7 +173,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * Get native hardware device context for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeHardwareDeviceContext {
     return this.context;
   }
 }

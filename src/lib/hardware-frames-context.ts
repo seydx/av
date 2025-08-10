@@ -1,5 +1,6 @@
 import { bindings } from './binding.js';
 
+import type { AVPixelFormat } from './constants.js';
 import type { HardwareDeviceContext } from './hardware-device-context.js';
 import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
 
@@ -28,7 +29,7 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
  * ```
  */
 export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHardwareFramesContext> {
-  private context: any; // Native hardware frames context binding
+  private context: NativeHardwareFramesContext; // Native hardware frames context binding
 
   // ==================== Constructor ====================
 
@@ -72,22 +73,22 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Get/set hardware pixel format (GPU format)
    */
-  get hardwarePixelFormat(): number {
+  get hardwarePixelFormat(): AVPixelFormat {
     return this.context.hardwarePixelFormat;
   }
 
-  set hardwarePixelFormat(value: number) {
+  set hardwarePixelFormat(value: AVPixelFormat) {
     this.context.hardwarePixelFormat = value;
   }
 
   /**
    * Get/set software pixel format (CPU format)
    */
-  get softwarePixelFormat(): number {
+  get softwarePixelFormat(): AVPixelFormat {
     return this.context.softwarePixelFormat;
   }
 
-  set softwarePixelFormat(value: number) {
+  set softwarePixelFormat(value: AVPixelFormat) {
     this.context.softwarePixelFormat = value;
   }
 
@@ -133,7 +134,7 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * Get native hardware frames context for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeHardwareFramesContext {
     return this.context;
   }
 }

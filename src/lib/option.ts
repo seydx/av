@@ -1,7 +1,4 @@
 import {
-  type AVOptionType,
-  type AVPixelFormat,
-  type AVSampleFormat,
   AV_OPT_FLAG_AUDIO_PARAM,
   AV_OPT_FLAG_DECODING_PARAM,
   AV_OPT_FLAG_DEPRECATED,
@@ -34,6 +31,9 @@ import {
 } from './constants.js';
 import { Rational } from './rational.js';
 
+import type { AVOptionFlag, AVOptionType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { NativeOption, NativeOptions, NativeWrapper } from './native-types.js';
+
 /**
  * Option search flags
  */
@@ -62,8 +62,8 @@ export enum OptionSearchFlags {
  * }
  * ```
  */
-export class Option {
-  private readonly native: any; // Native option binding
+export class Option implements NativeWrapper<NativeOption> {
+  private native: NativeOption; // Native option binding
 
   // ==================== Constructor ====================
 
@@ -72,7 +72,7 @@ export class Option {
    * @param native Native option object
    * @internal
    */
-  constructor(native: any) {
+  constructor(native: NativeOption) {
     this.native = native;
   }
 
@@ -81,7 +81,7 @@ export class Option {
   /**
    * Get option name
    */
-  get name(): string {
+  get name(): string | null {
     return this.native.name;
   }
 
@@ -123,7 +123,7 @@ export class Option {
   /**
    * Get option flags
    */
-  get flags(): number {
+  get flags(): AVOptionFlag {
     return this.native.flags;
   }
 
@@ -246,6 +246,16 @@ export class Option {
         return 'unknown';
     }
   }
+
+  // ==================== Internal Methods ====================
+
+  /**
+   * Get native option for internal use
+   * @internal
+   */
+  getNative(): NativeOption {
+    return this.native;
+  }
 }
 
 /**
@@ -273,8 +283,8 @@ export class Option {
  * });
  * ```
  */
-export class Options {
-  private readonly native: any; // Native options context
+export class Options implements NativeWrapper<NativeOptions> {
+  private native: NativeOptions; // Native options context
 
   // ==================== Constructor ====================
 
@@ -283,7 +293,7 @@ export class Options {
    * @param native Native options context
    * @internal
    */
-  constructor(native: any) {
+  constructor(native: NativeOptions) {
     this.native = native;
   }
 
@@ -293,7 +303,7 @@ export class Options {
    * Create options from native context
    * @internal
    */
-  static fromNative(context: any): Options {
+  static fromNative(context: NativeOptions): Options {
     return new Options(context);
   }
 
@@ -473,7 +483,7 @@ export class Options {
    */
   list(): Option[] {
     const options = this.native.list();
-    return options.map((opt: any) => new Option(opt));
+    return options.map((opt) => new Option(opt));
   }
 
   /**
@@ -528,12 +538,22 @@ export class Options {
     const options = this.list();
 
     for (const option of options) {
-      const value = this.get(option.name);
-      if (value !== null) {
-        result[option.name] = value;
+      if (option.name !== null) {
+        const value = this.get(option.name);
+        if (value !== null) {
+          result[option.name] = value;
+        }
       }
     }
 
     return result;
+  }
+
+  /**
+   * Get native options context for internal use
+   * @internal
+   */
+  getNative(): NativeOptions {
+    return this.native;
   }
 }

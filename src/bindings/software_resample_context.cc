@@ -11,6 +11,9 @@ Napi::Object SoftwareResampleContext::Init(Napi::Env env, Napi::Object exports) 
     // Methods
     InstanceMethod<&SoftwareResampleContext::ConvertFrame>("convertFrame"),
     InstanceMethod<&SoftwareResampleContext::GetDelay>("getDelay"),
+    
+    // Resource management
+    InstanceMethod<&SoftwareResampleContext::Free>("free"),
     InstanceMethod<&SoftwareResampleContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
@@ -161,8 +164,8 @@ Napi::Value SoftwareResampleContext::GetDelay(const Napi::CallbackInfo& info) {
   return Napi::BigInt::New(env, delay);
 }
 
-// Dispose
-Napi::Value SoftwareResampleContext::Dispose(const Napi::CallbackInfo& info) {
+// Free
+Napi::Value SoftwareResampleContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (context_) {
@@ -171,6 +174,11 @@ Napi::Value SoftwareResampleContext::Dispose(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
+}
+
+// Dispose
+Napi::Value SoftwareResampleContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 } // namespace ffmpeg

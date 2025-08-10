@@ -9,6 +9,9 @@ Napi::Object HardwareFramesContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "HardwareFramesContext", {
     // Methods
     InstanceMethod<&HardwareFramesContext::Initialize>("initialize"),
+    
+    // Resource management
+    InstanceMethod<&HardwareFramesContext::Free>("free"),
     InstanceMethod<&HardwareFramesContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Properties
@@ -81,8 +84,8 @@ Napi::Value HardwareFramesContext::Initialize(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-// Dispose
-Napi::Value HardwareFramesContext::Dispose(const Napi::CallbackInfo& info) {
+// Free
+Napi::Value HardwareFramesContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (context_) {
@@ -91,6 +94,11 @@ Napi::Value HardwareFramesContext::Dispose(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
+}
+
+// Dispose
+Napi::Value HardwareFramesContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 // Properties

@@ -14,6 +14,9 @@ Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
     
     // Instance methods
     InstanceMethod<&HardwareDeviceContext::GetHardwareFramesConstraints>("getHardwareFramesConstraints"),
+    
+    // Resource management
+    InstanceMethod<&HardwareDeviceContext::Free>("free"),
     InstanceMethod<&HardwareDeviceContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Properties
@@ -180,8 +183,8 @@ Napi::Value HardwareDeviceContext::GetHardwareFramesConstraints(const Napi::Call
   return obj;
 }
 
-// Dispose
-Napi::Value HardwareDeviceContext::Dispose(const Napi::CallbackInfo& info) {
+// Resource management
+Napi::Value HardwareDeviceContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (context_) {
@@ -190,6 +193,10 @@ Napi::Value HardwareDeviceContext::Dispose(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
+}
+
+Napi::Value HardwareDeviceContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 // Get type

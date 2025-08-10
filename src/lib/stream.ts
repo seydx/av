@@ -1,9 +1,11 @@
 import { bindings } from './binding.js';
-import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_SUBTITLE, AV_MEDIA_TYPE_VIDEO, type AVDisposition } from './constants.js';
+import { CodecParameters } from './codec-parameters.js';
+import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_SUBTITLE, AV_MEDIA_TYPE_VIDEO } from './constants.js';
+import { Dictionary } from './dictionary.js';
 import { Options } from './option.js';
 import { Rational } from './rational.js';
 
-import { CodecParameters } from './codec-parameters.js';
+import type { AVDiscard, AVDisposition } from './constants.js';
 import type { NativeStream, NativeWrapper } from './native-types.js';
 
 /**
@@ -31,7 +33,7 @@ import type { NativeStream, NativeWrapper } from './native-types.js';
  * ```
  */
 export class Stream implements NativeWrapper<NativeStream> {
-  private native: any; // Native stream binding
+  private native: NativeStream; // Native stream binding
   private _options?: Options;
 
   // ==================== Constructor ====================
@@ -49,7 +51,7 @@ export class Stream implements NativeWrapper<NativeStream> {
    * Create a Stream from native binding
    * @internal
    */
-  static fromNative(nativeStream: any): Stream {
+  static fromNative(nativeStream: NativeStream): Stream {
     const stream = new Stream();
     stream.native = nativeStream;
     return stream;
@@ -147,11 +149,11 @@ export class Stream implements NativeWrapper<NativeStream> {
   /**
    * Get/set discard setting
    */
-  get discard(): number {
+  get discard(): AVDiscard {
     return this.native.discard;
   }
 
-  set discard(value: number) {
+  set discard(value: AVDiscard) {
     this.native.discard = value;
   }
 
@@ -159,7 +161,7 @@ export class Stream implements NativeWrapper<NativeStream> {
    * Get/set stream disposition flags
    */
   get disposition(): AVDisposition {
-    return this.native.disposition as AVDisposition;
+    return this.native.disposition;
   }
 
   set disposition(value: AVDisposition) {
@@ -176,12 +178,18 @@ export class Stream implements NativeWrapper<NativeStream> {
   /**
    * Get/set stream metadata
    */
-  get metadata(): Record<string, string> | null {
-    return this.native.metadata;
+  get metadata(): Dictionary {
+    // Native binding returns a plain object, convert to Dictionary
+    const nativeMeta = this.native.metadata;
+    if (!nativeMeta) {
+      return new Dictionary();
+    }
+    return Dictionary.fromObject(nativeMeta);
   }
 
-  set metadata(value: Record<string, string> | null) {
-    this.native.metadata = value;
+  set metadata(value: Dictionary) {
+    // Native binding expects a plain object
+    this.native.metadata = value.toObject();
   }
 
   /**
@@ -270,7 +278,7 @@ export class Stream implements NativeWrapper<NativeStream> {
    * Get native stream for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeStream {
     return this.native;
   }
 }

@@ -16,6 +16,10 @@ Napi::Object Dictionary::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("parseString", &Dictionary::ParseString),
         InstanceMethod("toString", &Dictionary::ToString),
         InstanceAccessor("count", &Dictionary::GetCount, nullptr),
+        
+        // Resource management
+        InstanceMethod("free", &Dictionary::Free),
+        InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &Dictionary::Dispose),
     });
 
     constructor = Napi::Persistent(func);
@@ -228,4 +232,16 @@ Napi::Value Dictionary::GetCount(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     int count = av_dict_count(dict_);
     return Napi::Number::New(env, count);
+}
+
+Napi::Value Dictionary::Free(const Napi::CallbackInfo& info) {
+    if (dict_) {
+        av_dict_free(&dict_);
+        dict_ = nullptr;
+    }
+    return info.Env().Undefined();
+}
+
+Napi::Value Dictionary::Dispose(const Napi::CallbackInfo& info) {
+    return Free(info);
 }

@@ -1,6 +1,7 @@
 import { bindings } from './binding.js';
 
 import type { AVIOFlag } from './constants.js';
+import type { NativeIOContext, NativeWrapper } from './native-types.js';
 
 /**
  * I/O context for custom input/output operations
@@ -19,8 +20,8 @@ import type { AVIOFlag } from './constants.js';
  * formatContext.pb = io;
  * ```
  */
-export class IOContext implements Disposable {
-  private native: any; // Native IO context binding
+export class IOContext implements Disposable, NativeWrapper<NativeIOContext> {
+  private native: NativeIOContext; // Native IO context binding
 
   constructor() {
     this.native = new bindings.IOContext();
@@ -93,7 +94,7 @@ export class IOContext implements Disposable {
    * Get native binding object for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeIOContext {
     return this.native;
   }
 

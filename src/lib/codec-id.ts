@@ -4,8 +4,6 @@
  */
 
 import {
-  type AVCodecID,
-  type AVMediaType,
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_AC3,
   AV_CODEC_ID_AV1,
@@ -37,6 +35,8 @@ import {
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_VIDEO,
 } from './constants.js';
+
+import type { AVCodecID, AVMediaType } from './constants.js';
 
 /**
  * Codec ID utilities

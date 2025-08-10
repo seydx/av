@@ -4,6 +4,7 @@ import { FilterContext } from './filter-context.js';
 import type { Filter } from './filter.js';
 import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
 import type { Rational } from './rational.js';
+import type { ChannelLayout } from './types.js';
 
 /**
  * Parameters for creating a buffer source filter
@@ -19,11 +20,7 @@ export interface BuffersrcParameters {
   // Audio parameters
   sampleRate?: number;
   sampleFormat?: number;
-  channelLayout?: {
-    nbChannels: number;
-    order: number;
-    mask: bigint;
-  };
+  channelLayout?: ChannelLayout;
   channelLayoutString?: string;
 }
 
@@ -75,7 +72,7 @@ export interface FilterInOutConfig {
  * ```
  */
 export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph> {
-  private graph: any; // Native filter graph binding
+  private graph: NativeFilterGraph; // Native filter graph binding
 
   // ==================== Constructor ====================
 
@@ -99,7 +96,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * Get all filters in the graph
    */
   get filters(): FilterContext[] {
-    return this.graph.filters.map((f: any) => new FilterContext(f));
+    return this.graph.filters.map((f) => new FilterContext(f));
   }
 
   /**
@@ -174,7 +171,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * ```
    */
   createFilter(filter: Filter, name: string, args?: string): FilterContext {
-    const ctx = this.graph.createFilter(filter.getNative(), name, args);
+    const ctx = this.graph.createFilter(filter.getNative(), name, args ?? null);
     return new FilterContext(ctx);
   }
 
@@ -300,10 +297,17 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   }
 
   /**
+   * Free the filter graph and release resources
+   */
+  free(): void {
+    this.graph.free();
+  }
+
+  /**
    * Dispose of the filter graph and free resources
    */
   [Symbol.dispose](): void {
-    this.graph[Symbol.dispose]();
+    this.free();
   }
 
   // ==================== Internal Methods ====================
@@ -312,7 +316,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * Get native filter graph for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeFilterGraph {
     return this.graph;
   }
 }

@@ -49,8 +49,8 @@ const parseConstants = (headerPath) => {
   const content = fs.readFileSync(headerPath, 'utf8');
   const constants = [];
 
-  // Parse #define constants (including AVERROR, AVFMT, and AVIO)
-  const definePattern = /#define\s+((?:AV|AVERROR|AVFMT|AVIO)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\/.*)?$/gm;
+  // Parse #define constants (including AVERROR, AVFMT, AVIO, AVFILTER, and SWS)
+  const definePattern = /#define\s+((?:AV|AVERROR|AVFMT|AVIO|AVFILTER|SWS)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\/.*)?$/gm;
   let match;
   while ((match = definePattern.exec(content)) !== null) {
     let name = match[1];
@@ -70,7 +70,7 @@ const parseConstants = (headerPath) => {
       continue;
     }
 
-    // Rename AVERROR_ to AV_ERROR_, AVFMT_ to AV_FMT_, and AVIO_ to AV_IO_ for consistency
+    // Rename AVERROR_ to AV_ERROR_, AVFMT_ to AV_FMT_, AVIO_ to AV_IO_, and AVFILTER_ to AV_FILTER_ for consistency
     if (name.startsWith('AVERROR_')) {
       name = name.replace('AVERROR_', 'AV_ERROR_');
     }
@@ -80,7 +80,11 @@ const parseConstants = (headerPath) => {
     if (name.startsWith('AVIO_')) {
       name = name.replace('AVIO_', 'AV_IO_');
     }
-
+    if (name.startsWith('AVFILTER_')) {
+      name = name.replace('AVFILTER_', 'AV_FILTER_');
+    }
+    // Keep SWS_ as is - these are swscale flags
+    
     constants.push({ name, value, type: 'define' });
   }
 
@@ -324,6 +328,8 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_FIELD';
       } else if (name.startsWith('AV_EF_')) {
         prefix = 'AV_EF'; // Error resilience flags
+      } else if (name.startsWith('AV_FILTER_FLAG_')) {
+        prefix = 'AV_FILTER_FLAG';
       } else if (name.startsWith('AV_BUFFERSINK_FLAG_')) {
         prefix = 'AV_BUFFERSINK_FLAG';
       } else if (name.startsWith('AV_PTS_WRAP_')) {
@@ -346,6 +352,9 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_IO_FLAG';
       } else if (name.startsWith('AV_IO_')) {
         prefix = 'AV_IO';
+      } else if (name.startsWith('SWS_')) {
+        // Software scale flags
+        prefix = 'SWS';
       }
     }
 
@@ -483,6 +492,9 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     // Error resilience
     ['AV_EF', 'AVErrorFlags'],
 
+    // Filter flags
+    ['AV_FILTER_FLAG', 'AVFilterFlag'],
+    
     // Buffer flags
     ['AV_BUFFERSINK_FLAG', 'AVBufferSinkFlag'],
     ['AV_GET_BUFFER_FLAG', 'AVGetBufferFlag'],
@@ -505,6 +517,9 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     // IO flags
     ['AV_IO_FLAG', 'AVIOFlag'],
     ['AV_IO', 'AVIOConstants'],
+    
+    // Software scale flags
+    ['SWS', 'SWSFlag'],
   ]);
 
   // Generate constants by group

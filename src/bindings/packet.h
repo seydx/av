@@ -36,12 +36,12 @@ class Packet : public Napi::ObjectWrap<Packet> {
   void SetData(const Napi::CallbackInfo& info, const Napi::Value& value);
   
   // Methods
-  Napi::Value Ref(const Napi::CallbackInfo& info);
-  Napi::Value Unref(const Napi::CallbackInfo& info);
   Napi::Value RescaleTs(const Napi::CallbackInfo& info);
   Napi::Value Clone(const Napi::CallbackInfo& info);
+  Napi::Value Unref(const Napi::CallbackInfo& info);  // Clear data but keep structure
   
-  // Symbol.dispose support
+  // Resource management
+  Napi::Value Free(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   // Internal

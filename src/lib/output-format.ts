@@ -1,4 +1,5 @@
 import { bindings } from './binding.js';
+
 import type { AVCodecID, AVFormatFlags } from './constants.js';
 import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
 
@@ -39,7 +40,7 @@ export interface GuessFormatOptions {
  * ```
  */
 export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
-  private native: any; // Native output format binding
+  private native: NativeOutputFormat; // Native output format binding
 
   // ==================== Constructor ====================
 
@@ -48,7 +49,7 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * @param native Native output format object
    * @internal
    */
-  private constructor(native: any) {
+  private constructor(native: NativeOutputFormat) {
     this.native = native;
   }
 
@@ -128,7 +129,7 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * Create from native handle
    * @internal
    */
-  static fromNative(native: any): OutputFormat {
+  static fromNative(native: NativeOutputFormat): OutputFormat {
     return new OutputFormat(native);
   }
 
@@ -152,7 +153,7 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * Get format flags (combination of AV_FMT_* flags)
    */
   get flags(): AVFormatFlags {
-    return this.native.flags as AVFormatFlags;
+    return this.native.flags;
   }
 
   /**
@@ -174,21 +175,21 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * Get default audio codec for this format
    */
   get audioCodec(): AVCodecID {
-    return this.native.audioCodec as AVCodecID;
+    return this.native.audioCodec;
   }
 
   /**
    * Get default video codec for this format
    */
   get videoCodec(): AVCodecID {
-    return this.native.videoCodec as AVCodecID;
+    return this.native.videoCodec;
   }
 
   /**
    * Get default subtitle codec for this format
    */
   get subtitleCodec(): AVCodecID {
-    return this.native.subtitleCodec as AVCodecID;
+    return this.native.subtitleCodec;
   }
 
   /**
@@ -237,7 +238,7 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * Get native output format for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeOutputFormat {
     return this.native;
   }
 }

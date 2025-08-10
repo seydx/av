@@ -23,6 +23,8 @@ import type {
   NativeHardwareDeviceContext,
   NativeHardwareFramesContext,
   NativeInputFormat,
+  NativeIOContext,
+  NativeOption,
   NativeOptions,
   NativeOutputFormat,
   NativePacket,
@@ -30,6 +32,8 @@ import type {
   NativeSoftwareScaleContext,
   NativeStream,
 } from './native-types.js';
+
+import type { ChannelLayout } from './types.js';
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -57,10 +61,7 @@ type CodecContextConstructor = new (codec?: NativeCodec) => NativeCodecContext;
 
 type CodecParametersConstructor = new () => NativeCodecParameters;
 
-interface DictionaryConstructor {
-  new (): NativeDictionary;
-  fromObject(obj: Record<string, string>): NativeDictionary;
-}
+type DictionaryConstructor = new () => NativeDictionary;
 
 interface FormatContextConstructor {
   new (): NativeFormatContext;
@@ -79,7 +80,7 @@ interface InputFormatConstructor {
 interface OutputFormatConstructor {
   new (): NativeOutputFormat;
   find(name: string): NativeOutputFormat | null;
-  guess(options: { shortName?: string; filename?: string; mimeType?: string }): NativeOutputFormat | null;
+  guess(options?: { shortName?: string; filename?: string; mimeType?: string }): NativeOutputFormat | null;
   getAll(): NativeOutputFormat[];
 }
 
@@ -100,20 +101,20 @@ type SoftwareScaleContextConstructor = new (
   dstWidth: number,
   dstHeight: number,
   dstFormat: number,
-  flags?: number,
+  flags: number,
 ) => NativeSoftwareScaleContext;
 
 type SoftwareResampleContextConstructor = new (
-  srcChannelLayout: { nbChannels: number; order: number; mask: bigint },
+  srcChannelLayout: ChannelLayout,
   srcSampleRate: number,
   srcSampleFormat: number,
-  dstChannelLayout: { nbChannels: number; order: number; mask: bigint },
+  dstChannelLayout: ChannelLayout,
   dstSampleRate: number,
   dstSampleFormat: number,
 ) => NativeSoftwareResampleContext;
 
 interface HardwareDeviceContextConstructor {
-  new (type: number, device?: string, options?: NativeDictionary): NativeHardwareDeviceContext;
+  new (type: number, device?: string, options?: NativeDictionary, flags?: number): NativeHardwareDeviceContext;
   findTypeByName(name: string): number;
   getTypeName(type: number): string | null;
   getSupportedTypes(): { type: number; name: string }[];
@@ -121,19 +122,27 @@ interface HardwareDeviceContextConstructor {
 
 type HardwareFramesContextConstructor = new (deviceContext: NativeHardwareDeviceContext) => NativeHardwareFramesContext;
 
-type AudioFifoConstructor = new (sampleFormat: number, channels: number, nbSamples: number) => NativeAudioFifo;
+interface AudioFifoConstructor {
+  new (sampleFormat: number, channels: number, nbSamples: number): NativeAudioFifo;
+  alloc(sampleFormat: number, channels: number, nbSamples: number): NativeAudioFifo;
+}
+
+type OptionConstructor = new () => NativeOption;
 
 type OptionsConstructor = new () => NativeOptions;
 
 interface BitStreamFilterConstructor {
   new (): NativeBitStreamFilter;
   getByName(name: string): NativeBitStreamFilter | null;
-  iterate(opaque?: any): NativeBitStreamFilter | null; // Still uses iterate
+  iterate(opaque?: any): NativeBitStreamFilter | null;
 }
 
 type BitStreamFilterContextConstructor = new (filter: NativeBitStreamFilter) => NativeBitStreamFilterContext;
 
-type IOContextConstructor = new () => any;
+interface IOContextConstructor {
+  new (): NativeIOContext;
+  open(url: string, flags: number, options?: Record<string, string>): NativeIOContext;
+}
 
 /**
  * Complete native bindings interface with typed constructors
@@ -178,6 +187,7 @@ export interface NativeBindings {
   HardwareDeviceContext: HardwareDeviceContextConstructor;
   HardwareFramesContext: HardwareFramesContextConstructor;
   AudioFifo: AudioFifoConstructor;
+  Option: OptionConstructor;
   Options: OptionsConstructor;
   BitStreamFilter: BitStreamFilterConstructor;
   BitStreamFilterContext: BitStreamFilterContextConstructor;
@@ -224,29 +234,3 @@ export function getLicense(): string {
 
 // Re-export native bindings for internal use
 export { bindings };
-
-// Export native type interfaces for internal use
-export type {
-  NativeAudioFifo,
-  NativeBinding,
-  NativeBitStreamFilter,
-  NativeBitStreamFilterContext,
-  NativeCodec,
-  NativeCodecContext,
-  NativeCodecParameters,
-  NativeDictionary,
-  NativeFilter,
-  NativeFilterContext,
-  NativeFilterGraph,
-  NativeFormatContext,
-  NativeFrame,
-  NativeHardwareDeviceContext,
-  NativeHardwareFramesContext,
-  NativeInputFormat,
-  NativeOptions,
-  NativeOutputFormat,
-  NativePacket,
-  NativeSoftwareResampleContext,
-  NativeSoftwareScaleContext,
-  NativeStream,
-} from './native-types.js';

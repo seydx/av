@@ -37,7 +37,10 @@ public:
     Napi::Value GetSpace(const Napi::CallbackInfo& info);
     Napi::Value Write(const Napi::CallbackInfo& info);
     Napi::Value Read(const Napi::CallbackInfo& info);
-    void Dispose(const Napi::CallbackInfo& info);
+    
+    // Resource management
+    Napi::Value Free(const Napi::CallbackInfo& info);
+    Napi::Value Dispose(const Napi::CallbackInfo& info);
     
     AVAudioFifo* GetFifo() const { 
         return resource.Get(); 

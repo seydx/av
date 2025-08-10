@@ -126,6 +126,7 @@ Napi::Object BitStreamFilterContext::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("receivePacketAsync", &BitStreamFilterContext::ReceivePacketAsync),
         InstanceMethod("flush", &BitStreamFilterContext::Flush),
         InstanceMethod("free", &BitStreamFilterContext::Free),
+        InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &BitStreamFilterContext::Dispose),
         InstanceAccessor("filter", &BitStreamFilterContext::GetFilter, nullptr),
         InstanceAccessor("timeBaseIn", &BitStreamFilterContext::GetTimeBaseIn, &BitStreamFilterContext::SetTimeBaseIn),
         InstanceAccessor("timeBaseOut", &BitStreamFilterContext::GetTimeBaseOut, &BitStreamFilterContext::SetTimeBaseOut),
@@ -263,6 +264,10 @@ Napi::Value BitStreamFilterContext::Free(const Napi::CallbackInfo& info) {
     }
 
     return env.Undefined();
+}
+
+Napi::Value BitStreamFilterContext::Dispose(const Napi::CallbackInfo& info) {
+    return Free(info);
 }
 
 Napi::Value BitStreamFilterContext::GetFilter(const Napi::CallbackInfo& info) {

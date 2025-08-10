@@ -4,7 +4,17 @@ import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { AV_ERROR_EOF, AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO, Dictionary, FormatContext, InputFormat, OutputFormat, Packet } from '../src/lib/index.js';
+import {
+  AV_ERROR_EOF,
+  AV_FMT_FLAG_AUTO_BSF,
+  AV_MEDIA_TYPE_AUDIO,
+  AV_MEDIA_TYPE_VIDEO,
+  Dictionary,
+  FormatContext,
+  InputFormat,
+  OutputFormat,
+  Packet,
+} from '../src/lib/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,8 +44,8 @@ describe('FormatContext', () => {
     const ctx = new FormatContext();
 
     // Flags
-    ctx.flags = 0x0001;
-    assert.strictEqual(ctx.flags, 0x0001);
+    ctx.flags = AV_FMT_FLAG_AUTO_BSF;
+    assert.strictEqual(ctx.flags, AV_FMT_FLAG_AUTO_BSF);
 
     // Max analyze duration
     ctx.maxAnalyzeDuration = 5000000n;
@@ -77,8 +87,8 @@ describe('FormatContext', () => {
   it('should support using statement', () => {
     {
       using ctx = new FormatContext();
-      ctx.flags = 0x0002;
-      assert.strictEqual(ctx.flags, 0x0002);
+      ctx.flags = AV_FMT_FLAG_AUTO_BSF;
+      assert.strictEqual(ctx.flags, AV_FMT_FLAG_AUTO_BSF);
     }
     // Context is automatically disposed here
   });

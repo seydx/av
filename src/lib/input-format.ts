@@ -1,4 +1,5 @@
 import { bindings } from './binding.js';
+
 import type { AVFormatFlags } from './constants.js';
 import type { NativeInputFormat, NativeWrapper } from './native-types.js';
 
@@ -26,7 +27,7 @@ import type { NativeInputFormat, NativeWrapper } from './native-types.js';
  * ```
  */
 export class InputFormat implements NativeWrapper<NativeInputFormat> {
-  private native: any; // Native input format binding
+  private native: NativeInputFormat; // Native input format binding
 
   // ==================== Constructor ====================
 
@@ -35,7 +36,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * @param native Native input format object
    * @internal
    */
-  private constructor(native: any) {
+  private constructor(native: NativeInputFormat) {
     this.native = native;
   }
 
@@ -87,7 +88,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * Create from native handle
    * @internal
    */
-  static fromNative(native: any): InputFormat {
+  static fromNative(native: NativeInputFormat): InputFormat {
     return new InputFormat(native);
   }
 
@@ -111,7 +112,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * Get format flags (combination of AV_FMT_* flags)
    */
   get flags(): AVFormatFlags {
-    return this.native.flags as AVFormatFlags;
+    return this.native.flags;
   }
 
   /**
@@ -160,7 +161,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * Get native input format for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeInputFormat {
     return this.native;
   }
 }

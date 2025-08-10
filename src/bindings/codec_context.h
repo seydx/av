@@ -27,6 +27,9 @@ class CodecContext : public Napi::ObjectWrap<CodecContext> {
   Napi::Value Open(const Napi::CallbackInfo& info);
   Napi::Value OpenAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value Close(const Napi::CallbackInfo& info);
+  
+  // Resource management
+  Napi::Value Free(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   // Options

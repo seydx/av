@@ -2,7 +2,7 @@ import { bindings } from './binding.js';
 import { AV_PKT_FLAG_KEY } from './constants.js';
 
 import type { AVPacketFlag } from './constants.js';
-import type { NativeWrapper } from './native-types.js';
+import type { NativePacket, NativeWrapper } from './native-types.js';
 import type { Rational } from './rational.js';
 
 /**
@@ -10,8 +10,8 @@ import type { Rational } from './rational.js';
  * Packets are used to store compressed data before decoding
  * or after encoding
  */
-export class Packet implements Disposable, NativeWrapper {
-  private native: any; // Native packet binding - using any because native bindings have dynamic properties
+export class Packet implements Disposable, NativeWrapper<NativePacket> {
+  private native: NativePacket; // Native packet binding - using any because native bindings have dynamic properties
 
   constructor() {
     this.native = new bindings.Packet();
@@ -21,7 +21,7 @@ export class Packet implements Disposable, NativeWrapper {
    * Create a packet from a native binding
    * @internal
    */
-  static fromNative(native: any): Packet {
+  static fromNative(native: NativePacket): Packet {
     const packet = Object.create(Packet.prototype) as Packet;
     Object.defineProperty(packet, 'native', {
       value: native,
@@ -134,20 +134,6 @@ export class Packet implements Disposable, NativeWrapper {
   }
 
   /**
-   * Reference the packet (increase reference count)
-   */
-  ref(): void {
-    this.native.ref();
-  }
-
-  /**
-   * Unreference the packet (decrease reference count and free if zero)
-   */
-  unref(): void {
-    this.native.unref();
-  }
-
-  /**
    * Rescale packet timestamps from one time base to another
    */
   rescaleTs(src: Rational, dst: Rational): void {
@@ -165,17 +151,33 @@ export class Packet implements Disposable, NativeWrapper {
   }
 
   /**
+   * Clear packet data but keep structure for reuse
+   * Use this when you want to reuse the packet object
+   */
+  unref(): void {
+    this.native.unref();
+  }
+
+  /**
+   * Free the packet and release all resources
+   * Use this when you're done with the packet completely
+   */
+  free(): void {
+    this.native.free();
+  }
+
+  /**
    * Dispose of the packet and free resources
    */
   [Symbol.dispose](): void {
-    this.unref();
+    this.free();
   }
 
   /**
    * Get native binding
    * @internal
    */
-  getNative(): any {
+  getNative(): NativePacket {
     return this.native;
   }
 }

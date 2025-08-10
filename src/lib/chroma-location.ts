@@ -4,7 +4,6 @@
  */
 
 import {
-  type AVChromaLocation,
   AV_CHROMA_LOCATION_BOTTOM,
   AV_CHROMA_LOCATION_BOTTOMLEFT,
   AV_CHROMA_LOCATION_CENTER,
@@ -14,6 +13,8 @@ import {
   AV_CHROMA_LOCATION_TOPLEFT,
   AV_CHROMA_LOCATION_UNSPECIFIED,
 } from './constants.js';
+
+import type { AVChromaLocation } from './constants.js';
 
 /**
  * Chroma location utilities

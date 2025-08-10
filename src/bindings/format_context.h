@@ -28,6 +28,9 @@ class FormatContext : public Napi::ObjectWrap<FormatContext> {
   Napi::Value OpenInput(const Napi::CallbackInfo& info);
   Napi::Value OpenInputAsync(const Napi::CallbackInfo& info);  // Promise-based
   Napi::Value CloseInput(const Napi::CallbackInfo& info);
+  
+  // Resource management
+  Napi::Value Free(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   // Options

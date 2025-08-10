@@ -20,6 +20,9 @@ public:
   
   // Methods
   Napi::Value ScaleFrame(const Napi::CallbackInfo& info);
+  
+  // Resource management
+  Napi::Value Free(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   // Properties

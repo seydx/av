@@ -4,7 +4,6 @@
  */
 
 import {
-  type AVProfile,
   AV_PROFILE_AAC_ELD,
   AV_PROFILE_AAC_HE,
   AV_PROFILE_AAC_HE_V2,
@@ -96,6 +95,8 @@ import {
   AV_PROFILE_VP9_2,
   AV_PROFILE_VP9_3,
 } from './constants.js';
+
+import type { AVProfile } from './constants.js';
 
 /**
  * Profile utilities

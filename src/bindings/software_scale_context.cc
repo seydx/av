@@ -10,6 +10,9 @@ Napi::Object SoftwareScaleContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "SoftwareScaleContext", {
     // Methods
     InstanceMethod<&SoftwareScaleContext::ScaleFrame>("scaleFrame"),
+    
+    // Resource management
+    InstanceMethod<&SoftwareScaleContext::Free>("free"),
     InstanceMethod<&SoftwareScaleContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Properties
@@ -98,8 +101,8 @@ Napi::Value SoftwareScaleContext::ScaleFrame(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-// Dispose
-Napi::Value SoftwareScaleContext::Dispose(const Napi::CallbackInfo& info) {
+// Free
+Napi::Value SoftwareScaleContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (context_) {
@@ -108,6 +111,11 @@ Napi::Value SoftwareScaleContext::Dispose(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
+}
+
+// Dispose
+Napi::Value SoftwareScaleContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 // Properties

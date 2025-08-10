@@ -2,8 +2,13 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
 import {
+  AV_CHROMA_LOCATION_UNSPECIFIED,
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MSMPEG4V3,
+  AV_COLOR_PRIMARIES_BT709,
+  AV_COLOR_RANGE_MPEG,
+  AV_COLOR_SPACE_BT709,
+  AV_COLOR_TRC_BT709,
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_YUV420P,
@@ -87,17 +92,17 @@ describe('CodecParameters', () => {
   it('should handle color properties', () => {
     const params = new CodecParameters();
 
-    params.colorRange = 1; // AVCOL_RANGE_MPEG
-    params.colorSpace = 1; // AVCOL_SPC_BT709
-    params.colorPrimaries = 1; // AVCOL_PRI_BT709
-    params.colorTransferCharacteristic = 1; // AVCOL_TRC_BT709
-    params.chromaLocation = 0; // AVCHROMA_LOC_UNSPECIFIED
+    params.colorRange = AV_COLOR_RANGE_MPEG; // AVCOL_RANGE_MPEG
+    params.colorSpace = AV_COLOR_SPACE_BT709; // AVCOL_SPC_BT709
+    params.colorPrimaries = AV_COLOR_PRIMARIES_BT709; // AVCOL_PRI_BT709
+    params.colorTransferCharacteristic = AV_COLOR_TRC_BT709; // AVCOL_TRC_BT709
+    params.chromaLocation = AV_CHROMA_LOCATION_UNSPECIFIED; // AVCHROMA_LOC_UNSPECIFIED
 
-    assert.strictEqual(params.colorRange, 1);
-    assert.strictEqual(params.colorSpace, 1);
-    assert.strictEqual(params.colorPrimaries, 1);
-    assert.strictEqual(params.colorTransferCharacteristic, 1);
-    assert.strictEqual(params.chromaLocation, 0);
+    assert.strictEqual(params.colorRange, AV_COLOR_RANGE_MPEG);
+    assert.strictEqual(params.colorSpace, AV_COLOR_SPACE_BT709);
+    assert.strictEqual(params.colorPrimaries, AV_COLOR_PRIMARIES_BT709);
+    assert.strictEqual(params.colorTransferCharacteristic, AV_COLOR_TRC_BT709);
+    assert.strictEqual(params.chromaLocation, AV_CHROMA_LOCATION_UNSPECIFIED);
   });
 
   it('should handle extra data', () => {

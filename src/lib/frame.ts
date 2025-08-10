@@ -1,8 +1,9 @@
 import { bindings } from './binding.js';
 import { Rational } from './rational.js';
 
-import type { AVPictureType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { AVColorRange, AVColorSpace, AVPictureType, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type { NativeFrame, NativeWrapper } from './native-types.js';
+import type { ChannelLayout } from './types.js';
 
 /**
  * Channel layout order
@@ -65,7 +66,7 @@ export enum ColorSpace {
  * ```
  */
 export class Frame implements Disposable, NativeWrapper<NativeFrame> {
-  private native: any; // Native frame binding - using any because native bindings have dynamic properties
+  private native: NativeFrame; // Native frame binding - using any because native bindings have dynamic properties
 
   // ==================== Constructor ====================
 
@@ -82,7 +83,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Create a frame from a native binding
    * @internal
    */
-  static fromNative(native: any): Frame {
+  static fromNative(native: NativeFrame): Frame {
     const frame = Object.create(Frame.prototype) as Frame;
     Object.defineProperty(frame, 'native', {
       value: native,
@@ -167,7 +168,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Get/set picture type (I, P, B frame)
    */
   get pictType(): AVPictureType {
-    return this.native.pictType as AVPictureType;
+    return this.native.pictType;
   }
 
   set pictType(value: AVPictureType) {
@@ -200,7 +201,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Get/set pixel format (video) or sample format (audio)
    */
   get format(): AVPixelFormat | AVSampleFormat {
-    return this.native.format as AVPixelFormat | AVSampleFormat;
+    return this.native.format;
   }
 
   set format(value: AVPixelFormat | AVSampleFormat) {
@@ -222,22 +223,22 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Get/set color range (video only)
    */
-  get colorRange(): ColorRange {
+  get colorRange(): AVColorRange {
     return this.native.colorRange;
   }
 
-  set colorRange(value: ColorRange) {
+  set colorRange(value: AVColorRange) {
     this.native.colorRange = value;
   }
 
   /**
    * Get/set color space (video only)
    */
-  get colorSpace(): ColorSpace {
+  get colorSpace(): AVColorSpace {
     return this.native.colorSpace;
   }
 
-  set colorSpace(value: ColorSpace) {
+  set colorSpace(value: AVColorSpace) {
     this.native.colorSpace = value;
   }
 
@@ -266,11 +267,11 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Get/set audio channel layout configuration
    */
-  get channelLayout(): { nbChannels: number; order: number; mask?: bigint } {
+  get channelLayout(): ChannelLayout {
     return this.native.channelLayout;
   }
 
-  set channelLayout(value: { nbChannels: number; order: number; mask?: bigint }) {
+  set channelLayout(value: ChannelLayout) {
     this.native.channelLayout = value;
   }
 
@@ -283,7 +284,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
 
   /**
    * Get frame data planes (read-only)
-   * @returns Array of buffers, one per plane
+   * @returns Buffer array containing data for each plane
    */
   get data(): (Buffer | null)[] {
     return this.native.data;
@@ -326,20 +327,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    */
   allocBuffer(align = 0): void {
     this.native.allocBuffer(align);
-  }
-
-  /**
-   * Reference the frame (increase reference count)
-   */
-  ref(): void {
-    this.native.ref();
-  }
-
-  /**
-   * Unreference the frame (decrease reference count)
-   */
-  unref(): void {
-    this.native.unref();
   }
 
   /**
@@ -387,7 +374,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * }
    * ```
    */
-  transferDataTo(dst: Frame): number {
+  transferDataTo(dst: Frame): void {
     return this.native.transferDataTo(dst.native);
   }
 
@@ -404,7 +391,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * }
    * ```
    */
-  transferDataFrom(src: Frame): number {
+  transferDataFrom(src: Frame): void {
     return this.native.transferDataFrom(src.native);
   }
 
@@ -425,10 +412,26 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   }
 
   /**
+   * Clear frame data but keep structure for reuse
+   * Use this when you want to reuse the frame object
+   */
+  unref(): void {
+    this.native.unref();
+  }
+
+  /**
+   * Free the frame and release all resources
+   * Use this when you're done with the frame completely
+   */
+  free(): void {
+    this.native.free();
+  }
+
+  /**
    * Dispose of the frame and free resources
    */
   [Symbol.dispose](): void {
-    this.unref();
+    this.free();
   }
 
   // ==================== Internal Methods ====================
@@ -437,7 +440,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Get native frame for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeFrame {
     return this.native;
   }
 }

@@ -3,16 +3,9 @@
  * Provides discard levels for frame/packet dropping
  */
 
-import {
-  type AVDiscard,
-  AV_DISCARD_ALL,
-  AV_DISCARD_BIDIR,
-  AV_DISCARD_DEFAULT,
-  AV_DISCARD_NONE,
-  AV_DISCARD_NONINTRA,
-  AV_DISCARD_NONKEY,
-  AV_DISCARD_NONREF,
-} from './constants.js';
+import { AV_DISCARD_ALL, AV_DISCARD_BIDIR, AV_DISCARD_DEFAULT, AV_DISCARD_NONE, AV_DISCARD_NONINTRA, AV_DISCARD_NONKEY, AV_DISCARD_NONREF } from './constants.js';
+
+import type { AVDiscard } from './constants.js';
 
 /**
  * Discard utilities

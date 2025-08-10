@@ -93,35 +93,35 @@ async function main() {
   try {
     const outputFile = config.outputFile('transcoded');
 
-    console.log(`📂 Input: ${config.inputFile}`);
-    console.log(`💾 Output: ${outputFile}`);
+    console.log(`Input: ${config.inputFile}`);
+    console.log(`Output: ${outputFile}`);
     console.log('');
-    console.log('🎬 Transcoding settings:');
+    console.log('Transcoding settings:');
     console.log(`  Video: ${config.transcoding.videoCodec} @ ${config.transcoding.videoBitrate / 1000000n} Mbps`);
     console.log(`  Audio: ${config.transcoding.audioCodec} @ ${config.transcoding.audioBitrate / 1000n} kbps`);
     console.log(`  Resolution: ${config.transcoding.outputWidth}x${config.transcoding.outputHeight}`);
     console.log('');
 
     // Step 1: Open input file
-    console.log('📖 Opening input file...');
+    console.log('Opening input file...');
     await inputFormat.openInputAsync(config.inputFile);
     await inputFormat.findStreamInfoAsync();
 
-    console.log(`📦 Format: ${inputFormat.inputFormat?.name ?? 'unknown'}`);
-    console.log(`⏱️  Duration: ${inputFormat.duration / 1000000n}s`);
+    console.log(`Format: ${inputFormat.inputFormat?.name ?? 'unknown'}`);
+    console.log(`Duration: ${inputFormat.duration / 1000000n}s`);
     console.log('');
 
     // Step 2: Setup output format
-    console.log('📤 Setting up output...');
+    console.log('Setting up output...');
     const outputFormatType = OutputFormat.guess({ filename: outputFile });
     if (!outputFormatType) {
-      throw new Error('❌ Could not determine output format');
+      throw new Error('Could not determine output format');
     }
 
     outputFormat = new FormatContext('output', outputFormatType, undefined, outputFile);
 
     // Step 3: Process each stream
-    console.log('🔧 Setting up streams...');
+    console.log('Setting up streams...');
 
     for (const inputStream of inputFormat.streams) {
       if (!inputStream.codecParameters) continue;
@@ -136,7 +136,7 @@ async function main() {
       // Setup decoder
       const decoder = Codec.findDecoder(inputStream.codecParameters.codecId);
       if (!decoder) {
-        console.warn(`  ⚠️  No decoder for stream ${inputStream.index}`);
+        console.warn(`  No decoder for stream ${inputStream.index}`);
         continue;
       }
 
@@ -147,7 +147,7 @@ async function main() {
       // Create output stream
       const outputStream = outputFormat.newStream();
       if (!outputStream) {
-        throw new Error('❌ Failed to create output stream');
+        throw new Error('Failed to create output stream');
       }
 
       // Setup encoder based on media type
@@ -161,7 +161,7 @@ async function main() {
         // Video encoder setup
         encoder = Codec.findEncoderByName(config.transcoding.videoCodec);
         if (!encoder) {
-          throw new Error(`❌ Video encoder '${config.transcoding.videoCodec}' not found`);
+          throw new Error(`Video encoder '${config.transcoding.videoCodec}' not found`);
         }
 
         // Create encoder context with the encoder
@@ -170,8 +170,10 @@ async function main() {
         encoderContext.height = config.transcoding.outputHeight;
         encoderContext.pixelFormat = AV_PIX_FMT_YUV420P;
         encoderContext.bitRate = config.transcoding.videoBitrate;
-        encoderContext.timeBase = new Rational(1, 25);
-        encoderContext.framerate = new Rational(25, 1);
+
+        // Copy timing from input stream to maintain correct playback speed
+        encoderContext.timeBase = inputStream.timeBase;
+        encoderContext.framerate = inputStream.avgFrameRate;
         encoderContext.gopSize = 12;
         encoderContext.maxBFrames = 2;
 
@@ -205,13 +207,13 @@ async function main() {
 
         await filterGraph.configAsync();
 
-        console.log(`  🎬 Video: ${decoder.name} -> ${encoder.name}`);
+        console.log(`  Video: ${decoder.name} -> ${encoder.name}`);
         console.log(`     ${decoderContext.width}x${decoderContext.height} -> ${encoderContext.width}x${encoderContext.height}`);
       } else if (mediaType === AV_MEDIA_TYPE_AUDIO) {
         // Audio encoder setup
         encoder = Codec.findEncoderByName(config.transcoding.audioCodec);
         if (!encoder) {
-          throw new Error(`❌ Audio encoder '${config.transcoding.audioCodec}' not found`);
+          throw new Error(`Audio encoder '${config.transcoding.audioCodec}' not found`);
         }
 
         // Create encoder context with the encoder
@@ -238,17 +240,18 @@ async function main() {
           timeBase: inputStream.timeBase,
         });
 
-        // Output buffer
-        buffersinkContext = filterGraph.createBuffersinkFilter('out');
+        // Output buffer (true for audio)
+        buffersinkContext = filterGraph.createBuffersinkFilter('out', true);
 
         // Build filter string for audio format conversion
-        const filterStr = `aformat=sample_rates=${config.transcoding.audioSampleRate}:sample_fmts=fltp:channel_layouts=stereo`;
+        // Add asetnsamples to ensure correct frame size for AAC encoder
+        const filterStr = `aformat=sample_rates=${config.transcoding.audioSampleRate}:sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=1`;
 
         filterGraph.parseWithInOut(filterStr, { name: 'in', filterContext: buffersrcContext, padIdx: 0 }, { name: 'out', filterContext: buffersinkContext, padIdx: 0 });
 
         await filterGraph.configAsync();
 
-        console.log(`  🎵 Audio: ${decoder.name} -> ${encoder.name}`);
+        console.log(`  Audio: ${decoder.name} -> ${encoder.name}`);
         console.log(`     ${decoderContext.sampleRate} Hz -> ${encoderContext.sampleRate} Hz`);
       } else {
         throw new Error('Unsupported media type');
@@ -287,7 +290,7 @@ async function main() {
     }
 
     if (streamContexts.size === 0) {
-      throw new Error('❌ No streams to transcode');
+      throw new Error('No streams to transcode');
     }
 
     // Step 4: Open output file
@@ -301,7 +304,7 @@ async function main() {
     await outputFormat.writeHeaderAsync();
 
     // Step 5: Main transcoding loop
-    console.log('\n▶️  Transcoding...\n');
+    console.log('\nTranscoding...\n');
     const startTime = Date.now();
 
     while (true) {
@@ -366,14 +369,14 @@ async function main() {
 
       // Show progress
       const totalDecoded = Array.from(streamContexts.values()).reduce((sum, ctx) => sum + ctx.decodedFrames, 0);
-      if (totalDecoded % 100 === 0) {
+      if (totalDecoded % 100 === 0 && totalDecoded > 0) {
         const elapsed = (Date.now() - startTime) / 1000;
-        console.log(`  ⏳ Progress: ${totalDecoded} frames decoded (${(totalDecoded / elapsed).toFixed(1)} fps)`);
+        console.log(`Progress: ${totalDecoded} frames decoded (${(totalDecoded / elapsed).toFixed(1)} fps)`);
       }
     }
 
     // Step 6: Flush all streams
-    console.log('\n🚿 Flushing...');
+    console.log('\nFlushing...');
 
     for (const streamCtx of streamContexts.values()) {
       // Flush decoder
@@ -418,18 +421,18 @@ async function main() {
     const elapsed = (Date.now() - startTime) / 1000;
 
     // Summary
-    console.log('\n📊 === Summary ===');
+    console.log('\n=== Summary ===');
     for (const [index, ctx] of streamContexts) {
-      const type = ctx.inputStream.codecParameters?.codecType === AV_MEDIA_TYPE_VIDEO ? '🎬 Video' : '🎵 Audio';
+      const type = ctx.inputStream.codecParameters?.codecType === AV_MEDIA_TYPE_VIDEO ? 'Video' : 'Audio';
       console.log(`${type} stream ${index}:`);
       console.log(`  Decoded: ${ctx.decodedFrames} frames`);
       console.log(`  Encoded: ${ctx.encodedFrames} frames`);
     }
-    console.log(`⏱️  Time: ${elapsed.toFixed(2)}s`);
-    console.log(`💾 Output: ${outputFile}`);
-    console.log('✅ Transcoding completed!');
+    console.log(`Time: ${elapsed.toFixed(2)}s`);
+    console.log(`Output: ${outputFile}`);
+    console.log('Transcoding completed!');
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('Error:', error);
     process.exit(1);
   } finally {
     // Cleanup

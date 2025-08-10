@@ -15,6 +15,9 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
     // Lifecycle
     InstanceMethod<&FilterGraph::Config>("config"),
     InstanceMethod<&FilterGraph::ConfigAsync>("configAsync"),
+    
+    // Resource management
+    InstanceMethod<&FilterGraph::Free>("free"),
     InstanceMethod<&FilterGraph::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Filter creation
@@ -72,7 +75,7 @@ Napi::Value FilterGraph::Config(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value FilterGraph::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value FilterGraph::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (graph_) {
@@ -81,6 +84,10 @@ Napi::Value FilterGraph::Dispose(const Napi::CallbackInfo& info) {
   }
   
   return env.Undefined();
+}
+
+Napi::Value FilterGraph::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 // Filter creation

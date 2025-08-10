@@ -3,7 +3,9 @@
  * Provides interlacing field order definitions and utilities
  */
 
-import { type AVFieldOrder, AV_FIELD_BB, AV_FIELD_BT, AV_FIELD_PROGRESSIVE, AV_FIELD_TB, AV_FIELD_TT, AV_FIELD_UNKNOWN } from './constants.js';
+import { AV_FIELD_BB, AV_FIELD_BT, AV_FIELD_PROGRESSIVE, AV_FIELD_TB, AV_FIELD_TT, AV_FIELD_UNKNOWN } from './constants.js';
+
+import type { AVFieldOrder } from './constants.js';
 
 /**
  * Field Order utilities

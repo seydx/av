@@ -13,6 +13,7 @@ Napi::Object AudioFifo::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("space", &AudioFifo::GetSpace),
         InstanceMethod("write", &AudioFifo::Write),
         InstanceMethod("read", &AudioFifo::Read),
+        InstanceMethod("free", &AudioFifo::Free),
         InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AudioFifo::Dispose),
     });
     
@@ -215,8 +216,13 @@ Napi::Value AudioFifo::Read(const Napi::CallbackInfo& info) {
     return Napi::Number::New(env, ret);
 }
 
-void AudioFifo::Dispose(const Napi::CallbackInfo& info) {
+Napi::Value AudioFifo::Free(const Napi::CallbackInfo& info) {
     resource.Reset();
+    return info.Env().Undefined();
+}
+
+Napi::Value AudioFifo::Dispose(const Napi::CallbackInfo& info) {
+    return Free(info);
 }
 
 } // namespace ffmpeg

@@ -78,7 +78,10 @@ public:
     Napi::Value Copy(const Napi::CallbackInfo& info);
     Napi::Value FromCodecContext(const Napi::CallbackInfo& info);
     Napi::Value ToCodecContext(const Napi::CallbackInfo& info);
-    void Dispose(const Napi::CallbackInfo& info);
+    
+    // Resource management
+    Napi::Value Free(const Napi::CallbackInfo& info);
+    Napi::Value Dispose(const Napi::CallbackInfo& info);
     
     // Get native pointer
     AVCodecParameters* Get() const { return params_; }

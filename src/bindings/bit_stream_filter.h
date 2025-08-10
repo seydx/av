@@ -44,6 +44,7 @@ public:
     Napi::Value ReceivePacketAsync(const Napi::CallbackInfo& info);
     Napi::Value Flush(const Napi::CallbackInfo& info);
     Napi::Value Free(const Napi::CallbackInfo& info);
+    Napi::Value Dispose(const Napi::CallbackInfo& info);
 
     // Properties
     Napi::Value GetFilter(const Napi::CallbackInfo& info);

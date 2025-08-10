@@ -1,4 +1,3 @@
-import type { AVError } from './constants.js';
 import {
   AV_ERROR_BSF_NOT_FOUND,
   AV_ERROR_BUFFER_TOO_SMALL,
@@ -36,6 +35,8 @@ import {
   AV_ERROR_STREAM_NOT_FOUND,
   AV_ERROR_UNKNOWN,
 } from './constants.js';
+
+import type { AVError } from './constants.js';
 
 /**
  * FFmpeg error with native error message support

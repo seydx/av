@@ -2,18 +2,7 @@ import { bindings } from './binding.js';
 
 import type { Frame } from './frame.js';
 import type { NativeSoftwareResampleContext, NativeWrapper } from './native-types.js';
-
-/**
- * Channel layout configuration for audio resampling
- */
-export interface ResampleChannelLayout {
-  /** Number of channels */
-  nbChannels: number;
-  /** Channel order */
-  order: number;
-  /** Channel mask */
-  mask: bigint;
-}
+import type { ChannelLayout } from './types.js';
 
 /**
  * Software audio resampler for format conversion
@@ -39,7 +28,7 @@ export interface ResampleChannelLayout {
  * ```
  */
 export class SoftwareResampleContext implements Disposable, NativeWrapper<NativeSoftwareResampleContext> {
-  private context: any; // Native resample context binding
+  private context: NativeSoftwareResampleContext; // Native resample context binding
 
   // ==================== Constructor ====================
 
@@ -61,10 +50,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    * ```
    */
   constructor(
-    srcChannelLayout: ResampleChannelLayout,
+    srcChannelLayout: ChannelLayout,
     srcSampleRate: number,
     srcSampleFormat: number,
-    dstChannelLayout: ResampleChannelLayout,
+    dstChannelLayout: ChannelLayout,
     dstSampleRate: number,
     dstSampleFormat: number,
   ) {
@@ -121,7 +110,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    * Get native resample context for internal use
    * @internal
    */
-  getNative(): any {
+  getNative(): NativeSoftwareResampleContext {
     return this.context;
   }
 }

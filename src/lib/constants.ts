@@ -1772,6 +1772,17 @@ export const AV_EF_CAREFUL = 0x10000 as AVErrorFlags;
 export const AV_EF_COMPLIANT = 0x20000 as AVErrorFlags;
 export const AV_EF_AGGRESSIVE = 0x40000 as AVErrorFlags;
 
+// AV_FILTER_FLAG constants (from libavfilter/avfilter.h)
+export type AVFilterFlag = number & { readonly [__ffmpeg_brand]: 'AVFilterFlag' };
+
+export const AV_FILTER_FLAG_DYNAMIC_INPUTS = 0x1 as AVFilterFlag;
+export const AV_FILTER_FLAG_DYNAMIC_OUTPUTS = 0x2 as AVFilterFlag;
+export const AV_FILTER_FLAG_SLICE_THREADS = 0x4 as AVFilterFlag;
+export const AV_FILTER_FLAG_METADATA_ONLY = 0x8 as AVFilterFlag;
+export const AV_FILTER_FLAG_HWDEVICE = 0x10 as AVFilterFlag;
+export const AV_FILTER_FLAG_SUPPORT_TIMELINE_GENERIC = 0x10000 as AVFilterFlag;
+export const AV_FILTER_FLAG_SUPPORT_TIMELINE_INTERNAL = 0x20000 as AVFilterFlag;
+
 // AV_BUFFERSINK_FLAG constants (from libavfilter/buffersink.h)
 export type AVBufferSinkFlag = number & { readonly [__ffmpeg_brand]: 'AVBufferSinkFlag' };
 
@@ -1854,7 +1865,29 @@ export type AVIOConstants = number & { readonly [__ffmpeg_brand]: 'AVIOConstants
 export const AV_IO_SEEKABLE_NORMAL = 0x1 as AVIOConstants;
 export const AV_IO_SEEKABLE_TIME = 0x2 as AVIOConstants;
 
-// Other constants (ungrouped) - 41 constants
+// SWS constants (from libswscale/swscale.h)
+export type SWSFlag = number & { readonly [__ffmpeg_brand]: 'SWSFlag' };
+
+export const SWS_FAST_BILINEAR = 1 as SWSFlag;
+export const SWS_SRC_V_CHR_DROP_MASK = 196608 as SWSFlag;
+export const SWS_SRC_V_CHR_DROP_SHIFT = 16 as SWSFlag;
+export const SWS_PARAM_DEFAULT = 123456 as SWSFlag;
+export const SWS_PRINT_INFO = 4096 as SWSFlag;
+export const SWS_FULL_CHR_H_INT = 8192 as SWSFlag;
+export const SWS_FULL_CHR_H_INP = 16384 as SWSFlag;
+export const SWS_DIRECT_BGR = 32768 as SWSFlag;
+export const SWS_ACCURATE_RND = 262144 as SWSFlag;
+export const SWS_ERROR_DIFFUSION = 8388608 as SWSFlag;
+export const SWS_CS_ITU709 = 1 as SWSFlag;
+export const SWS_CS_FCC = 4 as SWSFlag;
+export const SWS_CS_ITU601 = 5 as SWSFlag;
+export const SWS_CS_ITU624 = 5 as SWSFlag;
+export const SWS_CS_SMPTE170M = 5 as SWSFlag;
+export const SWS_CS_SMPTE240M = 7 as SWSFlag;
+export const SWS_CS_DEFAULT = 5 as SWSFlag;
+export const SWS_CS_BT2020 = 9 as SWSFlag;
+
+// Other constants (ungrouped) - 60 constants
 // These are miscellaneous constants that don't fit into a specific category
 export const AV_AAC_ADTS_HEADER_SIZE = 7;
 export const AV_HWACCEL_CODEC_CAP_EXPERIMENTAL = 512;
@@ -1892,6 +1925,20 @@ export const AV_STEREO3D_FLAG_INVERT = 0x1;
 export const AV_TIMECODE_STR_SIZE = 23;
 export const AV_TS_MAX_STRING_SIZE = 32;
 export const AV_UUID_LEN = 16;
+export const AV_FILTER_THREAD_SLICE = 0x1;
+export const AV_FILTER_CMD_FLAG_ONE = 1;
+export const AV_FILTER_CMD_FLAG_FAST = 2;
+export const SWS_BILINEAR = 2;
+export const SWS_BICUBIC = 4;
+export const SWS_X = 8;
+export const SWS_POINT = 16;
+export const SWS_AREA = 32;
+export const SWS_BICUBLIN = 64;
+export const SWS_GAUSS = 128;
+export const SWS_SINC = 256;
+export const SWS_LANCZOS = 512;
+export const SWS_SPLINE = 1024;
+export const SWS_BITEXACT = 524288;
 
 // ============================================================================
 // AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods

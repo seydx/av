@@ -91,8 +91,8 @@ test('FilterGraph async operations', async (t) => {
     assert.strictEqual(outputFrame.height, 240);
     assert.strictEqual(outputFrame.format, AV_PIX_FMT_YUV420P);
 
-    inputFrame.unref();
-    outputFrame.unref();
+    inputFrame.free();
+    outputFrame.free();
   });
 
   await t.test('should process video through filter pipeline asynchronously', async () => {

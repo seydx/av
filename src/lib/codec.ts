@@ -1,9 +1,9 @@
 import { bindings } from './binding.js';
 import { AV_CODEC_CAP_FRAME_THREADS, AV_CODEC_CAP_HARDWARE, AV_CODEC_CAP_SLICE_THREADS } from './constants.js';
 
-import type { CodecChannelLayout } from './codec-parameters.js';
 import type { AVCodecCap, AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type { NativeCodec, NativeWrapper } from './native-types.js';
+import type { ChannelLayout } from './types.js';
 
 /**
  * Profile information for a codec
@@ -241,7 +241,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Get supported channel layouts
    * @returns Array of supported channel layouts
    */
-  getChannelLayouts(): CodecChannelLayout[] {
+  getChannelLayouts(): ChannelLayout[] {
     return this.native.getChannelLayouts();
   }
 
