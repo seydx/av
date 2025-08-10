@@ -134,7 +134,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   set metadata(value: Dictionary) {
     // Native binding expects a plain object
-    this.context.metadata = value.toObject() as any;
+    this.context.metadata = value.toObject();
   }
 
   /**

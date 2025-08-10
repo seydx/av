@@ -145,7 +145,6 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    */
   clone(): Packet {
     const cloned = new Packet();
-
     (cloned as any).native = this.native.clone();
     return cloned;
   }

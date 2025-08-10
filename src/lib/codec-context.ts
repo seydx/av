@@ -420,7 +420,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @param options Optional codec-specific options as Dictionary or plain object
    * @throws FFmpegError if opening fails
    */
-  open(options?: Dictionary | Record<string, any> | null): void {
+  open(options?: Dictionary | Record<string, string> | null): void {
     try {
       let dict: Dictionary | null = null;
       if (options && !(options instanceof Dictionary)) {
@@ -443,7 +443,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @returns Promise that resolves when codec is opened
    * @throws FFmpegError if opening fails
    */
-  async openAsync(options?: Dictionary | Record<string, any> | null): Promise<void> {
+  async openAsync(options?: Dictionary | Record<string, string> | null): Promise<void> {
     try {
       let dict: Dictionary | null = null;
       if (options && !(options instanceof Dictionary)) {
