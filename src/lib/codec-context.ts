@@ -1,5 +1,4 @@
 import { bindings } from './binding.js';
-import { AV_ERROR_EAGAIN, AV_ERROR_EOF } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { FFmpegError } from './error.js';
 import { Options } from './option.js';
@@ -476,112 +475,80 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Send a packet to the decoder (synchronous)
    * @param packet Packet to decode (null to flush)
    * @returns 0 on success, negative error code on failure
-   * @throws FFmpegError on fatal errors
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   sendPacket(packet: Packet | null): number {
-    const ret = this.native.sendPacket(packet?.getNative() ?? null);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to send packet');
-    }
-    return ret;
+    return this.native.sendPacket(packet?.getNative() ?? null);
   }
 
   /**
    * Send a packet to the decoder (asynchronous)
    * @param packet Packet to decode (null to flush)
    * @returns Promise resolving to 0 on success, negative error code on failure
-   * @throws FFmpegError on fatal errors
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   async sendPacketAsync(packet: Packet | null): Promise<number> {
-    const ret = await this.native.sendPacketAsync(packet?.getNative() ?? null);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to send packet');
-    }
-    return ret;
+    return await this.native.sendPacketAsync(packet?.getNative() ?? null);
   }
 
   /**
    * Receive a decoded frame from the decoder (synchronous)
    * @param frame Frame to receive decoded data into
-   * @returns 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available
-   * @throws FFmpegError on fatal errors
+   * @returns 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available, or negative error code
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   receiveFrame(frame: Frame): number {
-    const ret = this.native.receiveFrame(frame.getNative());
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to receive frame');
-    }
-    return ret;
+    return this.native.receiveFrame(frame.getNative());
   }
 
   /**
    * Receive a decoded frame from the decoder (asynchronous)
    * @param frame Frame to receive decoded data into
-   * @returns Promise resolving to 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available
-   * @throws FFmpegError on fatal errors
+   * @returns Promise resolving to 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available, or negative error code
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   async receiveFrameAsync(frame: Frame): Promise<number> {
-    const ret = await this.native.receiveFrameAsync(frame.getNative());
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to receive frame');
-    }
-    return ret;
+    return await this.native.receiveFrameAsync(frame.getNative());
   }
 
   /**
    * Send a frame to the encoder (synchronous)
    * @param frame Frame to encode (null to flush)
    * @returns 0 on success, negative error code on failure
-   * @throws FFmpegError on fatal errors
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   sendFrame(frame: Frame | null): number {
-    const ret = this.native.sendFrame(frame?.getNative() ?? null);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to send frame');
-    }
-    return ret;
+    return this.native.sendFrame(frame?.getNative() ?? null);
   }
 
   /**
    * Send a frame to the encoder (asynchronous)
    * @param frame Frame to encode (null to flush)
    * @returns Promise resolving to 0 on success, negative error code on failure
-   * @throws FFmpegError on fatal errors
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   async sendFrameAsync(frame: Frame | null): Promise<number> {
-    const ret = await this.native.sendFrameAsync(frame?.getNative() ?? null);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to send frame');
-    }
-    return ret;
+    return await this.native.sendFrameAsync(frame?.getNative() ?? null);
   }
 
   /**
    * Receive an encoded packet from the encoder (synchronous)
    * @param packet Packet to receive encoded data into
-   * @returns 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available
-   * @throws FFmpegError on fatal errors
+   * @returns 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available, or negative error code
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   receivePacket(packet: Packet): number {
-    const ret = this.native.receivePacket(packet.getNative());
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to receive packet');
-    }
-    return ret;
+    return this.native.receivePacket(packet.getNative());
   }
 
   /**
    * Receive an encoded packet from the encoder (asynchronous)
    * @param packet Packet to receive encoded data into
-   * @returns Promise resolving to 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available
-   * @throws FFmpegError on fatal errors
+   * @returns Promise resolving to 0 on success, AV_ERROR_EAGAIN or AV_ERROR_EOF when no output available, or negative error code
+   * @throws FFmpegError only on fatal errors (not for codec errors)
    */
   async receivePacketAsync(packet: Packet): Promise<number> {
-    const ret = await this.native.receivePacketAsync(packet.getNative());
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
-      throw new FFmpegError(ret, 'Failed to receive packet');
-    }
-    return ret;
+    return await this.native.receivePacketAsync(packet.getNative());
   }
 
   /**

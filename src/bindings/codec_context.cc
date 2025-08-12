@@ -229,11 +229,7 @@ Napi::Value CodecContext::SendPacket(const Napi::CallbackInfo& info) {
   }
   
   int ret = avcodec_send_packet(context_.Get(), pkt);
-  if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
-    CheckFFmpegError(env, ret, "Failed to send packet to decoder");
-    return Napi::Number::New(env, ret);
-  }
-  
+  LogFFmpegError(ret, "Failed to send packet to decoder");
   return Napi::Number::New(env, ret);
 }
 
@@ -249,11 +245,7 @@ Napi::Value CodecContext::ReceiveFrame(const Napi::CallbackInfo& info) {
   if (!frame) return env.Null();
   
   int ret = avcodec_receive_frame(context_.Get(), frame->GetFrame());
-  if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
-    CheckFFmpegError(env, ret, "Failed to receive frame from decoder");
-    return Napi::Number::New(env, ret);
-  }
-  
+  LogFFmpegError(ret, "Failed to receive frame from decoder");
   return Napi::Number::New(env, ret);
 }
 
@@ -269,11 +261,7 @@ Napi::Value CodecContext::SendFrame(const Napi::CallbackInfo& info) {
   }
   
   int ret = avcodec_send_frame(context_.Get(), frame);
-  if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
-    CheckFFmpegError(env, ret, "Failed to send frame to encoder");
-    return Napi::Number::New(env, ret);
-  }
-  
+  LogFFmpegError(ret, "Failed to send frame to encoder");
   return Napi::Number::New(env, ret);
 }
 
@@ -289,11 +277,7 @@ Napi::Value CodecContext::ReceivePacket(const Napi::CallbackInfo& info) {
   if (!packet) return env.Null();
   
   int ret = avcodec_receive_packet(context_.Get(), packet->GetPacket());
-  if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
-    CheckFFmpegError(env, ret, "Failed to receive packet from encoder");
-    return Napi::Number::New(env, ret);
-  }
-  
+  LogFFmpegError(ret, "Failed to receive packet from encoder");
   return Napi::Number::New(env, ret);
 }
 

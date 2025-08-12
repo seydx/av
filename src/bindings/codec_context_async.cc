@@ -20,12 +20,7 @@ public:
 
   void Execute() override {
     result_ = avcodec_send_packet(context_, packet_);
-    
-    if (result_ < 0 && result_ != AVERROR(EAGAIN) && result_ != AVERROR_EOF) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
+    LogFFmpegError(result_, "Failed to send packet to decoder");
   }
 
   void OnOK() override {
@@ -82,12 +77,7 @@ public:
 
   void Execute() override {
     result_ = avcodec_receive_frame(context_, frame_->GetFrame());
-    
-    if (result_ < 0 && result_ != AVERROR(EAGAIN) && result_ != AVERROR_EOF) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
+    LogFFmpegError(result_, "Failed to receive frame from decoder");
   }
 
   void OnOK() override {
@@ -149,12 +139,7 @@ public:
 
   void Execute() override {
     result_ = avcodec_send_frame(context_, frame_);
-    
-    if (result_ < 0 && result_ != AVERROR(EAGAIN) && result_ != AVERROR_EOF) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
+    LogFFmpegError(result_, "Failed to send frame to encoder");
   }
 
   void OnOK() override {
@@ -211,12 +196,7 @@ public:
 
   void Execute() override {
     result_ = avcodec_receive_packet(context_, packet_->GetPacket());
-    
-    if (result_ < 0 && result_ != AVERROR(EAGAIN) && result_ != AVERROR_EOF) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
+    LogFFmpegError(result_, "Failed to receive packet from encoder");
   }
 
   void OnOK() override {

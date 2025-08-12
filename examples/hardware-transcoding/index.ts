@@ -34,7 +34,6 @@ import {
   AV_PIX_FMT_YUV420P,
   Codec,
   CodecContext,
-  FFmpegError,
   FormatContext,
   Frame,
   HardwareDeviceContext,
@@ -103,7 +102,7 @@ async function main() {
   let hwDevice: HardwareDeviceContext | null = null;
 
   try {
-    const inputFile = config.inputFile;
+    const inputFile = 'rtsp://admin:adminadmin@192.168.178.173/Preview_01_main';
     const outputFile = config.outputFile('hw_transcoded');
     const hwEncoder = config.hardware.encoder;
 
@@ -277,43 +276,50 @@ async function main() {
       await streamState.encoderContext.sendFrameAsync(frame);
 
       while (true) {
-        try {
-          const ret = await streamState.encoderContext.receivePacketAsync(encodePacket);
-          if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
-            break;
-          }
-
-          // Set packet stream index and rescale timestamps
-          encodePacket.streamIndex = streamState.outputStream.index;
-          encodePacket.rescaleTs(streamState.encoderContext.timeBase, streamState.outputStream.timeBase);
-
-          // Write packet to output
-          await outputFormat!.writeInterleavedFrameAsync(encodePacket);
-          streamState.framesEncoded++;
-
-          // Log progress periodically
-          if (streamState.framesEncoded === 1 || streamState.framesEncoded % 30 === 0) {
-            console.log(`  Frame ${streamState.framesEncoded} encoded`);
-          }
-
-          encodePacket.unref();
-        } catch (error) {
-          if (error instanceof FFmpegError) {
-            if (error.code === AV_ERROR_EAGAIN || error.code === AV_ERROR_EOF) {
-              break;
-            }
-          }
-          throw error;
+        const ret = await streamState.encoderContext.receivePacketAsync(encodePacket);
+        if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+          break;
         }
+
+        if (ret < 0) {
+          // Encoding error, skip this packet
+          console.warn(`  ⚠️ Encoding error: ${ret}`);
+          break;
+        }
+
+        // Set packet stream index and rescale timestamps
+        encodePacket.streamIndex = streamState.outputStream.index;
+        encodePacket.rescaleTs(streamState.encoderContext.timeBase, streamState.outputStream.timeBase);
+
+        // Write packet to output
+        await outputFormat!.writeInterleavedFrameAsync(encodePacket);
+        streamState.framesEncoded++;
+
+        // Log progress periodically
+        if (streamState.framesEncoded === 1 || streamState.framesEncoded % 30 === 0) {
+          console.log(`  Frame ${streamState.framesEncoded} encoded`);
+        }
+
+        encodePacket.unref();
       }
     };
 
+    const maxFrames = 200; // Limit for testing
+    let frameCount = 0;
+
     // Main processing loop
-    while (true) {
+    while (frameCount < maxFrames) {
+      frameCount++;
+
       // Read packet from input
       const ret = await inputFormat.readFrameAsync(decodePacket);
       if (ret === AV_ERROR_EOF) {
         console.log('\nEnd of input file reached');
+        break;
+      }
+
+      if (frameCount > maxFrames) {
+        console.log(`\nProcessed ${frameCount} frames, stopping early for testing`);
         break;
       }
 
@@ -324,45 +330,52 @@ async function main() {
       }
 
       // Decode packet
-      await decoderContext.sendPacketAsync(decodePacket);
+      const sendRet = await decoderContext.sendPacketAsync(decodePacket);
+
+      // Handle send errors gracefully
+      if (sendRet < 0 && sendRet !== AV_ERROR_EAGAIN) {
+        console.warn(`  ⚠️ Send packet error: ${sendRet}`);
+        decodePacket.unref();
+        continue;
+      }
+
       decodePacket.unref();
 
       // Get decoded frames and encode them
       while (true) {
-        try {
-          // Use hardware frame for zero-copy pipeline
-          const frame = hwPixelFormat ? hwFrame : cpuFrame;
-          const ret = await decoderContext.receiveFrameAsync(frame);
-          if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
-            break;
-          }
+        // Use hardware frame for zero-copy pipeline
+        const frame = hwPixelFormat ? hwFrame : cpuFrame;
+        const ret = await decoderContext.receiveFrameAsync(frame);
 
-          streamState.framesDecoded++;
-
-          // Preserve frame timestamps for proper duration
-          frame.pts = frame.bestEffortTimestamp || frame.pts;
-
-          // For hardware frames, check if transfer is needed
-          if (hwPixelFormat && frame.format === hwPixelFormat) {
-            // Frame is already in GPU memory - direct encode (zero-copy)
-            await encodeFrame(frame);
-          } else if (!hwPixelFormat && encoderContext.pixelFormat === AV_PIX_FMT_VIDEOTOOLBOX) {
-            // Software decode -> hardware encode (frame will be uploaded by encoder)
-            await encodeFrame(frame);
-          } else {
-            // Software pipeline or format conversion needed
-            await encodeFrame(frame);
-          }
-
-          frame.unref();
-        } catch (error) {
-          if (error instanceof FFmpegError) {
-            if (error.code === AV_ERROR_EAGAIN || error.code === AV_ERROR_EOF) {
-              break;
-            }
-          }
-          throw error;
+        if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+          break;
         }
+
+        // Handle decoder errors gracefully
+        if (ret < 0) {
+          console.warn(`  ⚠️ Receive frame error: ${ret}`);
+          frame.unref();
+          continue;
+        }
+
+        streamState.framesDecoded++;
+
+        // Preserve frame timestamps for proper duration
+        frame.pts = frame.bestEffortTimestamp || frame.pts;
+
+        // For hardware frames, check if transfer is needed
+        if (hwPixelFormat && frame.format === hwPixelFormat) {
+          // Frame is already in GPU memory - direct encode (zero-copy)
+          await encodeFrame(frame);
+        } else if (!hwPixelFormat && encoderContext.pixelFormat === AV_PIX_FMT_VIDEOTOOLBOX) {
+          // Software decode -> hardware encode (frame will be uploaded by encoder)
+          await encodeFrame(frame);
+        } else {
+          // Software pipeline or format conversion needed
+          await encodeFrame(frame);
+        }
+
+        frame.unref();
       }
     }
 
@@ -372,26 +385,25 @@ async function main() {
     // Flush decoder
     await decoderContext.sendPacketAsync(null);
     while (true) {
-      try {
-        const frame = hwPixelFormat ? hwFrame : cpuFrame;
-        const ret = await decoderContext.receiveFrameAsync(frame);
-        if (ret === AV_ERROR_EOF) {
-          break;
-        }
+      const frame = hwPixelFormat ? hwFrame : cpuFrame;
+      const ret = await decoderContext.receiveFrameAsync(frame);
 
-        streamState.framesDecoded++;
-
-        // Preserve frame timestamps for proper duration
-        frame.pts = frame.bestEffortTimestamp || frame.pts;
-
-        await encodeFrame(frame);
-        frame.unref();
-      } catch (error) {
-        if (error instanceof FFmpegError && error.code === AV_ERROR_EOF) {
-          break;
-        }
+      if (ret === AV_ERROR_EOF) {
         break;
       }
+
+      if (ret < 0) {
+        // Error during flush, stop flushing
+        break;
+      }
+
+      streamState.framesDecoded++;
+
+      // Preserve frame timestamps for proper duration
+      frame.pts = frame.bestEffortTimestamp || frame.pts;
+
+      await encodeFrame(frame);
+      frame.unref();
     }
 
     // Flush encoder

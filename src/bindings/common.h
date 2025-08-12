@@ -36,6 +36,16 @@ inline void CheckFFmpegError(const Napi::Env& env, int ret, const std::string& m
   }
 }
 
+// Non-throwing version for codec operations that may have recoverable errors
+inline void LogFFmpegError(int ret, const std::string& message = "") {
+  if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+    char errbuf[AV_ERROR_MAX_STRING_SIZE];
+    av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
+    std::string errorMsg = message.empty() ? errbuf : message + ": " + errbuf;
+    av_log(nullptr, AV_LOG_WARNING, "%s\n", errorMsg.c_str());
+  }
+}
+
 // RAII wrapper for FFmpeg resources - non-virtual base
 template <typename T, typename Deleter>
 class FFmpegResource {

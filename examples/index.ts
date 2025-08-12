@@ -21,6 +21,10 @@ export function resetFFmpegLog() {
 }
 
 const config = {
+  // Parse verbose flag from command line
+  verbose: process.argv.includes('-v') || process.argv.includes('--verbose'),
+
+  // File paths
   inputFile: resolve(__dirname, '../testdata/video.mp4'),
   outputFile: (name: string, ext = 'mp4') => resolve(__dirname, `./.tmp/output_${name}.${ext}`),
 
@@ -58,8 +62,6 @@ const config = {
     encoder: 'h264_videotoolbox',
     decoder: 'h264',
   },
-
-  verbose: false,
 };
 
 export { config };

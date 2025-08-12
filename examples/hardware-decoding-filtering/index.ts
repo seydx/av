@@ -124,16 +124,16 @@ async function filterFrame(decodedFrame: Frame, filteredFrame: Frame): Promise<b
  */
 async function processHardwareFrame(frame: Frame, frameCount: number): Promise<void> {
   // For this example, we just transfer to CPU and log info
-  using cpuFrame = new Frame();
+  // using cpuFrame = new Frame();
 
   // Transfer hardware frame to CPU
-  frame.transferDataTo(cpuFrame);
+  // frame.transferDataTo(cpuFrame);
 
   console.log(`  Frame #${frameCount}:`);
-  console.log(`    Resolution: ${cpuFrame.width}x${cpuFrame.height}`);
-  console.log(`    Format: ${cpuFrame.format}`);
-  console.log(`    PTS: ${cpuFrame.pts}`);
-  console.log(`    Key frame: ${cpuFrame.keyFrame}`);
+  console.log(`    Resolution: ${frame.width}x${frame.height}`);
+  console.log(`    Format: ${frame.format}`);
+  console.log(`    PTS: ${frame.pts}`);
+  console.log(`    Key frame: ${frame.keyFrame}`);
 
   // In a real application, you would encode or save the frame here
 }
@@ -327,9 +327,9 @@ async function hardwareDecodingFiltering(inputFile: string, filterString: string
 async function main() {
   ffmpegLog('hardware-decoding-filtering', config.verbose ? AV_LOG_DEBUG : AV_LOG_INFO);
 
-  const inputFile = config.inputFile;
+  const inputFile = 'rtsp://admin:password@192.168.178.142/Streaming/channels/101';
   // Filter string for VideoToolbox - test with simple pass-through filter
-  const filterString = 'null'; // Simple pass-through filter
+  const filterString = 'scale_vt=640:360'; // Simple pass-through filter
 
   try {
     console.log('Hardware Decoding with Filtering Example\n');
