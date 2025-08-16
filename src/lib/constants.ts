@@ -18,6 +18,21 @@ export const AV_MEDIA_TYPE_SUBTITLE = 3 as AVMediaType;
 export const AV_MEDIA_TYPE_ATTACHMENT = 4 as AVMediaType;
 export const AV_MEDIA_TYPE_NB = 5 as AVMediaType;
 
+// Standard seek whence constants (from stdio.h)
+export const AV_SEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file
+export const AV_SEEK_CUR = 1 as AVSeekWhence; // Seek from current position
+export const AV_SEEK_END = 2 as AVSeekWhence; // Seek from end of file
+
+// Common "no flags" constants for APIs that accept 0 as valid flag value
+export const AV_SEEK_FLAG_NONE = 0 as AVSeekFlag; // Default seek behavior
+export const AV_IO_FLAG_NONE = 0 as AVIOFlag; // Default IO behavior
+export const AV_FILTER_FLAG_NONE = 0 as AVFilterFlag; // No filter flags
+export const AV_FILTER_CMD_FLAG_NONE = 0 as AVFilterCmdFlag; // No filter command flags
+export const AV_FILTER_THREAD_NONE = 0 as AVFilterThreadType; // Disable threading
+export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2
+export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags
+export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags
+
 // libavcodec/avcodec.h
 export type AVCodecConfig = number & { readonly [__ffmpeg_brand]: 'AVCodecConfig' };
 
@@ -1472,6 +1487,20 @@ export const AV_DISPOSITION_DEPENDENT = 0x80000 as AVDisposition;
 export const AV_DISPOSITION_STILL_IMAGE = 0x100000 as AVDisposition;
 export const AV_DISPOSITION_MULTILAYER = 0x200000 as AVDisposition;
 
+// AV_SEEK_FLAG constants (from libavformat/avformat.h, libavformat/avio.h)
+export type AVSeekFlag = number & { readonly [__ffmpeg_brand]: 'AVSeekFlag' };
+
+export const AV_SEEK_FLAG_BACKWARD = 1 as AVSeekFlag;
+export const AV_SEEK_FLAG_BYTE = 2 as AVSeekFlag;
+export const AV_SEEK_FLAG_ANY = 4 as AVSeekFlag;
+export const AV_SEEK_FLAG_FRAME = 8 as AVSeekFlag;
+export const AV_SEEK_FORCE = 131072 as AVSeekFlag;
+
+// AV_SEEK_WHENCE constants (from libavformat/avio.h)
+export type AVSeekWhence = number & { readonly [__ffmpeg_brand]: 'AVSeekWhence' };
+
+export const AV_SEEK_SIZE = 65536 as AVSeekWhence;
+
 // AV_FMT_FLAG constants (from libavformat/avformat.h)
 export type AVFormatFlag = number & { readonly [__ffmpeg_brand]: 'AVFormatFlag' };
 
@@ -1490,6 +1519,20 @@ export const AV_FMT_FLAG_SORT_DTS = 65536 as AVFormatFlag;
 export const AV_FMT_FLAG_FAST_SEEK = 524288 as AVFormatFlag;
 export const AV_FMT_FLAG_SHORTEST = 1048576 as AVFormatFlag;
 export const AV_FMT_FLAG_AUTO_BSF = 2097152 as AVFormatFlag;
+
+// AV_STREAM_EVENT_FLAG constants (from libavformat/avformat.h)
+export type AVStreamEventFlag = number & { readonly [__ffmpeg_brand]: 'AVStreamEventFlag' };
+
+export const AV_STREAM_EVENT_FLAG_METADATA_UPDATED = 1 as AVStreamEventFlag;
+export const AV_STREAM_EVENT_FLAG_NEW_PACKETS = 0x2 as AVStreamEventFlag;
+
+// AV_IO_FLAG constants (from libavformat/avio.h)
+export type AVIOFlag = number & { readonly [__ffmpeg_brand]: 'AVIOFlag' };
+
+export const AV_IO_FLAG_READ = 1 as AVIOFlag;
+export const AV_IO_FLAG_WRITE = 2 as AVIOFlag;
+export const AV_IO_FLAG_NONBLOCK = 8 as AVIOFlag;
+export const AV_IO_FLAG_DIRECT = 32768 as AVIOFlag;
 
 // AV_PARSER_PTS constants (from libavcodec/avcodec.h)
 export type AVParserPts = number & { readonly [__ffmpeg_brand]: 'AVParserPts' };
@@ -1649,6 +1692,15 @@ export const AV_OPT_SERIALIZE_SKIP_DEFAULTS = 1 as AVOptionSerialize;
 export const AV_OPT_SERIALIZE_OPT_FLAGS_EXACT = 2 as AVOptionSerialize;
 export const AV_OPT_SERIALIZE_SEARCH_CHILDREN = 4 as AVOptionSerialize;
 
+// AV_OPT_SEARCH constants (from libavutil/opt.h)
+export type AVOptionSearchFlags = number & { readonly [__ffmpeg_brand]: 'AVOptionSearchFlags' };
+
+export const AV_OPT_SEARCH_CHILDREN = 0x1 as AVOptionSearchFlags;
+export const AV_OPT_SEARCH_FAKE_OBJ = 0x2 as AVOptionSearchFlags;
+export const AV_OPT_ALLOW_NULL = 0x4 as AVOptionSearchFlags;
+export const AV_OPT_ARRAY_REPLACE = 0x8 as AVOptionSearchFlags;
+export const AV_OPT_MULTI_COMPONENT_RANGE = 0x1000 as AVOptionSearchFlags;
+
 // AV_HWACCEL_FLAG constants (from libavcodec/avcodec.h)
 export type AVHWAccelFlag = number & { readonly [__ffmpeg_brand]: 'AVHWAccelFlag' };
 
@@ -1656,6 +1708,11 @@ export const AV_HWACCEL_FLAG_IGNORE_LEVEL = 0x1 as AVHWAccelFlag;
 export const AV_HWACCEL_FLAG_ALLOW_HIGH_DEPTH = 0x2 as AVHWAccelFlag;
 export const AV_HWACCEL_FLAG_ALLOW_PROFILE_MISMATCH = 0x4 as AVHWAccelFlag;
 export const AV_HWACCEL_FLAG_UNSAFE_OUTPUT = 0x8 as AVHWAccelFlag;
+
+// AV_HWACCEL_CAP constants (from libavcodec/avcodec.h)
+export type AVHWAccelCap = number & { readonly [__ffmpeg_brand]: 'AVHWAccelCap' };
+
+export const AV_HWACCEL_CODEC_CAP_EXPERIMENTAL = 512 as AVHWAccelCap;
 
 // AV_LOG constants (from libavutil/log.h)
 export type AVLogLevel = number & { readonly [__ffmpeg_brand]: 'AVLogLevel' };
@@ -1712,6 +1769,7 @@ export const AV_CPU_FLAG_ARMV6 = 0x2 as AVCpuFlag;
 export const AV_CPU_FLAG_ARMV6T2 = 0x4 as AVCpuFlag;
 export const AV_CPU_FLAG_VFP = 0x8 as AVCpuFlag;
 export const AV_CPU_FLAG_VFPV3 = 0x10 as AVCpuFlag;
+export const AV_CPU_FLAG_NEON = 0x20 as AVCpuFlag;
 export const AV_CPU_FLAG_ARMV8 = 0x40 as AVCpuFlag;
 export const AV_CPU_FLAG_VFP_VM = 0x80 as AVCpuFlag;
 export const AV_CPU_FLAG_DOTPROD = 0x100 as AVCpuFlag;
@@ -1735,11 +1793,15 @@ export const AV_CPU_FLAG_RV_MISALIGNED = 0x400 as AVCpuFlag;
 export const AV_CPU_FLAG_RVB = 0x800 as AVCpuFlag;
 
 // AV_DICT constants (from libavutil/dict.h)
-export type AVDictionaryFlag = number & { readonly [__ffmpeg_brand]: 'AVDictionaryFlag' };
+export type AVDictFlag = number & { readonly [__ffmpeg_brand]: 'AVDictFlag' };
 
-export const AV_DICT_MATCH_CASE = 1 as AVDictionaryFlag;
-export const AV_DICT_DONT_OVERWRITE = 16 as AVDictionaryFlag;
-export const AV_DICT_MULTIKEY = 64 as AVDictionaryFlag;
+export const AV_DICT_MATCH_CASE = 1 as AVDictFlag;
+export const AV_DICT_IGNORE_SUFFIX = 2 as AVDictFlag;
+export const AV_DICT_DONT_STRDUP_KEY = 4 as AVDictFlag;
+export const AV_DICT_DONT_STRDUP_VAL = 8 as AVDictFlag;
+export const AV_DICT_DONT_OVERWRITE = 16 as AVDictFlag;
+export const AV_DICT_APPEND = 32 as AVDictFlag;
+export const AV_DICT_MULTIKEY = 64 as AVDictFlag;
 
 // AV_ESCAPE_FLAG constants (from libavutil/avstring.h)
 export type AVEscapeFlag = number & { readonly [__ffmpeg_brand]: 'AVEscapeFlag' };
@@ -1783,11 +1845,27 @@ export const AV_FILTER_FLAG_HWDEVICE = 0x10 as AVFilterFlag;
 export const AV_FILTER_FLAG_SUPPORT_TIMELINE_GENERIC = 0x10000 as AVFilterFlag;
 export const AV_FILTER_FLAG_SUPPORT_TIMELINE_INTERNAL = 0x20000 as AVFilterFlag;
 
+// AV_FILTER_CMD_FLAG constants (from libavfilter/avfilter.h)
+export type AVFilterCmdFlag = number & { readonly [__ffmpeg_brand]: 'AVFilterCmdFlag' };
+
+export const AV_FILTER_CMD_FLAG_ONE = 1 as AVFilterCmdFlag;
+export const AV_FILTER_CMD_FLAG_FAST = 2 as AVFilterCmdFlag;
+
+// AV_FILTER_THREAD constants (from libavfilter/avfilter.h)
+export type AVFilterThreadType = number & { readonly [__ffmpeg_brand]: 'AVFilterThreadType' };
+
+export const AV_FILTER_THREAD_SLICE = 0x1 as AVFilterThreadType;
+
 // AV_BUFFERSINK_FLAG constants (from libavfilter/buffersink.h)
 export type AVBufferSinkFlag = number & { readonly [__ffmpeg_brand]: 'AVBufferSinkFlag' };
 
 export const AV_BUFFERSINK_FLAG_PEEK = 1 as AVBufferSinkFlag;
 export const AV_BUFFERSINK_FLAG_NO_REQUEST = 2 as AVBufferSinkFlag;
+
+// AV_BUFFER_FLAG constants (from libavutil/buffer.h)
+export type AVBufferFlag = number & { readonly [__ffmpeg_brand]: 'AVBufferFlag' };
+
+export const AV_BUFFER_FLAG_READONLY = 0x1 as AVBufferFlag;
 
 // AV_GET_BUFFER_FLAG constants (from libavcodec/avcodec.h)
 export type AVGetBufferFlag = number & { readonly [__ffmpeg_brand]: 'AVGetBufferFlag' };
@@ -1804,6 +1882,54 @@ export type AVInputBuffer = number & { readonly [__ffmpeg_brand]: 'AVInputBuffer
 
 export const AV_INPUT_BUFFER_MIN_SIZE = 16384 as AVInputBuffer;
 export const AV_INPUT_BUFFER_PADDING_SIZE = 64 as AVInputBuffer;
+
+// AV_FRAME_SIDE_DATA_FLAG constants (from libavutil/frame.h)
+export type AVFrameSideDataFlag = number & { readonly [__ffmpeg_brand]: 'AVFrameSideDataFlag' };
+
+export const AV_FRAME_SIDE_DATA_FLAG_UNIQUE = 0x1 as AVFrameSideDataFlag;
+export const AV_FRAME_SIDE_DATA_FLAG_REPLACE = 0x2 as AVFrameSideDataFlag;
+
+// AV_FRAME_FILENAME_FLAGS constants (from libavformat/avformat.h)
+export type AVFrameFilenameFlags = number & { readonly [__ffmpeg_brand]: 'AVFrameFilenameFlags' };
+
+export const AV_FRAME_FILENAME_FLAGS_MULTIPLE = 1 as AVFrameFilenameFlags;
+
+// AV_CUDA_USE constants (from libavutil/hwcontext_cuda.h)
+export type AVCudaContextFlags = number & { readonly [__ffmpeg_brand]: 'AVCudaContextFlags' };
+
+export const AV_CUDA_USE_PRIMARY_CONTEXT = 0x1 as AVCudaContextFlags;
+export const AV_CUDA_USE_CURRENT_CONTEXT = 0x2 as AVCudaContextFlags;
+
+// AV_STEREO3D_FLAG constants (from libavutil/stereo3d.h)
+export type AVStereo3DFlag = number & { readonly [__ffmpeg_brand]: 'AVStereo3DFlag' };
+
+export const AV_STEREO3D_FLAG_INVERT = 0x1 as AVStereo3DFlag;
+
+// AV_IAMF_LAYER_FLAG constants (from libavutil/iamf.h)
+export type AVIAMFLayerFlag = number & { readonly [__ffmpeg_brand]: 'AVIAMFLayerFlag' };
+
+export const AV_IAMF_LAYER_FLAG_RECON_GAIN = 0x1 as AVIAMFLayerFlag;
+
+// AV_FIFO_FLAG constants (from libavutil/fifo.h)
+export type AVFifoFlag = number & { readonly [__ffmpeg_brand]: 'AVFifoFlag' };
+
+export const AV_FIFO_FLAG_AUTO_GROW = 0x1 as AVFifoFlag;
+
+// AV_LZO constants (from libavutil/lzo.h)
+export type AVLZOResult = number & { readonly [__ffmpeg_brand]: 'AVLZOResult' };
+
+export const AV_LZO_INPUT_DEPLETED = 1 as AVLZOResult;
+export const AV_LZO_OUTPUT_FULL = 2 as AVLZOResult;
+export const AV_LZO_INVALID_BACKPTR = 4 as AVLZOResult;
+export const AV_LZO_ERROR = 8 as AVLZOResult;
+export const AV_LZO_INPUT_PADDING = 8 as AVLZOResult;
+export const AV_LZO_OUTPUT_PADDING = 12 as AVLZOResult;
+
+// AV_STREAM_INIT constants (from libavformat/avformat.h)
+export type AVStreamInitIn = number & { readonly [__ffmpeg_brand]: 'AVStreamInitIn' };
+
+export const AV_STREAM_INIT_IN_WRITE_HEADER = 0 as AVStreamInitIn;
+export const AV_STREAM_INIT_IN_INIT_OUTPUT = 1 as AVStreamInitIn;
 
 // AV_SUBTITLE_FLAG constants (from libavcodec/avcodec.h)
 export type AVSubtitleFlag = number & { readonly [__ffmpeg_brand]: 'AVSubtitleFlag' };
@@ -1831,10 +1957,49 @@ export const AV_UTF8_FLAG_ACCEPT_NON_CHARACTERS = 2 as AVUTF;
 export const AV_UTF8_FLAG_ACCEPT_SURROGATES = 4 as AVUTF;
 export const AV_UTF8_FLAG_EXCLUDE_XML_INVALID_CONTROL_CODES = 8 as AVUTF;
 
+// AV_SWS constants (from libswscale/swscale.h)
+export type AVSoftwareScaleFlag = number & { readonly [__ffmpeg_brand]: 'AVSoftwareScaleFlag' };
+
+export const AV_SWS_FAST_BILINEAR = 1 as AVSoftwareScaleFlag;
+export const AV_SWS_BILINEAR = 2 as AVSoftwareScaleFlag;
+export const AV_SWS_BICUBIC = 4 as AVSoftwareScaleFlag;
+export const AV_SWS_X = 8 as AVSoftwareScaleFlag;
+export const AV_SWS_POINT = 16 as AVSoftwareScaleFlag;
+export const AV_SWS_AREA = 32 as AVSoftwareScaleFlag;
+export const AV_SWS_BICUBLIN = 64 as AVSoftwareScaleFlag;
+export const AV_SWS_GAUSS = 128 as AVSoftwareScaleFlag;
+export const AV_SWS_SINC = 256 as AVSoftwareScaleFlag;
+export const AV_SWS_LANCZOS = 512 as AVSoftwareScaleFlag;
+export const AV_SWS_SPLINE = 1024 as AVSoftwareScaleFlag;
+export const AV_SWS_SRC_V_CHR_DROP_MASK = 196608 as AVSoftwareScaleFlag;
+export const AV_SWS_SRC_V_CHR_DROP_SHIFT = 16 as AVSoftwareScaleFlag;
+export const AV_SWS_PARAM_DEFAULT = 123456 as AVSoftwareScaleFlag;
+export const AV_SWS_PRINT_INFO = 4096 as AVSoftwareScaleFlag;
+export const AV_SWS_FULL_CHR_H_INT = 8192 as AVSoftwareScaleFlag;
+export const AV_SWS_FULL_CHR_H_INP = 16384 as AVSoftwareScaleFlag;
+export const AV_SWS_DIRECT_BGR = 32768 as AVSoftwareScaleFlag;
+export const AV_SWS_ACCURATE_RND = 262144 as AVSoftwareScaleFlag;
+export const AV_SWS_BITEXACT = 524288 as AVSoftwareScaleFlag;
+export const AV_SWS_ERROR_DIFFUSION = 8388608 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_ITU709 = 1 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_FCC = 4 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_ITU601 = 5 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_ITU624 = 5 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_SMPTE170M = 5 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_SMPTE240M = 7 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_DEFAULT = 5 as AVSoftwareScaleFlag;
+export const AV_SWS_CS_BT2020 = 9 as AVSoftwareScaleFlag;
+
+// AV_SWR constants (from libswresample/swresample.h)
+export type AVSoftwareResampleFlag = number & { readonly [__ffmpeg_brand]: 'AVSoftwareResampleFlag' };
+
+export const AV_SWR_FLAG_RESAMPLE = 1 as AVSoftwareResampleFlag;
+
 // AV_FMT constants (from libavformat/avformat.h)
 export type AVFormatFlags = number & { readonly [__ffmpeg_brand]: 'AVFormatFlags' };
 
 export const AV_FMT_NOFILE = 1 as AVFormatFlags;
+export const AV_FMT_NEEDNUMBER = 2 as AVFormatFlags;
 export const AV_FMT_EXPERIMENTAL = 4 as AVFormatFlags;
 export const AV_FMT_SHOW_IDS = 8 as AVFormatFlags;
 export const AV_FMT_GLOBALHEADER = 64 as AVFormatFlags;
@@ -1848,16 +2013,14 @@ export const AV_FMT_NOBINSEARCH = 8192 as AVFormatFlags;
 export const AV_FMT_NOGENSEARCH = 16384 as AVFormatFlags;
 export const AV_FMT_NO_BYTE_SEEK = 32768 as AVFormatFlags;
 export const AV_FMT_ALLOW_FLUSH = 65536 as AVFormatFlags;
+export const AV_FMT_TS_NONSTRICT = 131072 as AVFormatFlags;
+export const AV_FMT_TS_NEGATIVE = 262144 as AVFormatFlags;
 export const AV_FMT_SEEK_TO_PTS = 67108864 as AVFormatFlags;
 export const AV_FMT_EVENT_FLAG_METADATA_UPDATED = 1 as AVFormatFlags;
-
-// AV_IO_FLAG constants (from libavformat/avio.h)
-export type AVIOFlag = number & { readonly [__ffmpeg_brand]: 'AVIOFlag' };
-
-export const AV_IO_FLAG_READ = 1 as AVIOFlag;
-export const AV_IO_FLAG_WRITE = 2 as AVIOFlag;
-export const AV_IO_FLAG_NONBLOCK = 8 as AVIOFlag;
-export const AV_IO_FLAG_DIRECT = 32768 as AVIOFlag;
+export const AV_FMT_AVOID_NEG_TS_AUTO = -1 as AVFormatFlags;
+export const AV_FMT_AVOID_NEG_TS_DISABLED = 0 as AVFormatFlags;
+export const AV_FMT_AVOID_NEG_TS_MAKE_NON_NEGATIVE = 1 as AVFormatFlags;
+export const AV_FMT_AVOID_NEG_TS_MAKE_ZERO = 2 as AVFormatFlags;
 
 // AV_IO constants (from libavformat/avio.h)
 export type AVIOConstants = number & { readonly [__ffmpeg_brand]: 'AVIOConstants' };
@@ -1865,80 +2028,24 @@ export type AVIOConstants = number & { readonly [__ffmpeg_brand]: 'AVIOConstants
 export const AV_IO_SEEKABLE_NORMAL = 0x1 as AVIOConstants;
 export const AV_IO_SEEKABLE_TIME = 0x2 as AVIOConstants;
 
-// SWS constants (from libswscale/swscale.h)
-export type SWSFlag = number & { readonly [__ffmpeg_brand]: 'SWSFlag' };
-
-export const SWS_FAST_BILINEAR = 1 as SWSFlag;
-export const SWS_SRC_V_CHR_DROP_MASK = 196608 as SWSFlag;
-export const SWS_SRC_V_CHR_DROP_SHIFT = 16 as SWSFlag;
-export const SWS_PARAM_DEFAULT = 123456 as SWSFlag;
-export const SWS_PRINT_INFO = 4096 as SWSFlag;
-export const SWS_FULL_CHR_H_INT = 8192 as SWSFlag;
-export const SWS_FULL_CHR_H_INP = 16384 as SWSFlag;
-export const SWS_DIRECT_BGR = 32768 as SWSFlag;
-export const SWS_ACCURATE_RND = 262144 as SWSFlag;
-export const SWS_ERROR_DIFFUSION = 8388608 as SWSFlag;
-export const SWS_CS_ITU709 = 1 as SWSFlag;
-export const SWS_CS_FCC = 4 as SWSFlag;
-export const SWS_CS_ITU601 = 5 as SWSFlag;
-export const SWS_CS_ITU624 = 5 as SWSFlag;
-export const SWS_CS_SMPTE170M = 5 as SWSFlag;
-export const SWS_CS_SMPTE240M = 7 as SWSFlag;
-export const SWS_CS_DEFAULT = 5 as SWSFlag;
-export const SWS_CS_BT2020 = 9 as SWSFlag;
-
-// Other constants (ungrouped) - 60 constants
+// Other constants (ungrouped) - 25 constants
 // These are miscellaneous constants that don't fit into a specific category
 export const AV_AAC_ADTS_HEADER_SIZE = 7;
-export const AV_HWACCEL_CODEC_CAP_EXPERIMENTAL = 512;
 export const AV_LEVEL_UNKNOWN = -99;
 export const AV_PROGRAM_RUNNING = 1;
-export const AV_FRAME_FILENAME_FLAGS_MULTIPLE = 1;
 export const AV_FOURCC_MAX_STRING_SIZE = 32;
 export const AV_BF_ROUNDS = 16;
-export const AV_BUFFER_FLAG_READONLY = 0x1;
 export const AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE = 64;
 export const AV_NUM_DETECTION_BBOX_CLASSIFY = 4;
 export const AV_DOVI_MAX_PIECES = 8;
 export const AV_DOVI_MAX_EXT_BLOCKS = 32;
-export const AV_FIFO_FLAG_AUTO_GROW = 0x1;
 export const AV_NUM_DATA_POINTERS = 8;
-export const AV_FRAME_SIDE_DATA_FLAG_UNIQUE = 0x1;
-export const AV_FRAME_SIDE_DATA_FLAG_REPLACE = 0x2;
 export const AV_HASH_MAX_SIZE = 64;
 export const AV_HDR_PLUS_MAX_PAYLOAD_SIZE = 907;
-export const AV_CUDA_USE_PRIMARY_CONTEXT = 0x1;
-export const AV_CUDA_USE_CURRENT_CONTEXT = 0x2;
-export const AV_IAMF_LAYER_FLAG_RECON_GAIN = 0x1;
-export const AV_LZO_INPUT_DEPLETED = 1;
-export const AV_LZO_OUTPUT_FULL = 2;
-export const AV_LZO_INVALID_BACKPTR = 4;
-export const AV_LZO_ERROR = 8;
-export const AV_LZO_INPUT_PADDING = 8;
-export const AV_LZO_OUTPUT_PADDING = 12;
-export const AV_OPT_SEARCH_FAKE_OBJ = 0x2;
-export const AV_OPT_ALLOW_NULL = 0x4;
-export const AV_OPT_ARRAY_REPLACE = 0x8;
-export const AV_OPT_MULTI_COMPONENT_RANGE = 0x1000;
 export const AV_VIDEO_MAX_PLANES = 4;
-export const AV_STEREO3D_FLAG_INVERT = 0x1;
 export const AV_TIMECODE_STR_SIZE = 23;
 export const AV_TS_MAX_STRING_SIZE = 32;
 export const AV_UUID_LEN = 16;
-export const AV_FILTER_THREAD_SLICE = 0x1;
-export const AV_FILTER_CMD_FLAG_ONE = 1;
-export const AV_FILTER_CMD_FLAG_FAST = 2;
-export const SWS_BILINEAR = 2;
-export const SWS_BICUBIC = 4;
-export const SWS_X = 8;
-export const SWS_POINT = 16;
-export const SWS_AREA = 32;
-export const SWS_BICUBLIN = 64;
-export const SWS_GAUSS = 128;
-export const SWS_SINC = 256;
-export const SWS_LANCZOS = 512;
-export const SWS_SPLINE = 1024;
-export const SWS_BITEXACT = 524288;
 
 // ============================================================================
 // AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods
@@ -1988,6 +2095,16 @@ export const AV_ERROR_ENOSYS = -78 as AVError;
 export const AV_ERROR_EIO = -5 as AVError;
 export const AV_ERROR_EPERM = -1 as AVError;
 export const AV_ERROR_ETIMEDOUT = -60 as AVError;
+
+// Special time constants
+export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN
+
+// Default/None flag values
+// These are commonly used to indicate "no flags" in FFmpeg
+export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag;
+export const AV_DICT_NONE = 0 as AVDictFlag;
+export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag;
+export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag;
 
 // Helper function to cast numbers to branded types
 export function cast<T>(value: number): T {

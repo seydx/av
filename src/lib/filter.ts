@@ -1,76 +1,259 @@
 import { bindings } from './binding.js';
-import { AV_FILTER_FLAG_HWDEVICE } from './constants.js';
+import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO } from './constants.js';
 
 import type { NativeFilter, NativeWrapper } from './native-types.js';
+import type { FilterPad } from './types.js';
 
 /**
- * Filter type for discovery purposes
+ * FFmpeg filter definition - Low Level API
  *
- * Used to discover available filters and check their capabilities.
- * Most users should just pass filter strings to FilterGraph.buildPipeline().
+ * Direct mapping to FFmpeg's AVFilter.
+ * Represents a static filter definition (immutable).
+ * Actual filtering operations are performed through FilterContext instances.
  *
  * @example
  * ```typescript
- * // Check if a filter exists and supports hardware
- * const filter = Filter.findByName('scale_cuda');
- * if (filter && filter.supportsHardwareDevice) {
- *   console.log('CUDA scaling available');
- * }
+ * // Find a filter by name
+ * const scaleFilter = Filter.getByName('scale');
+ * if (!scaleFilter) throw new Error('Scale filter not found');
+ *
+ * // Check filter properties
+ * console.log(`Filter: ${scaleFilter.name}`);
+ * console.log(`Description: ${scaleFilter.description}`);
+ * console.log(`Inputs: ${scaleFilter.inputs.length}`);
+ * console.log(`Outputs: ${scaleFilter.outputs.length}`);
+ *
+ * // Get all video filters
+ * const allFilters = Filter.getList();
+ * const videoFilters = allFilters.filter(f => f.isVideo());
+ * console.log(`Found ${videoFilters.length} video filters`);
  * ```
  */
 export class Filter implements NativeWrapper<NativeFilter> {
-  private filter: NativeFilter;
+  private native: NativeFilter;
 
+  // Constructor
   /**
+   * Constructor is internal - use static factory methods.
+   * Filters are global immutable objects managed by FFmpeg.
    * @internal
+   *
+   * @example
+   * ```typescript
+   * // Don't use constructor directly
+   * // const filter = new Filter(); // ❌ Wrong
+   *
+   * // Use static factory methods instead
+   * const filter = Filter.getByName('scale'); // ✅ Correct
+   * const filters = Filter.getList(); // ✅ Correct
+   * ```
    */
-  constructor(filter: NativeFilter) {
-    this.filter = filter;
+  constructor(native: NativeFilter) {
+    this.native = native;
   }
 
+  // Static Methods - Low Level API
+
   /**
-   * Find a filter by name
-   * @param name Filter name (e.g., 'scale', 'scale_cuda', 'format')
-   * @returns Filter instance or null if not found
+   * Find a filter by name.
+   *
+   * Direct mapping to avfilter_get_by_name()
+   *
+   * @param name - Filter name (e.g., "scale", "overlay", "volume")
+   * @returns The filter if found, null otherwise
+   *
+   * @example
+   * ```typescript
+   * // Find the scale filter
+   * const scaleFilter = Filter.getByName('scale');
+   * if (!scaleFilter) {
+   *   throw new Error('Scale filter not available');
+   * }
+   *
+   * // Find audio volume filter
+   * const volumeFilter = Filter.getByName('volume');
+   * if (!volumeFilter) {
+   *   throw new Error('Volume filter not available');
+   * }
+   * ```
    */
-  static findByName(name: string): Filter | null {
-    const native = bindings.Filter.findByName(name);
+  static getByName(name: string): Filter | null {
+    const native = bindings.Filter.getByName(name);
     return native ? new Filter(native) : null;
   }
 
   /**
-   * Get filter name
+   * Get list of all available filters.
+   *
+   * Direct mapping to avfilter_iterate()
+   *
+   * @returns Array of all registered filters
+   *
+   * @example
+   * ```typescript
+   * // Get all video filters
+   * const allFilters = Filter.getList();
+   * const videoFilters = allFilters.filter(f => f.isVideo());
+   * console.log(`Found ${videoFilters.length} video filters`);
+   *
+   * // Find all source filters
+   * const sourceFilters = allFilters.filter(f => f.isSource());
+   * sourceFilters.forEach(f => {
+   *   console.log(`Source filter: ${f.name}`);
+   * });
+   * ```
+   */
+  static getList(): Filter[] {
+    const natives = bindings.Filter.getList();
+    return natives.map((native) => new Filter(native));
+  }
+
+  // Getter Properties
+
+  /**
+   * Filter name.
+   *
+   * Direct mapping to AVFilter->name
+   *
+   * The short name of the filter (e.g., "scale", "overlay", "volume").
    */
   get name(): string | null {
-    return this.filter.name;
+    return this.native.name;
   }
 
   /**
-   * Get filter description
+   * Filter description.
+   *
+   * Direct mapping to AVFilter->description
+   *
+   * Human-readable description of what the filter does.
    */
   get description(): string | null {
-    return this.filter.description;
+    return this.native.description;
   }
 
   /**
-   * Get filter flags
+   * Input pads.
+   *
+   * Direct mapping to AVFilter->inputs
+   *
+   * Array of input connection points for the filter.
+   * Empty array for source filters.
+   */
+  get inputs(): FilterPad[] {
+    return this.native.inputs;
+  }
+
+  /**
+   * Output pads.
+   *
+   * Direct mapping to AVFilter->outputs
+   *
+   * Array of output connection points for the filter.
+   * Empty array for sink filters.
+   */
+  get outputs(): FilterPad[] {
+    return this.native.outputs;
+  }
+
+  /**
+   * Filter flags.
+   *
+   * Direct mapping to AVFilter->flags
+   *
+   * Bitwise flags indicating filter capabilities (AVFILTER_FLAG_*).
    */
   get flags(): number {
-    return this.filter.flags;
+    return this.native.flags;
   }
 
+  // Public Methods
+
   /**
-   * Check if filter supports hardware device contexts
+   * Check if this is a source filter.
+   *
+   * Source filters have no inputs and generate data.
+   *
+   * @returns true if the filter has no input pads, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const filter = Filter.getByName('buffer');
+   * if (filter && filter.isSource()) {
+   *   console.log('This is a source filter');
+   * }
+   * ```
    */
-  get supportsHardwareDevice(): boolean {
-    return (this.flags & AV_FILTER_FLAG_HWDEVICE) !== 0;
+  isSource(): boolean {
+    return this.inputs.length === 0;
   }
 
   /**
-   * Get native filter for internal use
-   * @internal
+   * Check if this is a sink filter.
+   *
+   * Sink filters have no outputs and consume data.
+   *
+   * @returns true if the filter has no output pads, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const filter = Filter.getByName('buffersink');
+   * if (filter && filter.isSink()) {
+   *   console.log('This is a sink filter');
+   * }
+   * ```
+   */
+  isSink(): boolean {
+    return this.outputs.length === 0;
+  }
+
+  /**
+   * Check if this is a video filter.
+   *
+   * Checks if any input or output pad handles video data.
+   *
+   * @returns true if the filter processes video data, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const filter = Filter.getByName('scale');
+   * if (filter && filter.isVideo()) {
+   *   console.log('This filter processes video');
+   * }
+   * ```
+   */
+  isVideo(): boolean {
+    return this.inputs.some((i) => i.type === AV_MEDIA_TYPE_VIDEO) || this.outputs.some((o) => o.type === AV_MEDIA_TYPE_VIDEO);
+  }
+
+  /**
+   * Check if this is an audio filter.
+   *
+   * Checks if any input or output pad handles audio data.
+   *
+   * @returns true if the filter processes audio data, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const filter = Filter.getByName('volume');
+   * if (filter && filter.isAudio()) {
+   *   console.log('This filter processes audio');
+   * }
+   * ```
+   */
+  isAudio(): boolean {
+    return this.inputs.some((i) => i.type === AV_MEDIA_TYPE_AUDIO) || this.outputs.some((o) => o.type === AV_MEDIA_TYPE_AUDIO);
+  }
+
+  // Internal Methods
+
+  /**
+   * Get the native FFmpeg AVFilter pointer.
+   *
+   * @internal For use by other wrapper classes
+   * @returns The underlying native filter object
    */
   getNative(): NativeFilter {
-    return this.filter;
+    return this.native;
   }
 }

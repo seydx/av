@@ -1,236 +1,198 @@
 /**
- * Native FFmpeg bindings interface
- * This module provides low-level access to FFmpeg functionality
+ * Native bindings loader
+ *
+ * This module loads the native C++ bindings compiled by node-gyp.
+ * All native classes are accessed through this single entry point.
  */
 
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import type { AVHWDeviceType, AVLogLevel, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type {
   NativeAudioFifo,
-  NativeBitStreamFilter,
-  NativeBitStreamFilterContext,
   NativeCodec,
   NativeCodecContext,
   NativeCodecParameters,
+  NativeCodecParser,
   NativeDictionary,
+  NativeFFmpegError,
   NativeFilter,
   NativeFilterContext,
   NativeFilterGraph,
+  NativeFilterInOut,
   NativeFormatContext,
   NativeFrame,
   NativeHardwareDeviceContext,
   NativeHardwareFramesContext,
   NativeInputFormat,
   NativeIOContext,
-  NativeOption,
-  NativeOptions,
+  NativeLog,
   NativeOutputFormat,
   NativePacket,
   NativeSoftwareResampleContext,
   NativeSoftwareScaleContext,
   NativeStream,
 } from './native-types.js';
-
-import type { ChannelLayout } from './types.js';
+import type { ChannelLayout, Rational } from './types.js';
 
 const require = createRequire(import.meta.url);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
-const modulePath = join(__dirname, '../../build/Release/ffmpeg.node');
+// Constructor types for native bindings
+type NativePacketConstructor = new () => NativePacket;
 
-/**
- * Native bindings constructor interfaces
- */
-type PacketConstructor = new () => NativePacket;
+type NativeFrameConstructor = new () => NativeFrame;
 
-type FrameConstructor = new () => NativeFrame;
-
-interface CodecConstructor {
+interface NativeCodecConstructor {
   new (): NativeCodec;
   findDecoder(id: number): NativeCodec | null;
-  findDecoderByName(name: string): NativeCodec | null;
   findEncoder(id: number): NativeCodec | null;
+  findDecoderByName(name: string): NativeCodec | null;
   findEncoderByName(name: string): NativeCodec | null;
-  getAllCodecs(): NativeCodec[]; // Returns array of all codecs
+  getCodecList(): NativeCodec[];
+  iterateCodecs(opaque?: bigint | null): { codec: NativeCodec; opaque: bigint } | null;
 }
 
-type CodecContextConstructor = new (codec?: NativeCodec) => NativeCodecContext;
+type NativeCodecContextConstructor = new () => NativeCodecContext;
 
-type CodecParametersConstructor = new () => NativeCodecParameters;
+type NativeCodecParametersConstructor = new () => NativeCodecParameters;
 
-type DictionaryConstructor = new () => NativeDictionary;
+type NativeCodecParserConstructor = new () => NativeCodecParser;
 
-interface FormatContextConstructor {
-  new (): NativeFormatContext;
-  allocFormatContext(): NativeFormatContext;
-  allocOutputFormatContext(outputFormat: NativeOutputFormat | null, formatName?: string, filename?: string): NativeFormatContext;
-}
+type NativeFormatContextConstructor = new () => NativeFormatContext;
 
-type StreamConstructor = new () => NativeStream;
+type NativeStreamConstructor = new () => NativeStream;
 
-interface InputFormatConstructor {
+interface NativeInputFormatConstructor {
   new (): NativeInputFormat;
-  find(name: string): NativeInputFormat | null;
-  getAll(): NativeInputFormat[];
+  findInputFormat(shortName: string): NativeInputFormat | null;
 }
 
-interface OutputFormatConstructor {
+interface NativeOutputFormatConstructor {
   new (): NativeOutputFormat;
-  find(name: string): NativeOutputFormat | null;
-  guess(options?: { shortName?: string; filename?: string; mimeType?: string }): NativeOutputFormat | null;
-  getAll(): NativeOutputFormat[];
+  guessFormat(shortName: string | null, filename: string | null, mimeType: string | null): NativeOutputFormat | null;
 }
 
-interface FilterConstructor {
+type NativeIOContextConstructor = new () => NativeIOContext;
+
+type NativeDictionaryConstructor = new () => NativeDictionary;
+
+// Error handling
+interface NativeFFmpegErrorConstructor {
+  new (code?: number): NativeFFmpegError;
+  strerror(errnum: number): string;
+  makeError(posixError: number): number;
+  isError(code: number): boolean;
+}
+
+interface NativeFilterConstructor {
   new (): NativeFilter;
-  findByName(name: string): NativeFilter | null;
-  getAll(): NativeFilter[];
+  getByName(name: string): NativeFilter | null;
+  getList(): NativeFilter[];
 }
 
-type FilterContextConstructor = new () => NativeFilterContext;
+type NativeFilterContextConstructor = new () => NativeFilterContext;
 
-type FilterGraphConstructor = new () => NativeFilterGraph;
+type NativeFilterGraphConstructor = new () => NativeFilterGraph;
 
-type SoftwareScaleContextConstructor = new (
-  srcWidth: number,
-  srcHeight: number,
-  srcFormat: number,
-  dstWidth: number,
-  dstHeight: number,
-  dstFormat: number,
-  flags: number,
-) => NativeSoftwareScaleContext;
+type NativeFilterInOutConstructor = new () => NativeFilterInOut;
 
-type SoftwareResampleContextConstructor = new (
-  srcChannelLayout: ChannelLayout,
-  srcSampleRate: number,
-  srcSampleFormat: number,
-  dstChannelLayout: ChannelLayout,
-  dstSampleRate: number,
-  dstSampleFormat: number,
-) => NativeSoftwareResampleContext;
+// Processing
+type NativeAudioFifoConstructor = new () => NativeAudioFifo;
+type NativeSoftwareScaleContextConstructor = new () => NativeSoftwareScaleContext;
+type NativeSoftwareResampleContextConstructor = new () => NativeSoftwareResampleContext;
 
-interface HardwareDeviceContextConstructor {
-  new (type: number, device?: string, options?: NativeDictionary, flags?: number): NativeHardwareDeviceContext;
-  findTypeByName(name: string): number;
-  getTypeName(type: number): string | null;
-  getSupportedTypes(): { type: number; name: string }[];
+// Hardware
+interface NativeHardwareDeviceContextConstructor {
+  new (): NativeHardwareDeviceContext;
+  getTypeName(type: AVHWDeviceType): string | null;
+  iterateTypes(): AVHWDeviceType[];
+  findTypeByName(name: string): AVHWDeviceType;
 }
 
-type HardwareFramesContextConstructor = new (deviceContext: NativeHardwareDeviceContext) => NativeHardwareFramesContext;
+type NativeHardwareFramesContextConstructor = new () => NativeHardwareFramesContext;
 
-interface AudioFifoConstructor {
-  new (sampleFormat: number, channels: number, nbSamples: number): NativeAudioFifo;
-  alloc(sampleFormat: number, channels: number, nbSamples: number): NativeAudioFifo;
+interface NativeLogConstructor {
+  new (): NativeLog;
+  setLevel(level: AVLogLevel): void;
+  getLevel(): AVLogLevel;
+  log(level: AVLogLevel, message: string): void;
+  setCallback(callback: ((level: AVLogLevel, message: string) => void) | null, options?: any): void;
+  resetCallback(): void;
 }
 
-type OptionConstructor = new () => NativeOption;
+// Load the native addon
+export const bindings = require('../../build/Release/ffmpeg.node') as {
+  // Core Types
+  Packet: NativePacketConstructor;
+  Frame: NativeFrameConstructor;
 
-type OptionsConstructor = new () => NativeOptions;
+  // Codec System
+  Codec: NativeCodecConstructor;
+  CodecContext: NativeCodecContextConstructor;
+  CodecParameters: NativeCodecParametersConstructor;
+  CodecParser: NativeCodecParserConstructor;
 
-interface BitStreamFilterConstructor {
-  new (): NativeBitStreamFilter;
-  getByName(name: string): NativeBitStreamFilter | null;
-  iterate(opaque?: any): NativeBitStreamFilter | null;
-}
+  // Format System
+  FormatContext: NativeFormatContextConstructor;
+  Stream: NativeStreamConstructor;
+  InputFormat: NativeInputFormatConstructor;
+  OutputFormat: NativeOutputFormatConstructor;
+  IOContext: NativeIOContextConstructor;
 
-type BitStreamFilterContextConstructor = new (filter: NativeBitStreamFilter) => NativeBitStreamFilterContext;
+  // Filter System
+  Filter: NativeFilterConstructor;
+  FilterContext: NativeFilterContextConstructor;
+  FilterGraph: NativeFilterGraphConstructor;
+  FilterInOut: NativeFilterInOutConstructor;
 
-interface IOContextConstructor {
-  new (): NativeIOContext;
-  open(url: string, flags: number, options?: Record<string, string>): NativeIOContext;
-}
+  // Processing
+  AudioFifo: NativeAudioFifoConstructor;
+  SoftwareScaleContext: NativeSoftwareScaleContextConstructor;
+  SoftwareResampleContext: NativeSoftwareResampleContextConstructor;
 
-/**
- * Complete native bindings interface with typed constructors
- */
-export interface NativeBindings {
+  // Hardware
+  HardwareDeviceContext: NativeHardwareDeviceContextConstructor;
+  HardwareFramesContext: NativeHardwareFramesContextConstructor;
+
+  // Utility
+  Dictionary: NativeDictionaryConstructor;
+  FFmpegError: NativeFFmpegErrorConstructor;
+
+  // Logging
+  Log: NativeLogConstructor;
+
+  // Functions
+  getVersion: () => string;
+
   // Utility functions
-  setLogLevel(level: number): void;
-  getLogLevel(): number;
-  setLogCallback(callback: ((level: number, message: string) => void) | null): void;
-  getVersion(): {
-    avcodec: number;
-    avformat: number;
-    avutil: number;
-    swscale: number;
-    swresample: number;
-  };
-  getConfiguration(): {
-    avcodec: string;
-    avformat: string;
-    avutil: string;
-    swscale: string;
-    swresample: string;
-  };
-  getLicense(): string;
-
-  // Native class constructors with proper typing
-  Packet: PacketConstructor;
-  Frame: FrameConstructor;
-  Codec: CodecConstructor;
-  CodecContext: CodecContextConstructor;
-  CodecParameters: CodecParametersConstructor;
-  Dictionary: DictionaryConstructor;
-  FormatContext: FormatContextConstructor;
-  Stream: StreamConstructor;
-  InputFormat: InputFormatConstructor;
-  OutputFormat: OutputFormatConstructor;
-  Filter: FilterConstructor;
-  FilterContext: FilterContextConstructor;
-  FilterGraph: FilterGraphConstructor;
-  SoftwareScaleContext: SoftwareScaleContextConstructor;
-  SoftwareResampleContext: SoftwareResampleContextConstructor;
-  HardwareDeviceContext: HardwareDeviceContextConstructor;
-  HardwareFramesContext: HardwareFramesContextConstructor;
-  AudioFifo: AudioFifoConstructor;
-  Option: OptionConstructor;
-  Options: OptionsConstructor;
-  BitStreamFilter: BitStreamFilterConstructor;
-  BitStreamFilterContext: BitStreamFilterContextConstructor;
-  IOContext: IOContextConstructor;
-}
-
-/**
- * Typed native bindings object
- */
-const bindings = require(modulePath) as NativeBindings;
-
-/**
- * Get FFmpeg version information
- */
-export function getVersion(): {
-  avcodec: number;
-  avformat: number;
-  avutil: number;
-  swscale: number;
-  swresample: number;
-} {
-  return bindings.getVersion();
-}
-
-/**
- * Get FFmpeg configuration
- */
-export function getConfiguration(): {
-  avcodec: string;
-  avformat: string;
-  avutil: string;
-  swscale: string;
-  swresample: string;
-} {
-  return bindings.getConfiguration();
-}
-
-/**
- * Get FFmpeg license
- */
-export function getLicense(): string {
-  return bindings.getLicense();
-}
-
-// Re-export native bindings for internal use
-export { bindings };
+  avGetBytesPerSample: (sampleFmt: AVSampleFormat) => number;
+  avGetSampleFmtName: (sampleFmt: AVSampleFormat) => string | null;
+  avGetPackedSampleFmt: (sampleFmt: AVSampleFormat) => AVSampleFormat;
+  avGetPlanarSampleFmt: (sampleFmt: AVSampleFormat) => AVSampleFormat;
+  avSampleFmtIsPlanar: (sampleFmt: AVSampleFormat) => boolean;
+  avGetPixFmtName: (pixFmt: AVPixelFormat) => string | null;
+  avGetPixFmtFromName: (name: string) => number;
+  avGetMediaTypeString: (mediaType: AVMediaType) => string | null;
+  avImageAlloc: (width: number, height: number, pixFmt: AVPixelFormat, align: number) => { buffer: Buffer; size: number; linesizes: number[] } | number;
+  avImageCopy2: (dstData: Buffer[], dstLinesizes: number[], srcData: Buffer[], srcLinesizes: number[], pixFmt: AVPixelFormat, width: number, height: number) => void;
+  avImageGetBufferSize: (pixFmt: AVPixelFormat, width: number, height: number, align: number) => number;
+  avImageCopyToBuffer: (
+    dst: Buffer,
+    dstSize: number,
+    srcData: Buffer[] | null,
+    srcLinesize: number[] | null,
+    pixFmt: AVPixelFormat,
+    width: number,
+    height: number,
+    align: number,
+  ) => number;
+  avTs2Str: (ts: bigint | number | null) => string;
+  avTs2TimeStr: (ts: bigint | number | null, timeBase: Rational) => string;
+  avCompareTs: (tsA: bigint | number | null, tbA: Rational, tsB: bigint | number | null, tbB: Rational) => number;
+  avRescaleQ: (a: bigint | number | null, bq: Rational, cq: Rational) => bigint;
+  avRescaleRnd: (a: bigint | number, b: bigint | number, c: bigint | number, rnd: number) => bigint;
+  avUsleep: (usec: number) => void;
+  avSamplesAlloc: (nbChannels: number, nbSamples: number, sampleFmt: AVSampleFormat, align: number) => { data: Buffer[]; linesize: number; size: number } | number;
+  avSamplesGetBufferSize: (nbChannels: number, nbSamples: number, sampleFmt: AVSampleFormat, align: number) => { size: number; linesize: number } | number;
+  avChannelLayoutDescribe: (channelLayout: Partial<ChannelLayout>) => string | null;
+};

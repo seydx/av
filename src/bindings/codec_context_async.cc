@@ -1,323 +1,318 @@
-// Implementation of async CodecContext operations using Napi::Promise
-
 #include "codec_context.h"
-#include "codec.h"
 #include "packet.h"
 #include "frame.h"
+#include "codec.h"
 #include "dictionary.h"
-#include "common.h"
+#include <napi.h>
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+}
 
 namespace ffmpeg {
 
-// Worker class for async SendPacket operation
-class SendPacketWorker : public Napi::AsyncWorker {
+// ============================================================================
+// Async Worker Classes for CodecContext Operations
+// ============================================================================
+
+/**
+ * Worker for avcodec_open2 - Opens codec context
+ */
+class CCOpen2Worker : public Napi::AsyncWorker {
 public:
-  SendPacketWorker(Napi::Env env, AVCodecContext* context, AVPacket* packet)
-    : AsyncWorker(env),
-      context_(context),
-      packet_(packet),
-      result_(0) {}
+  CCOpen2Worker(Napi::Env env, CodecContext* ctx, 
+              const AVCodec* codec, AVDictionary* options)
+    : Napi::AsyncWorker(env), 
+      ctx_(ctx), 
+      codec_(codec), 
+      options_(options), 
+      ret_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
 
-  void Execute() override {
-    result_ = avcodec_send_packet(context_, packet_);
-    LogFFmpegError(result_, "Failed to send packet to decoder");
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Napi::Number::New(Env(), result_));
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVCodecContext* context_;
-  AVPacket* packet_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of SendPacket
-Napi::Value CodecContext::SendPacketAsync(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_.Get()) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Codec context not initialized").Value());
-    return deferred.Promise();
-  }
-  
-  AVPacket* packet = nullptr;
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Packet* pkt = UnwrapNativeObject<Packet>(env, info[0], "Packet");
-    if (pkt) {
-      packet = pkt->GetPacket();
-    }
-  }
-  
-  auto* worker = new SendPacketWorker(env, context_.Get(), packet);
-  auto promise = worker->GetDeferred().Promise();
-  worker->Queue();
-  
-  return promise;
-}
-
-// Worker class for async ReceiveFrame operation
-class ReceiveFrameWorker : public Napi::AsyncWorker {
-public:
-  ReceiveFrameWorker(Napi::Env env, AVCodecContext* context, Frame* frame)
-    : AsyncWorker(env),
-      context_(context),
-      frame_(frame),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = avcodec_receive_frame(context_, frame_->GetFrame());
-    LogFFmpegError(result_, "Failed to receive frame from decoder");
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Napi::Number::New(Env(), result_));
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVCodecContext* context_;
-  Frame* frame_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of ReceiveFrame
-Napi::Value CodecContext::ReceiveFrameAsync(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_.Get()) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Codec context not initialized").Value());
-    return deferred.Promise();
-  }
-  
-  if (info.Length() < 1) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::TypeError::New(env, "Frame object required").Value());
-    return deferred.Promise();
-  }
-  
-  Frame* frame = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
-  if (!frame) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::TypeError::New(env, "Invalid frame object").Value());
-    return deferred.Promise();
-  }
-  
-  auto* worker = new ReceiveFrameWorker(env, context_.Get(), frame);
-  auto promise = worker->GetDeferred().Promise();
-  worker->Queue();
-  
-  return promise;
-}
-
-// Worker class for async SendFrame operation
-class SendFrameWorker : public Napi::AsyncWorker {
-public:
-  SendFrameWorker(Napi::Env env, AVCodecContext* context, AVFrame* frame)
-    : AsyncWorker(env),
-      context_(context),
-      frame_(frame),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = avcodec_send_frame(context_, frame_);
-    LogFFmpegError(result_, "Failed to send frame to encoder");
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Napi::Number::New(Env(), result_));
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVCodecContext* context_;
-  AVFrame* frame_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of SendFrame
-Napi::Value CodecContext::SendFrameAsync(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_.Get()) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Codec context not initialized").Value());
-    return deferred.Promise();
-  }
-  
-  AVFrame* frame = nullptr;
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Frame* frm = UnwrapNativeObject<Frame>(env, info[0], "Frame");
-    if (frm) {
-      frame = frm->GetFrame();
-    }
-  }
-  
-  auto* worker = new SendFrameWorker(env, context_.Get(), frame);
-  auto promise = worker->GetDeferred().Promise();
-  worker->Queue();
-  
-  return promise;
-}
-
-// Worker class for async ReceivePacket operation
-class ReceivePacketWorker : public Napi::AsyncWorker {
-public:
-  ReceivePacketWorker(Napi::Env env, AVCodecContext* context, Packet* packet)
-    : AsyncWorker(env),
-      context_(context),
-      packet_(packet),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = avcodec_receive_packet(context_, packet_->GetPacket());
-    LogFFmpegError(result_, "Failed to receive packet from encoder");
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Napi::Number::New(Env(), result_));
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVCodecContext* context_;
-  Packet* packet_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of ReceivePacket
-Napi::Value CodecContext::ReceivePacketAsync(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_.Get()) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Codec context not initialized").Value());
-    return deferred.Promise();
-  }
-  
-  if (info.Length() < 1) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::TypeError::New(env, "Packet object required").Value());
-    return deferred.Promise();
-  }
-  
-  Packet* packet = UnwrapNativeObjectRequired<Packet>(env, info[0], "Packet");
-  if (!packet) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::TypeError::New(env, "Invalid packet object").Value());
-    return deferred.Promise();
-  }
-  
-  auto* worker = new ReceivePacketWorker(env, context_.Get(), packet);
-  auto promise = worker->GetDeferred().Promise();
-  worker->Queue();
-  
-  return promise;
-}
-
-// Worker class for async Open operation
-class OpenWorker : public Napi::AsyncWorker {
-public:
-  OpenWorker(Napi::Env env, AVCodecContext* context, const AVCodec* codec, AVDictionary* options)
-    : AsyncWorker(env),
-      context_(context),
-      codec_(codec),
-      options_(options),
-      result_(0) {}
-
-  ~OpenWorker() {
+  ~CCOpen2Worker() {
     if (options_) {
       av_dict_free(&options_);
     }
   }
 
   void Execute() override {
-    result_ = avcodec_open2(context_, codec_, options_ ? &options_ : nullptr);
-    
-    if (result_ < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
+    ret_ = avcodec_open2(ctx_->context_, codec_, options_ ? &options_ : nullptr);
+    if (ret_ >= 0) {
+      ctx_->is_open_ = true;
     }
   }
 
   void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Env().Undefined());
+    deferred_.Resolve(Napi::Number::New(Env(), ret_));
   }
 
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
   }
 
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
 
 private:
-  AVCodecContext* context_;
+  CodecContext* ctx_;
   const AVCodec* codec_;
   AVDictionary* options_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
+  int ret_;
+  Napi::Promise::Deferred deferred_;
 };
 
-// Async version of Open
-Napi::Value CodecContext::OpenAsync(const Napi::CallbackInfo& info) {
+/**
+ * Worker for avcodec_send_packet - Sends packet to decoder
+ */
+class CCSendPacketWorker : public Napi::AsyncWorker {
+public:
+  CCSendPacketWorker(Napi::Env env, CodecContext* ctx, Packet* packet)
+    : Napi::AsyncWorker(env), 
+      ctx_(ctx), 
+      packet_(packet), 
+      ret_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    ret_ = avcodec_send_packet(ctx_->context_, packet_ ? packet_->Get() : nullptr);
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Napi::Number::New(Env(), ret_));
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  CodecContext* ctx_;
+  Packet* packet_;
+  int ret_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for avcodec_receive_frame - Receives frame from decoder
+ */
+class CCReceiveFrameWorker : public Napi::AsyncWorker {
+public:
+  CCReceiveFrameWorker(Napi::Env env, CodecContext* ctx, Frame* frame)
+    : Napi::AsyncWorker(env), 
+      ctx_(ctx), 
+      frame_(frame), 
+      ret_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    ret_ = avcodec_receive_frame(ctx_->context_, frame_->Get());
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Napi::Number::New(Env(), ret_));
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  CodecContext* ctx_;
+  Frame* frame_;
+  int ret_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for avcodec_send_frame - Sends frame to encoder
+ */
+class CCSendFrameWorker : public Napi::AsyncWorker {
+public:
+  CCSendFrameWorker(Napi::Env env, CodecContext* ctx, Frame* frame)
+    : Napi::AsyncWorker(env), 
+      ctx_(ctx), 
+      frame_(frame), 
+      ret_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    ret_ = avcodec_send_frame(ctx_->context_, frame_ ? frame_->Get() : nullptr);
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Napi::Number::New(Env(), ret_));
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  CodecContext* ctx_;
+  Frame* frame_;
+  int ret_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for avcodec_receive_packet - Receives packet from encoder
+ */
+class CCReceivePacketWorker : public Napi::AsyncWorker {
+public:
+  CCReceivePacketWorker(Napi::Env env, CodecContext* ctx, Packet* packet)
+    : Napi::AsyncWorker(env), 
+      ctx_(ctx), 
+      packet_(packet), 
+      ret_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    ret_ = avcodec_receive_packet(ctx_->context_, packet_->Get());
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Napi::Number::New(Env(), ret_));
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  CodecContext* ctx_;
+  Packet* packet_;
+  int ret_;
+  Napi::Promise::Deferred deferred_;
+};
+
+// ============================================================================
+// Async Method Implementations
+// ============================================================================
+
+Napi::Value CodecContext::Open2Async(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_.Get()) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Codec context not initialized").Value());
-    return deferred.Promise();
-  }
-  
-  if (!context_.Get()->codec) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "No codec set").Value());
-    return deferred.Promise();
-  }
-  
+  const AVCodec* codec = nullptr;
   AVDictionary* options = nullptr;
-  if (info.Length() > 0 && info[0].IsObject()) {
-    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
+  
+  // Parse arguments (codec, options) - both optional
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::Object codecObj = info[0].As<Napi::Object>();
+    Codec* codecWrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+    codec = codecWrapper->Get();
+  }
+  
+  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
+    Napi::Object dictObj = info[1].As<Napi::Object>();
+    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
     if (dict) {
-      av_dict_copy(&options, dict->GetDict(), 0);
+      options = dict->Get();
     }
   }
   
-  auto* worker = new OpenWorker(env, context_.Get(), context_.Get()->codec, options);
-  auto promise = worker->GetDeferred().Promise();
+  auto* worker = new CCOpen2Worker(env, this, codec, options);
+  auto promise = worker->GetPromise();
+  worker->Queue();
+  
+  return promise;
+}
+
+Napi::Value CodecContext::SendPacketAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  Packet* packet = nullptr;
+  
+  // Parse packet argument - can be null for flush
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::Object pktObj = info[0].As<Napi::Object>();
+    packet = Napi::ObjectWrap<Packet>::Unwrap(pktObj);
+  }
+  
+  auto* worker = new CCSendPacketWorker(env, this, packet);
+  auto promise = worker->GetPromise();
+  worker->Queue();
+  
+  return promise;
+}
+
+Napi::Value CodecContext::ReceiveFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected 1 argument (frame)")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Napi::Object frameObj = info[0].As<Napi::Object>();
+  Frame* frame = Napi::ObjectWrap<Frame>::Unwrap(frameObj);
+  if (!frame) {
+    Napi::TypeError::New(env, "Invalid frame object")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  auto* worker = new CCReceiveFrameWorker(env, this, frame);
+  auto promise = worker->GetPromise();
+  worker->Queue();
+  
+  return promise;
+}
+
+Napi::Value CodecContext::SendFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  Frame* frame = nullptr;
+  
+  // Parse frame argument - can be null for flush
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::Object frameObj = info[0].As<Napi::Object>();
+    frame = Napi::ObjectWrap<Frame>::Unwrap(frameObj);
+  }
+  
+  auto* worker = new CCSendFrameWorker(env, this, frame);
+  auto promise = worker->GetPromise();
+  worker->Queue();
+  
+  return promise;
+}
+
+Napi::Value CodecContext::ReceivePacketAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected 1 argument (packet)")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  Napi::Object pktObj = info[0].As<Napi::Object>();
+  Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(pktObj);
+  if (!packet) {
+    Napi::TypeError::New(env, "Invalid packet object")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  auto* worker = new CCReceivePacketWorker(env, this, packet);
+  auto promise = worker->GetPromise();
   worker->Queue();
   
   return promise;

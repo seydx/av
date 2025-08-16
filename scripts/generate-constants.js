@@ -49,8 +49,8 @@ const parseConstants = (headerPath) => {
   const content = fs.readFileSync(headerPath, 'utf8');
   const constants = [];
 
-  // Parse #define constants (including AVERROR, AVFMT, AVIO, AVFILTER, and SWS)
-  const definePattern = /#define\s+((?:AV|AVERROR|AVFMT|AVIO|AVFILTER|SWS)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\/.*)?$/gm;
+  // Parse #define constants (including AVERROR, AVFMT, AVIO, AVFILTER, AVSTREAM, AVSEEK, SWS, and SWR)
+  const definePattern = /#define\s+((?:AV|AVERROR|AVFMT|AVIO|AVFILTER|AVSTREAM|AVSEEK|SWS|SWR)_[A-Z0-9_]+)\s+(.+?)(?:\s*\/\*.*)?$/gm;
   let match;
   while ((match = definePattern.exec(content)) !== null) {
     let name = match[1];
@@ -70,7 +70,7 @@ const parseConstants = (headerPath) => {
       continue;
     }
 
-    // Rename AVERROR_ to AV_ERROR_, AVFMT_ to AV_FMT_, AVIO_ to AV_IO_, and AVFILTER_ to AV_FILTER_ for consistency
+    // Rename prefixes for consistency - ALL constants should start with AV_
     if (name.startsWith('AVERROR_')) {
       name = name.replace('AVERROR_', 'AV_ERROR_');
     }
@@ -83,8 +83,19 @@ const parseConstants = (headerPath) => {
     if (name.startsWith('AVFILTER_')) {
       name = name.replace('AVFILTER_', 'AV_FILTER_');
     }
-    // Keep SWS_ as is - these are swscale flags
-    
+    if (name.startsWith('AVSTREAM_')) {
+      name = name.replace('AVSTREAM_', 'AV_STREAM_');
+    }
+    if (name.startsWith('AVSEEK_')) {
+      name = name.replace('AVSEEK_', 'AV_SEEK_');
+    }
+    if (name.startsWith('SWS_')) {
+      name = name.replace('SWS_', 'AV_SWS_');
+    }
+    if (name.startsWith('SWR_')) {
+      name = name.replace('SWR_', 'AV_SWR_');
+    }
+
     constants.push({ name, value, type: 'define' });
   }
 
@@ -255,7 +266,7 @@ const groupConstantsByPrefix = (constants) => {
 
   for (const [name, info] of constants) {
     // Skip certain patterns
-    if (name.includes('_NE') || name === 'AV_NB' || name.includes('(')) {
+    if (name.endsWith('_NE') || name === 'AV_NB' || name.includes('(')) {
       continue;
     }
 
@@ -273,6 +284,8 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_CODEC_CAP';
       } else if (name.startsWith('AV_CODEC_HW_CONFIG_METHOD_')) {
         prefix = 'AV_CODEC_HW_CONFIG_METHOD';
+      } else if (name === 'AV_HWACCEL_CODEC_CAP_EXPERIMENTAL') {
+        prefix = 'AV_HWACCEL_CAP';
       } else if (name.startsWith('AV_PKT_FLAG_')) {
         prefix = 'AV_PKT_FLAG';
       } else if (name.startsWith('AV_FRAME_FLAG_')) {
@@ -285,8 +298,20 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_ERROR';
       } else if (name.startsWith('AV_SEEK_FLAG_')) {
         prefix = 'AV_SEEK_FLAG';
+      } else if (name.startsWith('AVSEEK_FLAG_')) {
+        // Handle AVSEEK_FLAG_ which will be renamed to AV_SEEK_FLAG_
+        prefix = 'AV_SEEK_FLAG';
+      } else if (name === 'AV_SEEK_FORCE') {
+        // AV_SEEK_FORCE is also a seek flag
+        prefix = 'AV_SEEK_FLAG';
       } else if (name.startsWith('AV_FMT_FLAG_')) {
         prefix = 'AV_FMT_FLAG';
+      } else if (name.startsWith('AV_STREAM_EVENT_FLAG_')) {
+        prefix = 'AV_STREAM_EVENT_FLAG';
+      } else if (name.startsWith('AV_IO_FLAG_')) {
+        prefix = 'AV_IO_FLAG';
+      } else if (name === 'AV_SEEK_SIZE') {
+        prefix = 'AV_SEEK_WHENCE';
       } else if (name.startsWith('AV_CODEC_PROP_')) {
         prefix = 'AV_CODEC_PROP';
       } else if (name.startsWith('AV_PARSER_PTS_')) {
@@ -307,6 +332,14 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_OPT_FLAG';
       } else if (name.startsWith('AV_OPT_SERIALIZE_')) {
         prefix = 'AV_OPT_SERIALIZE';
+      } else if (name.startsWith('AV_OPT_SEARCH_')) {
+        prefix = 'AV_OPT_SEARCH';
+      } else if (name.startsWith('AV_OPT_ALLOW_')) {
+        prefix = 'AV_OPT_SEARCH';
+      } else if (name.startsWith('AV_OPT_ARRAY_')) {
+        prefix = 'AV_OPT_SEARCH';
+      } else if (name.startsWith('AV_OPT_MULTI_')) {
+        prefix = 'AV_OPT_SEARCH';
       } else if (name.startsWith('AV_HWACCEL_FLAG_')) {
         prefix = 'AV_HWACCEL_FLAG';
       } else if (name.startsWith('AV_CODEC_EXPORT_')) {
@@ -332,8 +365,30 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_EF'; // Error resilience flags
       } else if (name.startsWith('AV_FILTER_FLAG_')) {
         prefix = 'AV_FILTER_FLAG';
+      } else if (name.startsWith('AV_FILTER_CMD_FLAG_')) {
+        prefix = 'AV_FILTER_CMD_FLAG';
+      } else if (name.startsWith('AV_FILTER_THREAD_')) {
+        prefix = 'AV_FILTER_THREAD';
       } else if (name.startsWith('AV_BUFFERSINK_FLAG_')) {
         prefix = 'AV_BUFFERSINK_FLAG';
+      } else if (name.startsWith('AV_BUFFER_FLAG_')) {
+        prefix = 'AV_BUFFER_FLAG';
+      } else if (name.startsWith('AV_FRAME_SIDE_DATA_FLAG_')) {
+        prefix = 'AV_FRAME_SIDE_DATA_FLAG';
+      } else if (name.startsWith('AV_FRAME_FILENAME_FLAGS_')) {
+        prefix = 'AV_FRAME_FILENAME_FLAGS';
+      } else if (name.startsWith('AV_CUDA_USE_')) {
+        prefix = 'AV_CUDA_USE';
+      } else if (name.startsWith('AV_STEREO3D_FLAG_')) {
+        prefix = 'AV_STEREO3D_FLAG';
+      } else if (name.startsWith('AV_IAMF_LAYER_FLAG_')) {
+        prefix = 'AV_IAMF_LAYER_FLAG';
+      } else if (name.startsWith('AV_FIFO_FLAG_')) {
+        prefix = 'AV_FIFO_FLAG';
+      } else if (name.startsWith('AV_LZO_')) {
+        prefix = 'AV_LZO';
+      } else if (name.startsWith('AV_STREAM_INIT_')) {
+        prefix = 'AV_STREAM_INIT';
       } else if (name.startsWith('AV_PTS_WRAP_')) {
         prefix = 'AV_PTS_WRAP';
       } else if (name.startsWith('AV_GET_BUFFER_FLAG_')) {
@@ -350,13 +405,14 @@ const groupConstantsByPrefix = (constants) => {
         prefix = 'AV_INPUT_BUFFER';
       } else if (name.startsWith('AV_FMT_')) {
         prefix = 'AV_FMT';
-      } else if (name.startsWith('AV_IO_FLAG_')) {
-        prefix = 'AV_IO_FLAG';
       } else if (name.startsWith('AV_IO_')) {
         prefix = 'AV_IO';
-      } else if (name.startsWith('SWS_')) {
+      } else if (name.startsWith('AV_SWS_')) {
         // Software scale flags
-        prefix = 'SWS';
+        prefix = 'AV_SWS';
+      } else if (name.startsWith('AV_SWR_')) {
+        // Software resample flags
+        prefix = 'AV_SWR';
       }
     }
 
@@ -414,6 +470,24 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   output += `export const AV_MEDIA_TYPE_SUBTITLE = 3 as AVMediaType;\n`;
   output += `export const AV_MEDIA_TYPE_ATTACHMENT = 4 as AVMediaType;\n`;
   output += `export const AV_MEDIA_TYPE_NB = 5 as AVMediaType;\n\n`;
+  
+  // Add standard seek constants (from stdio.h, used with avio_seek)
+  output += `// Standard seek whence constants (from stdio.h)\n`;
+  output += `export const AV_SEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file\n`;
+  output += `export const AV_SEEK_CUR = 1 as AVSeekWhence; // Seek from current position\n`;
+  output += `export const AV_SEEK_END = 2 as AVSeekWhence; // Seek from end of file\n`;
+  output += `\n`;
+  
+  // Manually add common "no flags" constants for flag types that need them
+  output += `// Common \"no flags\" constants for APIs that accept 0 as valid flag value\n`;
+  output += `export const AV_SEEK_FLAG_NONE = 0 as AVSeekFlag; // Default seek behavior\n`;
+  output += `export const AV_IO_FLAG_NONE = 0 as AVIOFlag; // Default IO behavior\n`;
+  output += `export const AV_FILTER_FLAG_NONE = 0 as AVFilterFlag; // No filter flags\n`;
+  output += `export const AV_FILTER_CMD_FLAG_NONE = 0 as AVFilterCmdFlag; // No filter command flags\n`;
+  output += `export const AV_FILTER_THREAD_NONE = 0 as AVFilterThreadType; // Disable threading\n`;
+  output += `export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2\n`;
+  output += `export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags\n`;
+  output += `export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags\n\n`;
 
   // Generate branded types for each enum
   const processedEnums = new Set();
@@ -462,7 +536,10 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     // Stream/Format
     ['AV_DISPOSITION', 'AVDisposition'],
     ['AV_SEEK_FLAG', 'AVSeekFlag'],
+    ['AV_SEEK_WHENCE', 'AVSeekWhence'],
     ['AV_FMT_FLAG', 'AVFormatFlag'],
+    ['AV_STREAM_EVENT_FLAG', 'AVStreamEventFlag'],
+    ['AV_IO_FLAG', 'AVIOFlag'],
     ['AV_PARSER_PTS', 'AVParserPts'],
 
     // Audio/Video
@@ -479,14 +556,17 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     // Options
     ['AV_OPT_FLAG', 'AVOptionFlag'],
     ['AV_OPT_SERIALIZE', 'AVOptionSerialize'],
+    ['AV_OPT_SEARCH', 'AVOptionSearchFlags'],
 
     // Hardware acceleration
     ['AV_HWACCEL_FLAG', 'AVHWAccelFlag'],
+    ['AV_HWACCEL_CAP', 'AVHWAccelCap'],
+    ['AV_CODEC_HW_CONFIG_METHOD', 'AVCodecHWConfigMethod'],
 
     // Utility
     ['AV_LOG', 'AVLogLevel'],
     ['AV_CPU_FLAG', 'AVCpuFlag'],
-    ['AV_DICT', 'AVDictionaryFlag'],
+    ['AV_DICT', 'AVDictFlag'],
     ['AV_ESCAPE_FLAG', 'AVEscapeFlag'],
     ['AV_BPRINT_SIZE', 'AVBPrintSize'],
     ['AV_TIME_BASE', 'AVTimeBase'],
@@ -496,12 +576,37 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
 
     // Filter flags
     ['AV_FILTER_FLAG', 'AVFilterFlag'],
-    
+    ['AV_FILTER_CMD_FLAG', 'AVFilterCmdFlag'],
+    ['AV_FILTER_THREAD', 'AVFilterThreadType'],
+
     // Buffer flags
     ['AV_BUFFERSINK_FLAG', 'AVBufferSinkFlag'],
+    ['AV_BUFFER_FLAG', 'AVBufferFlag'],
     ['AV_GET_BUFFER_FLAG', 'AVGetBufferFlag'],
     ['AV_GET_ENCODE_BUFFER_FLAG', 'AVGetEncodeBufferFlag'],
     ['AV_INPUT_BUFFER', 'AVInputBuffer'],
+    
+    // Frame flags
+    ['AV_FRAME_SIDE_DATA_FLAG', 'AVFrameSideDataFlag'],
+    ['AV_FRAME_FILENAME_FLAGS', 'AVFrameFilenameFlags'],
+    
+    // CUDA flags
+    ['AV_CUDA_USE', 'AVCudaContextFlags'],
+    
+    // 3D/Stereo flags
+    ['AV_STEREO3D_FLAG', 'AVStereo3DFlag'],
+    
+    // IAMF flags
+    ['AV_IAMF_LAYER_FLAG', 'AVIAMFLayerFlag'],
+    
+    // FIFO flags
+    ['AV_FIFO_FLAG', 'AVFifoFlag'],
+    
+    // LZO constants
+    ['AV_LZO', 'AVLZOResult'],
+    
+    // Stream init
+    ['AV_STREAM_INIT', 'AVStreamInitIn'],
 
     // Subtitle
     ['AV_SUBTITLE_FLAG', 'AVSubtitleFlag'],
@@ -513,13 +618,18 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     ['AV_HAVE', 'AVHave'],
     ['AV_UTF', 'AVUTF'],
 
+    // Software scale/resample
+    ['AV_SWS', 'AVSoftwareScaleFlag'],
+    ['AV_SWR', 'AVSoftwareResampleFlag'],
+
     // Format flags (note: already handled by AV_FMT_FLAG above)
     ['AV_FMT', 'AVFormatFlags'],
-    
+
     // IO flags
     ['AV_IO_FLAG', 'AVIOFlag'],
+    ['AV_SEEK', 'AVSeekWhence'],
     ['AV_IO', 'AVIOConstants'],
-    
+
     // Software scale flags
     ['SWS', 'SWSFlag'],
   ]);
@@ -577,6 +687,10 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
       }
 
       if (evaluatedValue !== null) {
+        // Skip NONE constants that we manually added earlier
+        if (constant.name.endsWith('_NONE') && evaluatedValue === '0') {
+          continue;
+        }
         output += `export const ${constant.name} = ${evaluatedValue} as ${typeName};\n`;
       }
     }
@@ -742,6 +856,18 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     output += '\n';
     processedTypes.add('AVError');
   }
+
+  // Add special time constants
+  output += `// Special time constants\n`;
+  output += `export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN\n\n`;
+
+  // Add default/none constants for flags
+  output += `// Default/None flag values\n`;
+  output += `// These are commonly used to indicate "no flags" in FFmpeg\n`;
+  output += `export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag;\n`;
+  output += `export const AV_DICT_NONE = 0 as AVDictFlag;\n`;
+  output += `export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag;\n`;
+  output += `export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag;\n\n`;
 
   // Export convenience function for creating branded values
   output += `// Helper function to cast numbers to branded types\n`;

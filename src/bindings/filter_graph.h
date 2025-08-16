@@ -6,100 +6,100 @@
 
 extern "C" {
 #include <libavfilter/avfilter.h>
-#include <libavfilter/buffersrc.h>
 #include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 }
 
 namespace ffmpeg {
 
 // Forward declarations
+class Filter;
 class FilterContext;
-class Frame;
-class HardwareDeviceContext;
 
 class FilterGraph : public Napi::ObjectWrap<FilterGraph> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
-  static Napi::FunctionReference constructor;
-  
   FilterGraph(const Napi::CallbackInfo& info);
   ~FilterGraph();
   
-  // Main API methods
-  Napi::Value BuildPipeline(const Napi::CallbackInfo& info);
-  Napi::Value ProcessFrame(const Napi::CallbackInfo& info);
-  Napi::Value ProcessFrameAsync(const Napi::CallbackInfo& info);
-  Napi::Value GetFilteredFrame(const Napi::CallbackInfo& info);
-  Napi::Value GetFilteredFrameAsync(const Napi::CallbackInfo& info);
+  // Native access
+  AVFilterGraph* Get() { 
+    return graph_ ? graph_ : unowned_graph_; 
+  }
+  void SetOwned(AVFilterGraph* graph) { 
+    // Free old graph if exists
+    if (graph_ && !is_freed_) {
+      avfilter_graph_free(&graph_);
+    }
+    graph_ = graph;
+    unowned_graph_ = nullptr;
+    is_freed_ = false;
+  }
+  void SetUnowned(AVFilterGraph* graph) { 
+    if (graph_ && !is_freed_) {
+      avfilter_graph_free(&graph_);
+    }
+    graph_ = nullptr;
+    unowned_graph_ = graph;
+    is_freed_ = true;  // Mark as freed since we don't own it
+  }
+
+private:
+  // Friend classes
+  friend class FilterContext;
   
-  // Direct context access for advanced users
-  Napi::Value GetInputContext(const Napi::CallbackInfo& info);
-  Napi::Value GetOutputContext(const Napi::CallbackInfo& info);
+  // Static members
+  static Napi::FunctionReference constructor;
   
-  // Properties
-  Napi::Value GetNbThreads(const Napi::CallbackInfo& info);
-  void SetNbThreads(const Napi::CallbackInfo& info, const Napi::Value& value);
+  // Resources
+  AVFilterGraph* graph_ = nullptr;  // Manual RAII
+  AVFilterGraph* unowned_graph_ = nullptr;
+  bool is_freed_ = false;
+  
+  // === Methods ===
+  
+  // Lifecycle
+  Napi::Value Alloc(const Napi::CallbackInfo& info);
+  Napi::Value Free(const Napi::CallbackInfo& info);
+  
+  // Filter management
+  Napi::Value CreateFilter(const Napi::CallbackInfo& info);
+  Napi::Value AllocFilter(const Napi::CallbackInfo& info);
+  Napi::Value GetFilter(const Napi::CallbackInfo& info);
+  
+  // Configuration
+  Napi::Value Config(const Napi::CallbackInfo& info);
+  Napi::Value Parse(const Napi::CallbackInfo& info);
+  Napi::Value Parse2(const Napi::CallbackInfo& info);
+  Napi::Value ParsePtr(const Napi::CallbackInfo& info);
+  Napi::Value Validate(const Napi::CallbackInfo& info);
+  
+  // Execution
+  Napi::Value RequestOldest(const Napi::CallbackInfo& info);
+  Napi::Value DumpToFile(const Napi::CallbackInfo& info);
+  
+  // === Properties ===
+  
+  // nbFilters
+  Napi::Value GetNbFilters(const Napi::CallbackInfo& info);
+  
+  // filters
+  Napi::Value GetFilters(const Napi::CallbackInfo& info);
+  
+  // threadType
   Napi::Value GetThreadType(const Napi::CallbackInfo& info);
   void SetThreadType(const Napi::CallbackInfo& info, const Napi::Value& value);
   
-  // Resource management
-  Napi::Value Free(const Napi::CallbackInfo& info);
+  // nbThreads
+  Napi::Value GetNbThreads(const Napi::CallbackInfo& info);
+  void SetNbThreads(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  // scaleSwsOpts
+  Napi::Value GetScaleSwsOpts(const Napi::CallbackInfo& info);
+  void SetScaleSwsOpts(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  // Utility
   Napi::Value Dispose(const Napi::CallbackInfo& info);
-  
-  // Internal
-  AVFilterGraph* GetGraph() { return graph_; }
-  AVFilterContext* GetBufferSrcContext() { return buffersrc_ctx_; }
-  AVFilterContext* GetBufferSinkContext() { return buffersink_ctx_; }
-  
-  // Helper methods for building pipeline (public for async worker)
-  int CreateBufferSource(const Napi::Object& input);
-  int CreateBufferSink(const Napi::Object& output);
-  int ParseFilterString(const std::string& filters);
-  int ApplyHardwareContext(AVBufferRef* hw_device_ctx);
-private:
-  AVFilterGraph* graph_;
-  AVFilterContext* buffersrc_ctx_;
-  AVFilterContext* buffersink_ctx_;
-};
-
-// Async worker for ProcessFrame
-class ProcessFrameWorker : public Napi::AsyncWorker {
-public:
-  ProcessFrameWorker(
-    Napi::Function& callback,
-    FilterGraph* graph,
-    Frame* inputFrame,
-    Frame* outputFrame
-  );
-  
-  void Execute() override;
-  void OnOK() override;
-  void OnError(const Napi::Error& error) override;
-
-private:
-  FilterGraph* graph_;
-  Frame* inputFrame_;
-  Frame* outputFrame_;
-  int result_;
-};
-
-// Async worker for GetFilteredFrame
-class GetFilteredFrameWorker : public Napi::AsyncWorker {
-public:
-  GetFilteredFrameWorker(
-    Napi::Function& callback,
-    FilterGraph* graph,
-    Frame* outputFrame
-  );
-  
-  void Execute() override;
-  void OnOK() override;
-  void OnError(const Napi::Error& error) override;
-
-private:
-  FilterGraph* graph_;
-  Frame* outputFrame_;
-  int result_;
 };
 
 } // namespace ffmpeg

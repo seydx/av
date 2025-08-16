@@ -1,262 +1,244 @@
 #include "dictionary.h"
-#include <string>
-#include <vector>
+
+namespace ffmpeg {
 
 Napi::FunctionReference Dictionary::constructor;
 
+// === Init ===
+
 Napi::Object Dictionary::Init(Napi::Env env, Napi::Object exports) {
-    Napi::Function func = DefineClass(env, "Dictionary", {
-        InstanceMethod("set", &Dictionary::Set),
-        InstanceMethod("get", &Dictionary::Get),
-        InstanceMethod("getAll", &Dictionary::GetAll),
-        InstanceMethod("has", &Dictionary::Has),
-        InstanceMethod("delete", &Dictionary::Delete),
-        InstanceMethod("clear", &Dictionary::Clear),
-        InstanceMethod("copy", &Dictionary::Copy),
-        InstanceMethod("parseString", &Dictionary::ParseString),
-        InstanceMethod("toString", &Dictionary::ToString),
-        InstanceAccessor("count", &Dictionary::GetCount, nullptr),
-        
-        // Resource management
-        InstanceMethod("free", &Dictionary::Free),
-        InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &Dictionary::Dispose),
-    });
-
-    constructor = Napi::Persistent(func);
-    constructor.SuppressDestruct();
-
-    exports.Set("Dictionary", func);
-    return exports;
+  Napi::Function func = DefineClass(env, "Dictionary", {
+    // Lifecycle
+    InstanceMethod<&Dictionary::Alloc>("alloc"),
+    InstanceMethod<&Dictionary::Free>("free"),
+    InstanceMethod<&Dictionary::Copy>("copy"),
+    
+    // Operations
+    InstanceMethod<&Dictionary::Set>("set"),
+    InstanceMethod<&Dictionary::Get>("get"),
+    InstanceMethod<&Dictionary::Count>("count"),
+    InstanceMethod<&Dictionary::GetAll>("getAll"),
+    InstanceMethod<&Dictionary::ParseString>("parseString"),
+    InstanceMethod<&Dictionary::GetString>("getString"),
+    
+    // Utility
+    InstanceMethod<&Dictionary::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
+  });
+  
+  constructor = Napi::Persistent(func);
+  constructor.SuppressDestruct();
+  
+  exports.Set("Dictionary", func);
+  return exports;
 }
 
-Dictionary::Dictionary(const Napi::CallbackInfo& info) 
-    : Napi::ObjectWrap<Dictionary>(info), dict_(nullptr) {
+// === Lifecycle ===
+
+Dictionary::Dictionary(const Napi::CallbackInfo& info)
+  : Napi::ObjectWrap<Dictionary>(info) {
+  // Constructor does nothing - user must explicitly call alloc() or set()
 }
 
 Dictionary::~Dictionary() {
-    if (dict_) {
-        av_dict_free(&dict_);
-    }
+  // Manual cleanup if not already done
+  if (!is_freed_ && dict_) {
+    av_dict_free(&dict_);
+    dict_ = nullptr;
+  }
 }
 
-void Dictionary::SetDict(AVDictionary* dict) {
-    if (dict_) {
-        av_dict_free(&dict_);
-    }
-    dict_ = dict;
-}
+// === Methods ===
 
-Napi::Value Dictionary::Set(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (info.Length() < 2 || !info[0].IsString() || !info[1].IsString()) {
-        Napi::TypeError::New(env, "Expected (key: string, value: string, flags?: number)")
-            .ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string key = info[0].As<Napi::String>().Utf8Value();
-    std::string value = info[1].As<Napi::String>().Utf8Value();
-    
-    int flags = 0;
-    if (info.Length() > 2 && info[2].IsNumber()) {
-        flags = info[2].As<Napi::Number>().Int32Value();
-    }
-
-    int ret = av_dict_set(&dict_, key.c_str(), value.c_str(), flags);
-    if (ret < 0) {
-        ffmpeg::CheckFFmpegError(env, ret, "Failed to set dictionary entry");
-        return env.Undefined();
-    }
-
+Napi::Value Dictionary::Alloc(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (dict_) {
     return env.Undefined();
-}
-
-Napi::Value Dictionary::Get(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected key as string").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    std::string key = info[0].As<Napi::String>().Utf8Value();
-    
-    int flags = 0;
-    if (info.Length() > 1 && info[1].IsNumber()) {
-        flags = info[1].As<Napi::Number>().Int32Value();
-    }
-
-    AVDictionaryEntry* entry = av_dict_get(dict_, key.c_str(), nullptr, flags);
-    if (!entry) {
-        return env.Null();
-    }
-
-    return Napi::String::New(env, entry->value);
-}
-
-Napi::Value Dictionary::GetAll(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    Napi::Object result = Napi::Object::New(env);
-
-    AVDictionaryEntry* entry = nullptr;
-    while ((entry = av_dict_get(dict_, "", entry, AV_DICT_IGNORE_SUFFIX))) {
-        result.Set(entry->key, entry->value);
-    }
-
-    return result;
-}
-
-Napi::Value Dictionary::Has(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected key as string").ThrowAsJavaScriptException();
-        return Napi::Boolean::New(env, false);
-    }
-
-    std::string key = info[0].As<Napi::String>().Utf8Value();
-    AVDictionaryEntry* entry = av_dict_get(dict_, key.c_str(), nullptr, 0);
-    
-    return Napi::Boolean::New(env, entry != nullptr);
-}
-
-Napi::Value Dictionary::Delete(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected key as string").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string key = info[0].As<Napi::String>().Utf8Value();
-    
-    // Set to null to delete the entry
-    int ret = av_dict_set(&dict_, key.c_str(), nullptr, 0);
-    if (ret < 0) {
-        ffmpeg::CheckFFmpegError(env, ret, "Failed to delete dictionary entry");
-        return env.Undefined();
-    }
-
-    return env.Undefined();
-}
-
-Napi::Value Dictionary::Clear(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (dict_) {
-        av_dict_free(&dict_);
-        dict_ = nullptr;
-    }
-    
-    return env.Undefined();
-}
-
-Napi::Value Dictionary::Copy(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    int flags = 0;
-    if (info.Length() > 0 && info[0].IsNumber()) {
-        flags = info[0].As<Napi::Number>().Int32Value();
-    }
-
-    Napi::Object newDict = constructor.New({});
-    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(newDict);
-    
-    if (dict_) {
-        int ret = av_dict_copy(&dict->dict_, dict_, flags);
-        if (ret < 0) {
-            ffmpeg::CheckFFmpegError(env, ret, "Failed to copy dictionary");
-            return env.Null();
-        }
-    }
-
-    return newDict;
-}
-
-Napi::Value Dictionary::ParseString(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected string to parse").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    std::string str = info[0].As<Napi::String>().Utf8Value();
-    
-    std::string keyValSep = "=";
-    if (info.Length() > 1 && info[1].IsString()) {
-        keyValSep = info[1].As<Napi::String>().Utf8Value();
-    }
-    
-    std::string pairsSep = " ";
-    if (info.Length() > 2 && info[2].IsString()) {
-        pairsSep = info[2].As<Napi::String>().Utf8Value();
-    }
-    
-    int flags = 0;
-    if (info.Length() > 3 && info[3].IsNumber()) {
-        flags = info[3].As<Napi::Number>().Int32Value();
-    }
-
-    int ret = av_dict_parse_string(&dict_, str.c_str(), keyValSep.c_str(), pairsSep.c_str(), flags);
-    if (ret < 0) {
-        ffmpeg::CheckFFmpegError(env, ret, "Failed to parse dictionary string");
-        return env.Undefined();
-    }
-
-    return env.Undefined();
-}
-
-Napi::Value Dictionary::ToString(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    char keyValSep = '=';
-    if (info.Length() > 0 && info[0].IsString()) {
-        std::string sep = info[0].As<Napi::String>().Utf8Value();
-        if (!sep.empty()) {
-            keyValSep = sep[0];
-        }
-    }
-    
-    char pairsSep = ' ';
-    if (info.Length() > 1 && info[1].IsString()) {
-        std::string sep = info[1].As<Napi::String>().Utf8Value();
-        if (!sep.empty()) {
-            pairsSep = sep[0];
-        }
-    }
-
-    char* buffer = nullptr;
-    int ret = av_dict_get_string(dict_, &buffer, keyValSep, pairsSep);
-    if (ret < 0) {
-        ffmpeg::CheckFFmpegError(env, ret, "Failed to convert dictionary to string");
-        return Napi::String::New(env, "");
-    }
-
-    std::string result;
-    if (buffer) {
-        result = buffer;
-        av_free(buffer);
-    }
-
-    return Napi::String::New(env, result);
-}
-
-Napi::Value Dictionary::GetCount(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    int count = av_dict_count(dict_);
-    return Napi::Number::New(env, count);
+  }
+  
+  // FFmpeg doesn't have explicit av_dict_alloc, it's implicit in av_dict_set
+  // Just reset to ensure clean state
+  dict_ = nullptr;
+  is_freed_ = false;
+  
+  return env.Undefined();
 }
 
 Napi::Value Dictionary::Free(const Napi::CallbackInfo& info) {
-    if (dict_) {
-        av_dict_free(&dict_);
-        dict_ = nullptr;
-    }
-    return info.Env().Undefined();
+  Napi::Env env = info.Env();
+  
+  if (dict_ && !is_freed_) {
+    av_dict_free(&dict_);
+    dict_ = nullptr;
+    is_freed_ = true;
+  }
+  
+  return env.Undefined();
+}
+
+Napi::Value Dictionary::Copy(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsNumber()) {
+    Napi::TypeError::New(env, "Dictionary and flags required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Get destination dictionary
+  Napi::Object dstObj = info[0].As<Napi::Object>();
+  Dictionary* dst = Napi::ObjectWrap<Dictionary>::Unwrap(dstObj);
+  
+  if (!dst) {
+    Napi::TypeError::New(env, "Invalid dictionary object").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  int flags = info[1].As<Napi::Number>().Int32Value();
+  
+  // Copy from this dictionary to destination
+  // av_dict_copy merges the dictionaries, it doesn't replace
+  // So we DON'T free the destination dictionary first
+  
+  int ret = av_dict_copy(&dst->dict_, dict_, flags);
+  dst->is_freed_ = false;
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value Dictionary::Set(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 3 || !info[0].IsString() || !info[1].IsString() || !info[2].IsNumber()) {
+    Napi::TypeError::New(env, "Key (string), value (string), and flags (number) required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  std::string key = info[0].As<Napi::String>().Utf8Value();
+  std::string value = info[1].As<Napi::String>().Utf8Value();
+  int flags = info[2].As<Napi::Number>().Int32Value();
+  
+  // av_dict_set will allocate the dictionary if it's NULL
+  int ret = av_dict_set(&dict_, key.c_str(), value.c_str(), flags);
+  is_freed_ = false;  // We have a valid dictionary now
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value Dictionary::Get(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 2 || !info[0].IsString() || !info[1].IsNumber()) {
+    Napi::TypeError::New(env, "Key (string) and flags (number) required").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!dict_) {
+    return env.Null();
+  }
+  
+  std::string key = info[0].As<Napi::String>().Utf8Value();
+  int flags = info[1].As<Napi::Number>().Int32Value();
+  
+  // av_dict_get with NULL as prev to get first match
+  AVDictionaryEntry* entry = av_dict_get(dict_, key.c_str(), nullptr, flags);
+  
+  if (!entry) {
+    return env.Null();
+  }
+  
+  return Napi::String::New(env, entry->value);
+}
+
+Napi::Value Dictionary::Count(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!dict_) {
+    return Napi::Number::New(env, 0);
+  }
+  
+  int count = av_dict_count(dict_);
+  return Napi::Number::New(env, count);
+}
+
+Napi::Value Dictionary::GetAll(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Object result = Napi::Object::New(env);
+  
+  if (!dict_) {
+    return result;
+  }
+  
+  AVDictionaryEntry* entry = nullptr;
+  while ((entry = av_dict_get(dict_, "", entry, AV_DICT_IGNORE_SUFFIX))) {
+    result.Set(entry->key, Napi::String::New(env, entry->value));
+  }
+  
+  return result;
+}
+
+Napi::Value Dictionary::ParseString(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 4 || !info[0].IsString() || !info[1].IsString() || 
+      !info[2].IsString() || !info[3].IsNumber()) {
+    Napi::TypeError::New(env, "String, keyValSep (string), pairsSep (string), and flags (number) required")
+      .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  std::string str = info[0].As<Napi::String>().Utf8Value();
+  std::string keyValSep = info[1].As<Napi::String>().Utf8Value();
+  std::string pairsSep = info[2].As<Napi::String>().Utf8Value();
+  int flags = info[3].As<Napi::Number>().Int32Value();
+  
+  // av_dict_parse_string needs direct pointer access
+  // Free old dictionary if exists
+  if (dict_ && !is_freed_) {
+    av_dict_free(&dict_);
+  }
+  
+  int ret = av_dict_parse_string(&dict_, str.c_str(), keyValSep.c_str(), pairsSep.c_str(), flags);
+  is_freed_ = false;  // We have a valid dictionary now
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value Dictionary::GetString(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 2 || !info[0].IsString() || !info[1].IsString()) {
+    Napi::TypeError::New(env, "keyValSep (string) and pairsSep (string) required")
+      .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!dict_) {
+    return Napi::String::New(env, "");
+  }
+  
+  std::string keyValSep = info[0].As<Napi::String>().Utf8Value();
+  std::string pairsSep = info[1].As<Napi::String>().Utf8Value();
+  
+  if (keyValSep.length() != 1 || pairsSep.length() != 1) {
+    Napi::TypeError::New(env, "Separators must be single characters").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  char* buffer = nullptr;
+  int ret = av_dict_get_string(dict_, &buffer, keyValSep[0], pairsSep[0]);
+  
+  if (ret < 0 || !buffer) {
+    return env.Null();
+  }
+  
+  Napi::String result = Napi::String::New(env, buffer);
+  av_free(buffer);
+  
+  return result;
 }
 
 Napi::Value Dictionary::Dispose(const Napi::CallbackInfo& info) {
-    return Free(info);
+  return Free(info);
 }
+
+} // namespace ffmpeg

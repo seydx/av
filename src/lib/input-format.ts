@@ -1,155 +1,164 @@
 import { bindings } from './binding.js';
 
-import type { AVFormatFlags } from './constants.js';
+import type { AVFormatFlag } from './constants.js';
 import type { NativeInputFormat, NativeWrapper } from './native-types.js';
 
 /**
- * Input format (demuxer) for reading media files
+ * FFmpeg Input Format (Demuxer) - Low Level API
  *
- * InputFormat represents a demuxer that can read and parse specific
- * container formats. Each format handles specific file types like
- * MP4, MKV, AVI, etc.
+ * Direct mapping to FFmpeg's AVInputFormat.
+ * Describes a supported input container format.
+ * These are read-only format descriptors.
  *
  * @example
  * ```typescript
  * // Find a specific input format
- * const mp4Format = InputFormat.find('mp4');
+ * const mp4Format = InputFormat.findInputFormat('mp4');
  * if (mp4Format) {
  *   console.log(`Format: ${mp4Format.longName}`);
- *   console.log(`Extensions: ${mp4Format.extensions?.join(', ')}`);
+ *   console.log(`Extensions: ${mp4Format.extensions}`);
  * }
  *
- * // List all available formats
- * const formats = InputFormat.getAll();
- * for (const format of formats) {
- *   console.log(`${format.name}: ${format.longName}`);
- * }
+ * // Use with FormatContext
+ * const ctx = new FormatContext();
+ * ctx.allocContext();
+ *
+ * // Force a specific input format
+ * const movFormat = InputFormat.findInputFormat('mov');
+ * await ctx.openInput('video.dat', movFormat, null);
  * ```
  */
 export class InputFormat implements NativeWrapper<NativeInputFormat> {
-  private native: NativeInputFormat; // Native input format binding
+  private native: NativeInputFormat;
 
+  // Constructor
   /**
-   * Create an InputFormat wrapper
-   * @param native Native input format object
+   * Constructor is internal - use static factory methods.
+   * InputFormats are obtained via static methods, not created directly.
    * @internal
+   *
+   * @example
+   * ```typescript
+   * // Don't use constructor directly
+   * // const format = new InputFormat(); // ❌ Wrong
+   *
+   * // Use static factory methods instead
+   * const format = InputFormat.findInputFormat('mp4'); // ✅ Correct
+   * ```
    */
-  private constructor(native: NativeInputFormat) {
+  constructor(native: NativeInputFormat) {
     this.native = native;
   }
 
+  // Static Methods - Low Level API
+
   /**
-   * Find an input format by name
-   * @param name Format short name (e.g., 'mp4', 'mov', 'avi')
-   * @returns InputFormat instance or null if not found
+   * Find a registered input format with matching name.
+   *
+   * Direct mapping to av_find_input_format()
+   *
+   * @param shortName - Short name of the format (e.g., 'mp4', 'mov', 'avi')
+   *
+   * @returns InputFormat if found, null otherwise
+   *
    * @example
    * ```typescript
-   * const format = InputFormat.find('mp4');
+   * const format = InputFormat.findInputFormat('mp4');
    * if (format) {
-   *   // Use format with FormatContext
-   *   formatContext.openInput('file.mp4', format);
+   *   console.log(`Found: ${format.longName}`);
    * }
+   *
+   * // Force specific format when opening
+   * const movFormat = InputFormat.findInputFormat('mov');
+   * await ctx.openInput('video.dat', movFormat, null);
    * ```
    */
-  static find(name: string): InputFormat | null {
-    try {
-      const native = bindings.InputFormat.find(name);
-      return native ? new InputFormat(native) : null;
-    } catch (error) {
-      console.warn(`Failed to find input format '${name}':`, error);
+  static findInputFormat(shortName: string): InputFormat | null {
+    const native = bindings.InputFormat.findInputFormat(shortName);
+    if (!native) {
       return null;
     }
-  }
-
-  /**
-   * Get all available input formats
-   * @returns Array of all available InputFormat instances
-   * @example
-   * ```typescript
-   * const formats = InputFormat.getAll();
-   * console.log(`Available formats: ${formats.length}`);
-   * ```
-   */
-  static getAll(): InputFormat[] {
-    try {
-      const natives = bindings.InputFormat.getAll();
-      return natives.map((native) => new InputFormat(native));
-    } catch (error) {
-      console.warn('Failed to get all input formats:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Create from native handle
-   * @internal
-   */
-  static fromNative(native: NativeInputFormat): InputFormat {
     return new InputFormat(native);
   }
 
+  // Getter Properties
+
   /**
-   * Get format short name
+   * A comma separated list of short names for the format.
+   *
+   * Direct mapping to AVInputFormat->name
+   *
+   * @readonly
    */
   get name(): string | null {
     return this.native.name;
   }
 
   /**
-   * Get format long descriptive name
+   * Descriptive name for the format.
+   *
+   * Direct mapping to AVInputFormat->long_name
+   *
+   * Meant to be more human-readable than the short name.
+   * @readonly
    */
   get longName(): string | null {
     return this.native.longName;
   }
 
   /**
-   * Get format flags (combination of AV_FMT_* flags)
+   * Comma-separated list of file extensions.
+   *
+   * Direct mapping to AVInputFormat->extensions
+   *
+   * If extensions are defined, then no probe is done.
+   * @readonly
    */
-  get flags(): AVFormatFlags {
-    return this.native.flags;
-  }
-
-  /**
-   * Get file extensions associated with this format
-   * @returns Array of extensions or null
-   */
-  get extensions(): string[] | null {
+  get extensions(): string | null {
     return this.native.extensions;
   }
 
   /**
-   * Get MIME type associated with this format
+   * Comma-separated list of mime types.
+   *
+   * Direct mapping to AVInputFormat->mime_type
+   *
+   * @readonly
    */
   get mimeType(): string | null {
     return this.native.mimeType;
   }
 
   /**
-   * Check if format has a specific flag
-   * @param flag AVFormatFlags constant
-   * @returns true if the format has the flag
-   * @example
-   * ```typescript
-   * if (format.hasFlag(AV_FMT_NOFILE)) {
-   *   console.log('Format does not require file I/O');
-   * }
-   * ```
+   * Format flags.
+   *
+   * Direct mapping to AVInputFormat->flags
+   *
+   * Combination of AVFMT_* flags:
+   * - AVFMT_NOFILE: No file is opened
+   * - AVFMT_NEEDNUMBER: Needs '%d' in filename
+   * - AVFMT_SHOW_IDS: Show format stream IDs
+   * - AVFMT_GLOBALHEADER: Format wants global headers
+   * - AVFMT_NOTIMESTAMPS: Format does not need/have timestamps
+   * - AVFMT_GENERIC_INDEX: Use generic index building code
+   * - AVFMT_TS_DISCONT: Format allows timestamp discontinuities
+   * - AVFMT_NOBINSEARCH: Format does not allow seeking by bytes
+   * - AVFMT_NOGENSEARCH: Format does not allow seeking by timestamp
+   * - AVFMT_NO_BYTE_SEEK: Format does not allow seeking by bytes
+   * - AVFMT_SEEK_TO_PTS: Seeking is based on PTS
+   * @readonly
    */
-  hasFlag(flag: AVFormatFlags): boolean {
-    return (this.flags & flag) !== 0;
+  get flags(): AVFormatFlag {
+    return this.native.flags;
   }
 
-  /**
-   * Get string representation
-   * @returns Format name or 'unknown'
-   */
-  toString(): string {
-    return this.name ?? 'unknown';
-  }
+  // Internal Methods
 
   /**
-   * Get native input format for internal use
-   * @internal
+   * Get the native FFmpeg AVInputFormat pointer.
+   *
+   * @internal For use by other wrapper classes
+   * @returns The underlying native input format object
    */
   getNative(): NativeInputFormat {
     return this.native;

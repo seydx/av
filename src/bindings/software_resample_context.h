@@ -1,11 +1,13 @@
-#ifndef SOFTWARE_RESAMPLE_CONTEXT_H
-#define SOFTWARE_RESAMPLE_CONTEXT_H
+#ifndef FFMPEG_SOFTWARE_RESAMPLE_CONTEXT_H
+#define FFMPEG_SOFTWARE_RESAMPLE_CONTEXT_H
 
 #include <napi.h>
 #include "common.h"
 
 extern "C" {
 #include <libswresample/swresample.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
 }
 
 namespace ffmpeg {
@@ -13,26 +15,52 @@ namespace ffmpeg {
 class SoftwareResampleContext : public Napi::ObjectWrap<SoftwareResampleContext> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
-  static Napi::FunctionReference constructor;
-  
   SoftwareResampleContext(const Napi::CallbackInfo& info);
   ~SoftwareResampleContext();
   
-  // Methods
-  Napi::Value ConvertFrame(const Napi::CallbackInfo& info);
-  Napi::Value GetDelay(const Napi::CallbackInfo& info);
-  
-  // Resource management
-  Napi::Value Free(const Napi::CallbackInfo& info);
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
-  
-  // Internal
-  SwrContext* GetContext() { return context_; }
-  
+  // Native access
+  SwrContext* Get() { return ctx_; }
+
 private:
-  SwrContext* context_;
+  // Static members
+  static Napi::FunctionReference constructor;
+  
+  // Resources
+  SwrContext* ctx_ = nullptr;  // Manual RAII
+  bool is_freed_ = false;
+  
+  // === Methods ===
+  
+  // Lifecycle
+  Napi::Value Alloc(const Napi::CallbackInfo& info);
+  Napi::Value AllocSetOpts2(const Napi::CallbackInfo& info);
+  Napi::Value Init(const Napi::CallbackInfo& info);
+  Napi::Value Free(const Napi::CallbackInfo& info);
+  Napi::Value Close(const Napi::CallbackInfo& info);
+  
+  // Operations
+  Napi::Value Convert(const Napi::CallbackInfo& info);
+  Napi::Value ConvertFrame(const Napi::CallbackInfo& info);
+  Napi::Value ConfigFrame(const Napi::CallbackInfo& info);
+  
+  // Query
+  Napi::Value IsInitialized(const Napi::CallbackInfo& info);
+  Napi::Value GetDelay(const Napi::CallbackInfo& info);
+  Napi::Value GetOutSamples(const Napi::CallbackInfo& info);
+  Napi::Value NextPts(const Napi::CallbackInfo& info);
+  
+  // Configuration
+  Napi::Value SetCompensation(const Napi::CallbackInfo& info);
+  Napi::Value SetChannelMapping(const Napi::CallbackInfo& info);
+  Napi::Value SetMatrix(const Napi::CallbackInfo& info);
+  Napi::Value DropOutput(const Napi::CallbackInfo& info);
+  Napi::Value InjectSilence(const Napi::CallbackInfo& info);
+  
+  // === Utility ===
+  
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg
 
-#endif // SOFTWARE_RESAMPLE_CONTEXT_H
+#endif // FFMPEG_SOFTWARE_RESAMPLE_CONTEXT_H

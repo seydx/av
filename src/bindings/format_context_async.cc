@@ -1,473 +1,583 @@
-// Implementation of async FormatContext operations using Napi::Promise
-
 #include "format_context.h"
-#include "input_format.h"
-#include "dictionary.h"
 #include "packet.h"
-#include "common.h"
+#include "input_format.h"
+#include "output_format.h"
+#include "dictionary.h"
+#include <napi.h>
+
+extern "C" {
+#include <libavformat/avformat.h>
+}
 
 namespace ffmpeg {
 
-// Worker class for async OpenInput operation
-class OpenInputWorker : public Napi::AsyncWorker {
-public:
-  OpenInputWorker(Napi::Env env, FormatContext* context, 
-                   const std::string& url, 
-                   AVInputFormat* format, 
-                   AVDictionary* options)
-    : AsyncWorker(env),
-      context_(context),
-      url_(url),
-      input_format_(format),
-      options_(options),
-      result_(0) {}
+// ============================================================================
+// Async Worker Classes for FormatContext Operations
+// ============================================================================
 
-  ~OpenInputWorker() {
+/**
+ * Worker for avformat_open_input - Opens an input file
+ */
+class FCOpenInputWorker : public Napi::AsyncWorker {
+public:
+  FCOpenInputWorker(Napi::Env env, FormatContext* parent, const std::string& url, 
+                  AVInputFormat* fmt, AVDictionary* options)
+    : AsyncWorker(env),
+      parent_(parent),
+      url_(url),
+      fmt_(fmt),
+      options_(options),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  ~FCOpenInputWorker() {
     if (options_) {
       av_dict_free(&options_);
     }
   }
 
-  // This code runs on worker thread
   void Execute() override {
-    AVFormatContext* ctx = nullptr;
+    // If we already have a context (e.g., for custom I/O), use it
+    AVFormatContext* ctx = parent_->ctx_;
     
-    // Open the input
-    result_ = avformat_open_input(&ctx, url_.c_str(), input_format_, options_ ? &options_ : nullptr);
+    // For custom I/O, pass NULL as URL
+    const char* url = nullptr;
+    if (!url_.empty() && url_ != "dummy") {
+      url = url_.c_str();
+    }
     
-    if (result_ < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    } else {
-      // Store the context for OnOK
-      opened_context_ = ctx;
+    result_ = avformat_open_input(&ctx, url, fmt_, options_ ? &options_ : nullptr);
+    
+    if (result_ >= 0) {
+      parent_->ctx_ = ctx;
+      parent_->is_output_ = false;
     }
   }
 
-  // This code runs on main thread after Execute completes
   void OnOK() override {
     Napi::HandleScope scope(Env());
-    
-    // Update the FormatContext with the opened context
-    context_->SetContext(opened_context_);
-    
-    // Resolve the promise
-    deferred_.Resolve(Env().Undefined());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
   }
 
   void OnError(const Napi::Error& error) override {
     deferred_.Reject(error.Value());
   }
 
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
 
 private:
-  FormatContext* context_;
+  FormatContext* parent_;
   std::string url_;
-  AVInputFormat* input_format_;
+  AVInputFormat* fmt_;
   AVDictionary* options_;
-  AVFormatContext* opened_context_ = nullptr;
   int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
+  Napi::Promise::Deferred deferred_;
 };
 
-// Async version of OpenInput
+/**
+ * Worker for avformat_find_stream_info - Reads packet headers
+ */
+class FCFindStreamInfoWorker : public Napi::AsyncWorker {
+public:
+  FCFindStreamInfoWorker(Napi::Env env, FormatContext* parent, AVDictionary* options)
+    : AsyncWorker(env),
+      parent_(parent),
+      options_(options),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  ~FCFindStreamInfoWorker() {
+    if (options_) {
+      av_dict_free(&options_);
+    }
+  }
+
+  void Execute() override {
+    if (parent_->ctx_) {
+      result_ = avformat_find_stream_info(parent_->ctx_, options_ ? &options_ : nullptr);
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  AVDictionary* options_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for av_read_frame - Reads a packet from the stream
+ */
+class FCReadFrameWorker : public Napi::AsyncWorker {
+public:
+  FCReadFrameWorker(Napi::Env env, FormatContext* parent, Packet* packet)
+    : AsyncWorker(env),
+      parent_(parent),
+      packet_(packet),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    if (parent_->ctx_ && packet_) {
+      result_ = av_read_frame(parent_->ctx_, packet_->Get());
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  Packet* packet_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for av_seek_frame - Seeks to a timestamp
+ */
+class FCSeekFrameWorker : public Napi::AsyncWorker {
+public:
+  FCSeekFrameWorker(Napi::Env env, FormatContext* parent, int stream_index, 
+                  int64_t timestamp, int flags)
+    : AsyncWorker(env),
+      parent_(parent),
+      stream_index_(stream_index),
+      timestamp_(timestamp),
+      flags_(flags),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    if (parent_->ctx_) {
+      result_ = av_seek_frame(parent_->ctx_, stream_index_, timestamp_, flags_);
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  int stream_index_;
+  int64_t timestamp_;
+  int flags_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for avformat_seek_file - Seeks to a timestamp range
+ */
+class FCSeekFileWorker : public Napi::AsyncWorker {
+public:
+  FCSeekFileWorker(Napi::Env env, FormatContext* parent, int stream_index, 
+                 int64_t min_ts, int64_t ts, int64_t max_ts, int flags)
+    : AsyncWorker(env),
+      parent_(parent),
+      stream_index_(stream_index),
+      min_ts_(min_ts),
+      ts_(ts),
+      max_ts_(max_ts),
+      flags_(flags),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    if (parent_->ctx_) {
+      result_ = avformat_seek_file(parent_->ctx_, stream_index_, 
+                                   min_ts_, ts_, max_ts_, flags_);
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  int stream_index_;
+  int64_t min_ts_;
+  int64_t ts_;
+  int64_t max_ts_;
+  int flags_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for avformat_write_header - Writes file header
+ */
+class FCWriteHeaderWorker : public Napi::AsyncWorker {
+public:
+  FCWriteHeaderWorker(Napi::Env env, FormatContext* parent, AVDictionary* options)
+    : AsyncWorker(env),
+      parent_(parent),
+      options_(options),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  ~FCWriteHeaderWorker() {
+    if (options_) {
+      av_dict_free(&options_);
+    }
+  }
+
+  void Execute() override {
+    if (parent_->ctx_) {
+      result_ = avformat_write_header(parent_->ctx_, options_ ? &options_ : nullptr);
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  AVDictionary* options_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for av_write_frame - Writes a packet
+ */
+class FCWriteFrameWorker : public Napi::AsyncWorker {
+public:
+  FCWriteFrameWorker(Napi::Env env, FormatContext* parent, Packet* packet)
+    : AsyncWorker(env),
+      parent_(parent),
+      packet_(packet),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    if (parent_->ctx_) {
+      result_ = av_write_frame(parent_->ctx_, packet_ ? packet_->Get() : nullptr);
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  Packet* packet_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for av_interleaved_write_frame - Writes a packet with interleaving
+ */
+class FCInterleavedWriteFrameWorker : public Napi::AsyncWorker {
+public:
+  FCInterleavedWriteFrameWorker(Napi::Env env, FormatContext* parent, Packet* packet)
+    : AsyncWorker(env),
+      parent_(parent),
+      packet_(packet),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    if (parent_->ctx_) {
+      result_ = av_interleaved_write_frame(parent_->ctx_, packet_ ? packet_->Get() : nullptr);
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  Packet* packet_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for av_write_trailer - Writes file trailer
+ */
+class FCWriteTrailerWorker : public Napi::AsyncWorker {
+public:
+  FCWriteTrailerWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    if (parent_->ctx_) {
+      result_ = av_write_trailer(parent_->ctx_);
+    } else {
+      result_ = AVERROR(EINVAL);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+// ============================================================================
+// Async Method Implementations
+// ============================================================================
+
 Napi::Value FormatContext::OpenInputAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "URL string required").ThrowAsJavaScriptException();
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "URL required").ThrowAsJavaScriptException();
     return env.Undefined();
   }
   
   std::string url = info[0].As<Napi::String>().Utf8Value();
-  
-  // Handle InputFormat (2nd parameter)
-  AVInputFormat* input_format = nullptr;
-  if (info.Length() > 1) {
-    InputFormat* inputFormatWrapper = ffmpeg::UnwrapNativeObject<InputFormat>(env, info[1], "InputFormat");
-    if (inputFormatWrapper) {
-      input_format = const_cast<AVInputFormat*>(inputFormatWrapper->GetFormat());
-    }
-  }
-  
-  // Handle Dictionary options (3rd parameter)
+  AVInputFormat* fmt = nullptr;
   AVDictionary* options = nullptr;
-  if (info.Length() > 2) {
-    Dictionary* dictWrapper = ffmpeg::UnwrapNativeObject<Dictionary>(env, info[2], "Dictionary");
-    if (dictWrapper) {
-      // Create a copy of the dictionary since it might be modified
-      av_dict_copy(&options, dictWrapper->GetDict(), 0);
+  
+  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
+    InputFormat* inputFormat = Napi::ObjectWrap<InputFormat>::Unwrap(info[1].As<Napi::Object>());
+    if (inputFormat) {
+      fmt = const_cast<AVInputFormat*>(inputFormat->Get());
     }
   }
   
-  // Create and queue the async worker
-  auto* worker = new OpenInputWorker(env, this, url, input_format, options);
-  auto promise = worker->GetDeferred().Promise();
+  if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined()) {
+    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[2].As<Napi::Object>());
+    if (dict && dict->Get()) {
+      av_dict_copy(&options, dict->Get(), 0);
+    }
+  }
+  
+  auto* worker = new FCOpenInputWorker(env, this, url, fmt, options);
+  auto promise = worker->GetPromise();
   worker->Queue();
   
   return promise;
 }
 
-// Worker class for async ReadFrame operation
-class ReadFrameWorker : public Napi::AsyncWorker {
-public:
-  ReadFrameWorker(Napi::Env env, AVFormatContext* context, Packet* packet)
-    : AsyncWorker(env),
-      context_(context),
-      packet_(packet),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = av_read_frame(context_, packet_->GetPacket());
-    
-    if (result_ < 0 && result_ != AVERROR_EOF) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Napi::Number::New(Env(), result_));
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVFormatContext* context_;
-  Packet* packet_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of ReadFrame
-Napi::Value FormatContext::ReadFrameAsync(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Format context not opened").Value());
-    return deferred.Promise();
-  }
-  
-  if (info.Length() < 1) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::TypeError::New(env, "Packet object required").Value());
-    return deferred.Promise();
-  }
-  
-  Packet* packet = ffmpeg::UnwrapNativeObjectRequired<Packet>(env, info[0], "Packet");
-  if (!packet) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::TypeError::New(env, "Invalid packet object").Value());
-    return deferred.Promise();
-  }
-  
-  auto* worker = new ReadFrameWorker(env, context_, packet);
-  auto promise = worker->GetDeferred().Promise();
-  worker->Queue();
-  
-  return promise;
-}
-
-// Worker class for async FindStreamInfo operation
-class FindStreamInfoWorker : public Napi::AsyncWorker {
-public:
-  FindStreamInfoWorker(Napi::Env env, AVFormatContext* context)
-    : AsyncWorker(env),
-      context_(context),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = avformat_find_stream_info(context_, nullptr);
-    
-    if (result_ < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Env().Undefined());
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVFormatContext* context_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of FindStreamInfo
 Napi::Value FormatContext::FindStreamInfoAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Format context not opened").Value());
-    return deferred.Promise();
+  AVDictionary* options = nullptr;
+  
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[0].As<Napi::Object>());
+    if (dict && dict->Get()) {
+      av_dict_copy(&options, dict->Get(), 0);
+    }
   }
   
-  auto* worker = new FindStreamInfoWorker(env, context_);
-  auto promise = worker->GetDeferred().Promise();
+  auto* worker = new FCFindStreamInfoWorker(env, this, options);
+  auto promise = worker->GetPromise();
   worker->Queue();
   
   return promise;
 }
 
-// Worker class for async WriteHeader operation
-class WriteHeaderWorker : public Napi::AsyncWorker {
-public:
-  WriteHeaderWorker(Napi::Env env, AVFormatContext* context, AVDictionary* options)
-    : AsyncWorker(env),
-      context_(context),
-      options_(options),
-      result_(0) {}
-
-  ~WriteHeaderWorker() {
-    if (options_) {
-      av_dict_free(&options_);
-    }
+Napi::Value FormatContext::ReadFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Packet required").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
-
-  void Execute() override {
-    result_ = avformat_write_header(context_, options_ ? &options_ : nullptr);
-    
-    if (result_ < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
+  
+  Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
+  if (!packet) {
+    Napi::TypeError::New(env, "Invalid packet object").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
+  
+  auto* worker = new FCReadFrameWorker(env, this, packet);
+  auto promise = worker->GetPromise();
+  worker->Queue();
+  
+  return promise;
+}
 
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Env().Undefined());
+Napi::Value FormatContext::SeekFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 3) {
+    Napi::TypeError::New(env, "stream_index, timestamp, and flags required").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
+  
+  int stream_index = info[0].As<Napi::Number>().Int32Value();
+  bool lossless;
+  int64_t timestamp = info[1].As<Napi::BigInt>().Int64Value(&lossless);
+  int flags = info[2].As<Napi::Number>().Int32Value();
+  
+  auto* worker = new FCSeekFrameWorker(env, this, stream_index, timestamp, flags);
+  auto promise = worker->GetPromise();
+  worker->Queue();
+  
+  return promise;
+}
 
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
+Napi::Value FormatContext::SeekFileAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 5) {
+    Napi::TypeError::New(env, "stream_index, min_ts, ts, max_ts, and flags required").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
+  
+  int stream_index = info[0].As<Napi::Number>().Int32Value();
+  bool lossless;
+  int64_t min_ts = info[1].As<Napi::BigInt>().Int64Value(&lossless);
+  int64_t ts = info[2].As<Napi::BigInt>().Int64Value(&lossless);
+  int64_t max_ts = info[3].As<Napi::BigInt>().Int64Value(&lossless);
+  int flags = info[4].As<Napi::Number>().Int32Value();
+  
+  auto* worker = new FCSeekFileWorker(env, this, stream_index, min_ts, ts, max_ts, flags);
+  auto promise = worker->GetPromise();
+  worker->Queue();
+  
+  return promise;
+}
 
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVFormatContext* context_;
-  AVDictionary* options_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of WriteHeader
 Napi::Value FormatContext::WriteHeaderAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Format context not opened").Value());
-    return deferred.Promise();
-  }
-  
   AVDictionary* options = nullptr;
-  if (info.Length() > 0) {
-    Dictionary* dictWrapper = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
-    if (dictWrapper) {
-      av_dict_copy(&options, dictWrapper->GetDict(), 0);
+  
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[0].As<Napi::Object>());
+    if (dict && dict->Get()) {
+      av_dict_copy(&options, dict->Get(), 0);
     }
   }
   
-  auto* worker = new WriteHeaderWorker(env, context_, options);
-  auto promise = worker->GetDeferred().Promise();
+  auto* worker = new FCWriteHeaderWorker(env, this, options);
+  auto promise = worker->GetPromise();
   worker->Queue();
   
   return promise;
 }
 
-// Worker class for async WriteFrame operation
-class WriteFrameWorker : public Napi::AsyncWorker {
-public:
-  WriteFrameWorker(Napi::Env env, AVFormatContext* context, AVPacket* packet)
-    : AsyncWorker(env),
-      context_(context),
-      packet_(packet),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = av_write_frame(context_, packet_);
-    
-    if (result_ < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Napi::Number::New(Env(), result_));
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVFormatContext* context_;
-  AVPacket* packet_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of WriteFrame
 Napi::Value FormatContext::WriteFrameAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Format context not opened").Value());
-    return deferred.Promise();
+  Packet* packet = nullptr;
+  
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    packet = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
   }
   
-  AVPacket* pkt = nullptr;
-  if (info.Length() > 0) {
-    Packet* packet = ffmpeg::UnwrapNativeObject<Packet>(env, info[0], "Packet");
-    if (packet) {
-      pkt = packet->GetPacket();
-    }
-  }
-  
-  auto* worker = new WriteFrameWorker(env, context_, pkt);
-  auto promise = worker->GetDeferred().Promise();
+  auto* worker = new FCWriteFrameWorker(env, this, packet);
+  auto promise = worker->GetPromise();
   worker->Queue();
   
   return promise;
 }
 
-// Worker class for async WriteInterleavedFrame operation
-class WriteInterleavedFrameWorker : public Napi::AsyncWorker {
-public:
-  WriteInterleavedFrameWorker(Napi::Env env, AVFormatContext* context, AVPacket* packet)
-    : AsyncWorker(env),
-      context_(context),
-      packet_(packet),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = av_interleaved_write_frame(context_, packet_);
-    
-    if (result_ < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Env().Undefined());
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVFormatContext* context_;
-  AVPacket* packet_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of WriteInterleavedFrame
-Napi::Value FormatContext::WriteInterleavedFrameAsync(const Napi::CallbackInfo& info) {
+Napi::Value FormatContext::InterleavedWriteFrameAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Format context not opened").Value());
-    return deferred.Promise();
-  }
+  Packet* packet = nullptr;
   
-  AVPacket* pkt = nullptr;
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Packet* packet = ffmpeg::UnwrapNativeObject<Packet>(env, info[0], "Packet");
-    if (packet) {
-      pkt = packet->GetPacket();
-    }
+    packet = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
   }
   
-  auto* worker = new WriteInterleavedFrameWorker(env, context_, pkt);
-  auto promise = worker->GetDeferred().Promise();
+  auto* worker = new FCInterleavedWriteFrameWorker(env, this, packet);
+  auto promise = worker->GetPromise();
   worker->Queue();
   
   return promise;
 }
 
-// Worker class for async WriteTrailer operation
-class WriteTrailerWorker : public Napi::AsyncWorker {
-public:
-  WriteTrailerWorker(Napi::Env env, AVFormatContext* context)
-    : AsyncWorker(env),
-      context_(context),
-      result_(0) {}
-
-  void Execute() override {
-    result_ = av_write_trailer(context_);
-    
-    if (result_ < 0) {
-      char errbuf[AV_ERROR_MAX_STRING_SIZE];
-      av_strerror(result_, errbuf, sizeof(errbuf));
-      SetError(errbuf);
-    }
-  }
-
-  void OnOK() override {
-    Napi::HandleScope scope(Env());
-    deferred_.Resolve(Env().Undefined());
-  }
-
-  void OnError(const Napi::Error& error) override {
-    deferred_.Reject(error.Value());
-  }
-
-  Napi::Promise::Deferred GetDeferred() { return deferred_; }
-
-private:
-  AVFormatContext* context_;
-  int result_;
-  Napi::Promise::Deferred deferred_ = Napi::Promise::Deferred::New(Env());
-};
-
-// Async version of WriteTrailer
 Napi::Value FormatContext::WriteTrailerAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    auto deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(Napi::Error::New(env, "Format context not opened").Value());
-    return deferred.Promise();
-  }
-  
-  auto* worker = new WriteTrailerWorker(env, context_);
-  auto promise = worker->GetDeferred().Promise();
+  auto* worker = new FCWriteTrailerWorker(env, this);
+  auto promise = worker->GetPromise();
   worker->Queue();
   
   return promise;

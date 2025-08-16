@@ -1,5 +1,7 @@
 #include "hardware_device_context.h"
 #include "dictionary.h"
+#include "error.h"
+#include <sstream>
 
 namespace ffmpeg {
 
@@ -7,20 +9,26 @@ Napi::FunctionReference HardwareDeviceContext::constructor;
 
 Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "HardwareDeviceContext", {
-    // Static methods
-    StaticMethod<&HardwareDeviceContext::FindTypeByName>("findTypeByName"),
+    // Static Methods - Low Level API
     StaticMethod<&HardwareDeviceContext::GetTypeName>("getTypeName"),
-    StaticMethod<&HardwareDeviceContext::GetSupportedTypes>("getSupportedTypes"),
+    StaticMethod<&HardwareDeviceContext::IterateTypes>("iterateTypes"),
+    StaticMethod<&HardwareDeviceContext::FindTypeByName>("findTypeByName"),
     
-    // Instance methods
-    InstanceMethod<&HardwareDeviceContext::GetHardwareFramesConstraints>("getHardwareFramesConstraints"),
-    
-    // Resource management
+    // Methods - Low Level API
+    InstanceMethod<&HardwareDeviceContext::Alloc>("alloc"),
+    InstanceMethod<&HardwareDeviceContext::Init>("init"),
+    InstanceMethod<&HardwareDeviceContext::Create>("create"),
+    InstanceMethod<&HardwareDeviceContext::CreateDerived>("createDerived"),
+    InstanceMethod<&HardwareDeviceContext::HwconfigAlloc>("hwconfigAlloc"),
+    InstanceMethod<&HardwareDeviceContext::GetHwframeConstraints>("getHwframeConstraints"),
     InstanceMethod<&HardwareDeviceContext::Free>("free"),
-    InstanceMethod<&HardwareDeviceContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
     
     // Properties
-    InstanceAccessor<&HardwareDeviceContext::GetType>("type"),
+    InstanceAccessor("type", &HardwareDeviceContext::GetType, nullptr),
+    InstanceAccessor("hwctx", &HardwareDeviceContext::GetHwctx, nullptr),
+    
+    // Utility
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &HardwareDeviceContext::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -30,85 +38,45 @@ Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-HardwareDeviceContext::HardwareDeviceContext(const Napi::CallbackInfo& info)
-  : Napi::ObjectWrap<HardwareDeviceContext>(info), context_(nullptr), type_(AV_HWDEVICE_TYPE_NONE) {
-  Napi::Env env = info.Env();
-  
-  // Constructor now handles initialization directly
-  if (info.Length() < 1 || !info[0].IsNumber()) {
-    Napi::TypeError::New(env, "Hardware device type required").ThrowAsJavaScriptException();
-    return;
-  }
-  
-  AVHWDeviceType type = static_cast<AVHWDeviceType>(info[0].As<Napi::Number>().Int32Value());
-  
-  // Optional device name
-  const char* device = nullptr;
-  std::string deviceStr;
-  if (info.Length() > 1 && info[1].IsString()) {
-    deviceStr = info[1].As<Napi::String>().Utf8Value();
-    device = deviceStr.c_str();
-  }
-  
-  // Optional options dictionary
-  AVDictionary* options = nullptr;
-  if (info.Length() > 2 && info[2].IsObject()) {
-    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[2], "Dictionary");
-    if (dict) {
-      options = dict->GetDict();
-    }
-  }
-  
-  // Optional flags
-  int flags = 0;
-  if (info.Length() > 3 && info[3].IsNumber()) {
-    flags = info[3].As<Napi::Number>().Int32Value();
-  }
-  
-  // Create hardware device context
-  AVBufferRef* hwContext = nullptr;
-  int ret = av_hwdevice_ctx_create(&hwContext, type, device, options, flags);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to create hardware device context");
-    return;
-  }
-  
-  context_ = hwContext;
-  type_ = type;
+// === Lifecycle ===
+
+HardwareDeviceContext::HardwareDeviceContext(const Napi::CallbackInfo& info) 
+  : Napi::ObjectWrap<HardwareDeviceContext>(info), unowned_ref_(nullptr) {
+  // Constructor does nothing - user must call alloc() or create()
 }
 
 HardwareDeviceContext::~HardwareDeviceContext() {
-  if (context_) {
-    av_buffer_unref(&context_);
-    context_ = nullptr;
+  // Manual cleanup if not already done
+  if (device_ref_ && !is_freed_) {
+    av_buffer_unref(&device_ref_);
+    device_ref_ = nullptr;
   }
+  // RAII handles cleanup
 }
 
-// Find hardware device type by name
-Napi::Value HardwareDeviceContext::FindTypeByName(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "Type name required").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AV_HWDEVICE_TYPE_NONE);
+// === Static Methods ===
+
+Napi::Value HardwareDeviceContext::Wrap(Napi::Env env, AVBufferRef* device_ref) {
+  if (!device_ref) {
+    return env.Null();
   }
   
-  std::string name = info[0].As<Napi::String>().Utf8Value();
-  AVHWDeviceType type = av_hwdevice_find_type_by_name(name.c_str());
-  
-  return Napi::Number::New(env, type);
+  Napi::Object obj = constructor.New({});
+  HardwareDeviceContext* ctx = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(obj);
+  ctx->SetUnowned(device_ref); // We don't own contexts that are wrapped
+  return obj;
 }
 
-// Get name of hardware device type
 Napi::Value HardwareDeviceContext::GetTypeName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 1 || !info[0].IsNumber()) {
-    Napi::TypeError::New(env, "Hardware device type required").ThrowAsJavaScriptException();
-    return env.Null();
+    Napi::TypeError::New(env, "Expected number (AVHWDeviceType)")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
   }
   
-  AVHWDeviceType type = static_cast<AVHWDeviceType>(info[0].As<Napi::Number>().Int32Value());
+  enum AVHWDeviceType type = static_cast<AVHWDeviceType>(info[0].As<Napi::Number>().Int32Value());
   const char* name = av_hwdevice_get_type_name(type);
   
   if (!name) {
@@ -118,41 +86,203 @@ Napi::Value HardwareDeviceContext::GetTypeName(const Napi::CallbackInfo& info) {
   return Napi::String::New(env, name);
 }
 
-// Get all supported hardware device types
-Napi::Value HardwareDeviceContext::GetSupportedTypes(const Napi::CallbackInfo& info) {
+Napi::Value HardwareDeviceContext::IterateTypes(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  Napi::Array types = Napi::Array::New(env);
   
-  AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
+  Napi::Array types = Napi::Array::New(env);
   uint32_t index = 0;
   
+  enum AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
   while ((type = av_hwdevice_iterate_types(type)) != AV_HWDEVICE_TYPE_NONE) {
-    Napi::Object typeObj = Napi::Object::New(env);
-    typeObj.Set("type", Napi::Number::New(env, type));
-    typeObj.Set("name", Napi::String::New(env, av_hwdevice_get_type_name(type)));
-    types[index++] = typeObj;
+    types[index++] = Napi::Number::New(env, type);
   }
   
   return types;
 }
 
-// Get hardware frames constraints
-Napi::Value HardwareDeviceContext::GetHardwareFramesConstraints(const Napi::CallbackInfo& info) {
+Napi::Value HardwareDeviceContext::FindTypeByName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
+  if (info.Length() < 1 || !info[0].IsString()) {
+    Napi::TypeError::New(env, "Expected string (device name)")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  std::string name = info[0].As<Napi::String>().Utf8Value();
+  enum AVHWDeviceType type = av_hwdevice_find_type_by_name(name.c_str());
+  
+  return Napi::Number::New(env, type);
+}
+
+// === Methods ===
+
+Napi::Value HardwareDeviceContext::Alloc(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected number (AVHWDeviceType)")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (Get()) {
+    Napi::Error::New(env, "Device context already allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVHWDeviceType type = static_cast<AVHWDeviceType>(info[0].As<Napi::Number>().Int32Value());
+  
+  AVBufferRef* new_ref = av_hwdevice_ctx_alloc(type);
+  if (!new_ref) {
+    Napi::Error::New(env, "Failed to allocate hardware device context").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (device_ref_ && !is_freed_) { av_buffer_unref(&device_ref_); } device_ref_ = new_ref; is_freed_ = false;
+  return env.Undefined();
+}
+
+Napi::Value HardwareDeviceContext::Init(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVBufferRef* ref = Get();
+  if (!ref) {
+    Napi::Error::New(env, "Device context not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  int ret = av_hwdevice_ctx_init(ref);
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value HardwareDeviceContext::Create(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 2 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected (type: number, device: string | null, options: Dictionary | null)")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVHWDeviceType type = static_cast<AVHWDeviceType>(info[0].As<Napi::Number>().Int32Value());
+  
+  const char* device = nullptr;
+  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
+    if (!info[1].IsString()) {
+      Napi::TypeError::New(env, "Device must be string or null")
+          .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    static std::string device_str = info[1].As<Napi::String>().Utf8Value();
+    device = device_str.c_str();
+  }
+  
+  AVDictionary* opts = nullptr;
+  Dictionary* dict = nullptr;
+  if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined()) {
+    if (!info[2].IsObject()) {
+      Napi::TypeError::New(env, "Options must be Dictionary or null")
+          .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[2].As<Napi::Object>());
+    if (dict) {
+      opts = dict->Get();
+    }
+  }
+  
+  // Free existing context if any
+  if (device_ref_ && !is_freed_) { av_buffer_unref(&device_ref_); device_ref_ = nullptr; is_freed_ = true; }
+  unowned_ref_ = nullptr;
+  
+  AVBufferRef* new_ref = nullptr;
+  int ret = av_hwdevice_ctx_create(&new_ref, type, device, opts, 0);
+  
+  if (opts) {
+    av_dict_free(&opts);
+  }
+  
+  if (ret >= 0 && new_ref) {
+    if (device_ref_ && !is_freed_) { av_buffer_unref(&device_ref_); } device_ref_ = new_ref; is_freed_ = false;
+  }
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value HardwareDeviceContext::CreateDerived(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsNumber()) {
+    Napi::TypeError::New(env, "Expected (sourceDevice: HardwareDeviceContext, type: number)")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  HardwareDeviceContext* src = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(info[0].As<Napi::Object>());
+  if (!src || !src->Get()) {
+    Napi::Error::New(env, "Invalid source device context").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVHWDeviceType type = static_cast<AVHWDeviceType>(info[1].As<Napi::Number>().Int32Value());
+  
+  // Free existing context if any
+  if (device_ref_ && !is_freed_) { av_buffer_unref(&device_ref_); device_ref_ = nullptr; is_freed_ = true; }
+  unowned_ref_ = nullptr;
+  
+  AVBufferRef* new_ref = nullptr;
+  int ret = av_hwdevice_ctx_create_derived(&new_ref, type, src->Get(), 0);
+  
+  if (ret >= 0 && new_ref) {
+    if (device_ref_ && !is_freed_) { av_buffer_unref(&device_ref_); } device_ref_ = new_ref; is_freed_ = false;
+  }
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value HardwareDeviceContext::HwconfigAlloc(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVBufferRef* ref = Get();
+  if (!ref) {
+    Napi::Error::New(env, "Device context not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  void* hwconfig = av_hwdevice_hwconfig_alloc(ref);
+  if (!hwconfig) {
     return env.Null();
   }
   
-  AVHWFramesConstraints* constraints = av_hwdevice_get_hwframe_constraints(context_, nullptr);
+  // Return as BigInt pointer for advanced users
+  return Napi::BigInt::New(env, reinterpret_cast<uint64_t>(hwconfig));
+}
+
+Napi::Value HardwareDeviceContext::GetHwframeConstraints(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVBufferRef* ref = Get();
+  if (!ref) {
+    Napi::Error::New(env, "Device context not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  void* hwconfig = nullptr;
+  if (info.Length() > 0 && info[0].IsBigInt()) {
+    bool lossless;
+    hwconfig = reinterpret_cast<void*>(info[0].As<Napi::BigInt>().Uint64Value(&lossless));
+  }
+  
+  AVHWFramesConstraints* constraints = av_hwdevice_get_hwframe_constraints(ref, hwconfig);
   if (!constraints) {
     return env.Null();
   }
   
-  // Create constraints object
+  // Create object with constraints info
   Napi::Object obj = Napi::Object::New(env);
   
-  // Add valid hardware formats
+  // Valid pixel formats
   if (constraints->valid_hw_formats) {
     Napi::Array formats = Napi::Array::New(env);
     uint32_t index = 0;
@@ -162,7 +292,6 @@ Napi::Value HardwareDeviceContext::GetHardwareFramesConstraints(const Napi::Call
     obj.Set("validHwFormats", formats);
   }
   
-  // Add valid software formats
   if (constraints->valid_sw_formats) {
     Napi::Array formats = Napi::Array::New(env);
     uint32_t index = 0;
@@ -172,7 +301,6 @@ Napi::Value HardwareDeviceContext::GetHardwareFramesConstraints(const Napi::Call
     obj.Set("validSwFormats", formats);
   }
   
-  // Add min/max dimensions
   obj.Set("minWidth", Napi::Number::New(env, constraints->min_width));
   obj.Set("minHeight", Napi::Number::New(env, constraints->min_height));
   obj.Set("maxWidth", Napi::Number::New(env, constraints->max_width));
@@ -183,25 +311,45 @@ Napi::Value HardwareDeviceContext::GetHardwareFramesConstraints(const Napi::Call
   return obj;
 }
 
-// Resource management
 Napi::Value HardwareDeviceContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (context_) {
-    av_buffer_unref(&context_);
-    context_ = nullptr;
-  }
+  if (device_ref_ && !is_freed_) { av_buffer_unref(&device_ref_); device_ref_ = nullptr; is_freed_ = true; }
+  unowned_ref_ = nullptr;
   
   return env.Undefined();
 }
 
-Napi::Value HardwareDeviceContext::Dispose(const Napi::CallbackInfo& info) {
-  return Free(info);
+// === Properties ===
+
+Napi::Value HardwareDeviceContext::GetType(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVBufferRef* ref = Get();
+  if (!ref || !ref->data) {
+    return env.Undefined();
+  }
+  
+  AVHWDeviceContext* ctx = reinterpret_cast<AVHWDeviceContext*>(ref->data);
+  return Napi::Number::New(env, ctx->type);
 }
 
-// Get type
-Napi::Value HardwareDeviceContext::GetType(const Napi::CallbackInfo& info) {
-  return Napi::Number::New(info.Env(), type_);
+Napi::Value HardwareDeviceContext::GetHwctx(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVBufferRef* ref = Get();
+  if (!ref || !ref->data) {
+    return env.Null();
+  }
+  
+  AVHWDeviceContext* ctx = reinterpret_cast<AVHWDeviceContext*>(ref->data);
+  return Napi::BigInt::New(env, reinterpret_cast<uint64_t>(ctx->hwctx));
+}
+
+// === Utility ===
+
+Napi::Value HardwareDeviceContext::Dispose(const Napi::CallbackInfo& info) {
+  return Free(info);
 }
 
 } // namespace ffmpeg

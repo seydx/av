@@ -1,293 +1,473 @@
 import { bindings } from './binding.js';
-import { AV_CODEC_CAP_FRAME_THREADS, AV_CODEC_CAP_HARDWARE, AV_CODEC_CAP_SLICE_THREADS } from './constants.js';
+import { Rational } from './rational.js';
 
-import type { AVCodecCap, AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { AVCodecCap, AVCodecID, AVHWDeviceType, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type { NativeCodec, NativeWrapper } from './native-types.js';
-import type { ChannelLayout } from './types.js';
+import type { ChannelLayout, CodecProfile } from './types.js';
 
 /**
- * Profile information for a codec
- */
-export interface CodecProfile {
-  /** Profile identifier */
-  profile: number;
-  /** Human-readable profile name */
-  name?: string;
-}
-
-/**
- * Hardware configuration for a codec
- */
-export interface CodecHardwareConfig {
-  /** Hardware pixel format */
-  pixelFormat: AVPixelFormat;
-  /** Hardware configuration methods */
-  methods: number;
-  /** Hardware device type */
-  deviceType: number;
-}
-
-/**
- * FFmpeg codec wrapper for encoding and decoding
+ * FFmpeg codec (encoder/decoder) definition - Low Level API
  *
- * Represents an encoder or decoder that can process audio/video data.
- * Codecs are typically found using the static finder methods and then
- * used to create CodecContext instances.
+ * Direct mapping to FFmpeg's AVCodec.
+ * Represents a codec implementation (encoder or decoder).
+ * This is an immutable descriptor - actual encoding/decoding happens via CodecContext.
  *
  * @example
  * ```typescript
- * // Find a decoder by codec ID
- * const decoder = Codec.findDecoder(AV_CODEC_ID_H264);
- * if (decoder) {
- *   const context = new CodecContext(decoder);
- *   // Configure and use context...
- * }
+ * // Find decoder by ID
+ * const h264Decoder = Codec.findDecoder(AV_CODEC_ID_H264);
+ * if (!h264Decoder) throw new Error('H264 decoder not found');
  *
- * // Find an encoder by name
- * const encoder = Codec.findEncoderByName('libx264');
+ * // Find encoder by name
+ * const x264Encoder = Codec.findEncoderByName('libx264');
+ * if (!x264Encoder) throw new Error('x264 encoder not found');
+ *
+ * // Check codec capabilities
+ * console.log(`Codec: ${h264Decoder.name}`);
+ * console.log(`Long name: ${h264Decoder.longName}`);
+ * console.log(`Type: ${h264Decoder.type}`);
+ * console.log(`Is decoder: ${h264Decoder.isDecoder()}`);
+ *
+ * // Get supported formats
+ * const pixelFormats = h264Decoder.pixelFormats;
+ * console.log(`Supported pixel formats: ${pixelFormats}`);
+ *
+ * // Iterate through all codecs
+ * let iter = null;
+ * while (true) {
+ *   const result = Codec.iterateCodecs(iter);
+ *   if (!result) break;
+ *   console.log(`Found codec: ${result.codec.name}`);
+ *   iter = result.opaque;
+ * }
  * ```
  */
 export class Codec implements NativeWrapper<NativeCodec> {
-  private native: NativeCodec; // Native codec binding object
+  private native: NativeCodec;
 
+  // Constructor
   /**
-   * Create a new Codec instance
-   * @internal Generally use static finder methods instead
+   * Constructor is internal - use static factory methods.
+   * Codecs are global immutable objects managed by FFmpeg.
+   * @internal
+   *
+   * @example
+   * ```typescript
+   * // Don't use constructor directly
+   * // const codec = new Codec(); // ❌ Wrong
+   *
+   * // Use static factory methods instead
+   * const decoder = Codec.findDecoder(AV_CODEC_ID_H264); // ✅ Correct
+   * const encoder = Codec.findEncoderByName('libx264'); // ✅ Correct
+   * ```
    */
-  constructor() {
-    this.native = new bindings.Codec();
+  constructor(native: NativeCodec) {
+    this.native = native;
   }
 
   /**
-   * Find a decoder by codec ID
-   * @param id Codec ID (e.g., AV_CODEC_ID_H264)
-   * @returns The codec or null if not found
+   * Create a Codec instance from a native codec object.
+   * @internal Used by the bindings layer
+   */
+  static fromNative(native: NativeCodec | null): Codec | null {
+    if (!native) return null;
+    return new Codec(native);
+  }
+
+  // Static Methods - Low Level API
+
+  /**
+   * Find a registered decoder with a matching codec ID.
+   *
+   * Direct mapping to avcodec_find_decoder()
+   *
+   * @param id - AVCodecID of the requested decoder
+   * @returns Codec object or null if no decoder found
+   *
    * @example
    * ```typescript
    * const decoder = Codec.findDecoder(AV_CODEC_ID_H264);
+   * if (!decoder) {
+   *   throw new Error('H.264 decoder not available');
+   * }
    * ```
    */
   static findDecoder(id: AVCodecID): Codec | null {
     const native = bindings.Codec.findDecoder(id);
-    if (!native) return null;
-
-    const codec = new Codec();
-    codec.native = native;
-    return codec;
+    return native ? new Codec(native) : null;
   }
 
   /**
-   * Find a decoder by name
-   * @param name Codec name (e.g., 'h264', 'aac')
-   * @returns The codec or null if not found
+   * Find a registered decoder with the specified name.
+   *
+   * Direct mapping to avcodec_find_decoder_by_name()
+   *
+   * @param name - Name of the requested decoder
+   * @returns Codec object or null if no decoder found
+   *
    * @example
    * ```typescript
    * const decoder = Codec.findDecoderByName('h264');
+   * // Can also use specific implementations:
+   * const decoder = Codec.findDecoderByName('h264_cuvid'); // NVIDIA hardware decoder
    * ```
    */
   static findDecoderByName(name: string): Codec | null {
     const native = bindings.Codec.findDecoderByName(name);
-    if (!native) return null;
-
-    const codec = new Codec();
-    codec.native = native;
-    return codec;
+    return native ? new Codec(native) : null;
   }
 
   /**
-   * Find an encoder by codec ID
-   * @param id Codec ID (e.g., AV_CODEC_ID_H264)
-   * @returns The codec or null if not found
+   * Find a registered encoder with a matching codec ID.
+   *
+   * Direct mapping to avcodec_find_encoder()
+   *
+   * @param id - AVCodecID of the requested encoder
+   * @returns Codec object or null if no encoder found
+   *
    * @example
    * ```typescript
    * const encoder = Codec.findEncoder(AV_CODEC_ID_H264);
+   * if (!encoder) {
+   *   throw new Error('H.264 encoder not available');
+   * }
    * ```
    */
   static findEncoder(id: AVCodecID): Codec | null {
     const native = bindings.Codec.findEncoder(id);
-    if (!native) return null;
-
-    const codec = new Codec();
-    codec.native = native;
-    return codec;
+    return native ? new Codec(native) : null;
   }
 
   /**
-   * Find an encoder by name
-   * @param name Codec name (e.g., 'libx264', 'libopus')
-   * @returns The codec or null if not found
+   * Find a registered encoder with the specified name.
+   *
+   * Direct mapping to avcodec_find_encoder_by_name()
+   *
+   * @param name - Name of the requested encoder
+   * @returns Codec object or null if no encoder found
+   *
    * @example
    * ```typescript
-   * const encoder = Codec.findEncoderByName('libx264');
+   * // Find specific encoder implementation
+   * const encoder = Codec.findEncoderByName('libx264');    // Software H.264 encoder
+   * const encoder = Codec.findEncoderByName('h264_nvenc'); // NVIDIA hardware encoder
+   * const encoder = Codec.findEncoderByName('h264_vaapi'); // VAAPI hardware encoder
    * ```
    */
   static findEncoderByName(name: string): Codec | null {
     const native = bindings.Codec.findEncoderByName(name);
-    if (!native) return null;
-
-    const codec = new Codec();
-    codec.native = native;
-    return codec;
+    return native ? new Codec(native) : null;
   }
 
   /**
-   * Get all available codecs
+   * Get list of all available codecs.
+   *
+   * Internally uses av_codec_iterate() to collect all codecs.
+   *
    * @returns Array of all registered codecs
+   *
+   * @example
+   * ```typescript
+   * const codecs = Codec.getCodecList();
+   * const videoEncoders = codecs.filter(c =>
+   *   c.type === AVMEDIA_TYPE_VIDEO && c.isEncoder()
+   * );
+   * console.log(`Found ${videoEncoders.length} video encoders`);
+   * ```
+   *
+   * @note This loads all codecs at once. For large codec lists,
+   *       consider using iterateCodecs() instead.
+   *
+   * @see iterateCodecs() - For memory-efficient iteration
    */
-  static getAllCodecs(): Codec[] {
-    try {
-      const natives = bindings.Codec.getAllCodecs();
-      return natives.map((native) => Codec.fromNative(native));
-    } catch (error) {
-      console.warn('Failed to get all codecs:', error);
-      return [];
-    }
+  static getCodecList(): Codec[] {
+    const natives = bindings.Codec.getCodecList();
+    return natives.map((n: NativeCodec) => new Codec(n));
   }
 
   /**
-   * Create a Codec instance from a native codec object
-   * @internal
+   * Iterate through codecs one by one.
+   * More memory efficient than getCodecList() for large codec lists.
+   *
+   * Direct mapping to av_codec_iterate()
+   *
+   * @param opaque - Iterator state (null to start, or value from previous call)
+   * @returns Object with codec and next iterator state, or null when done
+   *
+   * @example
+   * ```typescript
+   * let opaque = null;
+   * while (true) {
+   *   const result = Codec.iterateCodecs(opaque);
+   *   if (!result) break;
+   *
+   *   const codec = result.codec;
+   *   if (codec.type === AVMEDIA_TYPE_VIDEO && codec.isEncoder()) {
+   *     console.log(`Video encoder: ${codec.name}`);
+   *   }
+   *
+   *   opaque = result.opaque;
+   * }
+   * ```
+   *
+   * @see getCodecList() - To get all codecs at once
    */
-  static fromNative(nativeCodec: NativeCodec): Codec {
-    const codec = new Codec();
-    codec.native = nativeCodec;
-    return codec;
+  static iterateCodecs(opaque: bigint | null = null): { codec: Codec; opaque: bigint } | null {
+    const result = bindings.Codec.iterateCodecs(opaque);
+    if (!result) return null;
+
+    return {
+      codec: new Codec(result.codec),
+      opaque: result.opaque,
+    };
   }
 
+  // Getter Properties
+
   /**
-   * Get the codec short name
+   * Short name of the codec.
+   *
+   * Direct mapping to AVCodec->name
+   * Typically matches the name of the codec specification.
+   * For example: "h264", "aac", "vp9", "opus"
    */
   get name(): string | null {
     return this.native.name;
   }
 
   /**
-   * Get the codec long descriptive name
+   * Descriptive name for the codec.
+   *
+   * Direct mapping to AVCodec->long_name
+   * More human-readable than name.
+   * For example: "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10"
    */
   get longName(): string | null {
     return this.native.longName;
   }
 
   /**
-   * Get the codec ID
-   */
-  get id(): AVCodecID {
-    return this.native.id;
-  }
-
-  /**
-   * Get the media type (audio/video/subtitle)
+   * Media type handled by this codec.
+   *
+   * Direct mapping to AVCodec->type
+   * AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_SUBTITLE, etc.
    */
   get type(): AVMediaType {
     return this.native.type;
   }
 
   /**
-   * Get codec capabilities flags
+   * Codec ID.
+   *
+   * Direct mapping to AVCodec->id
+   * Unique identifier for this codec type (AV_CODEC_ID_H264, AV_CODEC_ID_AAC, etc.)
+   */
+  get id(): AVCodecID {
+    return this.native.id;
+  }
+
+  /**
+   * Codec capabilities.
+   *
+   * Direct mapping to AVCodec->capabilities
+   * Bitfield of AV_CODEC_CAP_* flags describing codec features.
    */
   get capabilities(): AVCodecCap {
     return this.native.capabilities;
   }
 
   /**
-   * Check if this is a decoder
-   * @returns true if the codec can decode
+   * Maximum lowres value supported by the decoder.
+   *
+   * Lowres decoding allows decoding at reduced resolution for faster preview.
+   * 0 means lowres decoding is not supported.
+   * 1 means 1/2 resolution is supported.
+   * 2 means 1/4 resolution is supported.
+   * 3 means 1/8 resolution is supported.
+   * @readonly
    */
-  isDecoder(): boolean {
-    return this.native.isDecoder();
+  get maxLowres(): number {
+    return this.native.maxLowres;
   }
 
   /**
-   * Check if this is an encoder
-   * @returns true if the codec can encode
+   * Array of supported codec profiles.
+   *
+   * Profiles define subsets of codec features.
+   * For example, H.264 has Baseline, Main, High profiles.
+   * null if codec doesn't support profiles or none are defined.
+   * @readonly
+   */
+  get profiles(): CodecProfile[] | null {
+    return this.native.profiles;
+  }
+
+  /**
+   * Group name of the codec implementation.
+   *
+   * This is a short symbolic name of the wrapper backing this codec.
+   * For example "lavc" for internal codecs, "libopenh264" for OpenH264 wrapper.
+   * null if codec is not wrapped.
+   * @readonly
+   */
+  get wrapper(): string | null {
+    return this.native.wrapper;
+  }
+
+  /**
+   * Supported framerates (video only).
+   *
+   * Terminated by {0,0}. null if any framerate is supported.
+   * Some codecs like MPEG-1/2 only support specific framerates.
+   * @readonly
+   */
+  get supportedFramerates(): Rational[] | null {
+    const rates = this.native.supportedFramerates;
+    if (!rates) return null;
+    return rates.map((r) => new Rational(r.num, r.den));
+  }
+
+  /**
+   * Array of supported pixel formats (video only).
+   *
+   * Terminated by AV_PIX_FMT_NONE. null if unknown.
+   * Lists all pixel formats this codec can encode/decode.
+   * @readonly
+   */
+  get pixelFormats(): AVPixelFormat[] | null {
+    return this.native.pixelFormats;
+  }
+
+  /**
+   * Supported sample rates (audio only).
+   *
+   * Terminated by 0. null if any sample rate is supported.
+   * Common rates: 8000, 16000, 22050, 44100, 48000, 96000, 192000 Hz.
+   * @readonly
+   */
+  get supportedSamplerates(): number[] | null {
+    return this.native.supportedSamplerates;
+  }
+
+  /**
+   * Array of supported sample formats (audio only).
+   *
+   * Terminated by AV_SAMPLE_FMT_NONE. null if unknown.
+   * Lists all sample formats this codec can encode/decode.
+   * Common formats: S16, S32, FLT, DBL (planar and interleaved variants).
+   * @readonly
+   */
+  get sampleFormats(): AVSampleFormat[] | null {
+    return this.native.sampleFormats;
+  }
+
+  /**
+   * Array of supported channel layouts (audio only).
+   *
+   * Lists all channel configurations this codec supports.
+   * Common layouts: mono, stereo, 5.1, 7.1.
+   * null if unknown or all layouts are supported.
+   * @readonly
+   */
+  get channelLayouts(): ChannelLayout[] | null {
+    return this.native.channelLayouts;
+  }
+
+  // Public Methods
+
+  /**
+   * Check if the codec is an encoder.
+   *
+   * Direct mapping to av_codec_is_encoder()
+   *
+   * @returns true if the codec is an encoder, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const codec = Codec.findEncoderByName('libx264');
+   * if (codec && codec.isEncoder()) {
+   *   console.log('Found H.264 encoder');
+   * }
+   * ```
    */
   isEncoder(): boolean {
     return this.native.isEncoder();
   }
 
   /**
-   * Get supported pixel formats
-   * @returns Array of supported pixel formats
+   * Check if the codec is a decoder.
+   *
+   * Direct mapping to av_codec_is_decoder()
+   *
+   * @returns true if the codec is a decoder, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
+   * if (codec && codec.isDecoder()) {
+   *   console.log('Found H.264 decoder');
+   * }
+   * ```
    */
-  getPixelFormats(): AVPixelFormat[] {
-    return this.native.getPixelFormats();
+  isDecoder(): boolean {
+    return this.native.isDecoder();
   }
 
   /**
-   * Get supported sample formats
-   * @returns Array of supported sample formats
+   * Check if the codec is experimental.
+   *
+   * Experimental codecs require explicit allowance to use.
+   * You must set strict_std_compliance to FF_COMPLIANCE_EXPERIMENTAL
+   * or lower in the codec context to use experimental codecs.
+   *
+   * @returns true if the codec is experimental, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const codec = Codec.findEncoderByName('some_experimental_codec');
+   * if (codec && codec.isExperimental()) {
+   *   console.warn('This codec is experimental and may not be stable');
+   *   // codecContext.strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+   * }
+   * ```
    */
-  getSampleFormats(): AVSampleFormat[] {
-    return this.native.getSampleFormats();
+  isExperimental(): boolean {
+    return this.native.isExperimental();
   }
 
   /**
-   * Get supported sample rates
-   * @returns Array of supported sample rates in Hz
+   * Get hardware configuration at specified index.
+   *
+   * Direct mapping to avcodec_get_hw_config()
+   *
+   * @param index - Configuration index (0-based)
+   * @returns Hardware configuration or null if not available
+   *
+   * @example
+   * ```typescript
+   * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
+   * for (let i = 0; ; i++) {
+   *   const config = codec.getHwConfig(i);
+   *   if (!config) break;
+   *
+   *   if (config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) {
+   *     console.log(`Supports device type: ${config.deviceType}`);
+   *   }
+   * }
+   * ```
    */
-  getSampleRates(): number[] {
-    return this.native.getSampleRates();
+  getHwConfig(index: number): {
+    pixFmt: AVPixelFormat;
+    methods: number;
+    deviceType: AVHWDeviceType;
+  } | null {
+    return this.native.getHwConfig(index);
   }
 
-  /**
-   * Get supported channel layouts
-   * @returns Array of supported channel layouts
-   */
-  getChannelLayouts(): ChannelLayout[] {
-    return this.native.getChannelLayouts();
-  }
+  // Internal Methods
 
   /**
-   * Get supported profiles
-   * @returns Array of codec profiles
-   */
-  getProfiles(): CodecProfile[] {
-    return this.native.getProfiles();
-  }
-
-  /**
-   * Get hardware configurations for this codec
-   * @returns Array of hardware configurations
-   */
-  getHardwareConfigs(): CodecHardwareConfig[] {
-    return this.native.getHardwareConfigs();
-  }
-
-  /**
-   * Check if codec has a specific capability
-   * @param cap Capability flag to check
-   * @returns true if the codec has the capability
-   */
-  hasCapability(cap: AVCodecCap): boolean {
-    return (this.capabilities & cap) !== 0;
-  }
-
-  /**
-   * Check if codec supports hardware acceleration
-   * @returns true if hardware acceleration is supported
-   */
-  supportsHardware(): boolean {
-    return this.hasCapability(AV_CODEC_CAP_HARDWARE);
-  }
-
-  /**
-   * Check if codec supports multithreading
-   * @returns true if frame or slice threading is supported
-   */
-  supportsMultithreading(): boolean {
-    return this.hasCapability(AV_CODEC_CAP_FRAME_THREADS) || this.hasCapability(AV_CODEC_CAP_SLICE_THREADS);
-  }
-
-  /**
-   * Get string representation of the codec
-   * @returns The codec name or 'unknown'
-   */
-  toString(): string {
-    return this.name ?? 'unknown';
-  }
-
-  /**
-   * Get native codec for internal use
+   * Get the native codec object for use with C++ bindings
    * @internal
    */
   getNative(): NativeCodec {

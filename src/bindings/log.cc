@@ -1,181 +1,234 @@
-// FFmpeg logging implementation for Node.js bindings
-
-#include <napi.h>
-#include <mutex>
-#include <string>
-#include <cstdio>
-#include <cstdarg>
-
-extern "C" {
-#include <libavutil/log.h>
-}
+#include "log.h"
+#include <thread>
+#include <atomic>
 
 namespace ffmpeg {
 
-// Structure to pass log data to JavaScript
-struct LogData {
-  int level;
-  std::string message;
-};
+// Static member definitions
+Napi::FunctionReference Log::constructor;
+Napi::ThreadSafeFunction Log::tsfn = nullptr;
+std::atomic<bool> Log::callback_active(false);
+std::atomic<int> Log::callback_max_level(AV_LOG_INFO);
+std::queue<std::pair<int, std::string>> Log::log_queue;
+std::mutex Log::queue_mutex;
+std::condition_variable Log::queue_cv;
 
-// Global callback reference
-static Napi::ThreadSafeFunction tsfn;
-static std::mutex callback_mutex;
-static bool callback_active = false;
+// === Init ===
 
-// FFmpeg log callback that forwards to Node.js
-static void LogCallback(void* avcl, int level, const char* fmt, va_list vl) {
-  // Check log level first (like go-astiav does)
-  if (level > av_log_get_level()) {
-    return;
+Napi::Object Log::Init(Napi::Env env, Napi::Object exports) {
+  Napi::Function func = DefineClass(env, "Log", {
+    // Static methods
+    StaticMethod<&Log::SetLevel>("setLevel"),
+    StaticMethod<&Log::GetLevel>("getLevel"),
+    StaticMethod<&Log::SetCallback>("setCallback"),
+    StaticMethod<&Log::ResetCallback>("resetCallback"),
+    StaticMethod<&Log::LogMessage>("log"),
+  });
+  
+  constructor = Napi::Persistent(func);
+  constructor.SuppressDestruct();
+  
+  exports.Set("Log", func);
+  return exports;
+}
+
+// === Lifecycle ===
+
+Log::Log(const Napi::CallbackInfo& info) 
+  : Napi::ObjectWrap<Log>(info) {
+  // This class should not be instantiated
+  Napi::Error::New(info.Env(), "Log class cannot be instantiated").ThrowAsJavaScriptException();
+}
+
+Log::~Log() {
+  // Nothing to clean up
+}
+
+// === Static Methods ===
+
+Napi::Value Log::SetLevel(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected number (log level)").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
   
-  // Quick check without lock
-  if (!callback_active) {
+  int level = info[0].As<Napi::Number>().Int32Value();
+  av_log_set_level(level);
+  
+  return env.Undefined();
+}
+
+Napi::Value Log::GetLevel(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  return Napi::Number::New(env, av_log_get_level());
+}
+
+Napi::Value Log::SetCallback(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected callback function and optional options").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // First argument must be a function or null
+  if (!info[0].IsFunction() && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::TypeError::New(env, "First argument must be a function or null").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Clean up existing callback if any
+  if (callback_active.load()) {
+    callback_active.store(false);
+    queue_cv.notify_all();  // Wake up worker thread
+    
+    if (tsfn) {
+      tsfn.Release();
+      tsfn = nullptr;
+    }
+    
+    // Clear queue
+    {
+      std::lock_guard<std::mutex> lock(queue_mutex);
+      std::queue<std::pair<int, std::string>> empty;
+      log_queue.swap(empty);
+    }
+  }
+  
+  // Reset if null/undefined
+  if (info[0].IsNull() || info[0].IsUndefined()) {
+    av_log_set_callback(av_log_default_callback);
+    return env.Undefined();
+  }
+  
+  // Parse options if provided
+  int maxLevel = AV_LOG_INFO;
+  if (info.Length() >= 2 && info[1].IsObject()) {
+    Napi::Object options = info[1].As<Napi::Object>();
+    
+    // maxLevel option
+    if (options.Has("maxLevel")) {
+      Napi::Value maxLevelVal = options.Get("maxLevel");
+      if (maxLevelVal.IsNumber()) {
+        maxLevel = maxLevelVal.As<Napi::Number>().Int32Value();
+      }
+    }
+  }
+  
+  callback_max_level.store(maxLevel);
+  
+  // Create ThreadSafeFunction for non-blocking callback
+  tsfn = Napi::ThreadSafeFunction::New(
+    env,
+    info[0].As<Napi::Function>(),  // JavaScript function
+    "FFmpegLogCallback",            // Resource name
+    0,                              // Unlimited queue
+    1                               // Only one thread
+  );
+  
+  callback_active.store(true);
+  
+  // Set our C callback
+  av_log_set_callback(LogCallback);
+  
+  return env.Undefined();
+}
+
+Napi::Value Log::LogMessage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected 2 arguments (level, message)").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Level must be a number").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!info[1].IsString()) {
+    Napi::TypeError::New(env, "Message must be a string").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  int level = info[0].As<Napi::Number>().Int32Value();
+  std::string message = info[1].As<Napi::String>().Utf8Value();
+  
+  // Call av_log with the message
+  av_log(nullptr, level, "%s", message.c_str());
+  
+  return env.Undefined();
+}
+
+Napi::Value Log::ResetCallback(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  // Use internal cleanup (but use Release instead of Abort for normal cleanup)
+  av_log_set_callback(av_log_default_callback);
+  
+  callback_active.store(false);
+  queue_cv.notify_all();
+  
+  if (tsfn) {
+    tsfn.Release();  // Use Release for graceful shutdown
+    tsfn = nullptr;
+  }
+  
+  {
+    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::queue<std::pair<int, std::string>> empty;
+    log_queue.swap(empty);
+  }
+  
+  return env.Undefined();
+}
+
+// === Internal ===
+
+void Log::LogCallback(void* ptr, int level, const char* fmt, va_list vl) {
+  // Early exit if not active or level filtered
+  if (!callback_active.load() || level > callback_max_level.load()) {
     return;
   }
   
   // Format the message
-  char buffer[2048];
+  char buffer[4096];
   vsnprintf(buffer, sizeof(buffer), fmt, vl);
   
   // Remove trailing newline if present
-  std::string message(buffer);
-  if (!message.empty() && message.back() == '\n') {
-    message.pop_back();
+  size_t len = strlen(buffer);
+  if (len > 0 && buffer[len - 1] == '\n') {
+    buffer[len - 1] = '\0';
   }
   
-  // Create log data
-  auto* data = new LogData{level, message};
+  // Create message pair
+  auto message = std::make_pair(level, std::string(buffer));
   
-  // Call JavaScript callback asynchronously
-  // BlockingCall would deadlock, NonBlockingCall might drop messages, so we use NonBlockingCall
-  napi_status status = tsfn.NonBlockingCall(data, [](Napi::Env env, Napi::Function jsCallback, LogData* data) {
-    if (data != nullptr) {
-      // Call the JavaScript callback with proper error handling
-      napi_value result;
-      napi_value args[2];
-      args[0] = Napi::Number::New(env, data->level);
-      args[1] = Napi::String::New(env, data->message);
-      
-      // Use napi_make_callback for proper async context
-      napi_status status = napi_make_callback(
-        env,
-        nullptr,  // async_context
-        env.Global(),
-        jsCallback,
-        2,
-        args,
-        &result
-      );
-      
-      // If there was an exception, clear it
-      if (status != napi_ok) {
-        bool has_exception = false;
-        napi_is_exception_pending(env, &has_exception);
-        if (has_exception) {
-          napi_value exception;
-          napi_get_and_clear_last_exception(env, &exception);
-        }
+  // Non-blocking send to JavaScript
+  if (tsfn) {
+    // Use ThreadSafeFunction to call JavaScript callback
+    // This is non-blocking and thread-safe
+    auto* data = new std::pair<int, std::string>(std::move(message));
+    
+    napi_status status = tsfn.NonBlockingCall(data, [](Napi::Env env, Napi::Function jsCallback, std::pair<int, std::string>* data) {
+      if (data != nullptr) {
+        jsCallback.Call({
+          Napi::Number::New(env, data->first),
+          Napi::String::New(env, data->second)
+        });
+        delete data;
       }
-      
+    });
+    
+    // If the queue is full (which shouldn't happen with unlimited queue),
+    // we just drop the message rather than blocking
+    if (status != napi_ok && data != nullptr) {
       delete data;
     }
-  });
-  
-  // If the call failed (queue full), clean up
-  if (status != napi_ok) {
-    delete data;
   }
 }
-
-class Log {
-public:
-  // Set the log level
-  static Napi::Value SetLogLevel(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    if (info.Length() < 1 || !info[0].IsNumber()) {
-      Napi::TypeError::New(env, "Expected number argument").ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-    
-    int level = info[0].As<Napi::Number>().Int32Value();
-    av_log_set_level(level);
-    
-    return env.Undefined();
-  }
-  
-  // Get the current log level
-  static Napi::Value GetLogLevel(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    int level = av_log_get_level();
-    return Napi::Number::New(env, level);
-  }
-  
-  // Set the log callback
-  static Napi::Value SetLogCallback(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    
-    std::lock_guard<std::mutex> lock(callback_mutex);
-    
-    // If null or undefined is passed, remove the callback
-    if (info.Length() < 1 || info[0].IsNull() || info[0].IsUndefined()) {
-      if (callback_active) {
-        callback_active = false;
-        av_log_set_callback(av_log_default_callback);
-        // Abort the thread-safe function to ensure it stops
-        tsfn.Abort();
-      }
-      return env.Undefined();
-    }
-    
-    // Validate callback function
-    if (!info[0].IsFunction()) {
-      Napi::TypeError::New(env, "Expected function argument").ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-    
-    // Clean up previous callback if any
-    if (callback_active) {
-      callback_active = false;
-      tsfn.Abort();
-    }
-    
-    // Create new thread-safe function
-    tsfn = Napi::ThreadSafeFunction::New(
-      env,
-      info[0].As<Napi::Function>(),
-      "FFmpegLogCallback",
-      0,  // Unlimited queue
-      1   // One thread
-    );
-    
-    // Unref the thread-safe function so it doesn't keep the event loop alive
-    tsfn.Unref(env);
-    
-    // Activate callback
-    callback_active = true;
-    
-    // Set the FFmpeg callback
-    av_log_set_callback(LogCallback);
-    
-    return env.Undefined();
-  }
-  
-  // Initialize exports
-  static void Init(Napi::Env env, Napi::Object exports) {
-    exports.Set("setLogLevel", Napi::Function::New(env, SetLogLevel));
-    exports.Set("getLogLevel", Napi::Function::New(env, GetLogLevel));
-    exports.Set("setLogCallback", Napi::Function::New(env, SetLogCallback));
-  }
-};
 
 } // namespace ffmpeg
-
-// Export the initialization function
-namespace ffmpeg {
-  void InitLog(Napi::Env env, Napi::Object exports) {
-    Log::Init(env, exports);
-  }
-}

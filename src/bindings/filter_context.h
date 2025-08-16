@@ -6,88 +6,97 @@
 
 extern "C" {
 #include <libavfilter/avfilter.h>
-#include <libavfilter/buffersrc.h>
-#include <libavfilter/buffersink.h>
 }
 
 namespace ffmpeg {
 
 // Forward declarations
-class Frame;
 class Filter;
+class FilterGraph;
 
-// FilterContext wrapper for filter instance access
 class FilterContext : public Napi::ObjectWrap<FilterContext> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
+  FilterContext(const Napi::CallbackInfo& info);
+  ~FilterContext();
+  
+  // Native access
+  AVFilterContext* Get() { 
+    return ctx_ ? ctx_ : unowned_ctx_; 
+  }
+  void SetOwned(AVFilterContext* ctx) { 
+    // Free old context if exists
+    if (ctx_ && !is_freed_) {
+      avfilter_free(ctx_);
+    }
+    ctx_ = ctx;
+    unowned_ctx_ = nullptr;
+    is_freed_ = false;
+  }
+  void SetUnowned(AVFilterContext* ctx) { 
+    // For contexts owned by FilterGraph
+    if (ctx_ && !is_freed_) {
+      avfilter_free(ctx_);
+    }
+    ctx_ = nullptr;
+    unowned_ctx_ = ctx;
+    is_freed_ = true;  // Mark as freed since we don't own it
+  }
+
+private:
+  // Friend classes
+  friend class Filter;
+  friend class FilterGraph;
+  friend class FilterInOut;
+  
+  // Static members
   static Napi::FunctionReference constructor;
   
-  FilterContext(const Napi::CallbackInfo& info);
-  ~FilterContext() = default;
+  // Resources
+  AVFilterContext* ctx_ = nullptr;  // For owned contexts - Manual RAII
+  AVFilterContext* unowned_ctx_ = nullptr; // For graph-owned contexts
+  bool is_freed_ = false;
   
-  // Properties
+  // === Methods ===
+  
+  // Operations
+  Napi::Value Init(const Napi::CallbackInfo& info);
+  Napi::Value InitStr(const Napi::CallbackInfo& info);
+  Napi::Value Link(const Napi::CallbackInfo& info);
+  Napi::Value Unlink(const Napi::CallbackInfo& info);
+  Napi::Value Free(const Napi::CallbackInfo& info);
+  Napi::Value SetOpt(const Napi::CallbackInfo& info);
+  Napi::Value OptSetBin(const Napi::CallbackInfo& info);
+  
+  // Buffer source/sink operations
+  Napi::Value BuffersrcAddFrame(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetFrame(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkSetFrameSize(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetTimeBase(const Napi::CallbackInfo& info);
+  
+  // === Properties ===
+  
+  // name
   Napi::Value GetName(const Napi::CallbackInfo& info);
-  Napi::Value GetFilterName(const Napi::CallbackInfo& info);
+  void SetName(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  // filter
   Napi::Value GetFilter(const Napi::CallbackInfo& info);
+  
+  // graph
+  Napi::Value GetGraph(const Napi::CallbackInfo& info);
+  
+  // nbInputs
   Napi::Value GetNbInputs(const Napi::CallbackInfo& info);
+  
+  // nbOutputs
   Napi::Value GetNbOutputs(const Napi::CallbackInfo& info);
   
-  // Methods
-  Napi::Value AddFrame(const Napi::CallbackInfo& info);
-  Napi::Value AddFrameAsync(const Napi::CallbackInfo& info);
-  Napi::Value GetFrame(const Napi::CallbackInfo& info);
-  Napi::Value GetFrameAsync(const Napi::CallbackInfo& info);
-  Napi::Value SetFrameSize(const Napi::CallbackInfo& info);
+  // ready
+  Napi::Value GetReady(const Napi::CallbackInfo& info);
   
-  // Resource management
-  Napi::Value Free(const Napi::CallbackInfo& info);
+  // Utility
   Napi::Value Dispose(const Napi::CallbackInfo& info);
-  
-  // Internal use
-  void SetContext(AVFilterContext* ctx) { context_ = ctx; }
-  AVFilterContext* GetContext() const { return context_; }
-
-private:
-  AVFilterContext* context_;
-};
-
-// Async workers for filter operations
-class AddFrameWorker : public Napi::AsyncWorker {
-public:
-  AddFrameWorker(
-    Napi::Promise::Deferred deferred,
-    AVFilterContext* context,
-    AVFrame* frame
-  );
-  
-  void Execute() override;
-  void OnOK() override;
-  void OnError(const Napi::Error& error) override;
-
-private:
-  Napi::Promise::Deferred deferred_;
-  AVFilterContext* context_;
-  AVFrame* frame_;
-  int result_;
-};
-
-class GetFrameWorker : public Napi::AsyncWorker {
-public:
-  GetFrameWorker(
-    Napi::Promise::Deferred deferred,
-    AVFilterContext* context,
-    AVFrame* frame
-  );
-  
-  void Execute() override;
-  void OnOK() override;
-  void OnError(const Napi::Error& error) override;
-
-private:
-  Napi::Promise::Deferred deferred_;
-  AVFilterContext* context_;
-  AVFrame* frame_;
-  int result_;
 };
 
 } // namespace ffmpeg

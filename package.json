@@ -29,21 +29,21 @@
     "node-addon-api": "^8.5.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin": "^5.2.2",
+    "@stylistic/eslint-plugin": "^5.2.3",
     "@types/debug": "^4.1.12",
-    "@types/node": "^24.2.0",
+    "@types/node": "^24.2.1",
     "@types/pngjs": "^6.0.5",
-    "@typescript-eslint/parser": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.1",
     "concurrently": "^9.2.0",
-    "eslint": "^9.32.0",
+    "eslint": "^9.33.0",
     "globals": "^16.3.0",
     "node-gyp": "^11.3.0",
     "pngjs": "^7.0.0",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
-    "tsx": "^4.20.3",
+    "tsx": "^4.20.4",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0",
+    "typescript-eslint": "^8.39.1",
     "updates": "^16.6.2"
   },
   "gypfile": true

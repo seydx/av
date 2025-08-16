@@ -1,197 +1,301 @@
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import { AV_DICT_DONT_OVERWRITE, Dictionary } from '../src/lib/index.js';
+import { AV_DICT_IGNORE_SUFFIX, AV_DICT_MATCH_CASE, AV_DICT_NONE, Dictionary } from '../src/lib/index.js';
 
 describe('Dictionary', () => {
-  it('should create a new dictionary', () => {
-    const dict = new Dictionary();
-    assert(dict);
-    assert.strictEqual(dict.count, 0);
+  let dict: Dictionary;
+
+  beforeEach(() => {
+    dict = new Dictionary();
   });
 
-  it('should set and get values', () => {
-    const dict = new Dictionary();
-
-    dict.set('key1', 'value1');
-    assert.strictEqual(dict.get('key1'), 'value1');
-    assert.strictEqual(dict.count, 1);
-
-    dict.set('key2', 'value2');
-    assert.strictEqual(dict.get('key2'), 'value2');
-    assert.strictEqual(dict.count, 2);
-
-    // Non-existent key
-    assert.strictEqual(dict.get('nonexistent'), null);
+  afterEach(() => {
+    try {
+      dict.free();
+    } catch {
+      // Dictionary might already be freed
+    }
   });
 
-  it('should check if key exists', () => {
-    const dict = new Dictionary();
+  describe('Lifecycle', () => {
+    it('should create an empty dictionary', () => {
+      assert.ok(dict);
+      assert.equal(dict.count(), 0);
+    });
 
-    dict.set('exists', 'yes');
-    assert(dict.has('exists'));
-    assert(!dict.has('nonexistent'));
-  });
+    it('should allocate and free a dictionary', () => {
+      dict.alloc();
+      assert.equal(dict.count(), 0);
+      
+      dict.free();
+      // After free, we can't test properties as dictionary is freed
+    });
 
-  it('should delete entries', () => {
-    const dict = new Dictionary();
-
-    dict.set('key1', 'value1');
-    dict.set('key2', 'value2');
-    assert.strictEqual(dict.count, 2);
-
-    dict.delete('key1');
-    assert.strictEqual(dict.count, 1);
-    assert(!dict.has('key1'));
-    assert(dict.has('key2'));
-  });
-
-  it('should clear all entries', () => {
-    const dict = new Dictionary();
-
-    dict.set('key1', 'value1');
-    dict.set('key2', 'value2');
-    dict.set('key3', 'value3');
-    assert.strictEqual(dict.count, 3);
-
-    dict.clear();
-    assert.strictEqual(dict.count, 0);
-    assert(!dict.has('key1'));
-  });
-
-  it('should get all entries', () => {
-    const dict = new Dictionary();
-
-    dict.set('key1', 'value1');
-    dict.set('key2', 'value2');
-    dict.set('key3', 'value3');
-
-    const all = dict.getAll();
-    assert.deepStrictEqual(all, {
-      key1: 'value1',
-      key2: 'value2',
-      key3: 'value3',
+    it('should support using statement for automatic disposal', () => {
+      using testDict = new Dictionary();
+      testDict.set('key', 'value', AV_DICT_NONE);
+      assert.ok(testDict);
+      // testDict will be automatically disposed when leaving scope
     });
   });
 
-  it('should parse string', () => {
-    const dict = new Dictionary();
+  describe('Basic Operations', () => {
+    it('should set and get values', () => {
+      const ret = dict.set('key1', 'value1', AV_DICT_NONE);
+      assert.equal(ret, 0);
+      
+      const value = dict.get('key1', AV_DICT_NONE);
+      assert.equal(value, 'value1');
+      
+      assert.equal(dict.count(), 1);
+    });
 
-    dict.parseString('key1=value1 key2=value2 key3=value3');
-    assert.strictEqual(dict.count, 3);
-    assert.strictEqual(dict.get('key1'), 'value1');
-    assert.strictEqual(dict.get('key2'), 'value2');
-    assert.strictEqual(dict.get('key3'), 'value3');
+    it('should handle multiple key-value pairs', () => {
+      dict.set('key1', 'value1', AV_DICT_NONE);
+      dict.set('key2', 'value2', AV_DICT_NONE);
+      dict.set('key3', 'value3', AV_DICT_NONE);
+      
+      assert.equal(dict.count(), 3);
+      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
+      assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
+      assert.equal(dict.get('key3', AV_DICT_NONE), 'value3');
+    });
 
-    // Custom separators
-    const dict2 = new Dictionary();
-    dict2.parseString('a:1,b:2,c:3', ':', ',');
-    assert.strictEqual(dict2.get('a'), '1');
-    assert.strictEqual(dict2.get('b'), '2');
-    assert.strictEqual(dict2.get('c'), '3');
+    it('should overwrite existing values', () => {
+      dict.set('key1', 'value1', AV_DICT_NONE);
+      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
+      
+      dict.set('key1', 'newvalue', AV_DICT_NONE);
+      assert.equal(dict.get('key1', AV_DICT_NONE), 'newvalue');
+      assert.equal(dict.count(), 1); // Should still be 1 entry
+    });
+
+    it('should return null for non-existent keys', () => {
+      const value = dict.get('nonexistent', AV_DICT_NONE);
+      assert.equal(value, null);
+    });
+
+    it('should handle empty string values', () => {
+      dict.set('empty', '', AV_DICT_NONE);
+      assert.equal(dict.get('empty', AV_DICT_NONE), '');
+      assert.equal(dict.count(), 1);
+    });
   });
 
-  it('should convert to string', () => {
-    const dict = new Dictionary();
+  describe('Case Sensitivity', () => {
+    it('should be case-insensitive by default', () => {
+      dict.set('Key1', 'value1', AV_DICT_NONE);
+      
+      // Should find with different case
+      const value = dict.get('key1', AV_DICT_NONE);
+      assert.equal(value, 'value1');
+    });
 
-    dict.set('key1', 'value1');
-    dict.set('key2', 'value2');
-
-    const str = dict.toString();
-    assert(str.includes('key1=value1'));
-    assert(str.includes('key2=value2'));
-
-    // Custom separators
-    const str2 = dict.toString(':', ',');
-    assert(str2.includes('key1:value1'));
-    assert(str2.includes('key2:value2'));
+    it('should be case-sensitive with AV_DICT_MATCH_CASE flag', () => {
+      dict.set('Key1', 'value1', AV_DICT_MATCH_CASE);
+      
+      // Should not find with different case
+      const value1 = dict.get('key1', AV_DICT_MATCH_CASE);
+      assert.equal(value1, null);
+      
+      // Should find with exact case
+      const value2 = dict.get('Key1', AV_DICT_MATCH_CASE);
+      assert.equal(value2, 'value1');
+    });
   });
 
-  it('should copy dictionary', () => {
-    const dict1 = new Dictionary();
-    dict1.set('key1', 'value1');
-    dict1.set('key2', 'value2');
-
-    const dict2 = dict1.copy();
-    assert.strictEqual(dict2.count, 2);
-    assert.strictEqual(dict2.get('key1'), 'value1');
-    assert.strictEqual(dict2.get('key2'), 'value2');
-
-    // Modifying copy shouldn't affect original
-    dict2.set('key3', 'value3');
-    assert.strictEqual(dict2.count, 3);
-    assert.strictEqual(dict1.count, 2);
+  describe('Prefix Matching', () => {
+    it('should support prefix matching with AV_DICT_IGNORE_SUFFIX', () => {
+      dict.set('prefix:key1', 'value1', AV_DICT_NONE);
+      dict.set('prefix:key2', 'value2', AV_DICT_NONE);
+      dict.set('other:key3', 'value3', AV_DICT_NONE);
+      
+      // Should find with prefix
+      const value = dict.get('prefix', AV_DICT_IGNORE_SUFFIX);
+      assert.ok(value === 'value1' || value === 'value2'); // Could match either
+    });
   });
 
-  it('should respect DONT_OVERWRITE flag', () => {
-    const dict = new Dictionary();
+  describe('Get All Entries', () => {
+    it('should get all entries as object', () => {
+      dict.set('key1', 'value1', AV_DICT_NONE);
+      dict.set('key2', 'value2', AV_DICT_NONE);
+      dict.set('key3', 'value3', AV_DICT_NONE);
+      
+      const all = dict.getAll();
+      assert.equal(Object.keys(all).length, 3);
+      assert.equal(all.key1, 'value1');
+      assert.equal(all.key2, 'value2');
+      assert.equal(all.key3, 'value3');
+    });
 
-    dict.set('key', 'original');
-    dict.set('key', 'new', AV_DICT_DONT_OVERWRITE);
-
-    // Should still have original value
-    assert.strictEqual(dict.get('key'), 'original');
+    it('should return empty object for empty dictionary', () => {
+      const all = dict.getAll();
+      assert.deepEqual(all, {});
+      assert.equal(Object.keys(all).length, 0);
+    });
   });
 
-  it('should support iteration', () => {
-    const dict = new Dictionary();
-    dict.set('a', '1');
-    dict.set('b', '2');
-    dict.set('c', '3');
+  describe('String Parsing and Serialization', () => {
+    it('should parse options from string', () => {
+      const ret = dict.parseString('key1=value1:key2=value2', '=', ':', AV_DICT_NONE);
+      assert.ok(ret >= 0);
+      
+      assert.equal(dict.count(), 2);
+      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
+      assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
+    });
 
-    // Test entries iteration
-    const entries = Array.from(dict.entries());
-    assert.strictEqual(entries.length, 3);
-    assert.deepStrictEqual(entries.sort(), [
-      ['a', '1'],
-      ['b', '2'],
-      ['c', '3'],
-    ]);
+    it('should serialize to string', () => {
+      dict.set('key1', 'value1', AV_DICT_NONE);
+      dict.set('key2', 'value2', AV_DICT_NONE);
+      
+      const str = dict.getString('=', ':');
+      assert.ok(str);
+      // Order might vary, so check both possibilities
+      assert.ok(
+        str === 'key1=value1:key2=value2' ||
+        str === 'key2=value2:key1=value1'
+      );
+    });
 
-    // Test keys iteration
-    const keys = Array.from(dict.keys());
-    assert.deepStrictEqual(keys.sort(), ['a', 'b', 'c']);
+    it('should handle different separators', () => {
+      const ret = dict.parseString('key1|value1,key2|value2', '|', ',', AV_DICT_NONE);
+      assert.ok(ret >= 0);
+      
+      assert.equal(dict.count(), 2);
+      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
+      assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
+      
+      const str = dict.getString('|', ',');
+      assert.ok(str);
+      assert.ok(
+        str === 'key1|value1,key2|value2' ||
+        str === 'key2|value2,key1|value1'
+      );
+    });
 
-    // Test values iteration
-    const values = Array.from(dict.values());
-    assert.deepStrictEqual(values.sort(), ['1', '2', '3']);
-
-    // Test for...of
-    const pairs: Array<[string, string]> = [];
-    for (const entry of dict) {
-      pairs.push(entry);
-    }
-    assert.strictEqual(pairs.length, 3);
+    it('should return null for empty dictionary getString', () => {
+      const str = dict.getString('=', ':');
+      // Empty dictionary might return null or empty string
+      assert.ok(str === null || str === '');
+    });
   });
 
-  it('should create from object', () => {
-    const obj = {
-      key1: 'value1',
-      key2: 'value2',
-      key3: 'value3',
-    };
+  describe('Copy Operations', () => {
+    it('should copy dictionary to another', () => {
+      dict.set('key1', 'value1', AV_DICT_NONE);
+      dict.set('key2', 'value2', AV_DICT_NONE);
+      
+      const dst = new Dictionary();
+      const ret = dict.copy(dst, AV_DICT_NONE);
+      assert.equal(ret, 0);
+      
+      assert.equal(dst.count(), 2);
+      assert.equal(dst.get('key1', AV_DICT_NONE), 'value1');
+      assert.equal(dst.get('key2', AV_DICT_NONE), 'value2');
+      
+      // Clean up
+      dst.free();
+    });
 
-    const dict = Dictionary.fromObject(obj);
-    assert.strictEqual(dict.count, 3);
-    assert.strictEqual(dict.get('key1'), 'value1');
-    assert.strictEqual(dict.get('key2'), 'value2');
-    assert.strictEqual(dict.get('key3'), 'value3');
+    it('should overwrite existing entries in destination', () => {
+      dict.set('key1', 'value1', AV_DICT_NONE);
+      
+      const dst = new Dictionary();
+      dst.set('key1', 'oldvalue', AV_DICT_NONE);
+      dst.set('key2', 'keep', AV_DICT_NONE);
+      
+      const ret = dict.copy(dst, AV_DICT_NONE);
+      assert.equal(ret, 0);
+      
+      // key1 should be overwritten, key2 should remain
+      assert.equal(dst.get('key1', AV_DICT_NONE), 'value1');
+      assert.equal(dst.get('key2', AV_DICT_NONE), 'keep');
+      
+      // Clean up
+      dst.free();
+    });
   });
 
-  it('should create from string', () => {
-    const dict = Dictionary.fromString('a=1 b=2 c=3');
-    assert.strictEqual(dict.count, 3);
-    assert.strictEqual(dict.get('a'), '1');
-    assert.strictEqual(dict.get('b'), '2');
-    assert.strictEqual(dict.get('c'), '3');
+  describe('Special Characters', () => {
+    it('should handle keys with spaces', () => {
+      dict.set('key with spaces', 'value with spaces', AV_DICT_NONE);
+      assert.equal(dict.get('key with spaces', AV_DICT_NONE), 'value with spaces');
+    });
+
+    it('should handle special characters in values', () => {
+      dict.set('special', '!@#$%^&*()', AV_DICT_NONE);
+      assert.equal(dict.get('special', AV_DICT_NONE), '!@#$%^&*()');
+    });
+
+    it('should handle unicode characters', () => {
+      dict.set('unicode', '你好世界 🌍', AV_DICT_NONE);
+      assert.equal(dict.get('unicode', AV_DICT_NONE), '你好世界 🌍');
+    });
   });
 
-  it('should support using statement', () => {
-    {
-      using dict = new Dictionary();
-      dict.set('key', 'value');
-      assert.strictEqual(dict.get('key'), 'value');
-    }
-    // Dictionary is automatically disposed here
+  describe('Common FFmpeg Options', () => {
+    it('should handle codec options', () => {
+      // Common codec options
+      dict.set('preset', 'fast', AV_DICT_NONE);
+      dict.set('crf', '23', AV_DICT_NONE);
+      dict.set('profile', 'high', AV_DICT_NONE);
+      dict.set('level', '4.1', AV_DICT_NONE);
+      
+      assert.equal(dict.get('preset', AV_DICT_NONE), 'fast');
+      assert.equal(dict.get('crf', AV_DICT_NONE), '23');
+      assert.equal(dict.get('profile', AV_DICT_NONE), 'high');
+      assert.equal(dict.get('level', AV_DICT_NONE), '4.1');
+    });
+
+    it('should handle format options', () => {
+      // Common format options
+      dict.set('movflags', 'faststart', AV_DICT_NONE);
+      dict.set('fflags', '+genpts', AV_DICT_NONE);
+      dict.set('avoid_negative_ts', 'make_zero', AV_DICT_NONE);
+      
+      assert.equal(dict.get('movflags', AV_DICT_NONE), 'faststart');
+      assert.equal(dict.get('fflags', AV_DICT_NONE), '+genpts');
+      assert.equal(dict.get('avoid_negative_ts', AV_DICT_NONE), 'make_zero');
+    });
+
+    it('should handle metadata', () => {
+      // Common metadata
+      dict.set('title', 'My Video', AV_DICT_NONE);
+      dict.set('artist', 'John Doe', AV_DICT_NONE);
+      dict.set('album', 'Best Album', AV_DICT_NONE);
+      dict.set('date', '2024', AV_DICT_NONE);
+      dict.set('comment', 'This is a comment', AV_DICT_NONE);
+      
+      assert.equal(dict.get('title', AV_DICT_NONE), 'My Video');
+      assert.equal(dict.get('artist', AV_DICT_NONE), 'John Doe');
+      assert.equal(dict.get('album', AV_DICT_NONE), 'Best Album');
+      assert.equal(dict.get('date', AV_DICT_NONE), '2024');
+      assert.equal(dict.get('comment', AV_DICT_NONE), 'This is a comment');
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle null or undefined keys gracefully', () => {
+      // These operations should not crash
+      const value = dict.get('', AV_DICT_NONE);
+      assert.equal(value, null);
+      
+      // Empty key might be allowed
+      const ret = dict.set('', 'value', AV_DICT_NONE);
+      // Might succeed or fail depending on FFmpeg version
+      assert.ok(typeof ret === 'number');
+    });
+
+    it('should handle very long values', () => {
+      const longValue = 'x'.repeat(10000);
+      const ret = dict.set('longkey', longValue, AV_DICT_NONE);
+      assert.equal(ret, 0);
+      
+      const retrieved = dict.get('longkey', AV_DICT_NONE);
+      assert.equal(retrieved, longValue);
+    });
   });
 });

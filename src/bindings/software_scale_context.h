@@ -1,11 +1,12 @@
-#ifndef SOFTWARE_SCALE_CONTEXT_H
-#define SOFTWARE_SCALE_CONTEXT_H
+#ifndef FFMPEG_SOFTWARE_SCALE_CONTEXT_H
+#define FFMPEG_SOFTWARE_SCALE_CONTEXT_H
 
 #include <napi.h>
 #include "common.h"
 
 extern "C" {
 #include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
 }
 
 namespace ffmpeg {
@@ -13,43 +14,37 @@ namespace ffmpeg {
 class SoftwareScaleContext : public Napi::ObjectWrap<SoftwareScaleContext> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
-  static Napi::FunctionReference constructor;
-  
   SoftwareScaleContext(const Napi::CallbackInfo& info);
   ~SoftwareScaleContext();
   
-  // Methods
+  // Native access
+  SwsContext* Get() { return ctx_; }
+
+private:
+  // Static members
+  static Napi::FunctionReference constructor;
+  
+  // Resources
+  SwsContext* ctx_ = nullptr;  // Manual RAII
+  bool is_freed_ = false;
+  
+  // === Methods ===
+  
+  // Lifecycle
+  Napi::Value AllocContext(const Napi::CallbackInfo& info);
+  Napi::Value GetContext(const Napi::CallbackInfo& info);
+  Napi::Value InitContext(const Napi::CallbackInfo& info);
+  Napi::Value FreeContext(const Napi::CallbackInfo& info);
+  
+  // Operations
+  Napi::Value Scale(const Napi::CallbackInfo& info);
   Napi::Value ScaleFrame(const Napi::CallbackInfo& info);
   
-  // Resource management
-  Napi::Value Free(const Napi::CallbackInfo& info);
+  // === Utility ===
+  
   Napi::Value Dispose(const Napi::CallbackInfo& info);
-  
-  // Properties
-  Napi::Value GetSourceWidth(const Napi::CallbackInfo& info);
-  Napi::Value GetSourceHeight(const Napi::CallbackInfo& info);
-  Napi::Value GetSourcePixelFormat(const Napi::CallbackInfo& info);
-  Napi::Value GetDestinationWidth(const Napi::CallbackInfo& info);
-  Napi::Value GetDestinationHeight(const Napi::CallbackInfo& info);
-  Napi::Value GetDestinationPixelFormat(const Napi::CallbackInfo& info);
-  Napi::Value GetFlags(const Napi::CallbackInfo& info);
-  
-  // Internal
-  SwsContext* GetContext() { return context_; }
-  
-private:
-  SwsContext* context_;
-  
-  // Store parameters since they're not accessible from SwsContext
-  int srcW_;
-  int srcH_;
-  AVPixelFormat srcFormat_;
-  int dstW_;
-  int dstH_;
-  AVPixelFormat dstFormat_;
-  int flags_;
 };
 
 } // namespace ffmpeg
 
-#endif // SOFTWARE_SCALE_CONTEXT_H
+#endif // FFMPEG_SOFTWARE_SCALE_CONTEXT_H

@@ -1,257 +1,679 @@
 import assert from 'node:assert';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 
+import { fileURLToPath } from 'node:url';
 import {
-  AV_ERROR_EOF,
-  AV_FMT_FLAG_AUTO_BSF,
+  AV_CODEC_ID_H264,
+  AV_CODEC_ID_PCM_S16LE,
+  AV_DICT_NONE,
+  AV_FMT_FLAG_GENPTS,
+  AV_IO_FLAG_WRITE,
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_VIDEO,
+  AV_SAMPLE_FMT_S16,
+  AV_SEEK_FLAG_NONE,
+  Codec,
   Dictionary,
   FormatContext,
-  InputFormat,
+  IOContext,
   OutputFormat,
   Packet,
+  Rational,
 } from '../src/lib/index.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('FormatContext', () => {
-  it('should create a new format context', () => {
-    const ctx = new FormatContext();
-    assert(ctx);
-  });
+  let ctx: FormatContext;
+  const testDir = path.join(__dirname, './.tmp');
+  const testFile = path.join(testDir, 'test.mp4');
+  const testAudioFile = path.join(testDir, 'test-audio.wav');
+  const inputVideoFile = path.join(__dirname, '../testdata/video.mp4');
+  const inputAudioFile = path.join(__dirname, '../testdata/audio-s16le.pcm');
 
-  it('should create format context with constructor', () => {
-    const ctx1 = new FormatContext('input');
-    assert(ctx1);
-
-    // Output format context for MP4 using OutputFormat
-    const mp4Format = OutputFormat.find('mp4');
-    if (mp4Format) {
-      const ctx2 = new FormatContext('output', mp4Format, 'mp4', 'test.mp4');
-      assert(ctx2);
+  before(() => {
+    // Create test directory if it doesn't exist
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true });
     }
-
-    // Output format context with just format name
-    const ctx3 = new FormatContext('output', null, 'mp4', 'test.mp4');
-    assert(ctx3);
   });
 
-  it('should get and set properties', () => {
-    const ctx = new FormatContext();
-
-    // Flags
-    ctx.flags = AV_FMT_FLAG_AUTO_BSF;
-    assert.strictEqual(ctx.flags, AV_FMT_FLAG_AUTO_BSF);
-
-    // Max analyze duration
-    ctx.maxAnalyzeDuration = 5000000n;
-    assert.strictEqual(ctx.maxAnalyzeDuration, 5000000n);
-
-    // Probe size
-    ctx.probesize = 5000000n;
-    assert.strictEqual(ctx.probesize, 5000000n);
-  });
-
-  it('should handle metadata using Dictionary', () => {
-    const ctx = new FormatContext();
-
-    // Create metadata dictionary
-    const metadata = new Dictionary();
-    metadata.set('title', 'Test Video');
-    metadata.set('artist', 'Test Artist');
-    metadata.set('album', 'Test Album');
-
-    ctx.metadata = metadata;
-    const retrieved = ctx.metadata;
-
-    assert(retrieved);
-    assert(retrieved instanceof Dictionary);
-    assert.strictEqual(retrieved.get('title'), 'Test Video');
-    assert.strictEqual(retrieved.get('artist'), 'Test Artist');
-    assert.strictEqual(retrieved.get('album'), 'Test Album');
-  });
-
-  it('should report stream count', () => {
-    const ctx = new FormatContext();
-
-    // New context has no streams
-    assert.strictEqual(ctx.nbStreams, 0);
-    assert(Array.isArray(ctx.streams));
-    assert.strictEqual(ctx.streams.length, 0);
-  });
-
-  it('should support using statement', () => {
-    {
-      using ctx = new FormatContext();
-      ctx.flags = AV_FMT_FLAG_AUTO_BSF;
-      assert.strictEqual(ctx.flags, AV_FMT_FLAG_AUTO_BSF);
+  after(() => {
+    // Clean up test files
+    try {
+      if (fs.existsSync(testFile)) fs.unlinkSync(testFile);
+      if (fs.existsSync(testAudioFile)) fs.unlinkSync(testAudioFile);
+      if (fs.existsSync(testDir)) fs.rmdirSync(testDir);
+    } catch {
+      // Ignore cleanup errors
     }
-    // Context is automatically disposed here
   });
 
-  it('should handle format info', () => {
-    const ctx = new FormatContext();
-
-    // New context has no format set
-    assert.strictEqual(ctx.inputFormat, null);
-    assert.strictEqual(ctx.outputFormat, null);
+  beforeEach(() => {
+    ctx = new FormatContext();
   });
 
-  it('should work with InputFormat and OutputFormat', () => {
-    // Find formats
-    const mp4Input = InputFormat.find('mp4');
-    assert(mp4Input);
-    assert.strictEqual(mp4Input.name, 'mov,mp4,m4a,3gp,3g2,mj2');
-
-    const mp4Output = OutputFormat.find('mp4');
-    assert(mp4Output);
-    assert.strictEqual(mp4Output.name, 'mp4');
-
-    // Can be used with FormatContext (would be used in openInput/allocOutputFormatContext)
-    assert(mp4Input.extensions?.includes('mp4'));
-    assert(mp4Output.extensions?.includes('mp4'));
+  afterEach(() => {
+    // Clean up context if not already done
+    // Note: Some tests may have already freed the context
+    try {
+      if (ctx) {
+        ctx.freeContext();
+      }
+    } catch (e) {
+      // Already freed or error during cleanup
+      // This is expected for some tests
+    }
+    ctx = null as any; // Clear reference
   });
 
-  it('should get duration and timing info', () => {
-    const ctx = new FormatContext();
+  describe('Lifecycle', () => {
+    it('should create an uninitialized format context', () => {
+      assert.ok(ctx);
+    });
 
-    // New context has default values
-    assert.strictEqual(typeof ctx.duration, 'bigint');
-    assert.strictEqual(typeof ctx.startTime, 'bigint');
-    assert.strictEqual(typeof ctx.bitRate, 'bigint');
-  });
+    it('should allocate output context', () => {
+      const ret = ctx.allocOutputContext2(null, null, testFile);
+      assert.equal(ret, 0);
+      // Context should be allocated for output
+    });
 
-  it('should create output streams', () => {
-    const mp4Format = OutputFormat.find('mp4');
-    assert(mp4Format);
-    const ctx = new FormatContext('output', mp4Format, undefined, 'test.mp4');
+    it('should allocate output context with format', () => {
+      const format = OutputFormat.guessFormat('mp4', null, null);
+      assert.ok(format);
 
-    // Create a new stream
-    const stream1 = ctx.newStream();
-    assert(stream1);
-    assert.strictEqual(stream1.index, 0);
-    assert.strictEqual(ctx.nbStreams, 1);
+      const ret = ctx.allocOutputContext2(format, null, null);
+      assert.equal(ret, 0);
+    });
 
-    // Create another stream
-    const stream2 = ctx.newStream();
-    assert(stream2);
-    assert.strictEqual(stream2.index, 1);
-    assert.strictEqual(ctx.nbStreams, 2);
-  });
+    it('should open input', async () => {
+      // Use existing test video file
+      const ret = await ctx.openInput(inputVideoFile, null, null);
+      assert.equal(ret, 0);
+    });
 
-  it('should handle dump without crashing', () => {
-    const ctx = new FormatContext();
+    it('should free context', () => {
+      ctx.allocOutputContext2(null, null, testFile);
+      ctx.freeContext();
+      // After free, context is invalid
+      ctx = null as any; // Clear reference so afterEach doesn't double-free
+    });
 
-    // Should not throw
-    assert.doesNotThrow(() => {
-      ctx.dump(0, false);
+    it('should support using statement for automatic disposal', () => {
+      using testCtx = new FormatContext();
+      testCtx.allocOutputContext2(null, null, testFile);
+      assert.ok(testCtx);
+      // testCtx will be automatically disposed when leaving scope
     });
   });
 
-  it('should demonstrate Dictionary usage for options', () => {
-    // Create options dictionary for openInput
-    const inputOptions = new Dictionary();
-    inputOptions.set('analyzeduration', '10000000');
-    inputOptions.set('probesize', '5000000');
+  describe('Input Operations', () => {
+    it('should open input file', async () => {
+      const ret = await ctx.openInput(inputVideoFile, null, null);
+      assert.equal(ret, 0);
+      assert.ok(ctx.nbStreams > 0);
+    });
 
-    // Create options dictionary for writeHeader
-    const outputOptions = new Dictionary();
-    outputOptions.set('movflags', 'faststart');
-    outputOptions.set('brand', 'mp42');
+    it('should open input with options', async () => {
+      const options = new Dictionary();
+      const ret = await ctx.openInput(inputVideoFile, null, options);
+      assert.equal(ret, 0);
+      options.free();
+    });
 
-    // These would be used like:
-    // await ctx.openInput('input.mp4', null, inputOptions);
-    // ctx.writeHeader(outputOptions);
+    it('should find stream info', async () => {
+      await ctx.openInput(inputVideoFile, null, null);
+      const ret = await ctx.findStreamInfo(null);
+      assert.equal(ret, 0);
+    });
 
-    assert.strictEqual(inputOptions.get('analyzeduration'), '10000000');
-    assert.strictEqual(outputOptions.get('movflags'), 'faststart');
+    it('should read packets', async () => {
+      await ctx.openInput(inputVideoFile, null, null);
+      await ctx.findStreamInfo(null);
+
+      const packet = new Packet();
+      packet.alloc();
+
+      const ret = await ctx.readFrame(packet);
+      // Should succeed with video.mp4
+      assert.equal(ret, 0);
+
+      packet.free();
+    });
+
+    it('should seek to timestamp', async () => {
+      await ctx.openInput(inputVideoFile, null, null);
+      await ctx.findStreamInfo(null);
+
+      const ret = await ctx.seekFrame(-1, 0n, AV_SEEK_FLAG_NONE);
+      // Seeking should work for mp4
+      assert.equal(ret, 0);
+    });
+
+    it('should close input', async () => {
+      await ctx.openInput(inputVideoFile, null, null);
+      await ctx.findStreamInfo(null);
+      
+      // Should be able to close input without error
+      ctx.closeInput();
+      
+      // After closing, we should be able to open again
+      const ret = await ctx.openInput(inputVideoFile, null, null);
+      assert.equal(ret, 0);
+    });
   });
 
-  it('integration test with real media file', async () => {
-    const testFile = path.join(__dirname, '..', 'testdata', 'video.mp4');
+  describe('Output Operations', () => {
+    beforeEach(() => {
+      ctx.allocOutputContext2(null, null, testFile);
+    });
 
-    // Check if test file exists
-    if (!fs.existsSync(testFile)) {
-      console.log(`Skipping integration test - ${testFile} not found`);
-      return;
-    }
+    it('should create new stream', () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      assert.equal(ctx.nbStreams, 1);
+    });
 
-    const ctx = new FormatContext();
+    it('should create stream with codec', () => {
+      const codec = Codec.findEncoder(AV_CODEC_ID_H264);
+      if (codec) {
+        const stream = ctx.newStream(codec);
+        assert.ok(stream);
+        // Note: newStream with codec doesn't automatically set codecpar
+        // The codec is used as a hint, but codecpar must still be set manually
+        stream.codecpar.codecId = AV_CODEC_ID_H264;
+        assert.equal(stream.codecpar.codecId, AV_CODEC_ID_H264);
+      }
+    });
 
-    try {
-      // Open the media file
-      await ctx.openInput(testFile);
+    it('should write header', async () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
 
-      // Find stream info
-      await ctx.findStreamInfo();
+      // Open output file explicitly
+      const openRet = ctx.openOutput();
+      assert.equal(openRet, 0);
 
-      // Check basic properties
-      assert.ok(ctx.nbStreams > 0, 'Should have at least one stream');
-      assert.ok(ctx.duration > 0n, 'Should have duration');
-      assert.ok(ctx.bitRate >= 0n, 'Should have bitrate');
-      assert.ok(ctx.url?.includes('video.mp4'), 'Should have URL');
+      const ret = await ctx.writeHeader(null);
+      assert.equal(ret, 0);
 
-      // Check streams
+      // ctx.closeOutput();
+    });
+
+    it('should write header with options', async () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutput();
+
+      const options = new Dictionary();
+      const ret = await ctx.writeHeader(options);
+      assert.equal(ret, 0);
+
+      // ctx.closeOutput();
+      options.free();
+    });
+
+    it('should write packet', async () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutput();
+      await ctx.writeHeader(null);
+
+      const packet = new Packet();
+      packet.alloc();
+      packet.streamIndex = 0;
+      packet.pts = 0n;
+      packet.dts = 0n;
+
+      const ret = await ctx.writeFrame(packet);
+      // Writing might fail without proper packet data
+      assert.ok(ret <= 0);
+
+      // ctx.closeOutput();
+      packet.free();
+    });
+
+    it('should write trailer', async () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutput();
+      await ctx.writeHeader(null);
+      const ret = await ctx.writeTrailer();
+      assert.equal(ret, 0);
+
+      // ctx.closeOutput();
+    });
+
+    it('should interleave and write packet', async () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutput();
+      await ctx.writeHeader(null);
+
+      const packet = new Packet();
+      packet.alloc();
+      packet.streamIndex = 0;
+
+      const ret = await ctx.interleavedWriteFrame(packet);
+      // Writing might fail without proper packet data
+      assert.ok(ret <= 0);
+
+      // ctx.closeOutput();
+      packet.free();
+    });
+  });
+
+  describe('Stream Selection', () => {
+    it('should find best stream without decoder', async () => {
+      // Need an actual file with streams for this test
+      // We'll use allocOutputContext2 and add a stream as simulation
+      ctx.allocOutputContext2(null, 'mp4', null);
+      const stream = ctx.newStream(null);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      
+      // Find best stream without decoder (original API)
+      const streamIndex = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1);
+      // With our mock setup, it should find stream 0 or return error
+      assert.ok(typeof streamIndex === 'number');
+    });
+
+    it('should find best stream with decoder', async () => {
+      ctx.allocOutputContext2(null, 'mp4', null);
+      const stream = ctx.newStream(null);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      
+      // Find best stream with decoder (new API)
+      const result = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1, true, 0);
+      assert.ok(typeof result === 'object');
+      assert.ok('streamIndex' in result);
+      assert.ok('decoder' in result);
+      assert.ok(typeof result.streamIndex === 'number');
+      // decoder might be null if no decoder found for the stream
+      if (result.decoder) {
+        assert.ok(result.decoder.name);
+      }
+    });
+  });
+
+  describe('Stream Access', () => {
+    beforeEach(() => {
+      ctx.allocOutputContext2(null, null, testFile);
+    });
+
+    it('should get number of streams', () => {
+      assert.equal(ctx.nbStreams, 0);
+
+      ctx.newStream(null);
+      assert.equal(ctx.nbStreams, 1);
+
+      ctx.newStream(null);
+      assert.equal(ctx.nbStreams, 2);
+    });
+
+    it('should get stream by index', () => {
+      const stream1 = ctx.newStream(null);
+      const stream2 = ctx.newStream(null);
+
+      assert.ok(stream1);
+      assert.ok(stream2);
+      assert.equal(stream1.index, 0);
+      assert.equal(stream2.index, 1);
+
       const streams = ctx.streams;
-      assert.ok(Array.isArray(streams), 'Should return streams array');
-      assert.strictEqual(streams.length, ctx.nbStreams, 'Stream count should match');
+      assert.ok(streams);
+      assert.equal(streams.length, 2);
+      assert.equal(streams[0].index, 0);
+      assert.equal(streams[1].index, 1);
+    });
 
-      // Find video stream
-      const videoStreamIndex = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO);
-      if (videoStreamIndex >= 0) {
-        const videoStream = streams[videoStreamIndex];
-        assert.ok(videoStream, 'Should have video stream');
+    it('should handle invalid stream index', () => {
+      ctx.newStream(null);
 
-        const codecParams = videoStream.codecParameters;
-        assert.ok(codecParams, 'Video stream should have codec parameters');
-        assert.strictEqual(codecParams.codecType, AV_MEDIA_TYPE_VIDEO);
-        assert.ok(codecParams.width > 0, 'Should have width');
-        assert.ok(codecParams.height > 0, 'Should have height');
-      }
+      const streams = ctx.streams;
+      assert.ok(streams);
+      assert.equal(streams.length, 1);
+      assert.equal(streams[10], undefined);
+    });
 
-      // Find audio stream
-      const audioStreamIndex = ctx.findBestStream(AV_MEDIA_TYPE_AUDIO);
-      if (audioStreamIndex >= 0) {
-        const audioStream = streams[audioStreamIndex];
-        assert.ok(audioStream, 'Should have audio stream');
+    it('should get all streams', () => {
+      ctx.newStream(null);
+      ctx.newStream(null);
+      ctx.newStream(null);
 
-        const codecParams = audioStream.codecParameters;
-        assert.ok(codecParams, 'Audio stream should have codec parameters');
-        assert.strictEqual(codecParams.codecType, AV_MEDIA_TYPE_AUDIO);
-        assert.ok(codecParams.sampleRate > 0, 'Should have sample rate');
-        assert.ok(codecParams.channelLayout, 'Should have channel layout');
-      }
+      const streams = ctx.streams;
+      assert.ok(Array.isArray(streams));
+      assert.equal(streams.length, 3);
+    });
+  });
 
-      // Test reading packets
-      using packet = new Packet();
-      let packetsRead = 0;
-      const maxPackets = 10; // Read only first 10 packets for testing
+  describe('Properties', () => {
+    beforeEach(() => {
+      ctx.allocOutputContext2(null, null, testFile);
+    });
 
-      while (packetsRead < maxPackets) {
-        const ret = ctx.readFrame(packet);
-        if (ret === AV_ERROR_EOF) {
-          break;
-        }
+    it('should dump format for output', () => {
+      // Create a stream first
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 640;
+      stream.codecpar.height = 480;
 
-        assert.ok(packet.streamIndex >= 0, 'Packet should have valid stream index');
-        assert.ok(packet.size > 0, 'Packet should have data');
-        packetsRead++;
+      // Should not throw
+      assert.doesNotThrow(() => {
+        ctx.dumpFormat(0, testFile, true);
+      });
+    });
 
-        packet.unref(); // Clear packet for next read
-      }
+    it('should dump format for input', async () => {
+      // Open existing file as input
+      ctx.freeContext();
+      ctx = new FormatContext();
+      await ctx.openInput(inputVideoFile, null, null);
+      await ctx.findStreamInfo(null);
 
-      assert.ok(packetsRead > 0, 'Should have read at least one packet');
+      // Should not throw
+      assert.doesNotThrow(() => {
+        ctx.dumpFormat(0, inputVideoFile, false);
+      });
+    });
 
-      // Test dump (should not crash)
-      ctx.dump(0, false);
-    } finally {
-      // Close input
-      ctx.closeInput();
-      ctx[Symbol.dispose]();
-    }
+    it('should get start time', () => {
+      // Start time is read-only
+      const startTime = ctx.startTime;
+      assert.ok(typeof startTime === 'bigint');
+    });
+
+    it('should get duration', () => {
+      // Duration is read-only
+      const duration = ctx.duration;
+      assert.ok(typeof duration === 'bigint');
+    });
+
+    it('should get bit rate', () => {
+      // Bit rate is read-only
+      const bitRate = ctx.bitRate;
+      assert.ok(typeof bitRate === 'bigint');
+    });
+
+    it('should get and set flags', () => {
+      ctx.flags = AV_FMT_FLAG_GENPTS;
+      assert.equal(ctx.flags, AV_FMT_FLAG_GENPTS);
+    });
+
+    it('should get and set probesize', () => {
+      ctx.probesize = 5000000n;
+      assert.equal(ctx.probesize, 5000000n);
+    });
+
+    it('should get and set max analyze duration', () => {
+      ctx.maxAnalyzeDuration = 5000000n;
+      assert.equal(ctx.maxAnalyzeDuration, 5000000n);
+    });
+
+    it('should get and set metadata', () => {
+      const metadata = new Dictionary();
+      metadata.set('title', 'Test Video', AV_DICT_NONE);
+      metadata.set('artist', 'Test Artist', AV_DICT_NONE);
+
+      ctx.metadata = metadata;
+
+      const retrieved = ctx.metadata;
+      assert.ok(retrieved);
+      assert.equal(retrieved.get('title', AV_DICT_NONE), 'Test Video');
+      assert.equal(retrieved.get('artist', AV_DICT_NONE), 'Test Artist');
+
+      metadata.free();
+      retrieved.free();
+    });
+
+    it('should read metadata from input file', async () => {
+      // Open existing file as input
+      ctx.freeContext();
+      ctx = new FormatContext();
+      await ctx.openInput(inputVideoFile, null, null);
+      await ctx.findStreamInfo(null);
+
+      const metadata = ctx.metadata;
+      assert.ok(metadata);
+
+      // Get all metadata entries
+      const entries = metadata.getAll();
+      assert.ok(typeof entries === 'object');
+
+      // Check that expected metadata exists
+      assert.ok('major_brand' in entries);
+      assert.ok('encoder' in entries);
+
+      metadata.free();
+    });
+
+    it('should get url/filename', () => {
+      assert.equal(ctx.url, testFile);
+    });
+
+    it('should get oformat', () => {
+      const oformat = ctx.oformat;
+      assert.ok(oformat);
+    });
+
+    it('should get iformat when opened as input', async () => {
+      // Create a file first
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 640;
+      stream.codecpar.height = 480;
+      ctx.openOutput();
+      await ctx.writeHeader(null);
+      await ctx.writeTrailer();
+      // ctx.closeOutput();
+      ctx.freeContext();
+      ctx = null as any; // Clear reference so afterEach doesn't double-free
+
+      // Open as input
+      ctx = new FormatContext();
+      await ctx.openInput(testFile, null, null);
+
+      const iformat = ctx.iformat;
+      assert.ok(iformat);
+    });
+  });
+
+  describe('IO Context', () => {
+    it('should create custom IO context', () => {
+      const ioCtx = new IOContext();
+      ioCtx.allocContext(4096, AV_IO_FLAG_WRITE);
+
+      ctx.allocOutputContext2(null, 'mp4', null);
+      ctx.pb = ioCtx;
+
+      const retrieved = ctx.pb;
+      assert.ok(retrieved);
+
+      // Don't free IOContext here - it's now owned by FormatContext
+      // It will be freed when FormatContext is freed
+    });
+
+    it('should work with custom IO', async () => {
+      const ioCtx = new IOContext();
+      ioCtx.allocContext(4096, AV_IO_FLAG_WRITE);
+
+      ctx.allocOutputContext2(null, 'mp4', null);
+      ctx.pb = ioCtx;
+
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 640;
+      stream.codecpar.height = 480;
+
+      // Should work with custom IO
+      // Custom IO doesn't need openOutput as it manages its own I/O
+      // Just verify we can set the custom IO context
+      assert.ok(ctx.pb);
+
+      // Don't free IOContext here - it's now owned by FormatContext
+      // It will be freed when FormatContext is freed
+    });
+  });
+
+  describe('Audio-specific Operations', () => {
+    it('should create audio stream', () => {
+      ctx.allocOutputContext2(null, null, testAudioFile);
+
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+      stream.codecpar.codecId = AV_CODEC_ID_PCM_S16LE;
+      stream.codecpar.sampleRate = 44100;
+      stream.codecpar.channels = 2;
+      stream.codecpar.format = AV_SAMPLE_FMT_S16;
+
+      assert.equal(stream.codecpar.codecType, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(stream.codecpar.sampleRate, 44100);
+    });
+
+    it('should set audio time base', () => {
+      ctx.allocOutputContext2(null, null, testAudioFile);
+
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+      stream.codecpar.sampleRate = 48000;
+
+      const timeBase = new Rational(1, 48000);
+      stream.timeBase = timeBase;
+
+      const retrieved = stream.timeBase;
+      assert.equal(retrieved.num, 1);
+      assert.equal(retrieved.den, 48000);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle null filename', () => {
+      const ret = ctx.allocOutputContext2(null, 'mp4', null);
+      assert.equal(ret, 0);
+    });
+
+    it('should handle invalid format', () => {
+      assert.throws(
+        () => {
+          ctx.allocOutputContext2(null, 'invalid_format_xyz', null);
+        },
+        {
+          message: /Failed to allocate output context/,
+        },
+      );
+    });
+
+    it('should handle non-existent input file', async () => {
+      const ret = await ctx.openInput('/non/existent/file.mp4', null, null);
+      assert.ok(ret < 0);
+    });
+
+    it('should handle empty streams array', () => {
+      ctx.allocOutputContext2(null, null, testFile);
+      const streams = ctx.streams;
+      assert.ok(Array.isArray(streams));
+      assert.equal(streams.length, 0);
+    });
+  });
+
+  describe('Async Operations', () => {
+    it('should read frame asynchronously', async () => {
+      // Use existing test video
+      await ctx.openInput(inputVideoFile, null, null);
+      await ctx.findStreamInfo(null);
+
+      const packet = new Packet();
+      packet.alloc();
+
+      const ret = await ctx.readFrame(packet);
+      assert.equal(ret, 0); // Should succeed with video.mp4
+
+      packet.free();
+    });
+
+    it('should write frame asynchronously', async () => {
+      // Need to allocate context for this specific test
+      ctx.allocOutputContext2(null, null, testFile);
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 640;
+      stream.codecpar.height = 480;
+
+      ctx.openOutput();
+      await ctx.writeHeader(null);
+
+      const packet = new Packet();
+      packet.alloc();
+      packet.streamIndex = 0;
+
+      const ret = await ctx.writeFrame(packet);
+      assert.ok(ret <= 0);
+
+      // ctx.closeOutput();
+      packet.free();
+    });
+
+    it('should interleave write frame asynchronously', async () => {
+      // Need to allocate context for this specific test
+      ctx.allocOutputContext2(null, null, testFile);
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 640;
+      stream.codecpar.height = 480;
+
+      ctx.openOutput();
+      await ctx.writeHeader(null);
+
+      const packet = new Packet();
+      packet.alloc();
+      packet.streamIndex = 0;
+
+      const ret = await ctx.interleavedWriteFrame(packet);
+      assert.ok(ret <= 0);
+
+      // ctx.closeOutput();
+      packet.free();
+    });
   });
 });

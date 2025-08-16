@@ -1,149 +1,124 @@
 import { bindings } from './binding.js';
 import { FilterContext } from './filter-context.js';
 
-import type { AVPixelFormat, AVSampleFormat } from './constants.js';
-import type { Frame } from './frame.js';
-import type { NativeFilterGraph, NativeHardwareDeviceContext, NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
-import type { Rational } from './rational.js';
-import type { ChannelLayout } from './types.js';
+import type { AVFilterThreadType } from './constants.js';
+import type { FilterInOut } from './filter-inout.js';
+import type { Filter } from './filter.js';
+import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
 
 /**
- * Options for creating a FilterGraph
- */
-export interface FilterGraphOptions {
-  /** Number of threads for parallel processing */
-  threadCount?: number;
-  /** Thread type for parallel processing (e.g., AV_FILTER_THREAD_SLICE) */
-  threadType?: number;
-}
-
-/**
- * Input specification for filter pipeline
- */
-export interface FilterInput {
-  // Video parameters
-  /** Frame width (required for video) */
-  width?: number;
-  /** Frame height (required for video) */
-  height?: number;
-  /** Pixel format (required for video) */
-  pixelFormat?: AVPixelFormat;
-  /** Time base for timestamps */
-  timeBase?: Rational;
-  /** Sample aspect ratio */
-  sampleAspectRatio?: Rational;
-
-  // Audio parameters
-  /** Sample rate in Hz (required for audio) */
-  sampleRate?: number;
-  /** Sample format (required for audio) */
-  sampleFormat?: AVSampleFormat;
-  /** Channel layout (required for audio) */
-  channelLayout?: ChannelLayout;
-
-  // Hardware acceleration
-  /** Hardware frames context for GPU filtering */
-  hwFramesContext?: NativeHardwareFramesContext;
-}
-
-/**
- * Output specification for filter pipeline
- */
-export interface FilterOutput {
-  /** Allowed pixel formats for video */
-  pixelFormats?: AVPixelFormat[];
-  /** Allowed sample formats for audio */
-  sampleFormats?: AVSampleFormat[];
-}
-
-/**
- * Hardware configuration for filter pipeline
- */
-export interface HardwareConfig {
-  /** Hardware device context (applied to filters with AVFILTER_FLAG_HWDEVICE) */
-  deviceContext: NativeHardwareDeviceContext;
-}
-
-/**
- * Complete filter pipeline configuration
- */
-export interface FilterPipelineConfig {
-  /** Input specification */
-  input: FilterInput;
-  /** Filter chain string (e.g., "scale=640:480,format=yuv420p") */
-  filters: string;
-  /** Output specification (optional) */
-  output?: FilterOutput;
-  /** Hardware configuration (optional) */
-  hardware?: HardwareConfig;
-}
-
-/**
- * Filter graph for audio/video processing pipelines
+ * FFmpeg filter graph - Low Level API
  *
- * Unified API for both CPU and GPU filtering with explicit control.
+ * Direct mapping to FFmpeg's AVFilterGraph.
+ * Container for filters and their connections.
+ * Manages the entire filtering pipeline from sources to sinks.
  *
- * @example CPU filtering
+ * @example
  * ```typescript
+ * // Create and configure a simple filter graph
  * const graph = new FilterGraph();
- * await graph.buildPipeline({
- *   input: {
- *     width: 1920,
- *     height: 1080,
- *     pixelFormat: AV_PIX_FMT_YUV420P,
- *     timeBase: new Rational(1, 25)
- *   },
- *   filters: "scale=640:480,format=yuv420p"
- * });
+ * graph.alloc();
  *
- * using outputFrame = new Frame();
- * const ret = await graph.processFrame(inputFrame, outputFrame);
- * if (ret === 0) {
- *   // Process filtered frame
- * }
- * ```
+ * // Create buffer source
+ * const bufferSrc = graph.createFilter(
+ *   Filter.getByName('buffer')!,
+ *   'in',
+ *   'video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25'
+ * );
  *
- * @example GPU filtering
- * ```typescript
- * const graph = new FilterGraph();
- * await graph.buildPipeline({
- *   input: {
- *     width: 1920,
- *     height: 1080,
- *     pixelFormat: AV_PIX_FMT_VIDEOTOOLBOX,
- *     timeBase: new Rational(1, 25),
- *     hwFramesContext: decodedFrame
- *   },
- *   filters: "scale_vt=640:480",  // VideoToolbox filter
- *   hardware: {
- *     deviceContext: hwDevice
- *   }
- * });
+ * // Create scale filter
+ * const scale = graph.createFilter(
+ *   Filter.getByName('scale')!,
+ *   'scale',
+ *   '1280:720'
+ * );
+ *
+ * // Create buffer sink
+ * const bufferSink = graph.createFilter(
+ *   Filter.getByName('buffersink')!,
+ *   'out'
+ * );
+ *
+ * // Link filters
+ * bufferSrc!.link(0, scale!, 0);
+ * scale!.link(0, bufferSink!, 0);
+ *
+ * // Configure the graph
+ * const ret = graph.config();
+ * if (ret < 0) throw new FFmpegError(ret);
+ *
+ * // Clean up
+ * graph.free();
  * ```
  */
 export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph> {
   private native: NativeFilterGraph;
-  private inputContext?: FilterContext;
-  private outputContext?: FilterContext;
+
+  // Constructor
+  /**
+   * Create a new FilterGraph instance.
+   *
+   * The graph is uninitialized - you must call alloc() before use.
+   * Direct wrapper around AVFilterGraph.
+   *
+   * @example
+   * ```typescript
+   * const graph = new FilterGraph();
+   * graph.alloc();
+   * // Graph is now ready for use
+   * ```
+   */
+  constructor() {
+    this.native = new bindings.FilterGraph();
+  }
+
+  // Getter/Setter Properties
 
   /**
-   * Create a new filter graph
-   * @param options Optional configuration
+   * Number of filters in the graph.
+   *
+   * Direct mapping to AVFilterGraph->nb_filters
+   *
+   * The total count of filters currently in the graph.
    */
-  constructor(options?: FilterGraphOptions) {
-    this.native = new bindings.FilterGraph();
-
-    if (options?.threadCount !== undefined) {
-      this.native.nbThreads = options.threadCount;
-    }
-
-    if (options?.threadType !== undefined) {
-      this.native.threadType = options.threadType;
-    }
+  get nbFilters(): number {
+    return this.native.nbFilters;
   }
 
   /**
-   * Get/set number of threads for parallel processing
+   * Array of all filters in the graph.
+   *
+   * Direct mapping to AVFilterGraph->filters
+   *
+   * All filter contexts currently in the graph.
+   */
+  get filters(): FilterContext[] | null {
+    const natives = this.native.filters;
+    if (!natives) return null;
+    return natives.map((native) => new FilterContext(native));
+  }
+
+  /**
+   * Thread type for graph processing.
+   *
+   * Direct mapping to AVFilterGraph->thread_type
+   *
+   * Controls threading behavior of the graph (0 = disabled, AV_FILTER_THREAD_SLICE = slice threading).
+   */
+  get threadType(): AVFilterThreadType {
+    return this.native.threadType;
+  }
+
+  set threadType(value: AVFilterThreadType) {
+    this.native.threadType = value;
+  }
+
+  /**
+   * Number of threads for graph processing.
+   *
+   * Direct mapping to AVFilterGraph->nb_threads
+   *
+   * 0 means automatic detection based on CPU cores.
    */
   get nbThreads(): number {
     return this.native.nbThreads;
@@ -154,193 +129,401 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   }
 
   /**
-   * Get/set thread type for parallel processing
+   * Software scaler options.
+   *
+   * Direct mapping to AVFilterGraph->scale_sws_opts
+   *
+   * Options string passed to the software scaler (e.g., "flags=bicubic").
    */
-  get threadType(): number {
-    return this.native.threadType;
+  get scaleSwsOpts(): string | null {
+    return this.native.scaleSwsOpts;
   }
 
-  set threadType(value: number) {
-    this.native.threadType = value;
+  set scaleSwsOpts(value: string | null) {
+    this.native.scaleSwsOpts = value;
   }
+
+  // Public Methods - Low Level API
 
   /**
-   * Build complete filter pipeline
+   * Allocate the filter graph.
    *
-   * Creates buffer source, applies filters, and creates buffer sink.
-   * Must be called before processing frames.
-   *
-   * @param config Pipeline configuration
-   * @throws FFmpegError if configuration fails
-   */
-  buildPipeline(config: FilterPipelineConfig): void {
-    // Validate basic requirements
-    this.validateConfig(config);
-
-    // Build the pipeline (synchronous)
-    this.native.buildPipeline(config);
-
-    // Get input/output contexts for direct access
-    const inputNative = this.native.getInputContext();
-    const outputNative = this.native.getOutputContext();
-
-    if (!inputNative || !outputNative) {
-      throw new Error('Failed to create filter pipeline - contexts not initialized');
-    }
-
-    this.inputContext = new FilterContext(inputNative);
-    this.outputContext = new FilterContext(outputNative);
-  }
-
-  /**
-   * Process a single frame through the filter pipeline
-   *
-   * @param inputFrame Frame to filter (or null to flush the filter)
-   * @param outputFrame Frame to receive filtered data (user manages allocation)
-   * @returns 0 on success, AV_ERROR_EAGAIN if more input needed, AV_ERROR_EOF on end, negative on error
+   * Direct mapping to avfilter_graph_alloc()
    *
    * @example
    * ```typescript
-   * using outputFrame = new Frame();
-   * const ret = await graph.processFrame(inputFrame, outputFrame);
-   *
-   * if (ret === 0) {
-   *   // Success - process filtered frame
-   *   await encoder.sendFrame(outputFrame);
-   * } else if (ret === AV_ERROR_EAGAIN) {
-   *   // Need more input frames
-   * } else if (ret === AV_ERROR_EOF) {
-   *   // Filter graph finished
-   * } else {
-   *   // Error occurred
-   *   throw new FFmpegError("Filter processing failed", ret);
-   * }
+   * const graph = new FilterGraph();
+   * graph.alloc();
+   * // Graph is now allocated and ready
    * ```
+   *
+   * @throws {Error} If allocation fails (ENOMEM)
    */
-  async processFrame(inputFrame: Frame | null, outputFrame: Frame): Promise<number> {
-    if (!this.inputContext || !this.outputContext) {
-      throw new Error('Pipeline not configured. Call buildPipeline first.');
-    }
-
-    // Handle null frame for flushing
-    const inputNative = inputFrame ? inputFrame.getNative() : null;
-    return await this.native.processFrameAsync(inputNative, outputFrame.getNative());
+  alloc(): void {
+    this.native.alloc();
   }
 
   /**
-   * Get a filtered frame from the buffer sink without adding input
+   * Free the filter graph.
    *
-   * Used after flushing to retrieve any remaining buffered frames.
-   *
-   * @param outputFrame Frame to receive filtered data (user manages allocation)
-   * @returns 0 on success, AVERROR_EOF when no more frames, negative on error
+   * Direct mapping to avfilter_graph_free()
    *
    * @example
    * ```typescript
-   * // Flush the filter
-   * await filterGraph.processFrame(null, frame);
-   *
-   * // Get remaining frames
-   * while (true) {
-   *   const ret = await filterGraph.getFilteredFrame(frame);
-   *   if (ret < 0) break; // No more frames
-   *   // Process frame...
-   * }
+   * graph.free();
+   * // graph is now invalid and should not be used
    * ```
-   */
-  async getFilteredFrame(outputFrame: Frame): Promise<number> {
-    if (!this.outputContext) {
-      throw new Error('Pipeline not configured. Call buildPipeline first.');
-    }
-
-    return await this.native.getFilteredFrameAsync(outputFrame.getNative());
-  }
-
-  /**
-   * Get input context for advanced control
-   *
-   * Allows direct access to buffer source for advanced users.
-   *
-   * @returns Input filter context
-   * @throws Error if pipeline not configured
-   */
-  getInputContext(): FilterContext {
-    if (!this.inputContext) {
-      throw new Error('Pipeline not configured. Call buildPipeline first.');
-    }
-    return this.inputContext;
-  }
-
-  /**
-   * Get output context for advanced control
-   *
-   * Allows direct access to buffer sink for advanced users.
-   *
-   * @returns Output filter context
-   * @throws Error if pipeline not configured
-   */
-  getOutputContext(): FilterContext {
-    if (!this.outputContext) {
-      throw new Error('Pipeline not configured. Call buildPipeline first.');
-    }
-    return this.outputContext;
-  }
-
-  /**
-   * Free filter graph resources
    */
   free(): void {
     this.native.free();
-    this.inputContext = undefined;
-    this.outputContext = undefined;
   }
 
   /**
-   * Dispose of filter graph (for using statement)
+   * Create a filter instance in the graph.
+   *
+   * Direct mapping to avfilter_graph_create_filter()
+   *
+   * @param filter - The filter definition
+   * @param name - Name for this filter instance (must be unique in the graph)
+   * @param args - Optional initialization arguments (filter-specific format)
+   *
+   * @returns The created filter context or null on failure
+   *
+   * @example
+   * ```typescript
+   * // Create a scale filter
+   * const scaleFilter = Filter.getByName('scale');
+   * const scaleCtx = graph.createFilter(
+   *   scaleFilter!,
+   *   'my_scale',
+   *   '1280:720'  // width:height
+   * );
+   *
+   * // Create a buffer source for video
+   * const bufferFilter = Filter.getByName('buffer');
+   * const bufferCtx = graph.createFilter(
+   *   bufferFilter!,
+   *   'video_in',
+   *   'video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25:pixel_aspect=1/1'
+   * );
+   * ```
    */
-  [Symbol.dispose](): void {
-    this.free();
+  createFilter(filter: Filter, name: string, args?: string | null): FilterContext | null {
+    const native = this.native.createFilter(filter.getNative(), name, args ?? null);
+    return native ? new FilterContext(native) : null;
   }
 
   /**
-   * Get native filter graph for internal use
-   * @internal
+   * Allocate a filter instance in the graph without initializing it.
+   *
+   * Direct mapping to avfilter_graph_alloc_filter()
+   *
+   * This method allocates the filter but does not initialize it.
+   * You must call filter.init() or filter.initStr() afterwards.
+   *
+   * @param filter - The filter definition
+   * @param name - Name for this filter instance (must be unique in the graph)
+   *
+   * @returns The allocated filter context or null on failure
+   *
+   * @example
+   * ```typescript
+   * // Allocate a filter without initializing
+   * const scaleFilter = Filter.getByName('scale');
+   * const scaleCtx = graph.allocFilter(scaleFilter!, 'my_scale');
+   *
+   * // Set options using setOpt
+   * scaleCtx.setOpt('width', '1280');
+   * scaleCtx.setOpt('height', '720');
+   *
+   * // Initialize the filter
+   * const ret = scaleCtx.init();
+   * if (ret < 0) {
+   *   throw new FFmpegError(ret);
+   * }
+   * ```
+   *
+   * @note This provides an alternative workflow to createFilter,
+   * allowing options to be set before initialization.
+   */
+  allocFilter(filter: Filter, name: string): FilterContext | null {
+    const native = this.native.allocFilter(filter.getNative(), name);
+    return native ? new FilterContext(native) : null;
+  }
+
+  /**
+   * Get a filter by name from the graph.
+   *
+   * Direct mapping to avfilter_graph_get_filter()
+   *
+   * @param name - The filter instance name
+   *
+   * @returns The filter context or null if not found
+   *
+   * @example
+   * ```typescript
+   * const scaleCtx = graph.getFilter('my_scale');
+   * if (scaleCtx) {
+   *   console.log('Found scale filter');
+   * }
+   * ```
+   */
+  getFilter(name: string): FilterContext | null {
+    const native = this.native.getFilter(name);
+    return native ? new FilterContext(native) : null;
+  }
+
+  /**
+   * Configure the filter graph.
+   *
+   * Direct mapping to avfilter_graph_config()
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR(EINVAL): Invalid graph configuration
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other configuration errors
+   *
+   * @example
+   * ```typescript
+   * // After creating and linking all filters
+   * const ret = graph.config();
+   * if (ret < 0) {
+   *   throw new FFmpegError(ret);
+   * }
+   * // Graph is now ready for processing
+   * ```
+   *
+   * @note Must be called after all filters are added and connected.
+   */
+  config(): number {
+    return this.native.config();
+  }
+
+  /**
+   * Parse a filtergraph description.
+   *
+   * Direct mapping to avfilter_graph_parse()
+   *
+   * @param filters - Filtergraph description string
+   * @param inputs - Input pad list
+   * @param outputs - Output pad list
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR(EINVAL): Invalid filtergraph syntax
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other parsing errors
+   *
+   * @example
+   * ```typescript
+   * const inputs = new FilterInOut();
+   * inputs.alloc();
+   * inputs.name = 'in';
+   * inputs.filterCtx = bufferSrcCtx;
+   * inputs.padIdx = 0;
+   *
+   * const outputs = new FilterInOut();
+   * outputs.alloc();
+   * outputs.name = 'out';
+   * outputs.filterCtx = bufferSinkCtx;
+   * outputs.padIdx = 0;
+   *
+   * const ret = graph.parse('[in] scale=1280:720 [out]', inputs, outputs);
+   * if (ret < 0) {
+   *   throw new FFmpegError(ret);
+   * }
+   * ```
+   */
+  parse(filters: string, inputs: FilterInOut | null, outputs: FilterInOut | null): number {
+    return this.native.parse(filters, inputs ? inputs.getNative() : null, outputs ? outputs.getNative() : null);
+  }
+
+  /**
+   * Parse a filtergraph description (simplified).
+   *
+   * Direct mapping to avfilter_graph_parse2()
+   *
+   * @param filters - Filtergraph description string
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR(EINVAL): Invalid filtergraph syntax
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other parsing errors
+   *
+   * @example
+   * ```typescript
+   * // Parse a simple filter chain
+   * const ret = graph.parse2('scale=1280:720,format=yuv420p');
+   * if (ret < 0) {
+   *   throw new FFmpegError(ret);
+   * }
+   * ```
+   *
+   * @note Automatically handles inputs and outputs.
+   */
+  parse2(filters: string): number {
+    return this.native.parse2(filters);
+  }
+
+  /**
+   * Parse a filtergraph description (pointer version).
+   *
+   * Direct mapping to avfilter_graph_parse_ptr()
+   *
+   * @param filters - Filtergraph description string
+   * @param inputs - Optional input pad list (FilterInOut)
+   * @param outputs - Optional output pad list (FilterInOut)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR(EINVAL): Invalid filtergraph syntax
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other parsing errors
+   *
+   * @example
+   * ```typescript
+   * // Parse a complex filter graph
+   * const ret = graph.parsePtr(
+   *   '[0:v] scale=1280:720 [scaled]; [scaled] split [out1][out2]'
+   * );
+   * if (ret < 0) {
+   *   throw new FFmpegError(ret);
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Parse with explicit inputs/outputs
+   * const inputs = new FilterInOut();
+   * inputs.name = 'in';
+   * inputs.filterCtx = buffersrcCtx;
+   * inputs.padIdx = 0;
+   *
+   * const outputs = new FilterInOut();
+   * outputs.name = 'out';
+   * outputs.filterCtx = buffersinkCtx;
+   * outputs.padIdx = 0;
+   *
+   * const ret = graph.parsePtr(filtersDescr, inputs, outputs);
+   * if (ret < 0) {
+   *   throw new FFmpegError(ret);
+   * }
+   * ```
+   *
+   * @note Similar to parse2 but with different internal handling.
+   */
+  parsePtr(filters: string, inputs?: FilterInOut | null, outputs?: FilterInOut | null): number {
+    return this.native.parsePtr(filters, inputs ? inputs.getNative() : null, outputs ? outputs.getNative() : null);
+  }
+
+  /**
+   * Validate the filter graph.
+   *
+   * Direct mapping to avfilter_graph_validate()
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Valid graph structure
+   *   - AVERROR(EINVAL): Invalid graph structure
+   *   - <0: Other validation errors
+   *
+   * @example
+   * ```typescript
+   * // Validate before configuring
+   * const ret = graph.validate();
+   * if (ret < 0) {
+   *   console.error('Graph validation failed');
+   * }
+   * ```
+   *
+   * @note Checks that the graph structure is valid without configuring it.
+   */
+  validate(): number {
+    return this.native.validate();
+  }
+
+  /**
+   * Request a frame from the oldest sink.
+   *
+   * Direct mapping to avfilter_graph_request_oldest()
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR_EOF: No more frames available
+   *   - AVERROR(EAGAIN): Need more input data
+   *   - <0: Other processing errors
+   *
+   * @example
+   * ```typescript
+   * // Pull frames from the graph
+   * while (true) {
+   *   const ret = graph.requestOldest();
+   *   if (ret === AVERROR_EOF) {
+   *     break; // No more frames
+   *   }
+   *   if (ret < 0 && ret !== AVERROR_EAGAIN) {
+   *     throw new FFmpegError(ret);
+   *   }
+   *   // Process output from sinks
+   * }
+   * ```
+   *
+   * @note Triggers processing in the graph to produce output.
+   */
+  requestOldest(): number {
+    return this.native.requestOldest();
+  }
+
+  // Public Methods
+
+  /**
+   * Dump the graph structure to a file.
+   *
+   * Exports the graph in DOT format for visualization.
+   * Uses avfilter_graph_dump() internally.
+   *
+   * @param filename - Output filename
+   *
+   * @example
+   * ```typescript
+   * // Export graph for visualization with Graphviz
+   * graph.dumpToFile('filter_graph.dot');
+   * // Then run: dot -Tpng filter_graph.dot -o graph.png
+   * ```
+   */
+  dumpToFile(filename: string): void {
+    this.native.dumpToFile(filename);
+  }
+
+  // Internal Methods
+
+  /**
+   * Get the native FFmpeg AVFilterGraph pointer.
+   *
+   * @internal For use by other wrapper classes
+   * @returns The underlying native filter graph object
    */
   getNative(): NativeFilterGraph {
     return this.native;
   }
 
   /**
-   * Validate pipeline configuration
-   * @internal
+   * Dispose of the filter graph.
+   *
+   * Implements the Disposable interface for automatic cleanup.
+   * Equivalent to calling free().
+   *
+   * @example
+   * ```typescript
+   * {
+   *   using graph = new FilterGraph();
+   *   graph.alloc();
+   *   // ... use graph
+   * } // Automatically freed when leaving scope
+   * ```
    */
-  private validateConfig(config: FilterPipelineConfig): void {
-    if (!config.input) {
-      throw new Error('Input configuration required');
-    }
-
-    if (!config.filters) {
-      throw new Error('Filter string required');
-    }
-
-    const input = config.input;
-    const isVideo = input.width !== undefined && input.height !== undefined;
-    const isAudio = input.sampleRate !== undefined;
-
-    if (!isVideo && !isAudio) {
-      throw new Error('Either video (width/height) or audio (sampleRate) parameters required');
-    }
-
-    if (isVideo) {
-      if (input.pixelFormat === undefined) {
-        throw new Error('Pixel format required for video');
-      }
-    }
-
-    if (isAudio) {
-      if (input.sampleFormat === undefined) {
-        throw new Error('Sample format required for audio');
-      }
-    }
+  [Symbol.dispose](): void {
+    this.native[Symbol.dispose]();
   }
 }

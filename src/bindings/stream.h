@@ -3,7 +3,6 @@
 
 #include <napi.h>
 #include "common.h"
-#include "codec_parameters.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -11,53 +10,64 @@ extern "C" {
 
 namespace ffmpeg {
 
+// Forward declarations
+class CodecParameters;
+class Dictionary;
+class Packet;
+
 class Stream : public Napi::ObjectWrap<Stream> {
- public:
+public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
+  Stream(const Napi::CallbackInfo& info);
+  ~Stream();
+  
+  // Native access
+  AVStream* Get() { return stream_; }
+  const AVStream* Get() const { return stream_; }
+  void Set(AVStream* stream) { stream_ = stream; }
+
+private:
+  // Friend classes
+  friend class FormatContext;
+  
+  // Static members
   static Napi::FunctionReference constructor;
   
-  Stream(const Napi::CallbackInfo& info);
+  // Resources
+  AVStream* stream_ = nullptr; // NOT owned - managed by AVFormatContext
   
-  AVStream* Get() { return stream_; }
-  void SetStream(AVStream* stream) { stream_ = stream; }
-
- private:
-  AVStream* stream_;  // Not owned, belongs to FormatContext
+  // === Properties ===
   
-  // Options
-  Napi::Value GetOptions(const Napi::CallbackInfo& info);
-  
-  // Core Properties
   Napi::Value GetIndex(const Napi::CallbackInfo& info);
   Napi::Value GetId(const Napi::CallbackInfo& info);
   void SetId(const Napi::CallbackInfo& info, const Napi::Value& value);
-  Napi::Value GetDuration(const Napi::CallbackInfo& info);
-  Napi::Value GetNbFrames(const Napi::CallbackInfo& info);
-  Napi::Value GetStartTime(const Napi::CallbackInfo& info);
-  
-  // Timing Properties
+  Napi::Value GetCodecpar(const Napi::CallbackInfo& info);
+  void SetCodecpar(const Napi::CallbackInfo& info, const Napi::Value& value);
   Napi::Value GetTimeBase(const Napi::CallbackInfo& info);
   void SetTimeBase(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetStartTime(const Napi::CallbackInfo& info);
+  void SetStartTime(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetDuration(const Napi::CallbackInfo& info);
+  void SetDuration(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetNbFrames(const Napi::CallbackInfo& info);
+  void SetNbFrames(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetDisposition(const Napi::CallbackInfo& info);
+  void SetDisposition(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetDiscard(const Napi::CallbackInfo& info);
+  void SetDiscard(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetSampleAspectRatio(const Napi::CallbackInfo& info);
+  void SetSampleAspectRatio(const Napi::CallbackInfo& info, const Napi::Value& value);
   Napi::Value GetAvgFrameRate(const Napi::CallbackInfo& info);
   void SetAvgFrameRate(const Napi::CallbackInfo& info, const Napi::Value& value);
   Napi::Value GetRFrameRate(const Napi::CallbackInfo& info);
   void SetRFrameRate(const Napi::CallbackInfo& info, const Napi::Value& value);
-  Napi::Value GetSampleAspectRatio(const Napi::CallbackInfo& info);
-  void SetSampleAspectRatio(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // Configuration
-  Napi::Value GetDiscard(const Napi::CallbackInfo& info);
-  void SetDiscard(const Napi::CallbackInfo& info, const Napi::Value& value);
-  Napi::Value GetDisposition(const Napi::CallbackInfo& info);
-  void SetDisposition(const Napi::CallbackInfo& info, const Napi::Value& value);
-  Napi::Value GetEventFlags(const Napi::CallbackInfo& info);
   Napi::Value GetMetadata(const Napi::CallbackInfo& info);
   void SetMetadata(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // Codec Parameters
-  Napi::Value GetCodecParameters(const Napi::CallbackInfo& info);
+  Napi::Value GetAttachedPic(const Napi::CallbackInfo& info);
+  Napi::Value GetEventFlags(const Napi::CallbackInfo& info);
+  void SetEventFlags(const Napi::CallbackInfo& info, const Napi::Value& value);
 };
 
-}  // namespace ffmpeg
+} // namespace ffmpeg
 
-#endif  // FFMPEG_STREAM_H
+#endif // FFMPEG_STREAM_H

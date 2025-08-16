@@ -17,15 +17,6 @@
       "mode": "auto"
     }
   ],
-  "rust-analyzer.procMacro.ignored": {
-    "napi-derive": [
-      "napi"
-    ]
-  },
-  "rust-analyzer.linkedProjects": [
-    "./packages/rust-decoder/Cargo.toml",
-    "./packages/rust-detector/Cargo.toml",
-  ],
   "[rust]": {
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
     "editor.codeActionsOnSave": {
@@ -84,7 +75,9 @@
     "editor.formatOnSave": false
   },
   "files.associations": {
-    "*.yaml": "yaml"
+    "*.gyp": "json",
+    "*.yaml": "yaml",
+    "vector": "cpp"
   },
   "python.analysis.autoImportCompletions": true,
   "python.languageServer": "Pylance",

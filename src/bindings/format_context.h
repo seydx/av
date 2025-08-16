@@ -2,6 +2,8 @@
 #define FFMPEG_FORMAT_CONTEXT_H
 
 #include <napi.h>
+#include <atomic>
+#include <mutex>
 #include "common.h"
 
 extern "C" {
@@ -11,88 +13,104 @@ extern "C" {
 namespace ffmpeg {
 
 class FormatContext : public Napi::ObjectWrap<FormatContext> {
- public:
+public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   FormatContext(const Napi::CallbackInfo& info);
   ~FormatContext();
   
-  AVFormatContext* Get() { return context_; }
-  void SetContext(AVFormatContext* ctx);
+  // Native access
+  AVFormatContext* Get() { return ctx_; }
+  const AVFormatContext* Get() const { return ctx_; }
+  bool IsOutput() const { return is_output_; }
 
- private:
+private:
+  // Friend classes
+  friend class FCOpenInputWorker;
+  friend class FCFindStreamInfoWorker;
+  friend class FCReadFrameWorker;
+  friend class FCSeekFrameWorker;
+  friend class FCSeekFileWorker;
+  friend class FCWriteHeaderWorker;
+  friend class FCWriteFrameWorker;
+  friend class FCInterleavedWriteFrameWorker;
+  friend class FCWriteTrailerWorker;
+
+  // Static members
   static Napi::FunctionReference constructor;
-  AVFormatContext* context_;
-  bool is_opened_;  // Track if context was opened with avformat_open_input
+  
+  // Resources
+  AVFormatContext* ctx_ = nullptr;  // Manual management, no RAII
+  bool is_output_ = false;
+  bool is_freed_ = false;
+  
+  // === Methods ===
   
   // Lifecycle
-  Napi::Value OpenInput(const Napi::CallbackInfo& info);
-  Napi::Value OpenInputAsync(const Napi::CallbackInfo& info);  // Promise-based
+  Napi::Value AllocContext(const Napi::CallbackInfo& info);
+  Napi::Value AllocOutputContext2(const Napi::CallbackInfo& info);
+  Napi::Value FreeContext(const Napi::CallbackInfo& info);
   Napi::Value CloseInput(const Napi::CallbackInfo& info);
+  Napi::Value OpenOutput(const Napi::CallbackInfo& info);
+  Napi::Value CloseOutput(const Napi::CallbackInfo& info);
   
-  // Resource management
-  Napi::Value Free(const Napi::CallbackInfo& info);
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
+  // Input Operations
+  Napi::Value OpenInputAsync(const Napi::CallbackInfo& info);
+  Napi::Value FindStreamInfoAsync(const Napi::CallbackInfo& info);
+  Napi::Value ReadFrameAsync(const Napi::CallbackInfo& info);
+  Napi::Value SeekFrameAsync(const Napi::CallbackInfo& info);
+  Napi::Value SeekFileAsync(const Napi::CallbackInfo& info);
   
-  // Options
-  Napi::Value GetOptions(const Napi::CallbackInfo& info);
-  
-  // Stream Discovery
-  Napi::Value FindStreamInfo(const Napi::CallbackInfo& info);
-  Napi::Value FindStreamInfoAsync(const Napi::CallbackInfo& info);  // Promise-based
-  Napi::Value FindBestStream(const Napi::CallbackInfo& info);
-  
-  // Reading
-  Napi::Value ReadFrame(const Napi::CallbackInfo& info);
-  Napi::Value ReadFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
-  Napi::Value SeekFrame(const Napi::CallbackInfo& info);
-  Napi::Value SeekFile(const Napi::CallbackInfo& info);
+  // Output Operations
+  Napi::Value WriteHeaderAsync(const Napi::CallbackInfo& info);
+  Napi::Value WriteFrameAsync(const Napi::CallbackInfo& info);
+  Napi::Value InterleavedWriteFrameAsync(const Napi::CallbackInfo& info);
+  Napi::Value WriteTrailerAsync(const Napi::CallbackInfo& info);
   Napi::Value Flush(const Napi::CallbackInfo& info);
-  
-  // Writing
-  Napi::Value WriteHeader(const Napi::CallbackInfo& info);
-  Napi::Value WriteHeaderAsync(const Napi::CallbackInfo& info);  // Promise-based
-  Napi::Value WriteFrame(const Napi::CallbackInfo& info);
-  Napi::Value WriteFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
-  Napi::Value WriteInterleavedFrame(const Napi::CallbackInfo& info);
-  Napi::Value WriteInterleavedFrameAsync(const Napi::CallbackInfo& info);  // Promise-based
-  Napi::Value WriteTrailer(const Napi::CallbackInfo& info);
-  Napi::Value WriteTrailerAsync(const Napi::CallbackInfo& info);  // Promise-based
-  
-  // Stream Management
+  Napi::Value NewStream(const Napi::CallbackInfo& info);
   Napi::Value GetStreams(const Napi::CallbackInfo& info);
   Napi::Value GetNbStreams(const Napi::CallbackInfo& info);
-  Napi::Value NewStream(const Napi::CallbackInfo& info);
   
-  // Properties
+  // Utility Methods
+  Napi::Value DumpFormat(const Napi::CallbackInfo& info);
+  Napi::Value FindBestStream(const Napi::CallbackInfo& info);
+  
+  // === Properties ===
   Napi::Value GetUrl(const Napi::CallbackInfo& info);
-  Napi::Value GetDuration(const Napi::CallbackInfo& info);
+  void SetUrl(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
   Napi::Value GetStartTime(const Napi::CallbackInfo& info);
+  Napi::Value GetDuration(const Napi::CallbackInfo& info);
   Napi::Value GetBitRate(const Napi::CallbackInfo& info);
-  Napi::Value GetMetadata(const Napi::CallbackInfo& info);
-  void SetMetadata(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
   Napi::Value GetFlags(const Napi::CallbackInfo& info);
   void SetFlags(const Napi::CallbackInfo& info, const Napi::Value& value);
-  Napi::Value GetMaxAnalyzeDuration(const Napi::CallbackInfo& info);
-  void SetMaxAnalyzeDuration(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
   Napi::Value GetProbesize(const Napi::CallbackInfo& info);
   void SetProbesize(const Napi::CallbackInfo& info, const Napi::Value& value);
   
-  // Format Info
-  Napi::Value GetInputFormat(const Napi::CallbackInfo& info);
-  Napi::Value GetOutputFormat(const Napi::CallbackInfo& info);
+  Napi::Value GetMaxAnalyzeDuration(const Napi::CallbackInfo& info);
+  void SetMaxAnalyzeDuration(const Napi::CallbackInfo& info, const Napi::Value& value);
   
-  // I/O Context
+  Napi::Value GetMetadata(const Napi::CallbackInfo& info);
+  void SetMetadata(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  Napi::Value GetIformat(const Napi::CallbackInfo& info);
+  Napi::Value GetOformat(const Napi::CallbackInfo& info);
+  void SetOformat(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  Napi::Value GetStrictStdCompliance(const Napi::CallbackInfo& info);
+  void SetStrictStdCompliance(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  Napi::Value GetMaxStreams(const Napi::CallbackInfo& info);
+  void SetMaxStreams(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
   Napi::Value GetPb(const Napi::CallbackInfo& info);
   void SetPb(const Napi::CallbackInfo& info, const Napi::Value& value);
   
   // Utility
-  Napi::Value Dump(const Napi::CallbackInfo& info);
-  
-  // Static factory methods
-  static Napi::Value AllocFormatContext(const Napi::CallbackInfo& info);
-  static Napi::Value AllocOutputFormatContext(const Napi::CallbackInfo& info);
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
-}  // namespace ffmpeg
+} // namespace ffmpeg
 
-#endif  // FFMPEG_FORMAT_CONTEXT_H
+#endif // FFMPEG_FORMAT_CONTEXT_H

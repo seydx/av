@@ -1,20 +1,43 @@
 #include "software_resample_context.h"
 #include "frame.h"
 #include "common.h"
+#include <cstring>
 
 namespace ffmpeg {
 
 Napi::FunctionReference SoftwareResampleContext::constructor;
 
+// === Init ===
+
 Napi::Object SoftwareResampleContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "SoftwareResampleContext", {
-    // Methods
-    InstanceMethod<&SoftwareResampleContext::ConvertFrame>("convertFrame"),
-    InstanceMethod<&SoftwareResampleContext::GetDelay>("getDelay"),
-    
-    // Resource management
+    // Lifecycle
+    InstanceMethod<&SoftwareResampleContext::Alloc>("alloc"),
+    InstanceMethod<&SoftwareResampleContext::AllocSetOpts2>("allocSetOpts2"),
+    InstanceMethod<&SoftwareResampleContext::Init>("init"),
     InstanceMethod<&SoftwareResampleContext::Free>("free"),
-    InstanceMethod<&SoftwareResampleContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
+    InstanceMethod<&SoftwareResampleContext::Close>("close"),
+
+    // Operations
+    InstanceMethod<&SoftwareResampleContext::Convert>("convert"),
+    InstanceMethod<&SoftwareResampleContext::ConvertFrame>("convertFrame"),
+    InstanceMethod<&SoftwareResampleContext::ConfigFrame>("configFrame"),
+
+    // Query
+    InstanceMethod<&SoftwareResampleContext::IsInitialized>("isInitialized"),
+    InstanceMethod<&SoftwareResampleContext::GetDelay>("getDelay"),
+    InstanceMethod<&SoftwareResampleContext::GetOutSamples>("getOutSamples"),
+    InstanceMethod<&SoftwareResampleContext::NextPts>("nextPts"),
+
+    // Configuration
+    InstanceMethod<&SoftwareResampleContext::SetCompensation>("setCompensation"),
+    InstanceMethod<&SoftwareResampleContext::SetChannelMapping>("setChannelMapping"),
+    InstanceMethod<&SoftwareResampleContext::SetMatrix>("setMatrix"),
+    InstanceMethod<&SoftwareResampleContext::DropOutput>("dropOutput"),
+    InstanceMethod<&SoftwareResampleContext::InjectSilence>("injectSilence"),
+
+    // Utility
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &SoftwareResampleContext::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -24,160 +47,470 @@ Napi::Object SoftwareResampleContext::Init(Napi::Env env, Napi::Object exports) 
   return exports;
 }
 
-SoftwareResampleContext::SoftwareResampleContext(const Napi::CallbackInfo& info)
+// === Lifecycle ===
+
+SoftwareResampleContext::SoftwareResampleContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<SoftwareResampleContext>(info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 6) {
-    Napi::TypeError::New(env, "Expected 6 arguments: srcChannelLayout, srcSampleRate, srcSampleFormat, dstChannelLayout, dstSampleRate, dstSampleFormat").ThrowAsJavaScriptException();
-    return;
-  }
-  
-  // Parse source channel layout
-  if (!info[0].IsObject()) {
-    Napi::TypeError::New(env, "Source channel layout must be an object").ThrowAsJavaScriptException();
-    return;
-  }
-  Napi::Object srcLayout = info[0].As<Napi::Object>();
-  AVChannelLayout src_ch_layout = {};
-  if (srcLayout.Has("nbChannels") && srcLayout.Has("order") && srcLayout.Has("mask")) {
-    src_ch_layout.nb_channels = srcLayout.Get("nbChannels").As<Napi::Number>().Int32Value();
-    src_ch_layout.order = static_cast<AVChannelOrder>(srcLayout.Get("order").As<Napi::Number>().Int32Value());
-    bool lossless;
-    src_ch_layout.u.mask = srcLayout.Get("mask").As<Napi::BigInt>().Uint64Value(&lossless);
-  }
-  
-  // Parse source sample rate
-  int src_sample_rate = info[1].As<Napi::Number>().Int32Value();
-  
-  // Parse source sample format
-  AVSampleFormat src_sample_fmt = static_cast<AVSampleFormat>(info[2].As<Napi::Number>().Int32Value());
-  
-  // Parse destination channel layout
-  if (!info[3].IsObject()) {
-    Napi::TypeError::New(env, "Destination channel layout must be an object").ThrowAsJavaScriptException();
-    return;
-  }
-  Napi::Object dstLayout = info[3].As<Napi::Object>();
-  AVChannelLayout dst_ch_layout = {};
-  if (dstLayout.Has("nbChannels") && dstLayout.Has("order") && dstLayout.Has("mask")) {
-    dst_ch_layout.nb_channels = dstLayout.Get("nbChannels").As<Napi::Number>().Int32Value();
-    dst_ch_layout.order = static_cast<AVChannelOrder>(dstLayout.Get("order").As<Napi::Number>().Int32Value());
-    bool lossless;
-    dst_ch_layout.u.mask = dstLayout.Get("mask").As<Napi::BigInt>().Uint64Value(&lossless);
-  }
-  
-  // Parse destination sample rate
-  int dst_sample_rate = info[4].As<Napi::Number>().Int32Value();
-  
-  // Parse destination sample format
-  AVSampleFormat dst_sample_fmt = static_cast<AVSampleFormat>(info[5].As<Napi::Number>().Int32Value());
-  
-  // Allocate resample context
-  context_ = swr_alloc();
-  if (!context_) {
-    Napi::Error::New(env, "Failed to allocate resample context").ThrowAsJavaScriptException();
-    return;
-  }
-  
-  // Set options
-  av_opt_set_chlayout(context_, "in_chlayout", &src_ch_layout, 0);
-  av_opt_set_int(context_, "in_sample_rate", src_sample_rate, 0);
-  av_opt_set_sample_fmt(context_, "in_sample_fmt", src_sample_fmt, 0);
-  
-  av_opt_set_chlayout(context_, "out_chlayout", &dst_ch_layout, 0);
-  av_opt_set_int(context_, "out_sample_rate", dst_sample_rate, 0);
-  av_opt_set_sample_fmt(context_, "out_sample_fmt", dst_sample_fmt, 0);
-  
-  // Initialize the resampling context
-  int ret = swr_init(context_);
-  if (ret < 0) {
-    swr_free(&context_);
-    context_ = nullptr;
-    CheckFFmpegError(env, ret, "Failed to initialize resample context");
-    return;
-  }
+  // Constructor does nothing - user must explicitly call alloc() or allocSetOpts2()
 }
 
 SoftwareResampleContext::~SoftwareResampleContext() {
-  if (context_) {
-    swr_free(&context_);
-    context_ = nullptr;
+  // Manual cleanup if not already done
+  if (ctx_ && !is_freed_) {
+    swr_free(&ctx_);
+    ctx_ = nullptr;
   }
+  // RAII handles cleanup
 }
 
-// Convert frame
-Napi::Value SoftwareResampleContext::ConvertFrame(const Napi::CallbackInfo& info) {
+// === Methods ===
+
+Napi::Value SoftwareResampleContext::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    Napi::Error::New(env, "Resample context is null").ThrowAsJavaScriptException();
+  // Free existing context if any
+  if (ctx_ && !is_freed_) { swr_free(&ctx_); ctx_ = nullptr; is_freed_ = true; };
+  
+  SwrContext* new_ctx = swr_alloc();
+  if (!new_ctx) {
+    Napi::Error::New(env, "Failed to allocate SwrContext").ThrowAsJavaScriptException();
     return env.Undefined();
   }
   
-  if (info.Length() < 2) {
-    Napi::TypeError::New(env, "Source and destination frames required").ThrowAsJavaScriptException();
-    return env.Undefined();
+  if (ctx_ && !is_freed_) { swr_free(&ctx_); } ctx_ = new_ctx; is_freed_ = false;
+  
+  return env.Undefined();
+}
+
+Napi::Value SoftwareResampleContext::AllocSetOpts2(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 6) {
+    Napi::TypeError::New(env, "Expected 6 arguments (outChLayout, outSampleFmt, outSampleRate, inChLayout, inSampleFmt, inSampleRate)")
+        .ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
   }
   
-  AVFrame* src = nullptr;
-  AVFrame* dst = nullptr;
+  // Parse output parameters
+  if (!info[0].IsObject()) {
+    Napi::TypeError::New(env, "outChLayout must be an object").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  Napi::Object outChLayoutObj = info[0].As<Napi::Object>();
+  AVChannelLayout outChLayout;
+  memset(&outChLayout, 0, sizeof(AVChannelLayout));
   
-  // Source frame (can be null for flushing)
-  if (info.Length() > 0) {
-    Frame* srcFrame = ffmpeg::UnwrapNativeObject<Frame>(env, info[0], "Frame");
-    if (srcFrame) {
-      src = srcFrame->GetFrame();
-    }
+  // Parse channel layout from object
+  if (outChLayoutObj.Has("order")) {
+    outChLayout.order = static_cast<AVChannelOrder>(outChLayoutObj.Get("order").As<Napi::Number>().Int32Value());
+  }
+  if (outChLayoutObj.Has("nbChannels")) {
+    outChLayout.nb_channels = outChLayoutObj.Get("nbChannels").As<Napi::Number>().Int32Value();
+  }
+  if (outChLayoutObj.Has("mask")) {
+    bool lossless;
+    outChLayout.u.mask = outChLayoutObj.Get("mask").As<Napi::BigInt>().Uint64Value(&lossless);
   }
   
-  // Destination frame (required)
-  Frame* dstFrame = ffmpeg::UnwrapNativeObjectRequired<Frame>(env, info[1], "Frame");
-  if (!dstFrame) return env.Undefined();
-  dst = dstFrame->GetFrame();
+  int outSampleFmt = info[1].As<Napi::Number>().Int32Value();
+  int outSampleRate = info[2].As<Napi::Number>().Int32Value();
   
-  int ret = swr_convert_frame(context_, dst, src);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to convert frame");
-    return env.Undefined();
+  // Parse input parameters
+  if (!info[3].IsObject()) {
+    Napi::TypeError::New(env, "inChLayout must be an object").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  Napi::Object inChLayoutObj = info[3].As<Napi::Object>();
+  AVChannelLayout inChLayout;
+  memset(&inChLayout, 0, sizeof(AVChannelLayout));
+  
+  // Parse channel layout from object
+  if (inChLayoutObj.Has("order")) {
+    inChLayout.order = static_cast<AVChannelOrder>(inChLayoutObj.Get("order").As<Napi::Number>().Int32Value());
+  }
+  if (inChLayoutObj.Has("nbChannels")) {
+    inChLayout.nb_channels = inChLayoutObj.Get("nbChannels").As<Napi::Number>().Int32Value();
+  }
+  if (inChLayoutObj.Has("mask")) {
+    bool lossless;
+    inChLayout.u.mask = inChLayoutObj.Get("mask").As<Napi::BigInt>().Uint64Value(&lossless);
+  }
+  
+  int inSampleFmt = info[4].As<Napi::Number>().Int32Value();
+  int inSampleRate = info[5].As<Napi::Number>().Int32Value();
+  
+  // Free existing context if any
+  if (ctx_ && !is_freed_) { swr_free(&ctx_); ctx_ = nullptr; is_freed_ = true; };
+  
+  // Allocate and set options
+  SwrContext* new_ctx = nullptr;
+  int ret = swr_alloc_set_opts2(&new_ctx,
+    &outChLayout, static_cast<AVSampleFormat>(outSampleFmt), outSampleRate,
+    &inChLayout, static_cast<AVSampleFormat>(inSampleFmt), inSampleRate,
+    0, nullptr);
+  
+  if (ret >= 0 && new_ctx) {
+    if (ctx_ && !is_freed_) { swr_free(&ctx_); } ctx_ = new_ctx; is_freed_ = false;
+  }
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::Init(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not allocated").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  int ret = swr_init(ctx);
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::Free(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (ctx_ && !is_freed_) { swr_free(&ctx_); ctx_ = nullptr; is_freed_ = true; };
+  
+  return env.Undefined();
+}
+
+Napi::Value SoftwareResampleContext::Close(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (ctx) {
+    swr_close(ctx);
   }
   
   return env.Undefined();
 }
 
-// Get delay
+// === Operations ===
+
+Napi::Value SoftwareResampleContext::Convert(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 4) {
+    Napi::TypeError::New(env, "Expected 4 arguments (out, outCount, in, inCount)")
+        .ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  // Parse output buffers
+  uint8_t* outPtr[8] = {nullptr};
+  if (!info[0].IsNull() && info[0].IsArray()) {
+    Napi::Array outArray = info[0].As<Napi::Array>();
+    for (uint32_t i = 0; i < outArray.Length() && i < 8; i++) {
+      Napi::Value val = outArray[i];
+      if (val.IsBuffer()) {
+        Napi::Buffer<uint8_t> buf = val.As<Napi::Buffer<uint8_t>>();
+        outPtr[i] = buf.Data();
+      }
+    }
+  }
+  int outCount = info[1].As<Napi::Number>().Int32Value();
+  
+  // Parse input buffers
+  const uint8_t* inPtr[8] = {nullptr};
+  if (!info[2].IsNull() && info[2].IsArray()) {
+    Napi::Array inArray = info[2].As<Napi::Array>();
+    for (uint32_t i = 0; i < inArray.Length() && i < 8; i++) {
+      Napi::Value val = inArray[i];
+      if (val.IsBuffer()) {
+        Napi::Buffer<uint8_t> buf = val.As<Napi::Buffer<uint8_t>>();
+        inPtr[i] = buf.Data();
+      }
+    }
+  }
+  int inCount = info[3].As<Napi::Number>().Int32Value();
+  
+  // Perform conversion
+  int ret = swr_convert(ctx, outPtr, outCount, inPtr, inCount);
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::ConvertFrame(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected 2 arguments (out, in)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  Frame* out = nullptr;
+  Frame* in = nullptr;
+  
+  if (!info[0].IsNull()) {
+    out = UnwrapNativeObject<Frame>(env, info[0], "Frame");
+    if (!out || !out->Get()) {
+      Napi::TypeError::New(env, "Invalid output frame").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+  }
+  
+  if (!info[1].IsNull()) {
+    in = UnwrapNativeObject<Frame>(env, info[1], "Frame");
+    if (!in || !in->Get()) {
+      Napi::TypeError::New(env, "Invalid input frame").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+  }
+  
+  int ret = swr_convert_frame(ctx, 
+    out ? out->Get() : nullptr,
+    in ? in->Get() : nullptr);
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::ConfigFrame(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not allocated").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected 2 arguments (out, in)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  Frame* out = nullptr;
+  Frame* in = nullptr;
+  
+  if (!info[0].IsNull()) {
+    out = UnwrapNativeObject<Frame>(env, info[0], "Frame");
+  }
+  
+  if (!info[1].IsNull()) {
+    in = UnwrapNativeObject<Frame>(env, info[1], "Frame");
+  }
+  
+  int ret = swr_config_frame(ctx,
+    out ? out->Get() : nullptr,
+    in ? in->Get() : nullptr);
+  
+  return Napi::Number::New(env, ret);
+}
+
+// === Query ===
+
+Napi::Value SoftwareResampleContext::IsInitialized(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    return Napi::Boolean::New(env, false);
+  }
+  
+  int ret = swr_is_initialized(ctx);
+  return Napi::Boolean::New(env, ret != 0);
+}
+
 Napi::Value SoftwareResampleContext::GetDelay(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    return Napi::BigInt::New(env, static_cast<int64_t>(0));
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    return Napi::BigInt::New(env, int64_t(0));
   }
   
-  if (info.Length() < 1 || !info[0].IsBigInt()) {
-    Napi::TypeError::New(env, "Base sample rate required as BigInt").ThrowAsJavaScriptException();
-    return Napi::BigInt::New(env, static_cast<int64_t>(0));
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected 1 argument (base)").ThrowAsJavaScriptException();
+    return Napi::BigInt::New(env, int64_t(0));
   }
   
   bool lossless;
   int64_t base = info[0].As<Napi::BigInt>().Int64Value(&lossless);
+  int64_t delay = swr_get_delay(ctx, base);
   
-  int64_t delay = swr_get_delay(context_, base);
   return Napi::BigInt::New(env, delay);
 }
 
-// Free
-Napi::Value SoftwareResampleContext::Free(const Napi::CallbackInfo& info) {
+Napi::Value SoftwareResampleContext::GetOutSamples(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (context_) {
-    swr_free(&context_);
-    context_ = nullptr;
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    return Napi::Number::New(env, 0);
   }
   
-  return env.Undefined();
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected 1 argument (inSamples)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, 0);
+  }
+  
+  int inSamples = info[0].As<Napi::Number>().Int32Value();
+  int outSamples = swr_get_out_samples(ctx, inSamples);
+  
+  return Napi::Number::New(env, outSamples);
 }
 
-// Dispose
+Napi::Value SoftwareResampleContext::NextPts(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    return Napi::BigInt::New(env, int64_t(0));
+  }
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected 1 argument (pts)").ThrowAsJavaScriptException();
+    return Napi::BigInt::New(env, int64_t(0));
+  }
+  
+  bool lossless;
+  int64_t pts = info[0].As<Napi::BigInt>().Int64Value(&lossless);
+  int64_t nextPts = swr_next_pts(ctx, pts);
+  
+  return Napi::BigInt::New(env, nextPts);
+}
+
+// === Configuration ===
+
+Napi::Value SoftwareResampleContext::SetCompensation(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected 2 arguments (sampleDelta, compensationDistance)")
+        .ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  int sampleDelta = info[0].As<Napi::Number>().Int32Value();
+  int compensationDistance = info[1].As<Napi::Number>().Int32Value();
+  
+  int ret = swr_set_compensation(ctx, sampleDelta, compensationDistance);
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::SetChannelMapping(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 1 || !info[0].IsArray()) {
+    Napi::TypeError::New(env, "Expected 1 argument (channelMap array)")
+        .ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  Napi::Array channelMapArray = info[0].As<Napi::Array>();
+  std::vector<int> channelMap;
+  
+  for (uint32_t i = 0; i < channelMapArray.Length(); i++) {
+    Napi::Value val = channelMapArray[i];
+    channelMap.push_back(val.As<Napi::Number>().Int32Value());
+  }
+  
+  int ret = swr_set_channel_mapping(ctx, channelMap.data());
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::SetMatrix(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected 2 arguments (matrix, stride)")
+        .ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (!info[0].IsArray()) {
+    Napi::TypeError::New(env, "matrix must be an array").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  Napi::Array matrixArray = info[0].As<Napi::Array>();
+  std::vector<double> matrix;
+  
+  for (uint32_t i = 0; i < matrixArray.Length(); i++) {
+    Napi::Value val = matrixArray[i];
+    matrix.push_back(val.As<Napi::Number>().DoubleValue());
+  }
+  
+  int stride = info[1].As<Napi::Number>().Int32Value();
+  
+  int ret = swr_set_matrix(ctx, matrix.data(), stride);
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::DropOutput(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected 1 argument (count)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  int count = info[0].As<Napi::Number>().Int32Value();
+  int ret = swr_drop_output(ctx, count);
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value SoftwareResampleContext::InjectSilence(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  SwrContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected 1 argument (count)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  int count = info[0].As<Napi::Number>().Int32Value();
+  int ret = swr_inject_silence(ctx, count);
+  
+  return Napi::Number::New(env, ret);
+}
+
+// === Utility ===
+
 Napi::Value SoftwareResampleContext::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);
 }

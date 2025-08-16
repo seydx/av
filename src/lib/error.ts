@@ -1,182 +1,248 @@
-import {
-  AV_ERROR_BSF_NOT_FOUND,
-  AV_ERROR_BUFFER_TOO_SMALL,
-  AV_ERROR_BUG,
-  AV_ERROR_BUG2,
-  AV_ERROR_DECODER_NOT_FOUND,
-  AV_ERROR_DEMUXER_NOT_FOUND,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EINVAL,
-  AV_ERROR_EIO,
-  AV_ERROR_ENCODER_NOT_FOUND,
-  AV_ERROR_ENOMEM,
-  AV_ERROR_ENOSYS,
-  AV_ERROR_EOF,
-  AV_ERROR_EPERM,
-  AV_ERROR_EPIPE,
-  AV_ERROR_ETIMEDOUT,
-  AV_ERROR_EXIT,
-  AV_ERROR_EXPERIMENTAL,
-  AV_ERROR_EXTERNAL,
-  AV_ERROR_FILTER_NOT_FOUND,
-  AV_ERROR_HTTP_BAD_REQUEST,
-  AV_ERROR_HTTP_FORBIDDEN,
-  AV_ERROR_HTTP_NOT_FOUND,
-  AV_ERROR_HTTP_OTHER_4XX,
-  AV_ERROR_HTTP_SERVER_ERROR,
-  AV_ERROR_HTTP_UNAUTHORIZED,
-  AV_ERROR_INPUT_CHANGED,
-  AV_ERROR_INVALIDDATA,
-  AV_ERROR_MUXER_NOT_FOUND,
-  AV_ERROR_OPTION_NOT_FOUND,
-  AV_ERROR_OUTPUT_CHANGED,
-  AV_ERROR_PATCHWELCOME,
-  AV_ERROR_PROTOCOL_NOT_FOUND,
-  AV_ERROR_STREAM_NOT_FOUND,
-  AV_ERROR_UNKNOWN,
-} from './constants.js';
-
-import type { AVError } from './constants.js';
+import { bindings } from './binding.js';
+import type { NativeFFmpegError } from './native-types.js';
 
 /**
- * FFmpeg error with native error message support
+ * FFmpeg Error - Low Level API
+ *
+ * Direct mapping to FFmpeg's error system.
+ * Represents an FFmpeg error with its error code and message.
+ * Provides utility methods for error handling.
+ *
+ * @example
+ * ```typescript
+ * // Check return codes
+ * const ret = await codecContext.sendPacket(packet);
+ * if (ret < 0) {
+ *   throw new FFmpegError(ret);
+ * }
+ *
+ * // Handle specific errors
+ * try {
+ *   await formatContext.openInput('file.mp4', null, null);
+ * } catch (error) {
+ *   if (error instanceof FFmpegError) {
+ *     console.error(`Error code: ${error.code}`);
+ *     console.error(`Message: ${error.message}`);
+ *   }
+ * }
+ * ```
  */
 export class FFmpegError extends Error {
-  constructor(
-    public readonly code: number | AVError,
-    message?: string,
-  ) {
-    super(message ?? FFmpegError.getErrorMessage(code));
+  private native: NativeFFmpegError;
+
+  // Constructor
+  /**
+   * Create a new FFmpegError instance.
+   *
+   * Wraps an FFmpeg error code with a JavaScript Error.
+   *
+   * @param code - FFmpeg error code (negative number)
+   *
+   * @example
+   * ```typescript
+   * const error = new FFmpegError(AVERROR_EOF);
+   * console.log(error.message); // "End of file"
+   * console.log(error.code);    // -541478725
+   * ```
+   */
+  constructor(code?: number) {
+    const native = new bindings.FFmpegError(code);
+    const message = code !== undefined ? native.message : 'FFmpeg Error';
+    super(message);
+
+    this.native = native;
     this.name = 'FFmpegError';
+
+    // Maintain proper stack trace for where our error was thrown (only available on V8)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, FFmpegError);
+    }
+  }
+
+  // Static Methods
+
+  /**
+   * Put a description of the AVERROR code errnum in a string.
+   *
+   * Direct mapping to av_strerror()
+   *
+   * @param errnum - Error code to describe
+   *
+   * @returns Error description string
+   *
+   * @example
+   * ```typescript
+   * const message = FFmpegError.strerror(AVERROR_EAGAIN);
+   * console.log(message); // "Resource temporarily unavailable"
+   *
+   * const message2 = FFmpegError.strerror(AVERROR_EOF);
+   * console.log(message2); // "End of file"
+   * ```
+   */
+  static strerror(errnum: number): string {
+    return bindings.FFmpegError.strerror(errnum);
   }
 
   /**
-   * Get human-readable error message for error code
-   * Note: FFmpeg uses negative error codes
+   * Convert a POSIX error code to FFmpeg error code.
+   *
+   * Direct mapping to AVERROR() macro
+   *
+   * @param posixError - POSIX error code (positive)
+   *
+   * @returns FFmpeg error code (negative)
+   *
+   * @example
+   * ```typescript
+   * import { EAGAIN } from 'errno';
+   * const ffmpegError = FFmpegError.makeError(EAGAIN);
+   * // ffmpegError is now AVERROR(EAGAIN)
+   *
+   * if (ret === ffmpegError) {
+   *   console.log('Resource temporarily unavailable');
+   * }
+   * ```
    */
-  static getErrorMessage(code: number | AVError): string {
-    // Common POSIX errors
-    switch (code) {
-      // POSIX errors
-      case AV_ERROR_EAGAIN:
-        return 'Resource temporarily unavailable';
-      case AV_ERROR_ENOMEM:
-        return 'Out of memory';
-      case AV_ERROR_EINVAL:
-        return 'Invalid argument';
-      case AV_ERROR_EPIPE:
-        return 'Broken pipe';
-      case AV_ERROR_EIO:
-        return 'I/O error';
-      case AV_ERROR_EPERM:
-        return 'Operation not permitted';
-      case AV_ERROR_ETIMEDOUT:
-        return 'Connection timed out';
-      case AV_ERROR_ENOSYS:
-        return 'Function not implemented';
+  static makeError(posixError: number): number {
+    return bindings.FFmpegError.makeError(posixError);
+  }
 
-      // FFmpeg specific errors
-      case AV_ERROR_EOF:
-        return 'End of file';
-      case AV_ERROR_BSF_NOT_FOUND:
-        return 'Bitstream filter not found';
-      case AV_ERROR_BUFFER_TOO_SMALL:
-        return 'Buffer too small';
-      case AV_ERROR_BUG:
-      case AV_ERROR_BUG2:
-        return 'Internal bug, should not have happened';
-      case AV_ERROR_DECODER_NOT_FOUND:
-        return 'Decoder not found';
-      case AV_ERROR_DEMUXER_NOT_FOUND:
-        return 'Demuxer not found';
-      case AV_ERROR_ENCODER_NOT_FOUND:
-        return 'Encoder not found';
-      case AV_ERROR_EXIT:
-        return 'Immediate exit requested';
-      case AV_ERROR_EXPERIMENTAL:
-        return 'Experimental feature';
-      case AV_ERROR_EXTERNAL:
-        return 'External library error';
-      case AV_ERROR_FILTER_NOT_FOUND:
-        return 'Filter not found';
-      case AV_ERROR_HTTP_BAD_REQUEST:
-        return 'HTTP 400 Bad Request';
-      case AV_ERROR_HTTP_FORBIDDEN:
-        return 'HTTP 403 Forbidden';
-      case AV_ERROR_HTTP_NOT_FOUND:
-        return 'HTTP 404 Not Found';
-      case AV_ERROR_HTTP_OTHER_4XX:
-        return 'HTTP 4xx Client Error';
-      case AV_ERROR_HTTP_SERVER_ERROR:
-        return 'HTTP 500 Server Error';
-      case AV_ERROR_HTTP_UNAUTHORIZED:
-        return 'HTTP 401 Unauthorized';
-      case AV_ERROR_INPUT_CHANGED:
-        return 'Input changed';
-      case AV_ERROR_INVALIDDATA:
-        return 'Invalid data found when processing input';
-      case AV_ERROR_MUXER_NOT_FOUND:
-        return 'Muxer not found';
-      case AV_ERROR_OPTION_NOT_FOUND:
-        return 'Option not found';
-      case AV_ERROR_OUTPUT_CHANGED:
-        return 'Output changed';
-      case AV_ERROR_PATCHWELCOME:
-        return 'Not yet implemented, patches welcome';
-      case AV_ERROR_PROTOCOL_NOT_FOUND:
-        return 'Protocol not found';
-      case AV_ERROR_STREAM_NOT_FOUND:
-        return 'Stream not found';
-      case AV_ERROR_UNKNOWN:
-        return 'Unknown error';
-      default:
-        // Try to get error string from FFmpeg if available
-        // For now, return generic message
-        if (code < 0) {
-          return `FFmpeg error: ${code}`;
-        }
-        return `Unknown error code: ${code}`;
+  /**
+   * Check if a value is an error code.
+   *
+   * @param code - Value to check
+   *
+   * @returns true if code is negative (error), false otherwise
+   *
+   * @example
+   * ```typescript
+   * const ret = await formatContext.readFrame(packet);
+   * if (FFmpegError.isFFmpegError(ret)) {
+   *   console.error('Read frame failed');
+   * }
+   * ```
+   */
+  static isFFmpegError(code: number): boolean {
+    return bindings.FFmpegError.isError(code);
+  }
+
+  /**
+   * Create FFmpegError from error code if it's an error.
+   *
+   * Helper method to conditionally create error objects.
+   *
+   * @param code - FFmpeg return code
+   *
+   * @returns FFmpegError if code < 0, null otherwise
+   *
+   * @example
+   * ```typescript
+   * const ret = await formatContext.openInput('video.mp4', null, null);
+   * const error = FFmpegError.fromCode(ret);
+   * if (error) {
+   *   console.error(`Failed: ${error.message}`);
+   *   console.error(`Code: ${error.code}`);
+   * }
+   * ```
+   */
+  static fromCode(code: number): FFmpegError | null {
+    if (code >= 0) {
+      return null;
+    }
+    return new FFmpegError(code);
+  }
+
+  /**
+   * Throw FFmpegError if code indicates error.
+   *
+   * Helper method for error checking.
+   *
+   * @param code - FFmpeg return code
+   * @param operation - Optional operation name for better error messages
+   *
+   * @throws {FFmpegError} If code < 0
+   *
+   * @example
+   * ```typescript
+   * const ret = await codecContext.sendPacket(packet);
+   * FFmpegError.throwIfError(ret, 'sendPacket');
+   * // Continues if successful, throws if error
+   *
+   * // With operation name for better error messages
+   * const ret2 = formatContext.allocOutputContext2(null, 'mp4', 'out.mp4');
+   * FFmpegError.throwIfError(ret2, 'allocOutputContext2');
+   * // Error message: "allocOutputContext2 failed: ..."
+   * ```
+   */
+  static throwIfError(code: number, operation?: string): void {
+    if (code < 0) {
+      const error = new FFmpegError(code);
+      if (operation) {
+        (error as any).message = `${operation} failed: ${error.message}`;
+      }
+      throw error;
     }
   }
 
   /**
-   * Check if error is a specific error code
+   * Check if error code matches specific error.
+   *
+   * Helper method for error type checking.
+   *
+   * @param code - FFmpeg return code
+   * @param errorCode - Error code to check against
+   *
+   * @returns true if codes match, false otherwise
+   *
+   * @example
+   * ```typescript
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from './constants.js';
+   *
+   * const ret = await codecContext.receiveFrame(frame);
+   * if (FFmpegError.is(ret, AVERROR_EOF)) {
+   *   console.log('End of stream reached');
+   * } else if (FFmpegError.is(ret, AVERROR_EAGAIN)) {
+   *   console.log('Need more input');
+   * }
+   * ```
    */
-  is(code: number | AVError): boolean {
-    return this.code === code;
+  static is(code: number, errorCode: number): boolean {
+    return code === errorCode;
+  }
+
+  // Getter Properties
+
+  /**
+   * Get error code.
+   *
+   * Direct mapping to AVERROR code
+   *
+   * FFmpeg error code (negative number).
+   */
+  get code(): number {
+    return this.native.code;
   }
 
   /**
-   * Check if error is EAGAIN (would block)
+   * Get human-readable error message.
+   *
+   * Direct mapping to av_strerror() output
+   *
+   * Error description string.
    */
-  get isEagain(): boolean {
-    return this.code === AV_ERROR_EAGAIN;
+  get message(): string {
+    return this.native.message;
   }
 
-  /**
-   * Check if error is EOF
-   */
-  get isEof(): boolean {
-    return this.code === AV_ERROR_EOF;
-  }
+  // Internal Methods
 
   /**
-   * Helper to check if operation should be retried
+   * Get the native FFmpeg error object.
+   *
+   * @internal For use by other wrapper classes
+   * @returns The underlying native error object
    */
-  get shouldRetry(): boolean {
-    return this.isEagain;
-  }
-
-  /**
-   * Convert a native error with ffmpegCode property to FFmpegError
-   * @internal
-   */
-  static fromNativeError(error: any): Error {
-    // Check if this is an error from C++ with ffmpegCode property
-    if (error && typeof error.ffmpegCode === 'number') {
-      return new FFmpegError(error.ffmpegCode, error.message);
-    }
-    // Return original error if not an FFmpeg error
-    return error;
+  getNative(): NativeFFmpegError {
+    return this.native;
   }
 }

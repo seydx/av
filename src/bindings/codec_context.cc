@@ -1,92 +1,90 @@
 #include "codec_context.h"
+#include "codec.h"
+#include "codec_parameters.h"
 #include "packet.h"
 #include "frame.h"
 #include "dictionary.h"
-#include "option.h"
-#include "codec.h"
 #include "hardware_device_context.h"
 #include "hardware_frames_context.h"
-#include "codec_context_hw.h"
+
+extern "C" {
+#include <libavutil/pixfmt.h>
+#include <libavutil/opt.h>
+}
 
 namespace ffmpeg {
 
 Napi::FunctionReference CodecContext::constructor;
 
+// === Init ===
+
 Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "CodecContext", {
     // Lifecycle
-    InstanceMethod<&CodecContext::Open>("open"),
-    InstanceMethod<&CodecContext::OpenAsync>("openAsync"),
-    InstanceMethod<&CodecContext::Close>("close"),
-    
-    // Encoding/Decoding (Synchronous)
-    InstanceMethod<&CodecContext::SendPacket>("sendPacket"),
-    InstanceMethod<&CodecContext::ReceiveFrame>("receiveFrame"),
-    InstanceMethod<&CodecContext::SendFrame>("sendFrame"),
-    InstanceMethod<&CodecContext::ReceivePacket>("receivePacket"),
-    
-    // Encoding/Decoding (Asynchronous)
-    InstanceMethod<&CodecContext::SendPacketAsync>("sendPacketAsync"),
-    InstanceMethod<&CodecContext::ReceiveFrameAsync>("receiveFrameAsync"),
-    InstanceMethod<&CodecContext::SendFrameAsync>("sendFrameAsync"),
-    InstanceMethod<&CodecContext::ReceivePacketAsync>("receivePacketAsync"),
-    
+    InstanceMethod<&CodecContext::AllocContext3>("allocContext3"),
+    InstanceMethod<&CodecContext::FreeContext>("freeContext"),
+    InstanceMethod<&CodecContext::Open2Async>("open2"),
+    InstanceMethod<&CodecContext::ParametersToContext>("parametersToContext"),
+    InstanceMethod<&CodecContext::ParametersFromContext>("parametersFromContext"),
     InstanceMethod<&CodecContext::FlushBuffers>("flushBuffers"),
     
-    // Properties - General
-    InstanceAccessor<&CodecContext::GetCodecID, &CodecContext::SetCodecID>("codecID"),
-    InstanceAccessor<&CodecContext::GetMediaType, &CodecContext::SetMediaType>("mediaType"),
+    // Operations
+    InstanceMethod<&CodecContext::SendPacketAsync>("sendPacket"),
+    InstanceMethod<&CodecContext::ReceiveFrameAsync>("receiveFrame"),
+    InstanceMethod<&CodecContext::SendFrameAsync>("sendFrame"),
+    InstanceMethod<&CodecContext::ReceivePacketAsync>("receivePacket"),
+    
+    // Options
+    InstanceMethod<&CodecContext::SetOpt>("setOpt"),
+
+    // Properties
+    InstanceAccessor<&CodecContext::GetCodecType, &CodecContext::SetCodecType>("codecType"),
+    InstanceAccessor<&CodecContext::GetCodecId, &CodecContext::SetCodecId>("codecId"),
     InstanceAccessor<&CodecContext::GetBitRate, &CodecContext::SetBitRate>("bitRate"),
     InstanceAccessor<&CodecContext::GetTimeBase, &CodecContext::SetTimeBase>("timeBase"),
-    InstanceAccessor<&CodecContext::GetLevel, &CodecContext::SetLevel>("level"),
-    InstanceAccessor<&CodecContext::GetProfile, &CodecContext::SetProfile>("profile"),
-    InstanceAccessor<&CodecContext::GetThreadCount, &CodecContext::SetThreadCount>("threadCount"),
-    InstanceAccessor<&CodecContext::GetThreadType, &CodecContext::SetThreadType>("threadType"),
+    InstanceAccessor<&CodecContext::GetPktTimebase, &CodecContext::SetPktTimebase>("pktTimebase"),
+    InstanceAccessor<&CodecContext::GetDelay>("delay"),
     InstanceAccessor<&CodecContext::GetFlags, &CodecContext::SetFlags>("flags"),
     InstanceAccessor<&CodecContext::GetFlags2, &CodecContext::SetFlags2>("flags2"),
     InstanceAccessor<&CodecContext::GetExtraData, &CodecContext::SetExtraData>("extraData"),
-    
-    // Hardware acceleration
-    InstanceAccessor<&CodecContext::GetHwDeviceContext, &CodecContext::SetHwDeviceContext>("hwDeviceContext"),
-    InstanceAccessor<&CodecContext::GetHwFramesContext, &CodecContext::SetHwFramesContext>("hwFramesContext"),
-    
-    // Properties - Video
+    InstanceAccessor<&CodecContext::GetProfile, &CodecContext::SetProfile>("profile"),
+    InstanceAccessor<&CodecContext::GetLevel, &CodecContext::SetLevel>("level"),
+    InstanceAccessor<&CodecContext::GetThreadCount, &CodecContext::SetThreadCount>("threadCount"),
     InstanceAccessor<&CodecContext::GetWidth, &CodecContext::SetWidth>("width"),
     InstanceAccessor<&CodecContext::GetHeight, &CodecContext::SetHeight>("height"),
-    InstanceAccessor<&CodecContext::GetPixelFormat, &CodecContext::SetPixelFormat>("pixelFormat"),
-    InstanceAccessor<&CodecContext::GetFramerate, &CodecContext::SetFramerate>("framerate"),
-    InstanceAccessor<&CodecContext::GetSampleAspectRatio, &CodecContext::SetSampleAspectRatio>("sampleAspectRatio"),
     InstanceAccessor<&CodecContext::GetGopSize, &CodecContext::SetGopSize>("gopSize"),
+    InstanceAccessor<&CodecContext::GetPixelFormat, &CodecContext::SetPixelFormat>("pixelFormat"),
     InstanceAccessor<&CodecContext::GetMaxBFrames, &CodecContext::SetMaxBFrames>("maxBFrames"),
-    InstanceAccessor<&CodecContext::GetColorSpace, &CodecContext::SetColorSpace>("colorSpace"),
+    InstanceAccessor<&CodecContext::GetMbDecision, &CodecContext::SetMbDecision>("mbDecision"),
+    InstanceAccessor<&CodecContext::GetHasBFrames>("hasBFrames"),
+    InstanceAccessor<&CodecContext::GetSampleAspectRatio, &CodecContext::SetSampleAspectRatio>("sampleAspectRatio"),
+    InstanceAccessor<&CodecContext::GetFramerate, &CodecContext::SetFramerate>("framerate"),
     InstanceAccessor<&CodecContext::GetColorRange, &CodecContext::SetColorRange>("colorRange"),
-    
-    // Properties - Audio
+    InstanceAccessor<&CodecContext::GetColorPrimaries, &CodecContext::SetColorPrimaries>("colorPrimaries"),
+    InstanceAccessor<&CodecContext::GetColorTrc, &CodecContext::SetColorTrc>("colorTrc"),
+    InstanceAccessor<&CodecContext::GetColorSpace, &CodecContext::SetColorSpace>("colorSpace"),
+    InstanceAccessor<&CodecContext::GetChromaLocation, &CodecContext::SetChromaLocation>("chromaLocation"),
     InstanceAccessor<&CodecContext::GetSampleRate, &CodecContext::SetSampleRate>("sampleRate"),
+    InstanceAccessor<&CodecContext::GetChannels, &CodecContext::SetChannels>("channels"),
     InstanceAccessor<&CodecContext::GetSampleFormat, &CodecContext::SetSampleFormat>("sampleFormat"),
-    InstanceAccessor<&CodecContext::GetChannelLayout, &CodecContext::SetChannelLayout>("channelLayout"),
-    InstanceAccessor<&CodecContext::GetChannels>("channels"),
     InstanceAccessor<&CodecContext::GetFrameSize, &CodecContext::SetFrameSize>("frameSize"),
+    InstanceAccessor<&CodecContext::GetFrameNumber>("frameNumber"),
+    InstanceAccessor<&CodecContext::GetChannelLayout, &CodecContext::SetChannelLayout>("channelLayout"),
+    InstanceAccessor<&CodecContext::GetQMin, &CodecContext::SetQMin>("qMin"),
+    InstanceAccessor<&CodecContext::GetQMax, &CodecContext::SetQMax>("qMax"),
+    InstanceAccessor<&CodecContext::GetRcBufferSize, &CodecContext::SetRcBufferSize>("rcBufferSize"),
+    InstanceAccessor<&CodecContext::GetRcMaxRate, &CodecContext::SetRcMaxRate>("rcMaxRate"),
+    InstanceAccessor<&CodecContext::GetRcMinRate, &CodecContext::SetRcMinRate>("rcMinRate"),
     
-    // Properties - Rate Control
-    InstanceAccessor<&CodecContext::GetRateControlMaxRate, &CodecContext::SetRateControlMaxRate>("rcMaxRate"),
-    InstanceAccessor<&CodecContext::GetRateControlMinRate, &CodecContext::SetRateControlMinRate>("rcMinRate"),
-    InstanceAccessor<&CodecContext::GetRateControlBufferSize, &CodecContext::SetRateControlBufferSize>("rcBufferSize"),
-    
-    // Hardware Configuration (C++ managed)
+    // Hardware Acceleration
+    InstanceAccessor<&CodecContext::GetHwDeviceCtx, &CodecContext::SetHwDeviceCtx>("hwDeviceCtx"),
+    InstanceAccessor<&CodecContext::GetHwFramesCtx, &CodecContext::SetHwFramesCtx>("hwFramesCtx"),
     InstanceMethod<&CodecContext::SetHardwarePixelFormat>("setHardwarePixelFormat"),
-    InstanceMethod<&CodecContext::SetHardwareConfig>("setHardwareConfig"),
-    InstanceMethod<&CodecContext::ClearHardwareConfig>("clearHardwareConfig"),
     
     // Utility
-    InstanceAccessor<&CodecContext::IsEncoder>("isEncoder"),
-    InstanceAccessor<&CodecContext::IsDecoder>("isDecoder"),
-    
-    // Options
-    InstanceAccessor<&CodecContext::GetOptions>("options"),
+    InstanceAccessor<&CodecContext::IsOpen>("isOpen"),
     
     // Resource management
-    InstanceMethod<&CodecContext::Free>("free"),
     InstanceMethod<&CodecContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
@@ -97,302 +95,248 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
+// === Lifecycle ===
+
 CodecContext::CodecContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<CodecContext>(info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() > 0 && info[0].IsObject()) {
-    // Initialize from existing codec
-    Codec* codec = ffmpeg::UnwrapNativeObject<Codec>(env, info[0], "Codec");
-    if (!codec) {
-      return;
-    }
-    
-    if (codec->Get()) {
-      AVCodecContext* ctx = avcodec_alloc_context3(codec->Get());
-      if (!ctx) {
-        Napi::Error::New(env, "Failed to allocate codec context").ThrowAsJavaScriptException();
-        return;
-      }
-      context_.Reset(ctx);
-    } else {
-      Napi::Error::New(env, "Invalid codec object or codec not initialized").ThrowAsJavaScriptException();
-      return;
-    }
-  } else {
-    // Allocate new context without codec
-    AVCodecContext* ctx = avcodec_alloc_context3(nullptr);
-    if (!ctx) {
-      Napi::Error::New(env, "Failed to allocate codec context").ThrowAsJavaScriptException();
-      return;
-    }
-    context_.Reset(ctx);
-  }
+  // Constructor does nothing - user must explicitly call allocContext3()
 }
 
 CodecContext::~CodecContext() {
-  // Clean up hardware configuration when object is destroyed
-  if (context_.Get()) {
-    ffmpeg::ClearHardwareConfig(context_.Get());
-  }
-  
-  // Clean up JavaScript references
-  if (!hwDeviceContextRef_.IsEmpty()) {
-    hwDeviceContextRef_.Unref();
-    hwDeviceContextRef_.Reset();
-  }
-  if (!hwFramesContextRef_.IsEmpty()) {
-    hwFramesContextRef_.Unref();
-    hwFramesContextRef_.Reset();
+  // Manual cleanup if not already done
+  if (!is_freed_ && context_) {
+    // avcodec_free_context handles both closing and freeing
+    avcodec_free_context(&context_);
+    context_ = nullptr;
   }
 }
 
-void CodecContext::SetContext(AVCodecContext* ctx) {
-  context_.Reset(ctx);
-}
+// === Methods ===
 
-// Lifecycle
-Napi::Value CodecContext::Open(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::AllocContext3(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  // The codec should already be set in the context from the constructor
-  // Check if codec is set
-  if (!context_.Get()->codec) {
-    Napi::Error::New(env, "No codec set in context. Create context with a codec parameter.").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
+  const AVCodec* codec = nullptr;
   
-  AVDictionary* options = nullptr;
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    // Check if it's a Dictionary object
-    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
-    if (dict && dict->GetDict()) {
-      // Create a copy of the dictionary for avcodec_open2 to consume
-      av_dict_copy(&options, dict->GetDict(), 0);
+    Codec* codecObj = UnwrapNativeObject<Codec>(env, info[0], "Codec");
+    if (codecObj) {
+      codec = codecObj->Get();
     }
   }
   
-  int ret = avcodec_open2(context_.Get(), context_.Get()->codec, options ? &options : nullptr);
-  if (ret < 0) {
-    CheckFFmpegError(env, ret, "Failed to open codec context");
+  AVCodecContext* ctx = avcodec_alloc_context3(codec);
+  if (!ctx) {
+    Napi::Error::New(env, "Failed to allocate codec context (ENOMEM)").ThrowAsJavaScriptException();
     return env.Undefined();
   }
   
-  // Clean up any remaining options
-  if (options) av_dict_free(&options);
-  
+  context_ = ctx;
   return env.Undefined();
 }
 
-Napi::Value CodecContext::Close(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::FreeContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  // avcodec_close is deprecated, just reset the context
-  // The actual cleanup happens in the destructor via avcodec_free_context
-  context_.Reset();
-  
-  return env.Undefined();
-}
-
-Napi::Value CodecContext::Free(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  context_.Reset();
-  return env.Undefined();
-}
-
-Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
-  return Free(info);
-}
-
-// Options
-Napi::Value CodecContext::GetOptions(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_.Get()) {
-    return env.Null();
+  if (is_freed_) {
+    return env.Undefined();
   }
   
-  // Use the Options helper to create an Options wrapper
-  return Options::CreateFromContext(env, context_.Get());
-}
-
-// Encoding/Decoding
-Napi::Value CodecContext::SendPacket(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
+  AVCodecContext* ctx = context_;
+  context_ = nullptr;
   
-  AVPacket* pkt = nullptr;
-  if (info.Length() > 0) {
-    Packet* packet = ffmpeg::UnwrapNativeObject<Packet>(env, info[0], "Packet");
-    if (packet) {
-      pkt = packet->GetPacket();
-    }
+  if (!ctx) {
+    return env.Undefined();
   }
   
-  int ret = avcodec_send_packet(context_.Get(), pkt);
-  LogFFmpegError(ret, "Failed to send packet to decoder");
-  return Napi::Number::New(env, ret);
+  // avcodec_free_context handles both closing and freeing
+  avcodec_free_context(&ctx);
+  is_freed_ = true;
+  
+  return env.Undefined();
 }
 
-Napi::Value CodecContext::ReceiveFrame(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::ParametersToContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
+  
+  if (!context_) {
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
   
   if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Frame object required").ThrowAsJavaScriptException();
-    return env.Null();
+    Napi::TypeError::New(env, "CodecParameters object required").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
   }
   
-  Frame* frame = ffmpeg::UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
-  if (!frame) return env.Null();
+  CodecParameters* params = UnwrapNativeObject<CodecParameters>(env, info[0], "CodecParameters");
+  if (!params || !params->Get()) {
+    Napi::TypeError::New(env, "Invalid CodecParameters object").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
   
-  int ret = avcodec_receive_frame(context_.Get(), frame->GetFrame());
-  LogFFmpegError(ret, "Failed to receive frame from decoder");
+  int ret = avcodec_parameters_to_context(context_, params->Get());
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value CodecContext::SendFrame(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::ParametersFromContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  AVFrame* frame = nullptr;
-  if (info.Length() > 0) {
-    Frame* f = ffmpeg::UnwrapNativeObject<Frame>(env, info[0], "Frame");
-    if (f) {
-      frame = f->GetFrame();
-    }
+  if (!context_) {
+    return Napi::Number::New(env, AVERROR(EINVAL));
   }
-  
-  int ret = avcodec_send_frame(context_.Get(), frame);
-  LogFFmpegError(ret, "Failed to send frame to encoder");
-  return Napi::Number::New(env, ret);
-}
-
-Napi::Value CodecContext::ReceivePacket(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
   
   if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Packet object required").ThrowAsJavaScriptException();
-    return env.Null();
+    Napi::TypeError::New(env, "CodecParameters object required").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
   }
   
-  Packet* packet = ffmpeg::UnwrapNativeObjectRequired<Packet>(env, info[0], "Packet");
-  if (!packet) return env.Null();
+  CodecParameters* params = UnwrapNativeObject<CodecParameters>(env, info[0], "CodecParameters");
+  if (!params || !params->Get()) {
+    Napi::TypeError::New(env, "Invalid CodecParameters object").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
   
-  int ret = avcodec_receive_packet(context_.Get(), packet->GetPacket());
-  LogFFmpegError(ret, "Failed to receive packet from encoder");
+  int ret = avcodec_parameters_from_context(params->Get(), context_);
   return Napi::Number::New(env, ret);
 }
 
 Napi::Value CodecContext::FlushBuffers(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  avcodec_flush_buffers(context_.Get());
+  
+  if (context_) {
+    avcodec_flush_buffers(context_);
+  }
+  
   return env.Undefined();
 }
 
-// Properties - General
-Napi::Value CodecContext::GetCodecID(const Napi::CallbackInfo& info) {
+// === Properties ===
+
+Napi::Value CodecContext::GetCodecType(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->codec_id);
+  if (!context_) {
+    return Napi::Number::New(env, AVMEDIA_TYPE_UNKNOWN);
+  }
+  return Napi::Number::New(env, context_->codec_type);
 }
 
-void CodecContext::SetCodecID(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->codec_id = static_cast<AVCodecID>(value.As<Napi::Number>().Int32Value());
+void CodecContext::SetCodecType(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->codec_type = static_cast<AVMediaType>(value.As<Napi::Number>().Int32Value());
+  }
 }
 
-Napi::Value CodecContext::GetMediaType(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetCodecId(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->codec_type);
+  if (!context_) {
+    return Napi::Number::New(env, AV_CODEC_ID_NONE);
+  }
+  return Napi::Number::New(env, context_->codec_id);
 }
 
-void CodecContext::SetMediaType(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->codec_type = static_cast<AVMediaType>(value.As<Napi::Number>().Int32Value());
+void CodecContext::SetCodecId(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->codec_id = static_cast<AVCodecID>(value.As<Napi::Number>().Int32Value());
+  }
 }
 
 Napi::Value CodecContext::GetBitRate(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->bit_rate);
+  if (!context_) {
+    return Napi::BigInt::New(env, static_cast<int64_t>(0));
+  }
+  return Napi::BigInt::New(env, context_->bit_rate);
 }
 
 void CodecContext::SetBitRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  bool lossless;
-  context_.Get()->bit_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
+  if (context_) {
+    bool lossless;
+    context_->bit_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
+  }
 }
 
 Napi::Value CodecContext::GetTimeBase(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return RationalToJS(env, context_.Get()->time_base);
+  if (!context_) {
+    AVRational tb = {0, 1};
+    return RationalToJS(env, tb);
+  }
+  return RationalToJS(env, context_->time_base);
 }
 
 void CodecContext::SetTimeBase(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->time_base = JSToRational(value.As<Napi::Object>());
+  if (context_) {
+    context_->time_base = JSToRational(value.As<Napi::Object>());
+  }
 }
 
-Napi::Value CodecContext::GetLevel(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetPktTimebase(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->level);
+  if (!context_) {
+    AVRational tb = {0, 1};
+    return RationalToJS(env, tb);
+  }
+  return RationalToJS(env, context_->pkt_timebase);
 }
 
-void CodecContext::SetLevel(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->level = value.As<Napi::Number>().Int32Value();
+void CodecContext::SetPktTimebase(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->pkt_timebase = JSToRational(value.As<Napi::Object>());
+  }
 }
 
-Napi::Value CodecContext::GetProfile(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetDelay(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->profile);
-}
-
-void CodecContext::SetProfile(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->profile = value.As<Napi::Number>().Int32Value();
-}
-
-Napi::Value CodecContext::GetThreadCount(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->thread_count);
-}
-
-void CodecContext::SetThreadCount(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->thread_count = value.As<Napi::Number>().Int32Value();
-}
-
-Napi::Value CodecContext::GetThreadType(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->thread_type);
-}
-
-void CodecContext::SetThreadType(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->thread_type = value.As<Napi::Number>().Int32Value();
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->delay);
 }
 
 Napi::Value CodecContext::GetFlags(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->flags);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->flags);
 }
 
 void CodecContext::SetFlags(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->flags = value.As<Napi::Number>().Int32Value();
+  if (context_) {
+    context_->flags = value.As<Napi::Number>().Int32Value();
+  }
 }
 
 Napi::Value CodecContext::GetFlags2(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->flags2);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->flags2);
 }
 
 void CodecContext::SetFlags2(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->flags2 = value.As<Napi::Number>().Int32Value();
+  if (context_) {
+    context_->flags2 = value.As<Napi::Number>().Int32Value();
+  }
 }
 
 Napi::Value CodecContext::GetExtraData(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  AVCodecContext* ctx = context_.Get();
+  AVCodecContext* ctx = context_;
   
-  if (ctx->extradata && ctx->extradata_size > 0) {
-    return Napi::Buffer<uint8_t>::Copy(env, ctx->extradata, ctx->extradata_size);
+  if (!ctx || !ctx->extradata || ctx->extradata_size <= 0) {
+    return env.Null();
   }
   
-  return env.Null();
+  return Napi::Buffer<uint8_t>::Copy(env, ctx->extradata, ctx->extradata_size);
 }
 
 void CodecContext::SetExtraData(const Napi::CallbackInfo& info, const Napi::Value& value) {
   Napi::Env env = info.Env();
-  AVCodecContext* ctx = context_.Get();
+  AVCodecContext* ctx = context_;
+  
+  if (!ctx) return;
   
   if (value.IsNull() || value.IsUndefined()) {
     if (ctx->extradata) {
@@ -427,111 +371,315 @@ void CodecContext::SetExtraData(const Napi::CallbackInfo& info, const Napi::Valu
   ctx->extradata_size = size;
 }
 
-// Properties - Video
+
+
+
+
+Napi::Value CodecContext::GetProfile(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, FF_PROFILE_UNKNOWN);
+  }
+  return Napi::Number::New(env, context_->profile);
+}
+
+void CodecContext::SetProfile(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->profile = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value CodecContext::GetLevel(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, FF_LEVEL_UNKNOWN);
+  }
+  return Napi::Number::New(env, context_->level);
+}
+
+void CodecContext::SetLevel(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->level = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value CodecContext::GetThreadCount(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->thread_count);
+}
+
+void CodecContext::SetThreadCount(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->thread_count = value.As<Napi::Number>().Int32Value();
+  }
+}
+
 Napi::Value CodecContext::GetWidth(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->width);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->width);
 }
 
 void CodecContext::SetWidth(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->width = value.As<Napi::Number>().Int32Value();
+  if (context_) {
+    context_->width = value.As<Napi::Number>().Int32Value();
+  }
 }
 
 Napi::Value CodecContext::GetHeight(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->height);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->height);
 }
 
 void CodecContext::SetHeight(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->height = value.As<Napi::Number>().Int32Value();
-}
-
-Napi::Value CodecContext::GetPixelFormat(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->pix_fmt);
-}
-
-void CodecContext::SetPixelFormat(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->pix_fmt = static_cast<AVPixelFormat>(value.As<Napi::Number>().Int32Value());
-}
-
-Napi::Value CodecContext::GetFramerate(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  return RationalToJS(env, context_.Get()->framerate);
-}
-
-void CodecContext::SetFramerate(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->framerate = JSToRational(value.As<Napi::Object>());
-}
-
-Napi::Value CodecContext::GetSampleAspectRatio(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  return RationalToJS(env, context_.Get()->sample_aspect_ratio);
-}
-
-void CodecContext::SetSampleAspectRatio(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->sample_aspect_ratio = JSToRational(value.As<Napi::Object>());
+  if (context_) {
+    context_->height = value.As<Napi::Number>().Int32Value();
+  }
 }
 
 Napi::Value CodecContext::GetGopSize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->gop_size);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->gop_size);
 }
 
 void CodecContext::SetGopSize(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->gop_size = value.As<Napi::Number>().Int32Value();
+  if (context_) {
+    context_->gop_size = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value CodecContext::GetPixelFormat(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, AV_PIX_FMT_NONE);
+  }
+  return Napi::Number::New(env, context_->pix_fmt);
+}
+
+void CodecContext::SetPixelFormat(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->pix_fmt = static_cast<AVPixelFormat>(value.As<Napi::Number>().Int32Value());
+  }
 }
 
 Napi::Value CodecContext::GetMaxBFrames(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->max_b_frames);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->max_b_frames);
 }
 
 void CodecContext::SetMaxBFrames(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->max_b_frames = value.As<Napi::Number>().Int32Value();
+  if (context_) {
+    context_->max_b_frames = value.As<Napi::Number>().Int32Value();
+  }
 }
 
-Napi::Value CodecContext::GetColorSpace(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetMbDecision(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->colorspace);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->mb_decision);
 }
 
-void CodecContext::SetColorSpace(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->colorspace = static_cast<AVColorSpace>(value.As<Napi::Number>().Int32Value());
+void CodecContext::SetMbDecision(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->mb_decision = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value CodecContext::GetHasBFrames(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->has_b_frames);
+}
+
+Napi::Value CodecContext::GetSampleAspectRatio(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    AVRational sar = {0, 1};
+    return RationalToJS(env, sar);
+  }
+  return RationalToJS(env, context_->sample_aspect_ratio);
+}
+
+void CodecContext::SetSampleAspectRatio(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->sample_aspect_ratio = JSToRational(value.As<Napi::Object>());
+  }
+}
+
+Napi::Value CodecContext::GetFramerate(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    AVRational fr = {0, 1};
+    return RationalToJS(env, fr);
+  }
+  return RationalToJS(env, context_->framerate);
+}
+
+void CodecContext::SetFramerate(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->framerate = JSToRational(value.As<Napi::Object>());
+  }
 }
 
 Napi::Value CodecContext::GetColorRange(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->color_range);
+  if (!context_) {
+    return Napi::Number::New(env, AVCOL_RANGE_UNSPECIFIED);
+  }
+  return Napi::Number::New(env, context_->color_range);
 }
 
 void CodecContext::SetColorRange(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->color_range = static_cast<AVColorRange>(value.As<Napi::Number>().Int32Value());
+  if (context_) {
+    context_->color_range = static_cast<AVColorRange>(value.As<Napi::Number>().Int32Value());
+  }
 }
 
-// Properties - Audio
+Napi::Value CodecContext::GetColorPrimaries(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, AVCOL_PRI_UNSPECIFIED);
+  }
+  return Napi::Number::New(env, context_->color_primaries);
+}
+
+void CodecContext::SetColorPrimaries(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->color_primaries = static_cast<AVColorPrimaries>(value.As<Napi::Number>().Int32Value());
+  }
+}
+
+Napi::Value CodecContext::GetColorTrc(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, AVCOL_TRC_UNSPECIFIED);
+  }
+  return Napi::Number::New(env, context_->color_trc);
+}
+
+void CodecContext::SetColorTrc(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->color_trc = static_cast<AVColorTransferCharacteristic>(value.As<Napi::Number>().Int32Value());
+  }
+}
+
+Napi::Value CodecContext::GetColorSpace(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, AVCOL_SPC_UNSPECIFIED);
+  }
+  return Napi::Number::New(env, context_->colorspace);
+}
+
+void CodecContext::SetColorSpace(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->colorspace = static_cast<AVColorSpace>(value.As<Napi::Number>().Int32Value());
+  }
+}
+
+Napi::Value CodecContext::GetChromaLocation(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, AVCHROMA_LOC_UNSPECIFIED);
+  }
+  return Napi::Number::New(env, context_->chroma_sample_location);
+}
+
+void CodecContext::SetChromaLocation(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->chroma_sample_location = static_cast<AVChromaLocation>(value.As<Napi::Number>().Int32Value());
+  }
+}
+
 Napi::Value CodecContext::GetSampleRate(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->sample_rate);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->sample_rate);
 }
 
 void CodecContext::SetSampleRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->sample_rate = value.As<Napi::Number>().Int32Value();
+  if (context_) {
+    context_->sample_rate = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value CodecContext::GetChannels(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->ch_layout.nb_channels);
+}
+
+void CodecContext::SetChannels(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->ch_layout.nb_channels = value.As<Napi::Number>().Int32Value();
+  }
 }
 
 Napi::Value CodecContext::GetSampleFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->sample_fmt);
+  if (!context_) {
+    return Napi::Number::New(env, AV_SAMPLE_FMT_NONE);
+  }
+  return Napi::Number::New(env, context_->sample_fmt);
 }
 
 void CodecContext::SetSampleFormat(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->sample_fmt = static_cast<AVSampleFormat>(value.As<Napi::Number>().Int32Value());
+  if (context_) {
+    context_->sample_fmt = static_cast<AVSampleFormat>(value.As<Napi::Number>().Int32Value());
+  }
+}
+
+Napi::Value CodecContext::GetFrameSize(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->frame_size);
+}
+
+void CodecContext::SetFrameSize(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->frame_size = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value CodecContext::GetFrameNumber(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->frame_num);
 }
 
 Napi::Value CodecContext::GetChannelLayout(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  AVCodecContext* ctx = context_.Get();
+  if (!context_) {
+    return env.Null();
+  }
   
+  AVCodecContext* ctx = context_;
   Napi::Object obj = Napi::Object::New(env);
   obj.Set("nbChannels", Napi::Number::New(env, ctx->ch_layout.nb_channels));
   obj.Set("order", Napi::Number::New(env, ctx->ch_layout.order));
@@ -541,12 +689,12 @@ Napi::Value CodecContext::GetChannelLayout(const Napi::CallbackInfo& info) {
 }
 
 void CodecContext::SetChannelLayout(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  if (!value.IsObject()) {
+  if (!context_ || !value.IsObject()) {
     return;
   }
   
   Napi::Object obj = value.As<Napi::Object>();
-  AVCodecContext* ctx = context_.Get();
+  AVCodecContext* ctx = context_;
   
   if (obj.Has("nbChannels")) {
     ctx->ch_layout.nb_channels = obj.Get("nbChannels").As<Napi::Number>().Int32Value();
@@ -560,236 +708,283 @@ void CodecContext::SetChannelLayout(const Napi::CallbackInfo& info, const Napi::
   }
 }
 
-Napi::Value CodecContext::GetChannels(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetQMin(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->ch_layout.nb_channels);
+  if (!context_) {
+    return Napi::Number::New(env, 2);
+  }
+  return Napi::Number::New(env, context_->qmin);
 }
 
-Napi::Value CodecContext::GetFrameSize(const Napi::CallbackInfo& info) {
+void CodecContext::SetQMin(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->qmin = value.As<Napi::Number>().Int32Value();
+  }
+}
+
+Napi::Value CodecContext::GetQMax(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->frame_size);
+  if (!context_) {
+    return Napi::Number::New(env, 31);
+  }
+  return Napi::Number::New(env, context_->qmax);
 }
 
-void CodecContext::SetFrameSize(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->frame_size = value.As<Napi::Number>().Int32Value();
+void CodecContext::SetQMax(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->qmax = value.As<Napi::Number>().Int32Value();
+  }
 }
 
-// Properties - Rate Control
-Napi::Value CodecContext::GetRateControlMaxRate(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetRcBufferSize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->rc_max_rate);
+  if (!context_) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, context_->rc_buffer_size);
 }
 
-void CodecContext::SetRateControlMaxRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  bool lossless;
-  context_.Get()->rc_max_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
+void CodecContext::SetRcBufferSize(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    context_->rc_buffer_size = value.As<Napi::Number>().Int32Value();
+  }
 }
 
-Napi::Value CodecContext::GetRateControlMinRate(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetRcMaxRate(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::BigInt::New(env, context_.Get()->rc_min_rate);
+  if (!context_) {
+    return Napi::BigInt::New(env, static_cast<int64_t>(0));
+  }
+  return Napi::BigInt::New(env, context_->rc_max_rate);
 }
 
-void CodecContext::SetRateControlMinRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  bool lossless;
-  context_.Get()->rc_min_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
+void CodecContext::SetRcMaxRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    bool lossless;
+    context_->rc_max_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
+  }
 }
 
-Napi::Value CodecContext::GetRateControlBufferSize(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetRcMinRate(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  return Napi::Number::New(env, context_.Get()->rc_buffer_size);
+  if (!context_) {
+    return Napi::BigInt::New(env, static_cast<int64_t>(0));
+  }
+  return Napi::BigInt::New(env, context_->rc_min_rate);
 }
 
-void CodecContext::SetRateControlBufferSize(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  context_.Get()->rc_buffer_size = value.As<Napi::Number>().Int32Value();
+void CodecContext::SetRcMinRate(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (context_) {
+    bool lossless;
+    context_->rc_min_rate = value.As<Napi::BigInt>().Int64Value(&lossless);
+  }
 }
 
 // Hardware Acceleration
-Napi::Value CodecContext::GetHwDeviceContext(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetHwDeviceCtx(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  
-  // Return the stored JavaScript object reference if we have one
-  if (!hwDeviceContextRef_.IsEmpty()) {
-    return hwDeviceContextRef_.Value();
+  if (!context_ || !context_->hw_device_ctx) {
+    return env.Null();
   }
   
-  // If we have a native context but no JS reference, we can't return it properly
-  // This shouldn't happen in normal usage
-  if (context_.Get()->hw_device_ctx) {
-    // We have a native context but lost the JS reference
-    // Return true to indicate it's set
-    return Napi::Boolean::New(env, true);
-  }
-  
-  // Return null instead of undefined for consistency
-  return env.Null();
+  // Wrap the existing AVBufferRef in a HardwareDeviceContext object
+  return HardwareDeviceContext::Wrap(env, context_->hw_device_ctx);
 }
 
-void CodecContext::SetHwDeviceContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  Napi::Env env = info.Env();
-  
-  // Clear old reference
-  if (!hwDeviceContextRef_.IsEmpty()) {
-    hwDeviceContextRef_.Unref();
-    hwDeviceContextRef_.Reset();
+void CodecContext::SetHwDeviceCtx(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (!context_) {
+    return;
   }
   
   if (value.IsNull() || value.IsUndefined()) {
-    if (context_.Get()->hw_device_ctx) {
-      av_buffer_unref(&context_.Get()->hw_device_ctx);
+    // Unref existing context
+    if (context_->hw_device_ctx) {
+      av_buffer_unref(&context_->hw_device_ctx);
     }
     return;
   }
   
-  // Store JavaScript reference
-  if (value.IsObject()) {
-    hwDeviceContextRef_ = Napi::Persistent(value.As<Napi::Object>());
+  // Extract the HardwareDeviceContext and get its AVBufferRef
+  if (!value.IsObject()) {
+    Napi::Error::New(info.Env(), "hwDeviceCtx must be a HardwareDeviceContext object").ThrowAsJavaScriptException();
+    return;
   }
   
-  // Extract HardwareDeviceContext from the JavaScript object
-  auto hwDeviceCtx = ffmpeg::UnwrapNativeObject<HardwareDeviceContext>(env, value, "HardwareDeviceContext");
-  if (hwDeviceCtx && hwDeviceCtx->GetContext()) {
-    // Unref old context if exists
-    if (context_.Get()->hw_device_ctx) {
-      av_buffer_unref(&context_.Get()->hw_device_ctx);
-    }
-    // Increase reference count and set
-    context_.Get()->hw_device_ctx = av_buffer_ref(hwDeviceCtx->GetContext());
+  HardwareDeviceContext* device = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(value.As<Napi::Object>());
+  if (!device || !device->Get()) {
+    Napi::Error::New(info.Env(), "Invalid HardwareDeviceContext").ThrowAsJavaScriptException();
+    return;
   }
+  
+  // Unref old context if exists
+  if (context_->hw_device_ctx) {
+    av_buffer_unref(&context_->hw_device_ctx);
+  }
+  
+  // Reference the new context
+  context_->hw_device_ctx = av_buffer_ref(device->Get());
 }
 
-Napi::Value CodecContext::GetHwFramesContext(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::GetHwFramesCtx(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  
-  // Return the stored JavaScript object reference if we have one
-  if (!hwFramesContextRef_.IsEmpty()) {
-    return hwFramesContextRef_.Value();
+  if (!context_ || !context_->hw_frames_ctx) {
+    return env.Null();
   }
   
-  // If we have a native context but no JS reference, we can't return it properly
-  if (context_.Get()->hw_frames_ctx) {
-    // We have a native context but lost the JS reference
-    // Return true to indicate it's set
-    return Napi::Boolean::New(env, true);
-  }
-  
-  return env.Null();
+  // Wrap the existing AVBufferRef in a HardwareFramesContext object
+  return HardwareFramesContext::Wrap(env, context_->hw_frames_ctx);
 }
 
-void CodecContext::SetHwFramesContext(const Napi::CallbackInfo& info, const Napi::Value& value) {
-  Napi::Env env = info.Env();
-  
-  // Clear old reference
-  if (!hwFramesContextRef_.IsEmpty()) {
-    hwFramesContextRef_.Unref();
-    hwFramesContextRef_.Reset();
+void CodecContext::SetHwFramesCtx(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (!context_) {
+    return;
   }
   
   if (value.IsNull() || value.IsUndefined()) {
-    if (context_.Get()->hw_frames_ctx) {
-      av_buffer_unref(&context_.Get()->hw_frames_ctx);
+    // Unref existing context
+    if (context_->hw_frames_ctx) {
+      av_buffer_unref(&context_->hw_frames_ctx);
     }
     return;
   }
   
-  // Store JavaScript reference
-  if (value.IsObject()) {
-    hwFramesContextRef_ = Napi::Persistent(value.As<Napi::Object>());
+  // Extract the HardwareFramesContext and get its AVBufferRef
+  if (!value.IsObject()) {
+    Napi::Error::New(info.Env(), "hwFramesCtx must be a HardwareFramesContext object").ThrowAsJavaScriptException();
+    return;
   }
   
-  // Extract HardwareFramesContext from the JavaScript object
-  auto hwFramesCtx = ffmpeg::UnwrapNativeObject<HardwareFramesContext>(env, value, "HardwareFramesContext");
-  if (hwFramesCtx && hwFramesCtx->GetContext()) {
-    // Unref old context if exists
-    if (context_.Get()->hw_frames_ctx) {
-      av_buffer_unref(&context_.Get()->hw_frames_ctx);
-    }
-    // Increase reference count and set
-    context_.Get()->hw_frames_ctx = av_buffer_ref(hwFramesCtx->GetContext());
+  HardwareFramesContext* frames = Napi::ObjectWrap<HardwareFramesContext>::Unwrap(value.As<Napi::Object>());
+  if (!frames || !frames->Get()) {
+    Napi::Error::New(info.Env(), "Invalid HardwareFramesContext").ThrowAsJavaScriptException();
+    return;
   }
+  
+  // Unref old context if exists
+  if (context_->hw_frames_ctx) {
+    av_buffer_unref(&context_->hw_frames_ctx);
+  }
+  
+  // Reference the new context
+  context_->hw_frames_ctx = av_buffer_ref(frames->Get());
 }
 
-// Utility
-Napi::Value CodecContext::IsEncoder(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  const AVCodec* codec = context_.Get()->codec;
-  return Napi::Boolean::New(env, codec && av_codec_is_encoder(codec));
-}
-
-Napi::Value CodecContext::IsDecoder(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  const AVCodec* codec = context_.Get()->codec;
-  return Napi::Boolean::New(env, codec && av_codec_is_decoder(codec));
-}
-
-// Hardware Configuration (C++ managed)
 Napi::Value CodecContext::SetHardwarePixelFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 1 || !info[0].IsNumber()) {
-    Napi::TypeError::New(env, "Pixel format (number) required").ThrowAsJavaScriptException();
+    Napi::TypeError::New(env, "Expected hardware pixel format as first argument").ThrowAsJavaScriptException();
     return env.Undefined();
   }
   
-  AVPixelFormat format = static_cast<AVPixelFormat>(info[0].As<Napi::Number>().Int32Value());
+  if (!context_) {
+    Napi::Error::New(env, "CodecContext not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
   
-  // Create simple hardware config with just the preferred format
-  HardwareConfig config;
-  config.preferred_format = format;
-  config.require_hardware = false; // Don't fail if hardware not available
+  // Set hardware pixel format
+  hw_pix_fmt_ = static_cast<enum AVPixelFormat>(info[0].As<Napi::Number>().Int32Value());
   
-  // Set the configuration
-  ffmpeg::SetHardwareConfig(context_.Get(), config);
+  // Optional: Set software fallback format
+  if (info.Length() >= 2 && info[1].IsNumber()) {
+    sw_pix_fmt_ = static_cast<enum AVPixelFormat>(info[1].As<Napi::Number>().Int32Value());
+  } else {
+    sw_pix_fmt_ = AV_PIX_FMT_NONE;
+  }
+  
+  // Store the context pointer as opaque data
+  context_->opaque = this;
+  
+  // Set the static callback function
+  context_->get_format = CodecContext::GetFormatCallback;
   
   return env.Undefined();
 }
 
-Napi::Value CodecContext::SetHardwareConfig(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 1 || !info[0].IsObject()) {
-    Napi::TypeError::New(env, "Configuration object required").ThrowAsJavaScriptException();
-    return env.Undefined();
+// Static callback that FFmpeg will call
+enum AVPixelFormat CodecContext::GetFormatCallback(AVCodecContext* ctx, const enum AVPixelFormat* pix_fmts) {
+  // Get the CodecContext instance from opaque
+  CodecContext* self = static_cast<CodecContext*>(ctx->opaque);
+  if (!self) {
+    // No context, return first format
+    return pix_fmts[0];
   }
   
-  Napi::Object obj = info[0].As<Napi::Object>();
-  HardwareConfig config;
-  
-  // Parse configuration
-  if (obj.Has("preferredFormat") && obj.Get("preferredFormat").IsNumber()) {
-    config.preferred_format = static_cast<AVPixelFormat>(
-      obj.Get("preferredFormat").As<Napi::Number>().Int32Value()
-    );
+  // Check if hardware format is in the list
+  const enum AVPixelFormat* p = pix_fmts;
+  while (*p != AV_PIX_FMT_NONE) {
+    if (*p == self->hw_pix_fmt_) {
+      return *p;
+    }
+    p++;
   }
   
-  if (obj.Has("fallbackFormats") && obj.Get("fallbackFormats").IsArray()) {
-    Napi::Array formats = obj.Get("fallbackFormats").As<Napi::Array>();
-    for (uint32_t i = 0; i < formats.Length(); i++) {
-      if (formats.Get(i).IsNumber()) {
-        config.fallback_formats.push_back(
-          static_cast<AVPixelFormat>(formats.Get(i).As<Napi::Number>().Int32Value())
-        );
+  // Hardware format not found, try software fallback
+  if (self->sw_pix_fmt_ != AV_PIX_FMT_NONE) {
+    p = pix_fmts;
+    while (*p != AV_PIX_FMT_NONE) {
+      if (*p == self->sw_pix_fmt_) {
+        return *p;
       }
+      p++;
     }
   }
   
-  if (obj.Has("requireHardware") && obj.Get("requireHardware").IsBoolean()) {
-    config.require_hardware = obj.Get("requireHardware").As<Napi::Boolean>().Value();
-  }
-  
-  // Set the configuration
-  ffmpeg::SetHardwareConfig(context_.Get(), config);
-  
-  return env.Undefined();
+  // Neither hardware nor software format found, return first format
+  return pix_fmts[0];
 }
 
-Napi::Value CodecContext::ClearHardwareConfig(const Napi::CallbackInfo& info) {
+Napi::Value CodecContext::IsOpen(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Boolean::New(env, false);
+  }
+  return Napi::Boolean::New(env, avcodec_is_open(context_) > 0);
+}
+
+Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
+  return FreeContext(info);
+}
+
+Napi::Value CodecContext::SetOpt(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  // Clear the configuration
-  ffmpeg::ClearHardwareConfig(context_.Get());
+  if (info.Length() < 3) {
+    Napi::TypeError::New(env, "Expected 3 arguments: name, value, searchFlags").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
   
-  return env.Undefined();
+  if (!context_) {
+    Napi::Error::New(env, "CodecContext not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!context_->priv_data) {
+    Napi::Error::New(env, "Codec private data not available").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Get option name
+  std::string name = info[0].As<Napi::String>().Utf8Value();
+  
+  // Get option value as string (av_opt_set will handle conversion)
+  std::string value = info[1].As<Napi::String>().Utf8Value();
+  
+  // Get search flags
+  int search_flags = info[2].As<Napi::Number>().Int32Value();
+  
+  // Set the option
+  int ret = av_opt_set(context_->priv_data, name.c_str(), value.c_str(), search_flags);
+  
+  if (ret < 0) {
+    char errbuf[AV_ERROR_MAX_STRING_SIZE];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    std::string error_msg = "Failed to set option '" + name + "': " + std::string(errbuf);
+    Napi::Error::New(env, error_msg).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  return Napi::Number::New(env, ret);
 }
 
-}  // namespace ffmpeg
+} // namespace ffmpeg

@@ -1,232 +1,209 @@
 import { bindings } from './binding.js';
 
-import type { AVCodecID, AVFormatFlags } from './constants.js';
+import type { AVCodecID, AVFormatFlag } from './constants.js';
 import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
 
 /**
- * Options for guessing output format
- */
-export interface GuessFormatOptions {
-  /** Format short name (e.g., 'mp4') */
-  shortName?: string;
-  /** Output filename to guess from extension */
-  filename?: string;
-  /** MIME type to match */
-  mimeType?: string;
-}
-
-/**
- * Output format (muxer) for writing media files
+ * FFmpeg Output Format (Muxer) - Low Level API
  *
- * OutputFormat represents a muxer that can write specific container
- * formats. Each format handles specific file types like MP4, MKV, AVI, etc.
- * and defines default codecs for audio, video, and subtitles.
+ * Direct mapping to FFmpeg's AVOutputFormat.
+ * Describes a supported output container format.
+ * These are read-only format descriptors.
  *
  * @example
  * ```typescript
- * // Find a specific output format
- * const mp4Format = OutputFormat.find('mp4');
- * if (mp4Format) {
- *   console.log(`Format: ${mp4Format.longName}`);
- *   console.log(`Default video codec: ${mp4Format.videoCodec}`);
- *   console.log(`Default audio codec: ${mp4Format.audioCodec}`);
+ * // Guess output format from filename
+ * const format = OutputFormat.guessFormat(null, 'output.mp4', null);
+ * if (format) {
+ *   console.log(`Format: ${format.longName}`);
+ *   console.log(`Default video codec: ${format.videoCodec}`);
+ *   console.log(`Default audio codec: ${format.audioCodec}`);
  * }
  *
- * // Guess format from filename
- * const format = OutputFormat.guess({ filename: 'output.mp4' });
- *
  * // Use with FormatContext
- * const context = new FormatContext('output', format, null, 'output.mp4');
+ * const ctx = new FormatContext();
+ * const mp4Format = OutputFormat.guessFormat('mp4', null, null);
+ * ctx.allocOutputContext2(mp4Format, null, 'output.mp4');
  * ```
  */
 export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
-  private native: NativeOutputFormat; // Native output format binding
+  private native: NativeOutputFormat;
 
+  // Constructor
   /**
-   * Create an OutputFormat wrapper
-   * @param native Native output format object
+   * Constructor is internal - use static factory methods.
+   * OutputFormats are obtained via static methods, not created directly.
    * @internal
+   *
+   * @example
+   * ```typescript
+   * // Don't use constructor directly
+   * // const format = new OutputFormat(); // ❌ Wrong
+   *
+   * // Use static factory methods instead
+   * const format = OutputFormat.guessFormat('mp4', null, null); // ✅ Correct
+   * ```
    */
-  private constructor(native: NativeOutputFormat) {
+  constructor(native: NativeOutputFormat) {
     this.native = native;
   }
 
+  // Static Methods - Low Level API
+
   /**
-   * Find an output format by name
-   * @param name Format short name (e.g., 'mp4', 'mov', 'avi')
-   * @returns OutputFormat instance or null if not found
+   * Return the output format which best matches the provided parameters.
+   *
+   * Direct mapping to av_guess_format()
+   *
+   * @param shortName - Short name of the format (e.g., 'mp4', 'mov', 'avi'), may be null
+   * @param filename - Filename to use for guessing (extension is used), may be null
+   * @param mimeType - MIME type to use for guessing, may be null
+   *
+   * @returns OutputFormat if found, null otherwise
+   *
    * @example
    * ```typescript
-   * const format = OutputFormat.find('mp4');
+   * // Guess by short name
+   * const mp4Format = OutputFormat.guessFormat('mp4', null, null);
+   * if (mp4Format) {
+   *   console.log(`Format: ${mp4Format.longName}`);
+   * }
+   *
+   * // Guess by filename extension
+   * const format = OutputFormat.guessFormat(null, 'video.mkv', null);
    * if (format) {
-   *   console.log(`Found format: ${format.longName}`);
+   *   console.log(`Guessed format: ${format.name}`);
    * }
+   *
+   * // Guess by mime type
+   * const webmFormat = OutputFormat.guessFormat(null, null, 'video/webm');
    * ```
+   *
+   * @note The function uses the first provided parameter in this order:
+   *       1. shortName (if provided)
+   *       2. filename extension (if shortName is null)
+   *       3. mimeType (if both above are null)
    */
-  static find(name: string): OutputFormat | null {
-    try {
-      const native = bindings.OutputFormat.find(name);
-      return native ? new OutputFormat(native) : null;
-    } catch (error) {
-      console.warn(`Failed to find output format '${name}':`, error);
+  static guessFormat(shortName: string | null, filename: string | null, mimeType: string | null): OutputFormat | null {
+    const native = bindings.OutputFormat.guessFormat(shortName, filename, mimeType);
+    if (!native) {
       return null;
     }
-  }
-
-  /**
-   * Guess output format based on filename, MIME type, or short name
-   * @param options Options for guessing format
-   * @returns OutputFormat instance or null if no match found
-   * @example
-   * ```typescript
-   * // Guess from filename extension
-   * const format = OutputFormat.guess({ filename: 'output.mp4' });
-   *
-   * // Guess from MIME type
-   * const webmFormat = OutputFormat.guess({ mimeType: 'video/webm' });
-   *
-   * // Specify short name directly
-   * const mkvFormat = OutputFormat.guess({ shortName: 'matroska' });
-   * ```
-   */
-  static guess(options: GuessFormatOptions = {}): OutputFormat | null {
-    try {
-      const native = bindings.OutputFormat.guess(options);
-      return native ? new OutputFormat(native) : null;
-    } catch (error) {
-      console.warn('Failed to guess output format:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get all available output formats
-   * @returns Array of all available OutputFormat instances
-   * @example
-   * ```typescript
-   * const formats = OutputFormat.getAll();
-   * console.log(`Available formats: ${formats.length}`);
-   * for (const format of formats) {
-   *   console.log(`${format.name}: ${format.longName}`);
-   * }
-   * ```
-   */
-  static getAll(): OutputFormat[] {
-    try {
-      const natives = bindings.OutputFormat.getAll();
-      return natives.map((native) => new OutputFormat(native));
-    } catch (error) {
-      console.warn('Failed to get all output formats:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Create from native handle
-   * @internal
-   */
-  static fromNative(native: NativeOutputFormat): OutputFormat {
     return new OutputFormat(native);
   }
 
+  // Getter Properties
+
   /**
-   * Get format short name
+   * A comma separated list of short names for the format.
+   *
+   * Direct mapping to AVOutputFormat->name
+   *
+   * @readonly
    */
   get name(): string | null {
     return this.native.name;
   }
 
   /**
-   * Get format long descriptive name
+   * Descriptive name for the format.
+   *
+   * Direct mapping to AVOutputFormat->long_name
+   *
+   * Meant to be more human-readable than the short name.
+   * @readonly
    */
   get longName(): string | null {
     return this.native.longName;
   }
 
   /**
-   * Get format flags (combination of AV_FMT_* flags)
+   * Comma-separated list of file extensions.
+   *
+   * Direct mapping to AVOutputFormat->extensions
+   *
+   * @readonly
    */
-  get flags(): AVFormatFlags {
-    return this.native.flags;
-  }
-
-  /**
-   * Get file extensions associated with this format
-   * @returns Array of extensions or null
-   */
-  get extensions(): string[] | null {
+  get extensions(): string | null {
     return this.native.extensions;
   }
 
   /**
-   * Get MIME type associated with this format
+   * Comma-separated list of mime types.
+   *
+   * Direct mapping to AVOutputFormat->mime_type
+   *
+   * @readonly
    */
   get mimeType(): string | null {
     return this.native.mimeType;
   }
 
   /**
-   * Get default audio codec for this format
+   * Default audio codec for this format.
+   *
+   * Direct mapping to AVOutputFormat->audio_codec
+   *
+   * AV_CODEC_ID_NONE if no default.
+   * @readonly
    */
   get audioCodec(): AVCodecID {
     return this.native.audioCodec;
   }
 
   /**
-   * Get default video codec for this format
+   * Default video codec for this format.
+   *
+   * Direct mapping to AVOutputFormat->video_codec
+   *
+   * AV_CODEC_ID_NONE if no default.
+   * @readonly
    */
   get videoCodec(): AVCodecID {
     return this.native.videoCodec;
   }
 
   /**
-   * Get default subtitle codec for this format
+   * Default subtitle codec for this format.
+   *
+   * Direct mapping to AVOutputFormat->subtitle_codec
+   *
+   * AV_CODEC_ID_NONE if no default.
+   * @readonly
    */
   get subtitleCodec(): AVCodecID {
     return this.native.subtitleCodec;
   }
 
   /**
-   * Check if format needs a file (false for streaming formats)
+   * Format flags.
+   *
+   * Direct mapping to AVOutputFormat->flags
+   *
+   * Combination of AVFMT_* flags:
+   * - AVFMT_NOFILE: No file is opened
+   * - AVFMT_NEEDNUMBER: Needs '%d' in filename
+   * - AVFMT_GLOBALHEADER: Format wants global headers
+   * - AVFMT_NOTIMESTAMPS: Format does not need/have timestamps
+   * - AVFMT_VARIABLE_FPS: Format allows variable fps
+   * - AVFMT_NODIMENSIONS: Format does not need width/height
+   * - AVFMT_NOSTREAMS: Format does not require streams
+   * - AVFMT_ALLOW_FLUSH: Format allows flushing
+   * - AVFMT_TS_NONSTRICT: Format does not require strictly increasing timestamps
+   * - AVFMT_TS_NEGATIVE: Format allows negative timestamps
+   * @readonly
    */
-  get needsFile(): boolean {
-    // Check if AVFMT_NOFILE flag is NOT set
-    return (this.flags & 0x0001) === 0; // AVFMT_NOFILE = 0x0001
+  get flags(): AVFormatFlag {
+    return this.native.flags;
   }
 
-  /**
-   * Check if format supports global headers
-   */
-  get supportsGlobalHeader(): boolean {
-    return (this.flags & 0x0040) !== 0; // AVFMT_GLOBALHEADER = 0x0040
-  }
+  // Internal Methods
 
   /**
-   * Check if format has a specific flag
-   * @param flag AVFormatFlags constant
-   * @returns true if the format has the flag
-   * @example
-   * ```typescript
-   * if (format.hasFlag(AVFMT_NOFILE)) {
-   *   console.log('Format does not require file I/O');
-   * }
-   * ```
-   */
-  hasFlag(flag: AVFormatFlags): boolean {
-    return (this.flags & flag) !== 0;
-  }
-
-  /**
-   * Get string representation
-   * @returns Format name or 'unknown'
-   */
-  toString(): string {
-    return this.name ?? 'unknown';
-  }
-
-  /**
-   * Get native output format for internal use
-   * @internal
+   * Get the native FFmpeg AVOutputFormat pointer.
+   *
+   * @internal For use by other wrapper classes
+   * @returns The underlying native output format object
    */
   getNative(): NativeOutputFormat {
     return this.native;

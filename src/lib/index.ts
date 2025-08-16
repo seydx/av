@@ -1,50 +1,69 @@
-export * from './error.js';
-export * from './rational.js';
-
-// Re-export all constants
+// Export all generated constants and types
+export * from './channel-layouts.js';
 export * from './constants.js';
+export type * from './types.js';
 
-// Re-export core types
-export * from './codec-context.js';
-export * from './codec-parameters.js';
-export * from './codec.js';
-export * from './dictionary.js';
-export * from './format-context.js';
-export * from './frame.js';
-export * from './input-format.js';
-export * from './io-context.js';
-export * from './output-format.js';
-export * from './packet.js';
-export * from './stream.js';
+// Format Context
+export { FormatContext } from './format-context.js';
 
-// Re-export filter types
-export * from './filter-context.js';
-export * from './filter-graph.js';
-export * from './filter.js';
+// Codec Context
+export { CodecContext } from './codec-context.js';
 
-// Re-export software scaling/resampling
-export * from './software-resample-context.js';
-export * from './software-scale-context.js';
+// Codec Parameters
+export { CodecParameters } from './codec-parameters.js';
 
-// Re-export hardware acceleration
-export * from './hardware-device-context.js';
-export * from './hardware-frames-context.js';
+// Codec
+export { Codec } from './codec.js';
 
-// Re-export audio FIFO
-export * from './audio-fifo.js';
+// Codec Parser
+export { CodecParser } from './codec-parser.js';
 
-// Re-export utilities
-export * from './bit-stream-filter.js';
-export * from './channel-layout.js';
-export * from './chroma-location.js';
-export * from './codec-id.js';
-export * from './color-types.js';
-export * from './discard.js';
-export * from './field-order.js';
-export * from './level.js';
-export * from './log.js';
-export * from './mathematics.js';
-export * from './media-types.js';
-export * from './option.js';
-export * from './pixel-format.js';
-export * from './profile.js';
+// Packet
+export { Packet } from './packet.js';
+
+// Frame
+export { Frame } from './frame.js';
+
+// Stream
+export { Stream } from './stream.js';
+
+// Input/Output Format
+export { InputFormat } from './input-format.js';
+export { OutputFormat } from './output-format.js';
+
+// Hardware related classes
+export { HardwareDeviceContext } from './hardware-device-context.js';
+export { HardwareFramesContext } from './hardware-frames-context.js';
+
+// Software Scale
+export { SoftwareScaleContext } from './software-scale-context.js';
+
+// Software Resample
+export { SoftwareResampleContext } from './software-resample-context.js';
+
+// Audio FIFO
+export { AudioFifo } from './audio-fifo.js';
+
+// I/O Context
+export { IOContext } from './io-context.js';
+
+// Dictionary
+export { Dictionary } from './dictionary.js';
+
+// Filter related classes
+export { FilterContext } from './filter-context.js';
+export { FilterGraph } from './filter-graph.js';
+export { FilterInOut } from './filter-inout.js';
+export { Filter } from './filter.js';
+
+// Utils
+export { Rational } from './rational.js';
+
+// Logging
+export { Log } from './log.js';
+
+// FFmpegError
+export { FFmpegError } from './error.js';
+
+// Utilities
+export * from './utilities.js';

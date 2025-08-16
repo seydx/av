@@ -1,0 +1,83 @@
+#ifndef FFMPEG_FILTER_INOUT_H
+#define FFMPEG_FILTER_INOUT_H
+
+#include <napi.h>
+#include "common.h"
+
+extern "C" {
+#include <libavfilter/avfilter.h>
+}
+
+namespace ffmpeg {
+
+// Forward declaration
+class FilterContext;
+
+class FilterInOut : public Napi::ObjectWrap<FilterInOut> {
+public:
+  static Napi::Object Init(Napi::Env env, Napi::Object exports);
+  FilterInOut(const Napi::CallbackInfo& info);
+  ~FilterInOut();
+  
+  // Native access
+  AVFilterInOut* Get() { return inout_; }
+  void SetOwned(AVFilterInOut* inout) { 
+    // Free old inout if exists and we own it
+    if (inout_ && !is_freed_ && is_owned_) {
+      avfilter_inout_free(&inout_);
+    }
+    inout_ = inout;
+    is_freed_ = false;
+    is_owned_ = true;  // SetOwned means we take ownership
+  }
+  
+  // Mark as consumed by FFmpeg (e.g., by avfilter_graph_parse)
+  void MarkAsConsumed() {
+    is_freed_ = true;
+    is_owned_ = false;
+    inout_ = nullptr;
+  }
+
+private:
+  // Friend classes
+  friend class FilterGraph;
+  
+  // Static members
+  static Napi::FunctionReference constructor;
+  
+  // Resources
+  AVFilterInOut* inout_ = nullptr;  // Manual RAII
+  bool is_freed_ = false;
+  bool is_owned_ = true;  // Whether we own the memory (should free it)
+  
+  // === Methods ===
+  
+  // Lifecycle
+  Napi::Value Alloc(const Napi::CallbackInfo& info);
+  Napi::Value Free(const Napi::CallbackInfo& info);
+  
+  // === Properties ===
+  
+  // name
+  Napi::Value GetName(const Napi::CallbackInfo& info);
+  void SetName(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  // filterCtx
+  Napi::Value GetFilterCtx(const Napi::CallbackInfo& info);
+  void SetFilterCtx(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  // padIdx
+  Napi::Value GetPadIdx(const Napi::CallbackInfo& info);
+  void SetPadIdx(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  // next
+  Napi::Value GetNext(const Napi::CallbackInfo& info);
+  void SetNext(const Napi::CallbackInfo& info, const Napi::Value& value);
+  
+  // Utility
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
+};
+
+} // namespace ffmpeg
+
+#endif // FFMPEG_FILTER_INOUT_H

@@ -1,31 +1,48 @@
 #include "filter_context.h"
 #include "filter.h"
+#include "filter_graph.h"
+#include "dictionary.h"
 #include "frame.h"
 #include "common.h"
+
+extern "C" {
+#include <libavutil/mem.h>
+#include <libavutil/opt.h>
+#include <libavfilter/buffersrc.h>
+#include <libavfilter/buffersink.h>
+}
 
 namespace ffmpeg {
 
 Napi::FunctionReference FilterContext::constructor;
 
+// === Init ===
+
 Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterContext", {
+    // Operations
+    InstanceMethod<&FilterContext::Init>("init"),
+    InstanceMethod<&FilterContext::InitStr>("initStr"),
+    InstanceMethod<&FilterContext::Link>("link"),
+    InstanceMethod<&FilterContext::Unlink>("unlink"),
+    InstanceMethod<&FilterContext::Free>("free"),
+    InstanceMethod<&FilterContext::SetOpt>("setOpt"),
+    InstanceMethod<&FilterContext::OptSetBin>("optSetBin"),
+    InstanceMethod<&FilterContext::BuffersrcAddFrame>("buffersrcAddFrame"),
+    InstanceMethod<&FilterContext::BuffersinkGetFrame>("buffersinkGetFrame"),
+    InstanceMethod<&FilterContext::BuffersinkSetFrameSize>("buffersinkSetFrameSize"),
+    InstanceMethod<&FilterContext::BuffersinkGetTimeBase>("buffersinkGetTimeBase"),
+
     // Properties
-    InstanceAccessor<&FilterContext::GetName>("name"),
-    InstanceAccessor<&FilterContext::GetFilterName>("filterName"),
+    InstanceAccessor<&FilterContext::GetName, &FilterContext::SetName>("name"),
     InstanceAccessor<&FilterContext::GetFilter>("filter"),
+    InstanceAccessor<&FilterContext::GetGraph>("graph"),
     InstanceAccessor<&FilterContext::GetNbInputs>("nbInputs"),
     InstanceAccessor<&FilterContext::GetNbOutputs>("nbOutputs"),
+    InstanceAccessor<&FilterContext::GetReady>("ready"),
     
-    // Methods
-    InstanceMethod<&FilterContext::AddFrame>("addFrame"),
-    InstanceMethod<&FilterContext::AddFrameAsync>("addFrameAsync"),
-    InstanceMethod<&FilterContext::GetFrame>("getFrame"),
-    InstanceMethod<&FilterContext::GetFrameAsync>("getFrameAsync"),
-    InstanceMethod<&FilterContext::SetFrameSize>("setFrameSize"),
-    
-    // Resource management
-    InstanceMethod<&FilterContext::Free>("free"),
-    InstanceMethod<&FilterContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
+    // Utility
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterContext::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -35,290 +52,433 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-FilterContext::FilterContext(const Napi::CallbackInfo& info)
-  : Napi::ObjectWrap<FilterContext>(info), context_(nullptr) {
+// === Lifecycle ===
+
+FilterContext::FilterContext(const Napi::CallbackInfo& info) 
+  : Napi::ObjectWrap<FilterContext>(info), unowned_ctx_(nullptr) {
+  // Context is created by FilterGraph::createFilter
 }
 
-Napi::Value FilterContext::GetName(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (!context_) {
-    return env.Null();
+FilterContext::~FilterContext() {
+  // Manual cleanup if not already done
+  if (ctx_ && !is_freed_) {
+    avfilter_free(ctx_);
+    ctx_ = nullptr;
   }
-  
-  // Get the context instance name
-  if (context_->name) {
-    return Napi::String::New(env, context_->name);
-  }
-  
-  return env.Null();
+  // Unowned contexts are managed by FilterGraph
 }
 
-Napi::Value FilterContext::GetFilterName(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (!context_ || !context_->filter) {
-    return env.Null();
-  }
-  return Napi::String::New(env, context_->filter->name);
-}
+// === Methods ===
 
-Napi::Value FilterContext::GetFilter(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (!context_ || !context_->filter) {
-    return env.Null();
-  }
-  
-  // Create a Filter wrapper for the AVFilter
-  Napi::Object filterObj = Filter::constructor.New({});
-  Filter* filter = Napi::ObjectWrap<Filter>::Unwrap(filterObj);
-  filter->SetFilter(const_cast<AVFilter*>(context_->filter));
-  
-  return filterObj;
-}
-
-Napi::Value FilterContext::GetNbInputs(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (!context_) {
-    return Napi::Number::New(env, 0);
-  }
-  return Napi::Number::New(env, context_->nb_inputs);
-}
-
-Napi::Value FilterContext::GetNbOutputs(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (!context_) {
-    return Napi::Number::New(env, 0);
-  }
-  return Napi::Number::New(env, context_->nb_outputs);
-}
-
-Napi::Value FilterContext::AddFrame(const Napi::CallbackInfo& info) {
+Napi::Value FilterContext::Init(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (!context_) {
-    Napi::Error::New(env, "FilterContext not initialized").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, -1);
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "FilterContext not allocated").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
   }
   
-  // Check if this is a buffer source context
-  if (!context_->filter || strcmp(context_->filter->name, "buffer") != 0 &&
-                            strcmp(context_->filter->name, "abuffer") != 0) {
-    Napi::Error::New(env, "AddFrame can only be called on buffer source contexts").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, -1);
-  }
+  AVDictionary* options = nullptr;
   
-  AVFrame* frame = nullptr;
-  
-  // Handle null frame for EOF signaling
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Frame* frameWrapper = UnwrapNativeObject<Frame>(env, info[0], "Frame");
-    if (frameWrapper) {
-      frame = frameWrapper->GetFrame();
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
+    if (dict && dict->Get()) {
+      av_dict_copy(&options, dict->Get(), 0);
     }
   }
   
-  // Add frame to buffer source (nullptr for EOF)
-  int ret = av_buffersrc_add_frame(context_, frame);
+  int ret = avfilter_init_dict(ctx, &options);
+  
+  if (options) {
+    av_dict_free(&options);
+  }
   
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value FilterContext::AddFrameAsync(const Napi::CallbackInfo& info) {
+Napi::Value FilterContext::InitStr(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  // Create promise
-  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-  
-  if (!context_) {
-    deferred.Reject(Napi::Error::New(env, "FilterContext not initialized").Value());
-    return deferred.Promise();
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "FilterContext not allocated").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
   }
   
-  // Check if this is a buffer source context
-  if (!context_->filter || (strcmp(context_->filter->name, "buffer") != 0 &&
-                            strcmp(context_->filter->name, "abuffer") != 0)) {
-    deferred.Reject(Napi::Error::New(env, "AddFrame can only be called on buffer source contexts").Value());
-    return deferred.Promise();
+  const char* args = nullptr;
+  std::string args_str;
+  
+  if (info.Length() > 0 && info[0].IsString()) {
+    args_str = info[0].As<Napi::String>().Utf8Value();
+    args = args_str.c_str();
   }
   
-  AVFrame* frame = nullptr;
-  
-  // Handle null frame for EOF signaling
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Frame* frameWrapper = UnwrapNativeObject<Frame>(env, info[0], "Frame");
-    if (frameWrapper) {
-      frame = frameWrapper->GetFrame();
-    }
-  }
-  
-  // Create and queue async worker
-  AddFrameWorker* worker = new AddFrameWorker(deferred, context_, frame);
-  worker->Queue();
-  
-  return deferred.Promise();
-}
-
-Napi::Value FilterContext::GetFrame(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_) {
-    Napi::Error::New(env, "FilterContext not initialized").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, -1);
-  }
-  
-  // Check if this is a buffer sink context
-  if (!context_->filter || (strcmp(context_->filter->name, "buffersink") != 0 &&
-                            strcmp(context_->filter->name, "abuffersink") != 0)) {
-    Napi::Error::New(env, "GetFrame can only be called on buffer sink contexts").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, -1);
-  }
-  
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Frame parameter required").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, -1);
-  }
-  
-  Frame* frameWrapper = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
-  if (!frameWrapper) {
-    return Napi::Number::New(env, -1);
-  }
-  
-  AVFrame* frame = frameWrapper->GetFrame();
-  
-  // Get frame from buffer sink
-  int ret = av_buffersink_get_frame(context_, frame);
+  int ret = avfilter_init_str(ctx, args);
   
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value FilterContext::GetFrameAsync(const Napi::CallbackInfo& info) {
+Napi::Value FilterContext::Link(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  // Create promise
-  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-  
-  if (!context_) {
-    deferred.Reject(Napi::Error::New(env, "FilterContext not initialized").Value());
-    return deferred.Promise();
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "FilterContext not allocated").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
   }
   
-  // Check if this is a buffer sink context
-  if (!context_->filter || (strcmp(context_->filter->name, "buffersink") != 0 &&
-                            strcmp(context_->filter->name, "abuffersink") != 0)) {
-    deferred.Reject(Napi::Error::New(env, "GetFrame can only be called on buffer sink contexts").Value());
-    return deferred.Promise();
+  if (info.Length() < 3) {
+    Napi::TypeError::New(env, "Expected 3 arguments (srcPad, dst, dstPad)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  int srcPad = info[0].As<Napi::Number>().Int32Value();
+  
+  FilterContext* dst = UnwrapNativeObject<FilterContext>(env, info[1], "FilterContext");
+  if (!dst || !dst->Get()) {
+    Napi::TypeError::New(env, "Invalid destination FilterContext").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  int dstPad = info[2].As<Napi::Number>().Int32Value();
+  
+  int ret = avfilter_link(ctx, srcPad, dst->Get(), dstPad);
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value FilterContext::Unlink(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "FilterContext not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
   
   if (info.Length() < 1) {
-    deferred.Reject(Napi::TypeError::New(env, "Frame parameter required").Value());
-    return deferred.Promise();
-  }
-  
-  Frame* frameWrapper = UnwrapNativeObjectRequired<Frame>(env, info[0], "Frame");
-  if (!frameWrapper) {
-    deferred.Reject(Napi::Error::New(env, "Invalid frame").Value());
-    return deferred.Promise();
-  }
-  
-  AVFrame* frame = frameWrapper->GetFrame();
-  
-  // Create and queue async worker
-  GetFrameWorker* worker = new GetFrameWorker(deferred, context_, frame);
-  worker->Queue();
-  
-  return deferred.Promise();
-}
-
-Napi::Value FilterContext::SetFrameSize(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_) {
-    Napi::Error::New(env, "FilterContext not initialized").ThrowAsJavaScriptException();
+    Napi::TypeError::New(env, "Expected 1 argument (pad)").ThrowAsJavaScriptException();
     return env.Undefined();
   }
   
-  // This is primarily for audio buffer sinks
-  if (!context_->filter || strcmp(context_->filter->name, "abuffersink") != 0) {
-    // Not an error, just ignore for non-audio sinks
-    return env.Undefined();
+  int pad = info[0].As<Napi::Number>().Int32Value();
+  
+  // Fix sign comparison warning by casting to unsigned
+  if (pad >= 0 && static_cast<unsigned int>(pad) < ctx->nb_inputs) {
+    // avfilter_link_free is deprecated, just set to nullptr instead
+    // The link will be freed when the filter context is freed
+    if (ctx->inputs[pad]) {
+      ctx->inputs[pad] = nullptr;
+    }
   }
-  
-  if (info.Length() < 1 || !info[0].IsNumber()) {
-    Napi::TypeError::New(env, "Frame size must be a number").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  int frame_size = info[0].As<Napi::Number>().Int32Value();
-  
-  // Set the frame size for audio buffer sink
-  av_buffersink_set_frame_size(context_, frame_size);
   
   return env.Undefined();
 }
 
 Napi::Value FilterContext::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  // FilterContext doesn't own the AVFilterContext, it's owned by the graph
-  // So we just clear our reference
-  context_ = nullptr;
+  
+  // Free owned context
+  if (ctx_ && !is_freed_) { avfilter_free(ctx_); ctx_ = nullptr; is_freed_ = true; }
+  unowned_ctx_ = nullptr;
+  
   return env.Undefined();
 }
 
+Napi::Value FilterContext::SetOpt(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected at least 2 arguments (key, value)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (!info[0].IsString() || !info[1].IsString()) {
+    Napi::TypeError::New(env, "Key and value must be strings").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  std::string key = info[0].As<Napi::String>().Utf8Value();
+  std::string value = info[1].As<Napi::String>().Utf8Value();
+  
+  // Optional search_flags parameter (default to AV_OPT_SEARCH_CHILDREN)
+  int search_flags = AV_OPT_SEARCH_CHILDREN;
+  if (info.Length() > 2 && info[2].IsNumber()) {
+    search_flags = info[2].As<Napi::Number>().Int32Value();
+  }
+  
+  // Set the option using av_opt_set
+  int ret = av_opt_set(ctx, key.c_str(), value.c_str(), search_flags);
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value FilterContext::OptSetBin(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected at least 2 arguments (key, values)").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (!info[0].IsString()) {
+    Napi::TypeError::New(env, "Key must be a string").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  std::string key = info[0].As<Napi::String>().Utf8Value();
+  
+  // Handle array of integers
+  if (info[1].IsArray()) {
+    Napi::Array arr = info[1].As<Napi::Array>();
+    uint32_t len = arr.Length();
+    
+    if (len == 0) {
+      Napi::TypeError::New(env, "Values array cannot be empty").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+    
+    // Allocate buffer for values
+    int* values = new int[len];
+    
+    for (uint32_t i = 0; i < len; i++) {
+      Napi::Value val = arr[i];
+      if (!val.IsNumber()) {
+        delete[] values;
+        Napi::TypeError::New(env, "All array elements must be numbers").ThrowAsJavaScriptException();
+        return Napi::Number::New(env, AVERROR(EINVAL));
+      }
+      values[i] = val.As<Napi::Number>().Int32Value();
+    }
+    
+    // Optional search_flags parameter (default to AV_OPT_SEARCH_CHILDREN)
+    int search_flags = AV_OPT_SEARCH_CHILDREN;
+    if (info.Length() > 2 && info[2].IsNumber()) {
+      search_flags = info[2].As<Napi::Number>().Int32Value();
+    }
+    
+    // Set the option using av_opt_set_bin
+    int ret = av_opt_set_bin(ctx, key.c_str(), (uint8_t*)values, len * sizeof(int), search_flags);
+    
+    delete[] values;
+    return Napi::Number::New(env, ret);
+  } else if (info[1].IsNumber()) {
+    // Single integer value
+    int value = info[1].As<Napi::Number>().Int32Value();
+    
+    // Optional search_flags parameter (default to AV_OPT_SEARCH_CHILDREN)
+    int search_flags = AV_OPT_SEARCH_CHILDREN;
+    if (info.Length() > 2 && info[2].IsNumber()) {
+      search_flags = info[2].As<Napi::Number>().Int32Value();
+    }
+    
+    // Set the option using av_opt_set_bin
+    int ret = av_opt_set_bin(ctx, key.c_str(), (uint8_t*)&value, sizeof(int), search_flags);
+    
+    return Napi::Number::New(env, ret);
+  } else {
+    Napi::TypeError::New(env, "Values must be an array of numbers or a single number").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+}
+
+Napi::Value FilterContext::BuffersrcAddFrame(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  // Get the frame parameter (can be null)
+  AVFrame* frame = nullptr;
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Frame* frameWrapper = UnwrapNativeObject<Frame>(env, info[0], "Frame");
+    if (frameWrapper) {
+      frame = frameWrapper->Get();
+    } else if (!info[0].IsNull()) {
+      Napi::TypeError::New(env, "Invalid Frame object").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+  }
+  
+  // Call av_buffersrc_add_frame
+  int ret = av_buffersrc_add_frame(ctx, frame);
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value FilterContext::BuffersinkGetFrame(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 1) {
+    Napi::TypeError::New(env, "Expected a Frame object").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  // Get the frame parameter
+  Frame* frameWrapper = UnwrapNativeObject<Frame>(env, info[0], "Frame");
+  if (!frameWrapper || !frameWrapper->Get()) {
+    Napi::TypeError::New(env, "Invalid Frame object").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  AVFrame* frame = frameWrapper->Get();
+  
+  // Call av_buffersink_get_frame
+  int ret = av_buffersink_get_frame(ctx, frame);
+  
+  return Napi::Number::New(env, ret);
+}
+
+Napi::Value FilterContext::BuffersinkSetFrameSize(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected frame size as number").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  unsigned int frame_size = info[0].As<Napi::Number>().Uint32Value();
+  
+  // Set the frame size for buffersink
+  av_buffersink_set_frame_size(ctx, frame_size);
+  
+  return env.Undefined();
+}
+
+Napi::Value FilterContext::BuffersinkGetTimeBase(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  // Get the timebase from buffersink
+  AVRational tb = av_buffersink_get_time_base(ctx);
+  
+  // Return as object with num and den properties
+  Napi::Object result = Napi::Object::New(env);
+  result.Set("num", Napi::Number::New(env, tb.num));
+  result.Set("den", Napi::Number::New(env, tb.den));
+  
+  return result;
+}
+
+// === Properties ===
+
+Napi::Value FilterContext::GetName(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  if (!ctx || !ctx->name) {
+    return env.Null();
+  }
+  return Napi::String::New(env, ctx->name);
+}
+
+void FilterContext::SetName(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    return;
+  }
+  
+  if (value.IsString()) {
+    std::string name = value.As<Napi::String>().Utf8Value();
+    av_freep(&ctx->name);
+    ctx->name = av_strdup(name.c_str());
+  }
+}
+
+Napi::Value FilterContext::GetFilter(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFilterContext* ctx = Get();
+  if (!ctx || !ctx->filter) {
+    return env.Null();
+  }
+  
+  Napi::Object filterObj = Filter::constructor.New({});
+  Filter* filter = Napi::ObjectWrap<Filter>::Unwrap(filterObj);
+  filter->Set(ctx->filter);
+  
+  return filterObj;
+}
+
+Napi::Value FilterContext::GetGraph(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFilterContext* ctx = Get();
+  if (!ctx || !ctx->graph) {
+    return env.Null();
+  }
+  
+  // Wrap the existing AVFilterGraph in a FilterGraph object
+  // Note: We don't own this graph, it's managed by the filter context
+  Napi::Object graphObj = FilterGraph::constructor.New({});
+  FilterGraph* graph = Napi::ObjectWrap<FilterGraph>::Unwrap(graphObj);
+  graph->SetUnowned(ctx->graph); // We don't own it
+  return graphObj;
+}
+
+Napi::Value FilterContext::GetNbInputs(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, ctx->nb_inputs);
+}
+
+Napi::Value FilterContext::GetNbOutputs(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, ctx->nb_outputs);
+}
+
+Napi::Value FilterContext::GetReady(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    return Napi::Number::New(env, 0);
+  }
+  return Napi::Number::New(env, ctx->ready);
+}
+
+// === Utility ===
+
 Napi::Value FilterContext::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);
-}
-
-// ============================================================================
-// Async Workers
-// ============================================================================
-
-AddFrameWorker::AddFrameWorker(
-  Napi::Promise::Deferred deferred,
-  AVFilterContext* context,
-  AVFrame* frame
-) : Napi::AsyncWorker(deferred.Env()),
-    deferred_(deferred),
-    context_(context),
-    frame_(frame),
-    result_(0) {
-}
-
-void AddFrameWorker::Execute() {
-  result_ = av_buffersrc_add_frame(context_, frame_);
-}
-
-void AddFrameWorker::OnOK() {
-  Napi::HandleScope scope(Env());
-  deferred_.Resolve(Napi::Number::New(Env(), result_));
-}
-
-void AddFrameWorker::OnError(const Napi::Error& error) {
-  Napi::HandleScope scope(Env());
-  deferred_.Reject(error.Value());
-}
-
-GetFrameWorker::GetFrameWorker(
-  Napi::Promise::Deferred deferred,
-  AVFilterContext* context,
-  AVFrame* frame
-) : Napi::AsyncWorker(deferred.Env()),
-    deferred_(deferred),
-    context_(context),
-    frame_(frame),
-    result_(0) {
-}
-
-void GetFrameWorker::Execute() {
-  result_ = av_buffersink_get_frame(context_, frame_);
-}
-
-void GetFrameWorker::OnOK() {
-  Napi::HandleScope scope(Env());
-  deferred_.Resolve(Napi::Number::New(Env(), result_));
-}
-
-void GetFrameWorker::OnError(const Napi::Error& error) {
-  Napi::HandleScope scope(Env());
-  deferred_.Reject(error.Value());
 }
 
 } // namespace ffmpeg
