@@ -713,10 +713,11 @@ async function main(): Promise<void> {
     await ifmt_ctx?.closeInput();
     ifmt_ctx?.freeContext();
 
-    if (ofmt_ctx && !(ofmt_ctx.oformat && ofmt_ctx.oformat?.flags & AV_FMT_NOFILE)) {
-      ofmt_ctx.pb?.closep();
+    if (ofmt_ctx) {
+      if (!(ofmt_ctx.oformat && ofmt_ctx.oformat?.flags & AV_FMT_NOFILE)) {
+        await ofmt_ctx.pb?.closep();
+      }
     }
-    ofmt_ctx?.freeContext();
 
     if (ret < 0 && ret !== AV_ERROR_EOF) {
       console.error(`Error occurred: ${ret}`);
