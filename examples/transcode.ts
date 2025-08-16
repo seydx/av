@@ -579,15 +579,15 @@ async function main(): Promise<void> {
   const [input_file, output_file] = args;
 
   if ((ret = await open_input_file(input_file)) < 0) {
-    goto_end();
+    await goto_end();
     return;
   }
   if ((ret = await open_output_file(output_file)) < 0) {
-    goto_end();
+    await goto_end();
     return;
   }
   if ((ret = await init_filters()) < 0) {
-    goto_end();
+    await goto_end();
     return;
   }
 
@@ -615,14 +615,14 @@ async function main(): Promise<void> {
         if (ret === AV_ERROR_EOF || ret === AV_ERROR_EAGAIN) {
           break;
         } else if (ret < 0) {
-          goto_end();
+          await goto_end();
           return;
         }
 
         stream.dec_frame!.pts = stream.dec_frame!.bestEffortTimestamp;
         ret = await filter_encode_write_frame(stream.dec_frame, stream_index);
         if (ret < 0) {
-          goto_end();
+          await goto_end();
           return;
         }
       }
@@ -632,7 +632,7 @@ async function main(): Promise<void> {
 
       ret = await ofmt_ctx!.interleavedWriteFrame(packet);
       if (ret < 0) {
-        goto_end();
+        await goto_end();
         return;
       }
     }
@@ -653,7 +653,7 @@ async function main(): Promise<void> {
     ret = await stream.dec_ctx!.sendPacket(null);
     if (ret < 0) {
       console.error('Flushing decoding failed');
-      goto_end();
+      await goto_end();
       return;
     }
 
@@ -662,14 +662,14 @@ async function main(): Promise<void> {
       if (ret === AV_ERROR_EOF) {
         break;
       } else if (ret < 0) {
-        goto_end();
+        await goto_end();
         return;
       }
 
       stream.dec_frame!.pts = stream.dec_frame!.bestEffortTimestamp;
       ret = await filter_encode_write_frame(stream.dec_frame, i);
       if (ret < 0) {
-        goto_end();
+        await goto_end();
         return;
       }
     }
@@ -678,7 +678,7 @@ async function main(): Promise<void> {
     ret = await filter_encode_write_frame(null, i);
     if (ret < 0) {
       console.error('Flushing filter failed');
-      goto_end();
+      await goto_end();
       return;
     }
 
@@ -686,7 +686,7 @@ async function main(): Promise<void> {
     ret = await flush_encoder(i);
     if (ret < 0) {
       console.error('Flushing encoder failed');
-      goto_end();
+      await goto_end();
       return;
     }
   }
@@ -724,7 +724,7 @@ async function main(): Promise<void> {
     }
   }
 
-  goto_end();
+  await goto_end();
 }
 
 // Run main
