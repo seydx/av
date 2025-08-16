@@ -28,14 +28,20 @@ import type { Packet } from './packet.js';
 import type { ChannelLayout } from './types.js';
 
 /**
- * FFmpeg codec context for encoding and decoding - Low Level API
+ * Codec context for encoding and decoding media.
+ *
+ * Central structure for media encoding and decoding operations.
+ * Manages codec state, parameters, and threading.
+ * Supports both software and hardware acceleration.
  *
  * Direct mapping to FFmpeg's AVCodecContext.
- * User has full control over allocation, configuration and lifecycle.
  *
  * @example
  * ```typescript
- * // Create and configure decoder context - full control
+ * import { CodecContext, Codec, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg/constants';
+ *
+ * // Create and configure decoder context
  * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
  * const ctx = new CodecContext();
  * ctx.allocContext3(codec);
@@ -47,13 +53,16 @@ import type { ChannelLayout } from './types.js';
  *
  * // Open codec
  * const ret = await ctx.open2(codec, null);
- * if (ret < 0) throw new FFmpegError(ret);
+ * FFmpegError.throwIfError(ret, 'open2');
  *
  * // Decode packets
- * await ctx.sendPacket(packet);
+ * const sendRet = await ctx.sendPacket(packet);
+ * FFmpegError.throwIfError(sendRet, 'sendPacket');
+ *
  * while (true) {
  *   const ret = await ctx.receiveFrame(frame);
- *   if (ret < 0) break;
+ *   if (ret === AVERROR_EOF || ret === AVERROR(EAGAIN)) break;
+ *   FFmpegError.throwIfError(ret, 'receiveFrame');
  *   // Process frame
  * }
  *
@@ -69,10 +78,14 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * Create a new codec context.
    *
    * The context is uninitialized - you must call allocContext3() before use.
+   * No FFmpeg resources are allocated until initialization.
+   *
    * Direct wrapper around AVCodecContext.
    *
    * @example
    * ```typescript
+   * import { CodecContext, Codec } from '@seydx/ffmpeg';
+   *
    * const ctx = new CodecContext();
    * ctx.allocContext3(codec);
    * // Context is now ready for configuration
@@ -87,8 +100,9 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Codec type.
    *
-   * Direct mapping to AVCodecContext->codec_type
    * Identifies whether this is a video, audio, subtitle, or data codec.
+   *
+   * Direct mapping to AVCodecContext->codec_type
    */
   get codecType(): AVMediaType {
     return this.native.codecType;
@@ -101,8 +115,9 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Codec ID.
    *
-   * Direct mapping to AVCodecContext->codec_id
    * Identifies the specific codec (e.g., AV_CODEC_ID_H264, AV_CODEC_ID_AAC).
+   *
+   * Direct mapping to AVCodecContext->codec_id
    */
   get codecId(): AVCodecID {
     return this.native.codecId;
@@ -114,6 +129,9 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
 
   /**
    * The average bitrate.
+   *
+   * Direct mapping to AVCodecContext->bit_rate
+   *
    * - encoding: Set by user, unused for constant quantizer encoding.
    * - decoding: Set by user, may be overwritten by libavcodec if this info is available in the stream.
    */
@@ -126,13 +144,14 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   }
 
   /**
-   * This is the fundamental unit of time (in seconds) in terms
-   * of which frame timestamps are represented. For fixed-fps content,
-   * timebase should be 1/framerate and timestamp increments should be
-   * identically 1.
+   * Time base for timestamps.
+   *
+   * The fundamental unit of time (in seconds) for frame timestamps.
+   *
+   * Direct mapping to AVCodecContext->time_base
+   *
    * - encoding: MUST be set by user.
-   * - decoding: the use of this field for decoding is deprecated.
-   *             Use framerate instead.
+   * - decoding: the use of this field for decoding is deprecated. Use framerate instead.
    */
   get timeBase(): Rational {
     const tb = this.native.timeBase;
@@ -672,21 +691,30 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Allocate an AVCodecContext and set its fields to default values.
    *
+   * Allocates the codec context and initializes with codec-specific defaults.
+   * Must be called before using the context.
+   *
    * Direct mapping to avcodec_alloc_context3()
    *
    * @param codec - If non-NULL, allocate private data and initialize defaults
    *                for the given codec. It is illegal to then call open2()
    *                with a different codec.
    *
+   * @throws {Error} Memory allocation failure (ENOMEM)
+   *
    * @example
    * ```typescript
+   * import { CodecContext, Codec } from '@seydx/ffmpeg';
+   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   *
    * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
    * const ctx = new CodecContext();
    * ctx.allocContext3(codec);
    * // Context is now allocated with H264 defaults
    * ```
    *
-   * @throws Error if allocation fails
+   * @see {@link open2} To open the codec
+   * @see {@link freeContext} To free the context
    */
   allocContext3(codec?: Codec | null): void {
     this.native.allocContext3(codec?.getNative() ?? null);
@@ -695,8 +723,10 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Free the codec context and everything associated with it.
    *
+   * Releases all resources associated with the codec context.
+   * The context becomes invalid after this call.
+   *
    * Direct mapping to avcodec_free_context()
-   * After calling this, the context is no longer usable.
    *
    * @example
    * ```typescript
@@ -711,27 +741,41 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Set an option on the codec context.
    *
+   * Configures codec-specific parameters using the AVOptions API.
+   * Options vary by codec and can control quality, speed, and features.
+   *
    * Direct mapping to av_opt_set()
-   * Used to configure codec-specific parameters.
    *
    * @param name - Option name
    * @param value - Option value
    * @param searchFlags - Search flags (default: AV_OPT_SEARCH_CHILDREN)
-   * @returns 0 on success, negative AVERROR on error
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR(EINVAL): Option not found
+   *   - AVERROR(ERANGE): Value out of range
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Set H.264 preset
-   * ctx.setOpt('preset', 'slow');
+   * const ret1 = ctx.setOpt('preset', 'slow');
+   * FFmpegError.throwIfError(ret1, 'setOpt preset');
+   *
    * // Set CRF value
-   * ctx.setOpt('crf', '23');
+   * const ret2 = ctx.setOpt('crf', '23');
+   * FFmpegError.throwIfError(ret2, 'setOpt crf');
    * ```
    *
    * @example
    * ```typescript
+   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // With specific search flags
-   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ } from '../constants.js';
-   * ctx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
+   * const ret = ctx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
+   * FFmpegError.throwIfError(ret, 'setOpt');
    * ```
    */
   setOpt(name: string, value: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): number {
@@ -740,6 +784,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
 
   /**
    * Initialize the AVCodecContext to use the given AVCodec.
+   *
+   * Opens the codec and prepares it for encoding or decoding.
    * Prior to using this function the context has to be allocated with allocContext3().
    *
    * Direct mapping to avcodec_open2()
@@ -757,14 +803,14 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = await ctx.open2(codec, null);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'open2');
    * ```
    *
-   * @see close() - To close the codec context
-   * @see allocContext3() - Must be called before open2()
+   * @see {@link close} To close the codec context
+   * @see {@link allocContext3} Must be called before open2()
    */
   async open2(codec?: Codec | null, options?: Dictionary | null): Promise<number> {
     return await this.native.open2(codec?.getNative() ?? null, options?.getNative() ?? null);
@@ -844,8 +890,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Supply raw packet data as input to a decoder.
    *
-   * Internally, this function does not copy the data from the packet. It may reference
-   * the packet for later use. The packet must not be modified until it is unreferenced.
+   * Sends compressed data to the decoder for processing.
+   * The decoder may buffer the packet internally.
    *
    * Direct mapping to avcodec_send_packet()
    *
@@ -861,19 +907,23 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
+   * import { FFmpegError, Frame } from '@seydx/ffmpeg';
+   * import { AVERROR_EAGAIN } from '@seydx/ffmpeg/constants';
+   *
    * // Decode packet
    * const ret = await decoder.sendPacket(packet);
    * if (ret === AVERROR_EAGAIN) {
    *   // Need to read output first
    *   const frame = new Frame();
    *   frame.alloc();
-   *   await decoder.receiveFrame(frame);
-   * } else if (ret < 0) {
-   *   throw new FFmpegError(ret);
+   *   const recvRet = await decoder.receiveFrame(frame);
+   *   FFmpegError.throwIfError(recvRet, 'receiveFrame');
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'sendPacket');
    * }
    * ```
    *
-   * @see receiveFrame() - To retrieve decoded frames
+   * @see {@link receiveFrame} To retrieve decoded frames
    */
   async sendPacket(packet: Packet | null): Promise<number> {
     return await this.native.sendPacket(packet?.getNative() ?? null);
@@ -882,8 +932,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   /**
    * Return decoded output data from a decoder.
    *
+   * Retrieves decoded frames from the decoder.
    * The frame must be allocated before calling this function.
-   * The function will overwrite all frame properties.
    *
    * Direct mapping to avcodec_receive_frame()
    *
@@ -898,6 +948,9 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   *
    * // Receive all frames from decoder
    * const frame = new Frame();
    * frame.alloc();
@@ -907,16 +960,15 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *   if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
    *     break;
    *   }
-   *   if (ret < 0) {
-   *     throw new FFmpegError(ret);
-   *   }
+   *   FFmpegError.throwIfError(ret, 'receiveFrame');
+   *
    *   // Process frame
    *   processFrame(frame);
    *   frame.unref();
    * }
    * ```
    *
-   * @see sendPacket() - To send input packets
+   * @see {@link sendPacket} To send input packets
    */
   async receiveFrame(frame: Frame): Promise<number> {
     return await this.native.receiveFrame(frame.getNative());
@@ -924,14 +976,13 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
 
   /**
    * Supply a raw video or audio frame to the encoder.
+   *
+   * Sends uncompressed frame data to the encoder.
    * Use receivePacket() to retrieve buffered output packets.
    *
    * Direct mapping to avcodec_send_frame()
    *
    * @param frame - AVFrame containing the raw audio or video frame to be encoded.
-   *                Ownership of the frame remains with the caller, and the encoder
-   *                will not write to the frame. The encoder may create a reference
-   *                to the frame data (or copy it if the frame is not reference-counted).
    *                Can be NULL for flush packet (signals end of stream).
    *
    * @returns 0 on success, negative AVERROR on error:
@@ -944,21 +995,25 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
+   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EAGAIN } from '@seydx/ffmpeg/constants';
+   *
    * // Send frame to encoder
    * const ret = await encoder.sendFrame(frame);
    * if (ret === AVERROR_EAGAIN) {
    *   // Need to read output first
    *   const packet = new Packet();
    *   packet.alloc();
-   *   await encoder.receivePacket(packet);
-   * } else if (ret < 0) {
-   *   throw new FFmpegError(ret);
+   *   const recvRet = await encoder.receivePacket(packet);
+   *   FFmpegError.throwIfError(recvRet, 'receivePacket');
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'sendFrame');
    * }
    * ```
    *
-   * @see receivePacket() - To retrieve encoded packets
+   * @see {@link receivePacket} To retrieve encoded packets
    *
-   * For audio: If AV_CODEC_CAP_VARIABLE_FRAME_SIZE is set, then each frame
+   * @note For audio: If AV_CODEC_CAP_VARIABLE_FRAME_SIZE is set, then each frame
    * can have any number of samples. If not set, frame.nbSamples must equal
    * avctx.frameSize for all frames except the last.
    */
@@ -968,6 +1023,9 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
 
   /**
    * Read encoded data from the encoder.
+   *
+   * Retrieves compressed packets from the encoder.
+   * The packet must be allocated before calling.
    *
    * Direct mapping to avcodec_receive_packet()
    *
@@ -982,6 +1040,9 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
+   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   *
    * // Receive all packets from encoder
    * const packet = new Packet();
    * packet.alloc();

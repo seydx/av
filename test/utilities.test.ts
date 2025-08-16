@@ -255,6 +255,11 @@ describe('Utilities', () => {
       const srcResult = avImageAlloc(width, height, pixFmt, align);
       assert.ok(srcResult.buffer instanceof Buffer);
 
+      // Fill source buffer with some test data
+      for (let i = 0; i < srcResult.buffer.length; i++) {
+        srcResult.buffer[i] = (i % 256);
+      }
+
       // Create destination buffer
       const dstSize = srcResult.size;
       const dst = Buffer.alloc(dstSize);

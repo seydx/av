@@ -4,14 +4,18 @@ import type { AVFormatFlag } from './constants.js';
 import type { NativeInputFormat, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg Input Format (Demuxer) - Low Level API
+ * Input format (demuxer) descriptor.
+ *
+ * Describes a supported input container format for demuxing.
+ * Provides format information like name, extensions, and capabilities.
+ * These are read-only format descriptors managed by FFmpeg.
  *
  * Direct mapping to FFmpeg's AVInputFormat.
- * Describes a supported input container format.
- * These are read-only format descriptors.
  *
  * @example
  * ```typescript
+ * import { InputFormat, FormatContext, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Find a specific input format
  * const mp4Format = InputFormat.findInputFormat('mp4');
  * if (mp4Format) {
@@ -25,8 +29,12 @@ import type { NativeInputFormat, NativeWrapper } from './native-types.js';
  *
  * // Force a specific input format
  * const movFormat = InputFormat.findInputFormat('mov');
- * await ctx.openInput('video.dat', movFormat, null);
+ * const ret = await ctx.openInput('video.dat', movFormat, null);
+ * FFmpegError.throwIfError(ret, 'openInput');
  * ```
+ *
+ * @see {@link FormatContext} For using input formats
+ * @see {@link OutputFormat} For output formats
  */
 export class InputFormat implements NativeWrapper<NativeInputFormat> {
   private native: NativeInputFormat;
@@ -34,11 +42,18 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   // Constructor
   /**
    * Constructor is internal - use static factory methods.
+   *
    * InputFormats are obtained via static methods, not created directly.
+   * FFmpeg manages these format descriptors internally.
+   *
    * @internal
+   *
+   * @param native - Native AVInputFormat to wrap
    *
    * @example
    * ```typescript
+   * import { InputFormat } from '@seydx/ffmpeg';
+   *
    * // Don't use constructor directly
    * // const format = new InputFormat(); // ❌ Wrong
    *
@@ -55,6 +70,9 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   /**
    * Find a registered input format with matching name.
    *
+   * Searches FFmpeg's registered demuxers by short name.
+   * Useful for forcing a specific format when auto-detection fails.
+   *
    * Direct mapping to av_find_input_format()
    *
    * @param shortName - Short name of the format (e.g., 'mp4', 'mov', 'avi')
@@ -63,6 +81,8 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @example
    * ```typescript
+   * import { InputFormat, FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const format = InputFormat.findInputFormat('mp4');
    * if (format) {
    *   console.log(`Found: ${format.longName}`);
@@ -70,7 +90,12 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * // Force specific format when opening
    * const movFormat = InputFormat.findInputFormat('mov');
-   * await ctx.openInput('video.dat', movFormat, null);
+   * if (movFormat) {
+   *   const ctx = new FormatContext();
+   *   ctx.allocContext();
+   *   const ret = await ctx.openInput('video.dat', movFormat, null);
+   *   FFmpegError.throwIfError(ret, 'openInput');
+   * }
    * ```
    */
   static findInputFormat(shortName: string): InputFormat | null {

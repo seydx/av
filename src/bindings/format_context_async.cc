@@ -583,4 +583,185 @@ Napi::Value FormatContext::WriteTrailerAsync(const Napi::CallbackInfo& info) {
   return promise;
 }
 
+// ============================================================================
+// Additional Async Worker Classes for Format Operations
+// ============================================================================
+
+/**
+ * Worker for avio_open - Opens output file
+ */
+class FCOpenOutputWorker : public Napi::AsyncWorker {
+public:
+  FCOpenOutputWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    AVFormatContext* ctx = parent_->ctx_;
+    if (!ctx || !ctx->oformat || !ctx->url) {
+      result_ = AVERROR(EINVAL);
+      return;
+    }
+    
+    // Check if we need to open the file (not NOFILE format)
+    if (!(ctx->oformat->flags & AVFMT_NOFILE)) {
+      result_ = avio_open(&ctx->pb, ctx->url, AVIO_FLAG_WRITE);
+    } else {
+      result_ = 0;
+    }
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  FormatContext* parent_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for avio_closep - Closes output file
+ */
+class FCCloseOutputWorker : public Napi::AsyncWorker {
+public:
+  FCCloseOutputWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    AVFormatContext* ctx = parent_->ctx_;
+    if (ctx && ctx->pb) {
+      if (!ctx->oformat || !(ctx->oformat->flags & AVFMT_NOFILE)) {
+        avio_closep(&ctx->pb);
+      }
+    }
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Env().Undefined());
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  FormatContext* parent_;
+  Napi::Promise::Deferred deferred_;
+};
+
+/**
+ * Worker for avformat_close_input - Closes input file and frees context
+ */
+class FCCloseInputWorker : public Napi::AsyncWorker {
+public:
+  FCCloseInputWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    AVFormatContext* ctx = parent_->ctx_;
+    parent_->ctx_ = nullptr;
+    
+    if (ctx) {
+      avformat_close_input(&ctx);
+      parent_->is_freed_ = true;
+      parent_->is_output_ = false;
+    }
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Env().Undefined());
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  FormatContext* parent_;
+  Napi::Promise::Deferred deferred_;
+};
+
+// ============================================================================
+// Additional FormatContext Async Method Implementations
+// ============================================================================
+
+Napi::Value FormatContext::OpenOutput(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFormatContext* ctx = ctx_;
+  if (!ctx) {
+    Napi::Error::New(env, "No format context allocated").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  if (!is_output_) {
+    Napi::Error::New(env, "Not an output context").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  // Check if oformat is set
+  if (!ctx->oformat) {
+    Napi::Error::New(env, "No output format set").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  auto* worker = new FCOpenOutputWorker(env, this);
+  worker->Queue();
+  return worker->GetPromise();
+}
+
+Napi::Value FormatContext::CloseOutput(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFormatContext* ctx = ctx_;
+  if (!ctx) {
+    return env.Null();
+  }
+  
+  if (!is_output_) {
+    Napi::Error::New(env, "Not an output context").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  auto* worker = new FCCloseOutputWorker(env, this);
+  worker->Queue();
+  return worker->GetPromise();
+}
+
+Napi::Value FormatContext::CloseInput(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (is_freed_) {
+    return env.Null();
+  }
+  
+  auto* worker = new FCCloseInputWorker(env, this);
+  worker->Queue();
+  return worker->GetPromise();
+}
+
 } // namespace ffmpeg

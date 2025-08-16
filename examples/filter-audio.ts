@@ -54,11 +54,11 @@ const FRAME_SIZE = 1024;
 /**
  * Initialize the filter graph
  */
-function initFilterGraph(): {
+async function initFilterGraph(): Promise<{
   graph: FilterGraph;
   src: FilterContext;
   sink: FilterContext;
-} {
+}> {
   // Create a new filtergraph
   const filterGraph = new FilterGraph();
   filterGraph.alloc();
@@ -130,7 +130,7 @@ function initFilterGraph(): {
   FFmpegError.throwIfError(linkRet, 'Error connecting filters');
 
   // Configure the graph
-  const configRet = filterGraph.config();
+  const configRet = await filterGraph.config();
   FFmpegError.throwIfError(configRet, `Error configuring the filter graph: ${new FFmpegError(configRet).message}`);
 
   return {
@@ -213,7 +213,7 @@ async function filterAudio(duration: number): Promise<void> {
 
   try {
     // Set up the filtergraph
-    const filterSetup = initFilterGraph();
+    const filterSetup = await initFilterGraph();
     graph = filterSetup.graph;
     src = filterSetup.src;
     sink = filterSetup.sink;
@@ -224,7 +224,7 @@ async function filterAudio(duration: number): Promise<void> {
       getInput(frame, i);
 
       // Send the frame to the input of the filtergraph
-      let ret = src.buffersrcAddFrame(frame);
+      let ret = await src.buffersrcAddFrame(frame);
       if (ret < 0) {
         throw new Error(`Error feeding frame to filter: ${new FFmpegError(ret).message}`);
       }
@@ -234,7 +234,7 @@ async function filterAudio(duration: number): Promise<void> {
       filterFrame.alloc();
 
       while (true) {
-        ret = sink.buffersinkGetFrame(filterFrame);
+        ret = await sink.buffersinkGetFrame(filterFrame);
         if (ret < 0) {
           // No more frames available for now
           if (ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {

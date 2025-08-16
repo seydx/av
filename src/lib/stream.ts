@@ -7,19 +7,27 @@ import type { NativeStream, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 
 /**
- * FFmpeg stream information - Low Level API
+ * Stream information within a media container.
+ *
+ * Represents a single stream (video, audio, subtitle, etc.) within a media file.
+ * Streams are created and managed by FormatContext and contain all the metadata
+ * and parameters needed to decode or encode the stream. Each stream has its own
+ * timebase, codec parameters, and metadata.
  *
  * Direct mapping to FFmpeg's AVStream.
- * Streams are created and managed by FormatContext.
- * Contains information about one stream in a format context.
  *
  * @example
  * ```typescript
+ * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO } from '@seydx/ffmpeg/constants';
+ *
  * // Streams are obtained from FormatContext
  * const formatContext = new FormatContext();
- * formatContext.allocContext();
- * await formatContext.openInput('video.mp4', null, null);
- * await formatContext.findStreamInfo(null);
+ * const ret = await formatContext.openInput('video.mp4', null, null);
+ * FFmpegError.throwIfError(ret, 'openInput');
+ *
+ * const infoRet = await formatContext.findStreamInfo(null);
+ * FFmpegError.throwIfError(infoRet, 'findStreamInfo');
  *
  * // Access streams
  * const streams = formatContext.streams;
@@ -29,18 +37,28 @@ import type { Packet } from './packet.js';
  *
  *   // Direct access to codec parameters
  *   const codecpar = stream.codecpar;
- *   if (codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
+ *   if (codecpar.codecType === AV_MEDIA_TYPE_VIDEO) {
  *     console.log(`Video: ${codecpar.width}x${codecpar.height}`);
+ *   } else if (codecpar.codecType === AV_MEDIA_TYPE_AUDIO) {
+ *     console.log(`Audio: ${codecpar.sampleRate}Hz ${codecpar.channels} channels`);
  *   }
  * }
  * ```
+ *
+ * @see {@link FormatContext} For creating and managing streams
+ * @see {@link CodecParameters} For codec-specific stream parameters
  */
 export class Stream implements NativeWrapper<NativeStream> {
   private native: NativeStream;
 
   // Constructor
   /**
-   * Constructor is internal - streams are created by FormatContext.
+   * Constructor is internal - use FormatContext to create streams.
+   *
+   * Streams are created and managed by FormatContext.
+   * For demuxing, streams are created automatically when opening input.
+   * For muxing, use formatContext.newStream() to create streams.
+   *
    * @internal
    *
    * @param native - Native AVStream to wrap
@@ -50,8 +68,11 @@ export class Stream implements NativeWrapper<NativeStream> {
    * // Don't create streams directly
    * // const stream = new Stream(); // ❌ Wrong
    *
-   * // Streams are obtained from FormatContext
+   * // For demuxing: streams are created automatically
    * const streams = formatContext.streams; // ✅ Correct
+   *
+   * // For muxing: use newStream
+   * const stream = formatContext.newStream(null); // ✅ Correct
    * ```
    */
   constructor(native: NativeStream) {
@@ -61,12 +82,27 @@ export class Stream implements NativeWrapper<NativeStream> {
   // Getter/Setter Properties
 
   /**
-   * Stream index in AVFormatContext.
+   * Stream index in the format context.
+   *
+   * Zero-based index of this stream in the format context's stream array.
+   * This is the index used to identify the stream in packets.
    *
    * Direct mapping to AVStream->index
    *
-   * This is the index you use with av_read_frame() etc.
    * @readonly
+   *
+   * @example
+   * ```typescript
+   * // Find video stream index
+   * const videoStreamIndex = streams.findIndex(
+   *   s => s.codecpar.codecType === AV_MEDIA_TYPE_VIDEO
+   * );
+   *
+   * // Check packet's stream
+   * if (packet.streamIndex === videoStreamIndex) {
+   *   // This packet belongs to the video stream
+   * }
+   * ```
    */
   get index(): number {
     return this.native.index;
@@ -75,10 +111,13 @@ export class Stream implements NativeWrapper<NativeStream> {
   /**
    * Format-specific stream ID.
    *
+   * Stream ID as defined by the container format.
+   * Different from index - this is format-specific.
+   *
    * Direct mapping to AVStream->id
    *
-   * - decoding: set by libavformat
-   * - encoding: set by the user, replaced by libavformat if left unset
+   * - decoding: Set by libavformat
+   * - encoding: Set by the user, replaced by libavformat if left unset
    */
   get id(): number {
     return this.native.id;
@@ -91,14 +130,30 @@ export class Stream implements NativeWrapper<NativeStream> {
   /**
    * Codec parameters associated with this stream.
    *
+   * Contains all the parameters needed to set up a codec for this stream,
+   * including codec ID, dimensions for video, sample rate for audio, etc.
+   *
    * Direct mapping to AVStream->codecpar
    *
-   * Allocated and freed by libavformat in avformat_new_stream() and
-   * avformat_free_context() respectively.
+   * - demuxing: Filled by libavformat on stream creation or in findStreamInfo()
+   * - muxing: Must be filled by the caller before writeHeader()
    *
-   * - demuxing: filled by libavformat on stream creation or in
-   *             avformat_find_stream_info()
-   * - muxing: filled by the caller before avformat_write_header()
+   * @example
+   * ```typescript
+   * // For video stream
+   * stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+   * stream.codecpar.codecId = AV_CODEC_ID_H264;
+   * stream.codecpar.width = 1920;
+   * stream.codecpar.height = 1080;
+   *
+   * // For audio stream
+   * stream.codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+   * stream.codecpar.codecId = AV_CODEC_ID_AAC;
+   * stream.codecpar.sampleRate = 48000;
+   * stream.codecpar.channels = 2;
+   * ```
+   *
+   * @see {@link CodecParameters} For detailed parameter documentation
    */
   get codecpar(): CodecParameters {
     // The native binding returns a NativeCodecParameters which we need to wrap
@@ -123,18 +178,33 @@ export class Stream implements NativeWrapper<NativeStream> {
   }
 
   /**
-   * This is the fundamental unit of time (in seconds) in terms
-   * of which frame timestamps are represented.
+   * Time base for this stream.
+   *
+   * The fundamental unit of time (in seconds) in terms of which frame
+   * timestamps are represented. For example, a time base of 1/25 means
+   * each time unit is 1/25 of a second (40ms).
    *
    * Direct mapping to AVStream->time_base
    *
-   * - decoding: set by libavformat
-   * - encoding: May be set by the caller before avformat_write_header() to
-   *             provide a hint to the muxer about the desired timebase. In
-   *             avformat_write_header(), the muxer will overwrite this field
-   *             with the timebase that will actually be used for the timestamps
-   *             written into the file (which may or may not be related to the
-   *             user-provided one, depending on the format).
+   * - decoding: Set by libavformat
+   * - encoding: May be set before writeHeader() as a hint to the muxer.
+   *             The muxer will overwrite with the actual timebase used.
+   *
+   * @example
+   * ```typescript
+   * import { Rational } from '@seydx/ffmpeg';
+   *
+   * // Common time bases
+   * stream.timeBase = new Rational(1, 90000); // 90kHz (MPEG-TS)
+   * stream.timeBase = new Rational(1, 1000); // milliseconds
+   * stream.timeBase = new Rational(1, 25); // 25 fps video
+   *
+   * // Convert PTS to seconds
+   * const pts = 45000n;
+   * const seconds = Number(pts) * stream.timeBase.toDouble();
+   * ```
+   *
+   * @see {@link Rational} For time base representation
    */
   get timeBase(): Rational {
     const tb = this.native.timeBase;

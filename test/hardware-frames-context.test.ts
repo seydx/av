@@ -323,7 +323,7 @@ describe('HardwareFramesContext', () => {
   });
 
   describe('Transfer Operations', () => {
-    it('should transfer data to hardware frame', () => {
+    it('should transfer data to hardware frame', async () => {
       const frames = new HardwareFramesContext();
       const device = new HardwareDeviceContext();
       const types = HardwareDeviceContext.iterateTypes();
@@ -364,7 +364,7 @@ describe('HardwareFramesContext', () => {
             frames.getBuffer(hwFrame);
 
             // Transfer data (upload to hardware)
-            const transferRet = frames.transferData(hwFrame, swFrame);
+            const transferRet = await frames.transferData(hwFrame, swFrame);
             assert.equal(typeof transferRet, 'number', 'Should return status code');
 
             hwFrame.free();
@@ -379,7 +379,7 @@ describe('HardwareFramesContext', () => {
       }
     });
 
-    it('should transfer data from hardware frame', () => {
+    it('should transfer data from hardware frame', async () => {
       const frames = new HardwareFramesContext();
       const device = new HardwareDeviceContext();
       const types = HardwareDeviceContext.iterateTypes();
@@ -420,7 +420,7 @@ describe('HardwareFramesContext', () => {
             swFrame.getBuffer();
 
             // Transfer data (download from hardware)
-            const transferRet = frames.transferData(swFrame, hwFrame);
+            const transferRet = await frames.transferData(swFrame, hwFrame);
             assert.equal(typeof transferRet, 'number', 'Should return status code');
 
             swFrame.free();

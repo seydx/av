@@ -7,31 +7,39 @@ import type { Frame } from './frame.js';
 import type { NativeDictionary, NativeFilterContext, NativeFilterGraph, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg filter context - Low Level API
+ * Filter context for media processing.
+ *
+ * Represents an instance of a filter in a filter graph.
+ * Manages filter configuration, parameters, and connections.
+ * Must be created through FilterGraph.createFilter() and properly initialized before use.
  *
  * Direct mapping to FFmpeg's AVFilterContext.
- * Represents an instance of a filter in a filter graph.
- * Must be created through FilterGraph.createFilter() and properly initialized before use.
  *
  * @example
  * ```typescript
+ * import { FilterGraph, Filter, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Create filter context through FilterGraph
  * const filterGraph = new FilterGraph();
  * filterGraph.alloc();
  *
  * const bufferFilter = Filter.getByName('buffer');
  * const bufferCtx = filterGraph.createFilter(bufferFilter, 'in');
- * bufferCtx.initStr('video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25:pixel_aspect=1/1');
+ * const initRet = bufferCtx.initStr('video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25:pixel_aspect=1/1');
+ * FFmpegError.throwIfError(initRet, 'initStr buffer');
  *
  * // Link filters
  * const scaleFilter = Filter.getByName('scale');
  * const scaleCtx = filterGraph.createFilter(scaleFilter, 'scale');
- * scaleCtx.initStr('1280:720');
+ * const scaleRet = scaleCtx.initStr('1280:720');
+ * FFmpegError.throwIfError(scaleRet, 'initStr scale');
  *
- * bufferCtx.link(0, scaleCtx, 0);
+ * const linkRet = bufferCtx.link(0, scaleCtx, 0);
+ * FFmpegError.throwIfError(linkRet, 'link');
  *
  * // Configure and use the graph
- * filterGraph.config();
+ * const configRet = filterGraph.config();
+ * FFmpegError.throwIfError(configRet, 'config');
  * ```
  */
 export class FilterContext implements Disposable, NativeWrapper<NativeFilterContext> {
@@ -40,8 +48,13 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
   // Constructor
   /**
    * Constructor is internal - use FilterGraph.createFilter().
+   *
    * FilterContexts are created and managed by FilterGraph.
+   * Do not instantiate directly.
+   *
    * @internal
+   *
+   * @param native - Native AVFilterContext to wrap
    */
   constructor(native: NativeFilterContext) {
     this.native = native;
@@ -52,9 +65,9 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
   /**
    * Filter instance name.
    *
-   * Direct mapping to AVFilterContext->name
-   *
    * The unique name of this filter instance in the graph.
+   *
+   * Direct mapping to AVFilterContext->name
    */
   get name(): string | null {
     return this.native.name;
@@ -67,9 +80,11 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
   /**
    * The filter definition.
    *
+   * The AVFilter that this context is an instance of.
+   *
    * Direct mapping to AVFilterContext->filter
    *
-   * The AVFilter that this context is an instance of.
+   * @readonly
    */
   get filter(): Filter | null {
     const native = this.native.filter;
@@ -79,9 +94,11 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
   /**
    * The parent filter graph.
    *
+   * The filter graph that contains this filter context.
+   *
    * Direct mapping to AVFilterContext->graph
    *
-   * The filter graph that contains this filter context.
+   * @readonly
    */
   get graph(): NativeFilterGraph | null {
     return this.native.graph;
@@ -90,9 +107,11 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
   /**
    * Number of input pads.
    *
+   * The number of input connections this filter can accept.
+   *
    * Direct mapping to AVFilterContext->nb_inputs
    *
-   * The number of input connections this filter can accept.
+   * @readonly
    */
   get nbInputs(): number {
     return this.native.nbInputs;
@@ -137,13 +156,16 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
+   * import { Dictionary, FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const options = new Dictionary();
-   * options.set('width', '1280', 0);
-   * options.set('height', '720', 0);
-   * const ret = filterCtx.init(options.getNative());
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * const ret1 = options.set('width', '1280', 0);
+   * FFmpegError.throwIfError(ret1, 'set width');
+   * const ret2 = options.set('height', '720', 0);
+   * FFmpegError.throwIfError(ret2, 'set height');
+   *
+   * const initRet = filterCtx.init(options.getNative());
+   * FFmpegError.throwIfError(initRet, 'init');
    * options.free();
    * ```
    *
@@ -168,17 +190,15 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
+   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Initialize scale filter
-   * const ret = scaleCtx.initStr('1280:720');
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * const scaleRet = scaleCtx.initStr('1280:720');
+   * FFmpegError.throwIfError(scaleRet, 'initStr scale');
    *
    * // Initialize buffer source
-   * const ret = bufferCtx.initStr('video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25');
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * const bufferRet = bufferCtx.initStr('video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25');
+   * FFmpegError.throwIfError(bufferRet, 'initStr buffer');
    * ```
    *
    * @see init() - Alternative initialization with dictionary
@@ -204,17 +224,15 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
+   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Link buffer source to scale filter
-   * const ret = bufferCtx.link(0, scaleCtx, 0);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * const linkRet1 = bufferCtx.link(0, scaleCtx, 0);
+   * FFmpegError.throwIfError(linkRet1, 'link buffer to scale');
    *
    * // Link scale to sink
-   * const ret2 = scaleCtx.link(0, sinkCtx, 0);
-   * if (ret2 < 0) {
-   *   throw new FFmpegError(ret2);
-   * }
+   * const linkRet2 = scaleCtx.link(0, sinkCtx, 0);
+   * FFmpegError.throwIfError(linkRet2, 'link scale to sink');
    * ```
    */
   link(srcPad: number, dst: FilterContext, dstPad: number): number {
@@ -257,17 +275,18 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
+   * import { Frame, FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Feed a frame to the buffer source
-   * const ret = srcCtx.buffersrcAddFrame(frame);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * const addRet = srcCtx.buffersrcAddFrame(frame);
+   * FFmpegError.throwIfError(addRet, 'buffersrcAddFrame');
    *
    * // Signal end of stream
-   * srcCtx.buffersrcAddFrame(null);
+   * const eofRet = srcCtx.buffersrcAddFrame(null);
+   * FFmpegError.throwIfError(eofRet, 'buffersrcAddFrame EOF');
    * ```
    */
-  buffersrcAddFrame(frame: Frame | null): number {
+  async buffersrcAddFrame(frame: Frame | null): Promise<number> {
     return this.native.buffersrcAddFrame(frame ? frame.getNative() : null);
   }
 
@@ -289,6 +308,9 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
+   * import { Frame, FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   *
    * // Get filtered frames
    * const frame = new Frame();
    * frame.alloc();
@@ -303,12 +325,12 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *   ret = sinkCtx.buffersinkGetFrame(frame);
    * }
    *
-   * if (ret !== AVERROR(EAGAIN) && ret !== AVERROR_EOF) {
-   *   throw new FFmpegError(ret);
+   * if (!FFmpegError.is(ret, AVERROR_EAGAIN) && !FFmpegError.is(ret, AVERROR_EOF)) {
+   *   FFmpegError.throwIfError(ret, 'buffersinkGetFrame');
    * }
    * ```
    */
-  buffersinkGetFrame(frame: Frame): number {
+  async buffersinkGetFrame(frame: Frame): Promise<number> {
     return this.native.buffersinkGetFrame(frame.getNative());
   }
 
@@ -321,30 +343,43 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    * @param value - The option value (as string)
    * @param searchFlags - Optional search flags (default: AV_OPT_SEARCH_CHILDREN)
    *
-   * @returns 0 on success, negative AVERROR on error
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR(EINVAL): Option not found
+   *   - AVERROR(ERANGE): Value out of range
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Set pixel format for a buffersink
    * const ret = buffersinkCtx.setOpt('pixel_formats', 'gray8');
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'setOpt pixel_formats');
    * ```
    *
    * @example
    * ```typescript
+   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Set multiple options
-   * buffersinkCtx.setOpt('sample_rates', '44100');
-   * buffersinkCtx.setOpt('sample_fmts', 's16');
-   * buffersinkCtx.setOpt('channel_layouts', 'stereo');
+   * const ret1 = buffersinkCtx.setOpt('sample_rates', '44100');
+   * FFmpegError.throwIfError(ret1, 'setOpt sample_rates');
+   *
+   * const ret2 = buffersinkCtx.setOpt('sample_fmts', 's16');
+   * FFmpegError.throwIfError(ret2, 'setOpt sample_fmts');
+   *
+   * const ret3 = buffersinkCtx.setOpt('channel_layouts', 'stereo');
+   * FFmpegError.throwIfError(ret3, 'setOpt channel_layouts');
    * ```
    *
    * @example
    * ```typescript
-   * // Set options with specific search flags
-   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ } from '../constants.js';
-   * buffersinkCtx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
+   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ } from '@seydx/ffmpeg/constants';
+   *
+   * const ret = buffersinkCtx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
+   * FFmpegError.throwIfError(ret, 'setOpt');
    * ```
    */
   setOpt(key: string, value: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): number {
@@ -361,13 +396,21 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    * @param key - Option name
    * @param values - Array of integer values or single value
    * @param searchFlags - Flags for searching the option
-   * @returns 0 on success, negative error code on failure
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - 0: Success
+   *   - AVERROR(EINVAL): Option not found
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P } from '@seydx/ffmpeg/constants';
+   *
    * // Set supported pixel formats
    * const ret = buffersinkCtx.optSetBin('pix_fmts', [AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P]);
-   * if (ret < 0) throw new FFmpegError(ret);
+   * FFmpegError.throwIfError(ret, 'optSetBin pix_fmts');
    * ```
    */
   optSetBin(key: string, values: number[] | number, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): number {

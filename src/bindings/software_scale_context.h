@@ -21,6 +21,9 @@ public:
   SwsContext* Get() { return ctx_; }
 
 private:
+  // Friend classes
+  friend class SwsScaleFrameWorker;
+  
   // Static members
   static Napi::FunctionReference constructor;
   

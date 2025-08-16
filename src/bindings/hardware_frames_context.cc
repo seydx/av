@@ -142,31 +142,7 @@ Napi::Value HardwareFramesContext::GetBuffer(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value HardwareFramesContext::TransferData(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsObject()) {
-    Napi::TypeError::New(env, "Expected (dst: Frame, src: Frame, flags?: number)")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
-  Frame* src = Napi::ObjectWrap<Frame>::Unwrap(info[1].As<Napi::Object>());
-  
-  if (!dst || !dst->Get() || !src || !src->Get()) {
-    Napi::Error::New(env, "Invalid frame(s)").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  int flags = 0;
-  if (info.Length() > 2 && info[2].IsNumber()) {
-    flags = info[2].As<Napi::Number>().Int32Value();
-  }
-  
-  int ret = av_hwframe_transfer_data(dst->Get(), src->Get(), flags);
-  return Napi::Number::New(env, ret);
-}
+// TransferData is now implemented in hardware_frames_context_async.cc
 
 Napi::Value HardwareFramesContext::TransferGetFormats(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

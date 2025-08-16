@@ -80,7 +80,7 @@ async function decodeWrite(avctx: CodecContext, packet: Packet | null): Promise<
 
       if (frame.format === hwPixFmt) {
         // Retrieve data from GPU to CPU
-        ret = frame.hwframeTransferData(swFrame, 0);
+        ret = await frame.hwframeTransferData(swFrame, 0);
         if (ret < 0) {
           console.error('Error transferring the data to system memory');
           return ret;
@@ -264,7 +264,7 @@ async function main(): Promise<number> {
     }
 
     if (inputCtx) {
-      inputCtx.closeInput();
+      await inputCtx.closeInput();
     }
 
     // Hardware device context is automatically freed

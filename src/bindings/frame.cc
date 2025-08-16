@@ -742,39 +742,7 @@ void Frame::SetHwFramesCtx(const Napi::CallbackInfo& info, const Napi::Value& va
   frame_->hw_frames_ctx = av_buffer_ref(frames->Get());
 }
 
-Napi::Value Frame::HwframeTransferData(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!frame_) {
-    Napi::Error::New(env, "Frame not allocated").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Expected destination frame").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  if (!info[0].IsObject()) {
-    Napi::TypeError::New(env, "Destination must be a Frame object").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
-  if (!dst || !dst->frame_) {
-    Napi::Error::New(env, "Invalid destination frame").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  int flags = 0;
-  if (info.Length() >= 2 && info[1].IsNumber()) {
-    flags = info[1].As<Napi::Number>().Int32Value();
-  }
-  
-  int ret = av_hwframe_transfer_data(dst->frame_, frame_, flags);
-  
-  return Napi::Number::New(env, ret);
-}
+// HwframeTransferData is now implemented in frame_async.cc
 
 Napi::Value Frame::IsHwFrame(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

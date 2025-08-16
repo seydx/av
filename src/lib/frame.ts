@@ -16,14 +16,19 @@ import type { NativeFrame, NativeWrapper } from './native-types.js';
 import type { ChannelLayout } from './types.js';
 
 /**
- * FFmpeg frame for uncompressed audio/video data - Low Level API
+ * Frame for uncompressed audio/video data.
+ *
+ * Contains raw audio samples or video pixels after decoding or before encoding.
+ * Provides full control over allocation, configuration and lifecycle.
+ * Supports both planar and packed data layouts for audio and video.
  *
  * Direct mapping to FFmpeg's AVFrame.
- * Contains raw audio samples or video pixels after decoding or before encoding.
- * User has full control over allocation and lifecycle.
  *
  * @example
  * ```typescript
+ * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+ *
  * // Create and allocate frame - full control
  * const frame = new Frame();
  * frame.alloc();
@@ -32,25 +37,31 @@ import type { ChannelLayout } from './types.js';
  * frame.format = AV_PIX_FMT_YUV420P;
  * frame.width = 1920;
  * frame.height = 1080;
- * frame.getBuffer(); // Allocate buffers
+ * const videoRet = frame.getBuffer(); // Allocate buffers
+ * FFmpegError.throwIfError(videoRet, 'getBuffer');
  *
  * // Configure audio frame
- * frame.format = AV_SAMPLE_FMT_FLTP;
- * frame.sampleRate = 48000;
- * frame.nbSamples = 1024;
- * frame.channelLayout = { nbChannels: 2, order: 0, mask: 3n };
- * frame.getBuffer(); // Allocate buffers
+ * const audioFrame = new Frame();
+ * audioFrame.alloc();
+ * audioFrame.format = AV_SAMPLE_FMT_FLTP;
+ * audioFrame.sampleRate = 48000;
+ * audioFrame.nbSamples = 1024;
+ * audioFrame.channelLayout = { nbChannels: 2, order: 0, mask: 3n };
+ * const audioRet = audioFrame.getBuffer(); // Allocate buffers
+ * FFmpegError.throwIfError(audioRet, 'getBuffer');
  *
  * // Receive decoded data
  * const ret = await codecContext.receiveFrame(frame);
- * if (ret >= 0) {
- *   console.log(`Frame PTS: ${frame.pts}`);
- * }
+ * FFmpegError.throwIfError(ret, 'receiveFrame');
+ * console.log(`Frame PTS: ${frame.pts}`);
  *
  * // Cleanup
  * frame.unref(); // Clear data but keep frame allocated
  * frame.free();  // Free frame completely
  * ```
+ *
+ * @see {@link CodecContext} For encoding/decoding frames
+ * @see {@link FilterContext} For filtering frames
  */
 export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   private native: NativeFrame;
@@ -60,10 +71,14 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Create a new frame.
    *
    * The frame is uninitialized - you must call alloc() before use.
+   * No FFmpeg resources are allocated until alloc() is called.
+   *
    * Direct wrapper around AVFrame.
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * const frame = new Frame();
    * frame.alloc();
    * // Frame is now ready for use
@@ -78,10 +93,11 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Format of the frame.
    *
+   * For video: AVPixelFormat (-1 if unknown or unset).
+   * For audio: AVSampleFormat (-1 if unknown or unset).
+   *
    * Direct mapping to AVFrame->format
    *
-   * - video: AVPixelFormat (-1 if unknown or unset)
-   * - audio: AVSampleFormat (-1 if unknown or unset)
    * Must be set before calling getBuffer() or allocBuffer().
    */
   get format(): AVPixelFormat | AVSampleFormat {
@@ -97,8 +113,8 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * Direct mapping to AVFrame->width
    *
-   * - video: MUST be set before calling getBuffer() or allocBuffer()
-   * - audio: unused (0)
+   * For video: MUST be set before calling getBuffer() or allocBuffer().
+   * For audio: unused (0).
    */
   get width(): number {
     return this.native.width;
@@ -113,8 +129,8 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * Direct mapping to AVFrame->height
    *
-   * - video: MUST be set before calling getBuffer() or allocBuffer()
-   * - audio: unused (0)
+   * For video: MUST be set before calling getBuffer() or allocBuffer().
+   * For audio: unused (0).
    */
   get height(): number {
     return this.native.height;
@@ -129,8 +145,8 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * Direct mapping to AVFrame->nb_samples
    *
-   * - audio: MUST be set before calling getBuffer() or allocBuffer()
-   * - video: unused (0)
+   * For audio: MUST be set before calling getBuffer() or allocBuffer().
+   * For video: unused (0).
    */
   get nbSamples(): number {
     return this.native.nbSamples;
@@ -143,9 +159,10 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Presentation timestamp in time_base units.
    *
+   * Time when frame should be shown to user.
+   *
    * Direct mapping to AVFrame->pts
    *
-   * Time when frame should be shown to user.
    * Can be AV_NOPTS_VALUE if unknown.
    */
   get pts(): bigint {
@@ -159,10 +176,10 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * DTS copied from the AVPacket that triggered returning this frame.
    *
-   * Direct mapping to AVFrame->pkt_dts
-   *
-   * If frame threading isn't used, this is also the Presentation time of this AVFrame
+   * If frame threading isn't used, this is also the presentation time
    * calculated from only AVPacket.dts values without pts values.
+   *
+   * Direct mapping to AVFrame->pkt_dts
    */
   get pktDts(): bigint {
     return this.native.pktDts;
@@ -484,19 +501,25 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Allocate an AVFrame and set its fields to default values.
    *
+   * Allocates the AVFrame structure and initializes all fields to default values.
+   * This only allocates the frame structure itself, not the data buffers.
+   *
    * Direct mapping to av_frame_alloc()
+   *
+   * @throws {Error} Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * const frame = new Frame();
    * frame.alloc();
    * // Frame structure is now allocated
+   * // Still need to allocate data buffers with getBuffer()
    * ```
    *
-   * @throws {Error} If allocation fails (ENOMEM)
-   *
-   * @note This only allocates the AVFrame itself, not the data buffers.
-   *       Those must be allocated through other means such as getBuffer().
+   * @see {@link getBuffer} To allocate data buffers
+   * @see {@link free} To free the frame
    */
   alloc(): void {
     this.native.alloc();
@@ -505,15 +528,20 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Free the frame and any dynamically allocated objects in it.
    *
+   * Frees the frame structure and all associated data buffers.
+   * If the frame is reference counted, it will be unreferenced first.
+   *
    * Direct mapping to av_frame_free()
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * frame.free();
    * // frame is now invalid and should not be used
    * ```
    *
-   * @note If the frame is reference counted, it will be unreferenced first.
+   * @see {@link unref} To clear data but keep frame allocated
    */
   free(): void {
     this.native.free();
@@ -522,27 +550,31 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Set up a new reference to the data described by the source frame.
    *
+   * Creates a reference to the source frame's data buffers.
+   * Both frames will share the same data through reference counting.
+   * This function does not copy side data.
+   *
    * Direct mapping to av_frame_ref()
    *
    * @param src - Source frame to reference
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
+   *   - 0: Success (frame now references src data)
    *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - AVERROR(EINVAL): Invalid parameters
+   *   - AVERROR(EINVAL): Invalid parameters (null frame)
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = frame.ref(sourceFrame);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'frame.ref');
    * // frame now references the same data as sourceFrame
    * ```
    *
-   * @warning This function does not copy side data.
-   * @see unref() - To remove references
-   * @see clone() - To create a new frame with same data
+   * @see {@link unref} To remove references
+   * @see {@link clone} To create a new frame with same data
    */
   ref(src: Frame): number {
     return this.native.ref(src.getNative());
@@ -551,16 +583,21 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Unreference all the buffers referenced by frame and reset the frame fields.
    *
+   * Clears all data from the frame but keeps the frame structure allocated.
+   * The frame can be reused for the next decode/encode operation.
+   *
    * Direct mapping to av_frame_unref()
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * frame.unref();
    * // Frame is now empty but still allocated
    * // Can be reused for next decode/encode
    * ```
    *
-   * @note The frame remains allocated and can be reused.
+   * @see {@link free} To completely free the frame
    */
   unref(): void {
     this.native.unref();
@@ -569,20 +606,28 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Create a new frame that references the same data as this frame.
    *
+   * Creates a new frame and sets it up as a reference to this frame's data.
+   * This is a shortcut for av_frame_alloc() + av_frame_ref().
+   *
    * Direct mapping to av_frame_clone()
    *
-   * @returns New frame referencing the same data, or null on error (ENOMEM)
+   * @returns New frame referencing the same data, or null on error:
+   *   - Frame object: Success (new frame references this frame's data)
+   *   - null: Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * const clonedFrame = frame.clone();
    * if (!clonedFrame) {
-   *   throw new Error('Failed to clone frame');
+   *   throw new Error('Failed to clone frame: Out of memory');
    * }
    * // clonedFrame references the same data as frame
+   * // Both frames must be freed independently
    * ```
    *
-   * @see ref() - To reference into existing frame
+   * @see {@link ref} To reference into existing frame
    */
   clone(): Frame | null {
     const cloned = this.native.clone();
@@ -600,34 +645,39 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Allocate new buffer(s) for audio or video data.
    *
+   * Allocates data buffers for the frame based on its parameters.
+   * Frame parameters must be set before calling this function.
+   *
    * Direct mapping to av_frame_get_buffer()
    *
    * @param align - Required buffer size alignment. 0 for automatic.
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid frame parameters (e.g., format not set)
+   *   - 0: Success (buffers allocated)
+   *   - AVERROR(EINVAL): Invalid frame parameters (format/size not set)
    *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError, AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg';
+   *
    * // Video frame
    * frame.format = AV_PIX_FMT_YUV420P;
    * frame.width = 1920;
    * frame.height = 1080;
    * const ret = frame.getBuffer(0);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'getBuffer');
+   * // Frame data buffers are now allocated
    * ```
    *
-   * @note The following fields must be set before calling:
-   *       - format (pixel format for video, sample format for audio)
-   *       - width and height for video
-   *       - nb_samples and channel_layout for audio
+   * @see {@link allocBuffer} Convenience wrapper with default alignment
+   * @see {@link makeWritable} Ensure buffer is writable
    *
-   * @see allocBuffer() - Convenience wrapper
-   * @see makeWritable() - Ensure buffer is writable
+   * Required fields before calling:
+   * - format (pixel format for video, sample format for audio)
+   * - width and height for video
+   * - nb_samples and channel_layout for audio
    */
   getBuffer(align = 0): number {
     return this.native.getBuffer(align);
@@ -637,21 +687,26 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Allocate buffer(s) for frame according to its parameters.
    *
    * Convenience wrapper for getBuffer() with default alignment.
+   * Frame parameters must be set before calling.
+   *
+   * Direct mapping to av_frame_get_buffer() with align=0
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
+   *   - 0: Success (buffers allocated)
    *   - AVERROR(EINVAL): Invalid frame parameters
    *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = frame.allocBuffer();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'allocBuffer');
+   * // Frame data buffers are now allocated
    * ```
    *
-   * @see getBuffer() - With custom alignment
+   * @see {@link getBuffer} With custom alignment
    */
   allocBuffer(): number {
     return this.native.allocBuffer();
@@ -660,26 +715,29 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Ensure that the frame data is writable.
    *
+   * Makes a private copy of the frame data if it's currently shared.
+   * Does nothing if frame is already writable.
+   *
    * Direct mapping to av_frame_make_writable()
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success (frame is now writable)
    *   - AVERROR(ENOMEM): Memory allocation failure
    *   - AVERROR(EINVAL): Invalid parameters
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   *
    * if (!frame.isWritable) {
    *   const ret = frame.makeWritable();
-   *   if (ret < 0) {
-   *     throw new FFmpegError(ret);
-   *   }
+   *   FFmpegError.throwIfError(ret, 'makeWritable');
    * }
-   * // Frame data can now be modified
+   * // Frame data can now be modified safely
    * ```
    *
-   * @note Does nothing if frame is already writable.
-   * @see isWritable - Check if writable
+   * @see {@link isWritable} Check if writable
    */
   makeWritable(): number {
     return this.native.makeWritable();
@@ -688,25 +746,28 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Copy only "metadata" fields from src to this frame.
    *
+   * Copies all frame properties except the actual data buffers.
+   * This includes timestamps, format, dimensions, side data, etc.
+   *
    * Direct mapping to av_frame_copy_props()
    *
    * @param src - Source frame to copy properties from
    *
    * @returns >=0 on success, negative AVERROR on error:
-   *   - >=0: Success
+   *   - >=0: Success (properties copied)
    *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = dstFrame.copyProps(srcFrame);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'copyProps');
    * // dstFrame now has same properties as srcFrame (but not data)
    * ```
    *
-   * @note Metadata includes all fields except data/buffers.
-   * @note Side data is also copied.
+   * @see {@link copy} To copy data as well
    */
   copyProps(src: Frame): number {
     return this.native.copyProps(src.getNative());
@@ -715,30 +776,35 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Copy the frame data from src to this frame.
    *
+   * Copies the actual data buffers from source to destination.
+   * Destination must be pre-allocated with same parameters.
+   *
    * Direct mapping to av_frame_copy()
    *
    * @param src - Source frame to copy data from
    *
    * @returns >=0 on success, negative AVERROR on error:
-   *   - >=0: Success
+   *   - >=0: Success (data copied)
    *   - AVERROR(EINVAL): Frames have different parameters (format, size, etc.)
+   *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Destination must be allocated with same parameters
    * dstFrame.format = srcFrame.format;
    * dstFrame.width = srcFrame.width;
    * dstFrame.height = srcFrame.height;
-   * dstFrame.allocBuffer();
+   * const allocRet = dstFrame.allocBuffer();
+   * FFmpegError.throwIfError(allocRet, 'allocBuffer');
    *
    * const ret = dstFrame.copy(srcFrame);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'copy');
+   * // Data has been copied to dstFrame
    * ```
    *
-   * @note Destination must be pre-allocated with same parameters.
-   * @see copyProps() - To copy metadata only
+   * @see {@link copyProps} To copy metadata only
    */
   copy(src: Frame): number {
     return this.native.copy(src.getNative());
@@ -747,22 +813,36 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   /**
    * Transfer data to or from hardware surfaces.
    *
+   * Transfers frame data between hardware (GPU) and software (CPU) memory.
+   * Can be used for both upload and download operations.
+   *
    * Direct mapping to av_hwframe_transfer_data()
    *
    * @param dst - Destination frame
    * @param flags - Transfer flags (0 for default)
-   * @returns 0 on success, negative error code on failure
+   *
+   * @returns Promise resolving to 0 on success, negative AVERROR on error:
+   *   - 0: Success (data transferred)
+   *   - AVERROR(ENOSYS): Operation not supported
+   *   - AVERROR(EINVAL): Invalid parameters
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - <0: Other hardware-specific errors
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Transfer from hardware to software frame
    * const swFrame = new Frame();
    * swFrame.alloc();
-   * const ret = hwFrame.hwframeTransferData(swFrame, 0);
-   * if (ret < 0) throw new FFmpegError(ret);
+   * const ret = await hwFrame.hwframeTransferData(swFrame, 0);
+   * FFmpegError.throwIfError(ret, 'hwframeTransferData');
+   * // Data is now in CPU memory
    * ```
+   *
+   * @see {@link isHwFrame} Check if frame is hardware frame
    */
-  hwframeTransferData(dst: Frame, flags?: number): number {
+  async hwframeTransferData(dst: Frame, flags?: number): Promise<number> {
     return this.native.hwframeTransferData(dst.getNative(), flags ?? 0);
   }
 
@@ -771,16 +851,22 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * A frame is considered a hardware frame if it has a hw_frames_ctx set.
    *
+   * Direct check of AVFrame->hw_frames_ctx
+   *
    * @returns True if this is a hardware frame, false otherwise
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * if (frame.isHwFrame()) {
    *   console.log('Frame is in GPU memory');
    * } else {
    *   console.log('Frame is in CPU memory');
    * }
    * ```
+   *
+   * @see {@link hwframeTransferData} To transfer between CPU and GPU
    */
   isHwFrame(): boolean {
     return this.native.isHwFrame();
@@ -792,15 +878,21 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * A frame is considered a software frame if it doesn't have hw_frames_ctx
    * but has actual data pointers.
    *
+   * Direct check of AVFrame->data[0] && !AVFrame->hw_frames_ctx
+   *
    * @returns True if this is a software frame, false otherwise
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * if (frame.isSwFrame()) {
    *   console.log('Frame is in CPU memory');
    *   // Safe to access frame.data
    * }
    * ```
+   *
+   * @see {@link isHwFrame} To check for hardware frames
    */
   isSwFrame(): boolean {
     return this.native.isSwFrame();
@@ -826,12 +918,16 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
+   * import { Frame } from '@seydx/ffmpeg';
+   *
    * {
    *   using frame = new Frame();
    *   frame.alloc();
    *   // ... use frame
    * } // Automatically freed when leaving scope
    * ```
+   *
+   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

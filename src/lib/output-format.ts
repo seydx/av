@@ -4,14 +4,18 @@ import type { AVCodecID, AVFormatFlag } from './constants.js';
 import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg Output Format (Muxer) - Low Level API
+ * Output format (muxer) descriptor.
+ *
+ * Describes a supported output container format for muxing.
+ * Provides format information, default codecs, and capabilities.
+ * These are read-only format descriptors managed by FFmpeg.
  *
  * Direct mapping to FFmpeg's AVOutputFormat.
- * Describes a supported output container format.
- * These are read-only format descriptors.
  *
  * @example
  * ```typescript
+ * import { OutputFormat, FormatContext, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Guess output format from filename
  * const format = OutputFormat.guessFormat(null, 'output.mp4', null);
  * if (format) {
@@ -23,8 +27,12 @@ import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
  * // Use with FormatContext
  * const ctx = new FormatContext();
  * const mp4Format = OutputFormat.guessFormat('mp4', null, null);
- * ctx.allocOutputContext2(mp4Format, null, 'output.mp4');
+ * const ret = ctx.allocOutputContext2(mp4Format, null, 'output.mp4');
+ * FFmpegError.throwIfError(ret, 'allocOutputContext2');
  * ```
+ *
+ * @see {@link FormatContext} For using output formats
+ * @see {@link InputFormat} For input formats
  */
 export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   private native: NativeOutputFormat;
@@ -32,11 +40,18 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   // Constructor
   /**
    * Constructor is internal - use static factory methods.
+   *
    * OutputFormats are obtained via static methods, not created directly.
+   * FFmpeg manages these format descriptors internally.
+   *
    * @internal
+   *
+   * @param native - Native AVOutputFormat to wrap
    *
    * @example
    * ```typescript
+   * import { OutputFormat } from '@seydx/ffmpeg';
+   *
    * // Don't use constructor directly
    * // const format = new OutputFormat(); // ❌ Wrong
    *
@@ -53,6 +68,9 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   /**
    * Return the output format which best matches the provided parameters.
    *
+   * Guesses the appropriate output format based on name, filename, or MIME type.
+   * Uses the first provided parameter in order: shortName, filename extension, mimeType.
+   *
    * Direct mapping to av_guess_format()
    *
    * @param shortName - Short name of the format (e.g., 'mp4', 'mov', 'avi'), may be null
@@ -63,6 +81,8 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    *
    * @example
    * ```typescript
+   * import { OutputFormat } from '@seydx/ffmpeg';
+   *
    * // Guess by short name
    * const mp4Format = OutputFormat.guessFormat('mp4', null, null);
    * if (mp4Format) {
@@ -78,11 +98,6 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * // Guess by mime type
    * const webmFormat = OutputFormat.guessFormat(null, null, 'video/webm');
    * ```
-   *
-   * @note The function uses the first provided parameter in this order:
-   *       1. shortName (if provided)
-   *       2. filename extension (if shortName is null)
-   *       3. mimeType (if both above are null)
    */
   static guessFormat(shortName: string | null, filename: string | null, mimeType: string | null): OutputFormat | null {
     const native = bindings.OutputFormat.guessFormat(shortName, filename, mimeType);

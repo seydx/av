@@ -342,7 +342,7 @@ async function writeAudioFrame(oc: FormatContext, ost: OutputStream): Promise<nu
     FFmpegError.throwIfError(ret, 'Could not make frame writable');
 
     // Convert to destination format
-    const convertedSamples = ost.swrCtx!.convert(ost.frame!.extendedData, dstNbSamples, frame.extendedData, frame.nbSamples);
+    const convertedSamples = await ost.swrCtx!.convert(ost.frame!.extendedData, dstNbSamples, frame.extendedData, frame.nbSamples);
     FFmpegError.throwIfError(convertedSamples, 'Error while converting');
 
     const outputFrame = ost.frame!;
@@ -437,7 +437,7 @@ function fillYuvImage(pict: Frame, frameIndex: number, width: number, height: nu
 /**
  * Get a video frame
  */
-function getVideoFrame(ost: OutputStream): Frame | null {
+async function getVideoFrame(ost: OutputStream): Promise<Frame | null> {
   const c = ost.enc!;
 
   // Check if we want to generate more frames
@@ -459,7 +459,7 @@ function getVideoFrame(ost: OutputStream): Frame | null {
       ost.swsCtx.getContext(c.width, c.height, AV_PIX_FMT_YUV420P, c.width, c.height, c.pixelFormat, AV_SWS_BICUBIC);
     }
     fillYuvImage(ost.tmpFrame!, Number(ost.nextPts), c.width, c.height);
-    ost.swsCtx.scale(ost.tmpFrame!.data!, ost.tmpFrame!.linesize, 0, c.height, ost.frame!.data!, ost.frame!.linesize);
+    await ost.swsCtx.scale(ost.tmpFrame!.data!, ost.tmpFrame!.linesize, 0, c.height, ost.frame!.data!, ost.frame!.linesize);
   } else {
     fillYuvImage(ost.frame!, Number(ost.nextPts), c.width, c.height);
   }
@@ -473,7 +473,7 @@ function getVideoFrame(ost: OutputStream): Frame | null {
  * Write one video frame
  */
 async function writeVideoFrame(oc: FormatContext, ost: OutputStream): Promise<number> {
-  return writeFrame(oc, ost.enc!, ost.st!, getVideoFrame(ost), ost.tmpPkt!);
+  return writeFrame(oc, ost.enc!, ost.st!, await getVideoFrame(ost), ost.tmpPkt!);
 }
 
 /**
@@ -575,7 +575,7 @@ async function mux(filename: string): Promise<void> {
 
     // Open the output file, if needed
     if ((fmt.flags & AV_FMT_NOFILE) === 0) {
-      oc.openOutput();
+      await oc.openOutput();
     }
 
     // Write the stream header, if any
@@ -611,7 +611,7 @@ async function mux(filename: string): Promise<void> {
       const fmt = oc.oformat;
       if (fmt && (fmt.flags & AV_FMT_NOFILE) === 0) {
         // Close the output file
-        oc.closeOutput();
+        await oc.closeOutput();
       }
 
       // Free the stream

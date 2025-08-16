@@ -5,14 +5,18 @@ import type { NativeFilter, NativeWrapper } from './native-types.js';
 import type { FilterPad } from './types.js';
 
 /**
- * FFmpeg filter definition - Low Level API
+ * Filter definition for media processing.
+ *
+ * Represents a static filter definition (immutable template).
+ * Defines the filter's capabilities, inputs, outputs, and properties.
+ * Actual filtering operations are performed through FilterContext instances.
  *
  * Direct mapping to FFmpeg's AVFilter.
- * Represents a static filter definition (immutable).
- * Actual filtering operations are performed through FilterContext instances.
  *
  * @example
  * ```typescript
+ * import { Filter } from '@seydx/ffmpeg';
+ *
  * // Find a filter by name
  * const scaleFilter = Filter.getByName('scale');
  * if (!scaleFilter) throw new Error('Scale filter not found');
@@ -35,11 +39,18 @@ export class Filter implements NativeWrapper<NativeFilter> {
   // Constructor
   /**
    * Constructor is internal - use static factory methods.
+   *
    * Filters are global immutable objects managed by FFmpeg.
+   * Use the static factory methods to obtain filter instances.
+   *
    * @internal
+   *
+   * @param native - Native AVFilter to wrap
    *
    * @example
    * ```typescript
+   * import { Filter } from '@seydx/ffmpeg';
+   *
    * // Don't use constructor directly
    * // const filter = new Filter(); // ❌ Wrong
    *
@@ -57,13 +68,19 @@ export class Filter implements NativeWrapper<NativeFilter> {
   /**
    * Find a filter by name.
    *
+   * Searches for a filter by its exact name.
+   * Returns the filter definition if found.
+   *
    * Direct mapping to avfilter_get_by_name()
    *
    * @param name - Filter name (e.g., "scale", "overlay", "volume")
+   *
    * @returns The filter if found, null otherwise
    *
    * @example
    * ```typescript
+   * import { Filter } from '@seydx/ffmpeg';
+   *
    * // Find the scale filter
    * const scaleFilter = Filter.getByName('scale');
    * if (!scaleFilter) {
@@ -76,6 +93,8 @@ export class Filter implements NativeWrapper<NativeFilter> {
    *   throw new Error('Volume filter not available');
    * }
    * ```
+   *
+   * @see {@link getList} To get all available filters
    */
   static getByName(name: string): Filter | null {
     const native = bindings.Filter.getByName(name);
@@ -85,12 +104,17 @@ export class Filter implements NativeWrapper<NativeFilter> {
   /**
    * Get list of all available filters.
    *
+   * Returns all registered filters in the system.
+   * Internally uses avfilter_iterate() to collect all filters.
+   *
    * Direct mapping to avfilter_iterate()
    *
    * @returns Array of all registered filters
    *
    * @example
    * ```typescript
+   * import { Filter } from '@seydx/ffmpeg';
+   *
    * // Get all video filters
    * const allFilters = Filter.getList();
    * const videoFilters = allFilters.filter(f => f.isVideo());
@@ -102,6 +126,8 @@ export class Filter implements NativeWrapper<NativeFilter> {
    *   console.log(`Source filter: ${f.name}`);
    * });
    * ```
+   *
+   * @see {@link getByName} To find a specific filter
    */
   static getList(): Filter[] {
     const natives = bindings.Filter.getList();

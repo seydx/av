@@ -12,55 +12,72 @@ import type { NativeFormatContext, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 
 /**
- * FFmpeg format context for demuxing and muxing - Low Level API
+ * FFmpeg format context for demuxing and muxing.
+ *
+ * Central structure for media file handling, managing both input (demuxing) and output (muxing).
+ * Provides full control over allocation, configuration and lifecycle with no hidden operations.
+ * Handles container formats, streams, metadata, and packet I/O operations.
  *
  * Direct mapping to FFmpeg's AVFormatContext.
- * User has full control over allocation, configuration and lifecycle.
- * No hidden operations, no automatic initialization.
  *
  * @example
  * ```typescript
+ * import { FormatContext, Packet, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Demuxing - full control over every step
  * const ctx = new FormatContext();
  * ctx.allocContext();
  *
  * const ret = await ctx.openInput('video.mp4', null, null);
- * if (ret < 0) throw new FFmpegError(ret);
+ * FFmpegError.throwIfError(ret, 'openInput');
  *
- * await ctx.findStreamInfo(null);
+ * const infoRet = await ctx.findStreamInfo(null);
+ * FFmpegError.throwIfError(infoRet, 'findStreamInfo');
  *
  * const packet = new Packet();
  * packet.alloc();
  *
- * while ((await ctx.readFrame(packet)) >= 0) {
+ * while (true) {
+ *   const readRet = await ctx.readFrame(packet);
+ *   if (readRet < 0) break; // EOF or error
  *   // Process packet
  *   packet.unref();
  * }
  *
- * ctx.closeInput();
+ * await ctx.closeInput();
  * ctx.freeContext();
  * ```
  *
  * @example
  * ```typescript
+ * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Muxing - explicit control
  * const ctx = new FormatContext();
  * const ret = ctx.allocOutputContext2(null, 'mp4', 'output.mp4');
- * if (ret < 0) throw new FFmpegError(ret);
+ * FFmpegError.throwIfError(ret, 'allocOutputContext2');
  *
  * // Add streams
  * const stream = ctx.newStream(null);
  *
  * // Write header
- * await ctx.writeHeader(null);
+ * const headerRet = await ctx.writeHeader(null);
+ * FFmpegError.throwIfError(headerRet, 'writeHeader');
  *
  * // Write packets
- * await ctx.interleavedWriteFrame(packet);
+ * const writeRet = await ctx.interleavedWriteFrame(packet);
+ * FFmpegError.throwIfError(writeRet, 'interleavedWriteFrame');
  *
  * // Finalize
- * await ctx.writeTrailer();
+ * const trailerRet = await ctx.writeTrailer();
+ * FFmpegError.throwIfError(trailerRet, 'writeTrailer');
  * ctx.freeContext();
  * ```
+ *
+ * @see {@link InputFormat} For input format handling
+ * @see {@link OutputFormat} For output format handling
+ * @see {@link Stream} For stream management
+ * @see {@link Packet} For packet handling
  */
 export class FormatContext implements Disposable, NativeWrapper<NativeFormatContext> {
   private native: NativeFormatContext;
@@ -70,14 +87,19 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * Create a new format context.
    *
    * The context is uninitialized - you must call allocContext() or allocOutputContext2() before use.
+   * No FFmpeg resources are allocated until initialization.
+   *
    * Direct wrapper around AVFormatContext.
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ctx = new FormatContext();
    * ctx.allocContext(); // For demuxing
    * // OR
-   * ctx.allocOutputContext2(null, 'mp4', 'output.mp4'); // For muxing
+   * const ret = ctx.allocOutputContext2(null, 'mp4', 'output.mp4'); // For muxing
+   * FFmpegError.throwIfError(ret, 'allocOutputContext2');
    * ```
    */
   constructor() {
@@ -383,32 +405,39 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
-   * ctx.closeInput();
+   * await ctx.closeInput();
    * // Input is closed and context is freed
    * ```
    */
-  closeInput(): void {
+  async closeInput(): Promise<void> {
     return this.native.closeInput();
   }
 
   /**
    * Open the output file for writing.
    *
-   * Direct mapping to avio_open()
-   *
    * Must be called after allocOutputContext2() and before writeHeader()
    * for file-based formats (not NOFILE formats).
    *
+   * Direct mapping to avio_open()
+   *
+   * @returns Promise resolving to 0 on success, negative AVERROR on failure:
+   *   - 0: Success
+   *   - AVERROR(ENOENT): File cannot be created
+   *   - AVERROR(EACCES): Permission denied
+   *   - AVERROR(EIO): I/O error
+   *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * ctx.allocOutputContext2(null, null, 'output.mp4');
-   * ctx.openOutput(); // Opens the file for writing
+   * const ret = await ctx.openOutput(); // Opens the file for writing
+   * FFmpegError.throwIfError(ret, 'openOutput');
    * await ctx.writeHeader(null);
    * ```
-   *
-   * @returns 0 on success, negative AVERROR on failure
    */
-  openOutput(): number {
+  async openOutput(): Promise<number> {
     return this.native.openOutput();
   }
 
@@ -423,11 +452,11 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * @example
    * ```typescript
    * await ctx.writeTrailer();
-   * ctx.closeOutput();
+   * await ctx.closeOutput();
    * ctx.freeContext();
    * ```
    */
-  closeOutput(): void {
+  async closeOutput(): Promise<void> {
     return this.native.closeOutput();
   }
 
@@ -435,6 +464,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Open an input stream and read the header.
+   *
+   * Opens the specified URL, reads the format header, and initializes the stream information.
+   * Automatically detects the format if not specified.
    *
    * Direct mapping to avformat_open_input()
    *
@@ -452,10 +484,11 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = await ctx.openInput('video.mp4', null, null);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'openInput');
+   * // Context is now open and header is read
    * ```
    */
   async openInput(url: string, fmt: InputFormat | null, options: Dictionary | null): Promise<number> {
@@ -464,6 +497,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Read packets of a media file to get stream information.
+   *
+   * Analyzes the media file by reading packets to determine stream parameters
+   * like codec, dimensions, sample rate, etc. Required after openInput().
    *
    * Direct mapping to avformat_find_stream_info()
    *
@@ -477,10 +513,10 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = await ctx.findStreamInfo(null);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'findStreamInfo');
    * console.log(`Found ${ctx.nbStreams} streams`);
    * ```
    */
@@ -490,6 +526,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Read the next packet in the file.
+   *
+   * Reads and returns the next packet from the input file.
+   * Packets must be unreferenced after use to free memory.
    *
    * Direct mapping to av_read_frame()
    *
@@ -504,16 +543,18 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { Packet, FormatContext, FFmpegError, AVERROR_EOF } from '@seydx/ffmpeg';
+   *
    * const packet = new Packet();
    * packet.alloc();
    *
    * while (true) {
    *   const ret = await ctx.readFrame(packet);
    *   if (ret === AVERROR_EOF) break;
-   *   if (ret < 0) throw new FFmpegError(ret);
+   *   FFmpegError.throwIfError(ret, 'readFrame');
    *
    *   // Process packet
-   *   processPacket(packet);
+   *   console.log(`Stream ${packet.streamIndex}, PTS: ${packet.pts}`);
    *   packet.unref();
    * }
    * ```
@@ -524,6 +565,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Seek to the keyframe at timestamp.
+   *
+   * Seeks to the keyframe at or before the specified timestamp.
+   * The next packet read will be from the new position.
    *
    * Direct mapping to av_seek_frame()
    *
@@ -539,12 +583,13 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError, AV_TIME_BASE, AVSEEK_FLAG_BACKWARD } from '@seydx/ffmpeg';
+   *
    * // Seek to 10 seconds
-   * const timestamp = 10n * AV_TIME_BASE;
+   * const timestamp = 10n * BigInt(AV_TIME_BASE);
    * const ret = await ctx.seekFrame(-1, timestamp, AVSEEK_FLAG_BACKWARD);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'seekFrame');
+   * // Next readFrame will return packet from new position
    * ```
    */
   async seekFrame(streamIndex: number, timestamp: bigint, flags: AVSeekFlag = AV_SEEK_FLAG_NONE): Promise<number> {
@@ -553,6 +598,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Seek to timestamp ts with more control.
+   *
+   * Seeks to a timestamp within the specified min/max range.
+   * More precise than seekFrame() with tolerance control.
    *
    * Direct mapping to avformat_seek_file()
    *
@@ -570,18 +618,19 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError, AV_TIME_BASE } from '@seydx/ffmpeg';
+   *
    * // Seek to timestamp with tolerance
-   * const target = 10n * AV_TIME_BASE;
+   * const target = 10n * BigInt(AV_TIME_BASE);
+   * const tolerance = BigInt(AV_TIME_BASE);
    * const ret = await ctx.seekFile(
    *   -1,
-   *   target - AV_TIME_BASE,  // min: 9 seconds
-   *   target,                  // target: 10 seconds
-   *   target + AV_TIME_BASE,  // max: 11 seconds
+   *   target - tolerance,  // min: 9 seconds
+   *   target,             // target: 10 seconds
+   *   target + tolerance, // max: 11 seconds
    *   0
    * );
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'seekFile');
    * ```
    */
   async seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags: AVSeekFlag = AV_SEEK_FLAG_NONE): Promise<number> {
@@ -592,6 +641,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Allocate the stream private data and write the stream header.
+   *
+   * Initializes the output file and writes the file header.
+   * Must be called before writing any packets.
    *
    * Direct mapping to avformat_write_header()
    *
@@ -606,14 +658,15 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { Dictionary, FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const options = new Dictionary();
    * options.set('movflags', 'faststart', 0);
    *
    * const ret = await ctx.writeHeader(options);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'writeHeader');
    * options.free();
+   * // Header written, ready to write packets
    * ```
    */
   async writeHeader(options: Dictionary | null): Promise<number> {
@@ -622,6 +675,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Write a packet to an output media file.
+   *
+   * Writes a packet directly without reordering.
+   * Use interleavedWriteFrame() for automatic interleaving.
    *
    * Direct mapping to av_write_frame()
    *
@@ -635,16 +691,19 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = await ctx.writeFrame(packet);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'writeFrame');
    *
    * // Flush at the end
-   * await ctx.writeFrame(null);
+   * const flushRet = await ctx.writeFrame(null);
+   * FFmpegError.throwIfError(flushRet, 'writeFrame flush');
    * ```
    *
    * @note This function does NOT take ownership of the packet.
+   *
+   * @see {@link interleavedWriteFrame} For automatic interleaving
    */
   async writeFrame(pkt: Packet | null): Promise<number> {
     return this.native.writeFrame(pkt ? pkt.getNative() : null);
@@ -652,6 +711,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Write a packet to an output media file ensuring correct interleaving.
+   *
+   * Automatically interleaves packets from different streams based on DTS.
+   * Preferred method for writing packets in most cases.
    *
    * Direct mapping to av_interleaved_write_frame()
    *
@@ -665,15 +727,17 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Write packets with automatic interleaving
    * const ret = await ctx.interleavedWriteFrame(packet);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'interleavedWriteFrame');
+   * // Packet is automatically freed after writing
    * ```
    *
    * @note This function TAKES OWNERSHIP of the packet and will free it.
-   * @see writeFrame() - For manual interleaving control
+   *
+   * @see {@link writeFrame} For manual interleaving control
    */
   async interleavedWriteFrame(pkt: Packet | null): Promise<number> {
     return this.native.interleavedWriteFrame(pkt ? pkt.getNative() : null);
@@ -681,6 +745,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
   /**
    * Write the stream trailer to an output media file.
+   *
+   * Finalizes the output file by writing the trailer.
+   * Must be called after all packets have been written.
    *
    * Direct mapping to av_write_trailer()
    *
@@ -691,11 +758,12 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Finalize the output file
    * const ret = await ctx.writeTrailer();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'writeTrailer');
+   * // File is now complete and finalized
    * ```
    *
    * @note Must be called after all packets have been written.
@@ -711,8 +779,11 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext } from '@seydx/ffmpeg';
+   *
    * // Flush buffered data
    * ctx.flush();
+   * // All buffered data written to output
    * ```
    */
   flush(): void {
@@ -724,6 +795,9 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   /**
    * Dump format information to stderr.
    *
+   * Prints detailed information about the format and streams to stderr.
+   * Useful for debugging and understanding file structure.
+   *
    * Direct mapping to av_dump_format()
    *
    * @param index - Stream index or program index to dump
@@ -732,6 +806,8 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext } from '@seydx/ffmpeg';
+   *
    * // Dump input format info
    * formatCtx.dumpFormat(0, 'input.mp4', false);
    *
@@ -746,10 +822,10 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   /**
    * Find the "best" stream in the file.
    *
-   * Direct mapping to av_find_best_stream()
-   *
    * The best stream is determined according to various heuristics as the most
    * likely to be what the user expects.
+   *
+   * Direct mapping to av_find_best_stream()
    *
    * @param type - Media type (AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO, etc.)
    * @param wantedStreamNb - User-requested stream number, or -1 for automatic selection
@@ -763,6 +839,8 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError, AVMEDIA_TYPE_VIDEO } from '@seydx/ffmpeg';
+   *
    * // Find best video stream
    * const videoStreamIndex = ctx.findBestStream(
    *   AVMEDIA_TYPE_VIDEO,
@@ -770,10 +848,11 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *   -1   // no related stream
    * );
    *
-   * if (videoStreamIndex >= 0) {
-   *   const videoStream = ctx.streams[videoStreamIndex];
-   *   // Process video stream
+   * if (videoStreamIndex < 0) {
+   *   FFmpegError.throwIfError(videoStreamIndex, 'findBestStream');
    * }
+   * const videoStream = ctx.streams[videoStreamIndex];
+   * // Process video stream
    * ```
    */
   findBestStream(type: AVMediaType, wantedStreamNb: number, relatedStream: number): number;
@@ -781,10 +860,10 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   /**
    * Find the "best" stream in the file and optionally return the decoder.
    *
-   * Direct mapping to av_find_best_stream()
-   *
    * The best stream is determined according to various heuristics as the most
    * likely to be what the user expects.
+   *
+   * Direct mapping to av_find_best_stream()
    *
    * @param type - Media type (AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO, etc.)
    * @param wantedStreamNb - User-requested stream number, or -1 for automatic selection
@@ -796,6 +875,8 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext, FFmpegError, AVMEDIA_TYPE_VIDEO } from '@seydx/ffmpeg';
+   *
    * // Find best video stream with decoder
    * const result = ctx.findBestStream(
    *   AVMEDIA_TYPE_VIDEO,
@@ -805,11 +886,12 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *   0
    * );
    *
-   * if (result.streamIndex >= 0) {
-   *   const videoStream = ctx.streams[result.streamIndex];
-   *   const decoder = result.decoder;
-   *   // Use decoder directly
+   * if (result.streamIndex < 0) {
+   *   FFmpegError.throwIfError(result.streamIndex, 'findBestStream');
    * }
+   * const videoStream = ctx.streams[result.streamIndex];
+   * const decoder = result.decoder;
+   * // Use decoder directly
    * ```
    */
   findBestStream(type: AVMediaType, wantedStreamNb: number, relatedStream: number, wantDecoder: true, flags?: number): { streamIndex: number; decoder: Codec | null };
@@ -833,7 +915,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
       // If not an object, return as error code
       return { streamIndex: result, decoder: null };
     }
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+
     return this.native.findBestStream(type, wantedStreamNb, relatedStream, false, flags ?? 0) as number;
   }
 
@@ -842,20 +924,25 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   /**
    * Add a new stream to the media file.
    *
+   * Creates a new stream in the output format context.
+   * The stream must be configured before calling writeHeader().
+   *
    * Direct mapping to avformat_new_stream()
    *
    * @param c - Codec to use for the stream. May be null
    *
-   * @returns The newly created stream or null on failure
+   * @returns The newly created stream
+   *
+   * @throws {Error} If stream creation fails (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { FormatContext, Codec, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_CODEC_ID_H264, AVMEDIA_TYPE_VIDEO } from '@seydx/ffmpeg/constants';
+   *
    * // Add a video stream
    * const videoCodec = Codec.findEncoder(AV_CODEC_ID_H264);
    * const videoStream = ctx.newStream(videoCodec);
-   * if (!videoStream) {
-   *   throw new Error('Failed to create video stream');
-   * }
    *
    * // Configure stream parameters
    * videoStream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
@@ -889,6 +976,8 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @example
    * ```typescript
+   * import { FormatContext } from '@seydx/ffmpeg';
+   *
    * {
    *   using ctx = new FormatContext();
    *   ctx.allocContext();

@@ -208,7 +208,7 @@ describe('SoftwareScaleContext', () => {
   });
 
   describe('Scale Operations', () => {
-    it('should scale with buffer arrays', () => {
+    it('should scale with buffer arrays', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
@@ -236,14 +236,14 @@ describe('SoftwareScaleContext', () => {
 
       const dstStride = [160, 80, 80];
 
-      const ret = sws.scale(srcSlice, srcStride, 0, 240, dst, dstStride);
+      const ret = await sws.scale(srcSlice, srcStride, 0, 240, dst, dstStride);
       assert.equal(typeof ret, 'number', 'Should return output height');
       assert.ok(ret > 0, 'Should scale some rows');
 
       sws.freeContext();
     });
 
-    it('should scale frame objects', () => {
+    it('should scale frame objects', async () => {
       const sws = new SoftwareScaleContext();
 
       // Use simpler getContext without prior initialization
@@ -268,7 +268,7 @@ describe('SoftwareScaleContext', () => {
       assert.equal(dstRet, 0, 'Should allocate destination buffer');
 
       // Scale frame
-      const ret = sws.scaleFrame(dstFrame, srcFrame);
+      const ret = await sws.scaleFrame(dstFrame, srcFrame);
       assert.equal(typeof ret, 'number', 'Should return output height');
       assert.equal(ret, 120, 'Should return destination height');
 
@@ -277,7 +277,7 @@ describe('SoftwareScaleContext', () => {
       sws.freeContext();
     });
 
-    it('should handle progressive scaling', () => {
+    it('should handle progressive scaling', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
@@ -300,7 +300,7 @@ describe('SoftwareScaleContext', () => {
       const sliceHeight = 120;
       for (let y = 0; y < 480; y += sliceHeight) {
         const currentSliceHeight = Math.min(sliceHeight, 480 - y);
-        const ret = sws.scale(srcSlice, srcStride, y, currentSliceHeight, dst, dstStride);
+        const ret = await sws.scale(srcSlice, srcStride, y, currentSliceHeight, dst, dstStride);
         assert.ok(ret >= 0, `Should scale slice at y=${y}`);
       }
 
@@ -363,7 +363,7 @@ describe('SoftwareScaleContext', () => {
       sws.freeContext();
     });
 
-    it('should handle zero stride in scale operation', () => {
+    it('should handle zero stride in scale operation', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
@@ -373,7 +373,7 @@ describe('SoftwareScaleContext', () => {
       const dst = [Buffer.alloc(160 * 120), Buffer.alloc(80 * 60), Buffer.alloc(80 * 60)];
 
       // Use automatic stride calculation (0 means auto)
-      const ret = sws.scale(srcSlice, [320, 160, 160], 0, 240, dst, [160, 80, 80]);
+      const ret = await sws.scale(srcSlice, [320, 160, 160], 0, 240, dst, [160, 80, 80]);
       assert.ok(ret >= 0, 'Should handle scaling');
 
       sws.freeContext();
@@ -408,7 +408,7 @@ describe('SoftwareScaleContext', () => {
       assert.ok(true, 'Should replace context cleanly');
     });
 
-    it('should handle frame scaling with auto-allocated destination', () => {
+    it('should handle frame scaling with auto-allocated destination', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
@@ -429,7 +429,7 @@ describe('SoftwareScaleContext', () => {
       dstFrame.format = AV_PIX_FMT_YUV420P;
       // Don't call getBuffer() - let scaleFrame allocate
 
-      const ret = sws.scaleFrame(dstFrame, srcFrame);
+      const ret = await sws.scaleFrame(dstFrame, srcFrame);
       assert.equal(ret, 480, 'Should return destination height after auto-allocating');
 
       srcFrame.free();
@@ -453,15 +453,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // High quality algorithm for offline processing
-      sws.getContext(
-        1920,
-        1080,
-        AV_PIX_FMT_YUV420P,
-        3840,
-        2160,
-        AV_PIX_FMT_YUV420P,
-        ((AV_SWS_LANCZOS as number) | (AV_SWS_ACCURATE_RND as number)) as any,
-      );
+      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 3840, 2160, AV_PIX_FMT_YUV420P, ((AV_SWS_LANCZOS as number) | (AV_SWS_ACCURATE_RND as number)) as any);
 
       assert.ok(sws, 'Should configure for high-quality scaling');
       sws.freeContext();

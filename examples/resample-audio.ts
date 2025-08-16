@@ -183,7 +183,7 @@ async function resampleAudio(outputFile: string): Promise<void> {
         throw new Error('Frame data not available');
       }
 
-      const ret = swrCtx.convert(dstDataConv, Number(dstNbSamples), srcDataConv, srcNbSamples);
+      const ret = await swrCtx.convert(dstDataConv, Number(dstNbSamples), srcDataConv, srcNbSamples);
       FFmpegError.throwIfError(ret, 'Error while converting');
 
       // Calculate buffer size for output
@@ -228,7 +228,7 @@ async function resampleAudio(outputFile: string): Promise<void> {
           throw new Error('Destination frame data not available');
         }
 
-        const flushRet = swrCtx.convert(dstDataFlush, Number(dstNbSamples), null, 0);
+        const flushRet = await swrCtx.convert(dstDataFlush, Number(dstNbSamples), null, 0);
         if (flushRet >= 0) {
           const actualSamples = flushRet;
           const bytesPerSample = avGetBytesPerSample(dstSampleFmt);

@@ -6,16 +6,23 @@ import type { Frame } from './frame.js';
 import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg Hardware Frames Context - Low Level API
+ * Hardware frames context for GPU memory management.
+ *
+ * Manages pools of hardware frames for efficient GPU memory allocation.
+ * Handles format conversions and data transfers between CPU and GPU memory.
+ * Required for hardware-accelerated video processing pipelines.
  *
  * Direct mapping to FFmpeg's AVHWFramesContext.
- * Manages hardware frame pools and format conversions.
  *
  * @example
  * ```typescript
+ * import { HardwareDeviceContext, HardwareFramesContext, Frame, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from '@seydx/ffmpeg/constants';
+ *
  * // Create hardware frames context
  * const device = new HardwareDeviceContext();
- * device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
+ * const deviceRet = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
+ * FFmpegError.throwIfError(deviceRet, 'create device');
  *
  * const frames = new HardwareFramesContext();
  * frames.alloc(device);
@@ -29,13 +36,13 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
  *
  * // Initialize the context
  * const ret = frames.init();
- * if (ret < 0) throw new FFmpegError(ret);
+ * FFmpegError.throwIfError(ret, 'init frames');
  *
  * // Allocate hardware frame
  * const hwFrame = new Frame();
  * hwFrame.alloc();
  * const ret2 = frames.getBuffer(hwFrame, 0);
- * if (ret2 < 0) throw new FFmpegError(ret2);
+ * FFmpegError.throwIfError(ret2, 'getBuffer');
  *
  * // Transfer between hardware and software
  * const swFrame = new Frame();
@@ -43,13 +50,16 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
  * swFrame.width = 1920;
  * swFrame.height = 1080;
  * swFrame.format = AV_PIX_FMT_NV12;
- * swFrame.getBuffer();
+ * const swRet = swFrame.getBuffer();
+ * FFmpegError.throwIfError(swRet, 'getBuffer sw');
  *
  * // Download from hardware
- * frames.transferData(swFrame, hwFrame, 0);
+ * const dlRet = await frames.transferData(swFrame, hwFrame, 0);
+ * FFmpegError.throwIfError(dlRet, 'download');
  *
  * // Upload to hardware
- * frames.transferData(hwFrame, swFrame, 0);
+ * const ulRet = await frames.transferData(hwFrame, swFrame, 0);
+ * FFmpegError.throwIfError(ulRet, 'upload');
  *
  * // Cleanup
  * hwFrame.free();
@@ -57,6 +67,9 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
  * frames.free();
  * device.free();
  * ```
+ *
+ * @see {@link HardwareDeviceContext} For device management
+ * @see {@link Frame} For frame allocation
  */
 export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHardwareFramesContext> {
   private native: NativeHardwareFramesContext;
@@ -66,14 +79,19 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * Create a new hardware frames context.
    *
    * The context is uninitialized - you must call alloc() before use.
+   * No FFmpeg resources are allocated until initialization.
+   *
    * Direct wrapper around AVHWFramesContext.
    *
    * @example
    * ```typescript
+   * import { HardwareFramesContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const frames = new HardwareFramesContext();
    * frames.alloc(device);
    * // Configure parameters
-   * frames.init();
+   * const ret = frames.init();
+   * FFmpegError.throwIfError(ret, 'init');
    * ```
    */
   constructor() {
@@ -85,9 +103,9 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Hardware pixel format.
    *
-   * Direct mapping to AVHWFramesContext->format
-   *
    * The pixel format identifying the underlying HW surface type.
+   *
+   * Direct mapping to AVHWFramesContext->format
    */
   get format(): AVPixelFormat {
     return this.native.format;
@@ -100,9 +118,9 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Software pixel format.
    *
-   * Direct mapping to AVHWFramesContext->sw_format
-   *
    * The pixel format identifying the actual data layout of the hardware frames.
+   *
+   * Direct mapping to AVHWFramesContext->sw_format
    */
   get swFormat(): AVPixelFormat {
     return this.native.swFormat;
@@ -115,9 +133,9 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Frame width.
    *
-   * Direct mapping to AVHWFramesContext->width
-   *
    * The allocated dimensions of the frames in this pool.
+   *
+   * Direct mapping to AVHWFramesContext->width
    */
   get width(): number {
     return this.native.width;
@@ -130,9 +148,9 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Frame height.
    *
-   * Direct mapping to AVHWFramesContext->height
-   *
    * The allocated dimensions of the frames in this pool.
+   *
+   * Direct mapping to AVHWFramesContext->height
    */
   get height(): number {
     return this.native.height;
@@ -144,8 +162,6 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
 
   /**
    * Initial pool size.
-   *
-   * Direct mapping to AVHWFramesContext->initial_pool_size
    *
    * Initial size of the frame pool. If a device type does not support
    * dynamically resizing the pool, then this is also the maximum pool size.
@@ -280,7 +296,7 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * @param src - Source frame
    * @param flags - Currently unused, should be set to 0
    *
-   * @returns 0 on success, negative AVERROR on error:
+   * @returns Promise resolving to 0 on success, negative AVERROR on error:
    *   - 0: Success
    *   - AVERROR(ENOSYS): Transfer not supported
    *   - AVERROR(EINVAL): Invalid parameters
@@ -289,19 +305,19 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * @example
    * ```typescript
    * // Download from hardware to software
-   * const ret = frames.transferData(swFrame, hwFrame, 0);
+   * const ret = await frames.transferData(swFrame, hwFrame, 0);
    * if (ret < 0) {
    *   throw new FFmpegError(ret);
    * }
    *
    * // Upload from software to hardware
-   * const ret2 = frames.transferData(hwFrame, swFrame, 0);
+   * const ret2 = await frames.transferData(hwFrame, swFrame, 0);
    * if (ret2 < 0) {
    *   throw new FFmpegError(ret2);
    * }
    * ```
    */
-  transferData(dst: Frame, src: Frame, flags?: number): number {
+  async transferData(dst: Frame, src: Frame, flags?: number): Promise<number> {
     return this.native.transferData(dst.getNative(), src.getNative(), flags ?? 0);
   }
 
@@ -423,13 +439,18 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
+   * import { HardwareFramesContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * {
    *   using frames = new HardwareFramesContext();
    *   frames.alloc(device);
-   *   frames.init();
+   *   const ret = frames.init();
+   *   FFmpegError.throwIfError(ret, 'init');
    *   // ... use frames
    * } // Automatically freed when leaving scope
    * ```
+   *
+   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

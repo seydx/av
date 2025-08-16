@@ -1,7 +1,24 @@
 /**
- * FFmpeg utility functions - Low Level API
+ * FFmpeg utility functions collection.
  *
- * Direct mappings to various FFmpeg utility functions from libavutil.
+ * Provides direct mappings to various FFmpeg utility functions from libavutil.
+ * These functions handle common operations like timestamp conversion, image buffer
+ * allocation, sample format queries, and more.
+ *
+ * @example
+ * ```typescript
+ * import { avImageAlloc, avTs2TimeStr, avRescaleQ, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_PIX_FMT_YUV420P, Rational } from '@seydx/ffmpeg';
+ *
+ * // Allocate image buffer
+ * const image = avImageAlloc(1920, 1080, AV_PIX_FMT_YUV420P, 32);
+ * console.log(`Allocated ${image.size} bytes`);
+ *
+ * // Convert timestamp to readable time
+ * const timebase = new Rational(1, 90000);
+ * const pts = 450000n;
+ * console.log(avTs2TimeStr(pts, timebase)); // "5.000000"
+ * ```
  */
 
 import { bindings } from './binding.js';
@@ -11,16 +28,46 @@ import type { Rational } from './rational.js';
 import type { ChannelLayout } from './types.js';
 
 /**
- * Get bytes per sample for a sample format
+ * Get bytes per sample for a sample format.
+ *
+ * Returns the number of bytes required to store one sample in the given format.
+ *
  * Direct mapping to av_get_bytes_per_sample()
+ *
+ * @param sampleFmt - Audio sample format
+ *
+ * @returns Number of bytes per sample, or 0 for invalid format
+ *
+ * @example
+ * ```typescript
+ * import { avGetBytesPerSample, AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLT } from '@seydx/ffmpeg';
+ *
+ * console.log(avGetBytesPerSample(AV_SAMPLE_FMT_S16)); // 2
+ * console.log(avGetBytesPerSample(AV_SAMPLE_FMT_FLT)); // 4
+ * ```
  */
 export function avGetBytesPerSample(sampleFmt: AVSampleFormat): number {
   return bindings.avGetBytesPerSample(sampleFmt);
 }
 
 /**
- * Get sample format name
+ * Get the name of a sample format.
+ *
+ * Returns a string describing the sample format.
+ *
  * Direct mapping to av_get_sample_fmt_name()
+ *
+ * @param sampleFmt - Audio sample format
+ *
+ * @returns Format name string, or null for invalid format
+ *
+ * @example
+ * ```typescript
+ * import { avGetSampleFmtName, AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg';
+ *
+ * console.log(avGetSampleFmtName(AV_SAMPLE_FMT_S16)); // "s16"
+ * console.log(avGetSampleFmtName(AV_SAMPLE_FMT_FLTP)); // "fltp"
+ * ```
  */
 export function avGetSampleFmtName(sampleFmt: AVSampleFormat): string | null {
   return bindings.avGetSampleFmtName(sampleFmt);
@@ -75,18 +122,40 @@ export function avGetMediaTypeString(mediaType: AVMediaType): string | null {
 }
 
 /**
- * Allocate an image with size, pixel format and alignment
+ * Allocate an image with size, pixel format and alignment.
+ *
+ * Allocates a buffer large enough to hold an image with the given parameters.
+ * The allocated buffer is properly aligned for optimal performance.
+ *
  * Direct mapping to av_image_alloc()
  *
- * Returns an object with the allocated buffer, size and linesizes, or throws on error
+ * @param width - Image width in pixels
+ * @param height - Image height in pixels
+ * @param pixFmt - Pixel format
+ * @param align - Buffer alignment (1 for no alignment, 32 for SIMD)
+ *
+ * @returns Object containing:
+ *   - buffer: Allocated image buffer
+ *   - size: Total size in bytes
+ *   - linesizes: Array of line sizes for each plane
+ *
+ * @throws {Error} If allocation fails
  *
  * @example
  * ```typescript
- * const result = avImageAlloc(1920, 1080, AV_PIX_FMT_YUV420P, 1);
- * // result.buffer contains the allocated image data
- * // result.size is the total size in bytes
- * // result.linesizes is an array of line sizes for each plane
+ * import { avImageAlloc, AV_PIX_FMT_YUV420P, FFmpegError } from '@seydx/ffmpeg';
+ *
+ * try {
+ *   const result = avImageAlloc(1920, 1080, AV_PIX_FMT_YUV420P, 32);
+ *   console.log(`Allocated ${result.size} bytes`);
+ *   console.log(`Y linesize: ${result.linesizes[0]}`);
+ *   // Use result.buffer for image data
+ * } catch (error) {
+ *   console.error('Failed to allocate image buffer');
+ * }
  * ```
+ *
+ * @see {@link avImageGetBufferSize} To calculate required size without allocating
  */
 export function avImageAlloc(
   width: number,
@@ -101,7 +170,8 @@ export function avImageAlloc(
   const result = bindings.avImageAlloc(width, height, pixFmt, align);
   if (typeof result === 'number') {
     // Error code returned instead of object
-    throw new Error(`Failed to allocate image: error code ${result}`);
+    const { FFmpegError } = require('./error.js');
+    throw new FFmpegError(result);
   }
   return result;
 }
@@ -141,18 +211,48 @@ export function avImageGetBufferSize(pixFmt: AVPixelFormat, width: number, heigh
 }
 
 /**
- * Copy image data to buffer
+ * Copy image data to a single buffer.
+ *
+ * Copies image data from separate planes into a single continuous buffer.
+ * Useful for serialization or when a single buffer is required.
+ *
  * Direct mapping to av_image_copy_to_buffer()
  *
  * @param dst - Destination buffer
- * @param dstSize - Size of destination buffer
+ * @param dstSize - Size of destination buffer in bytes
  * @param srcData - Array of source data planes
  * @param srcLinesize - Array of source linesizes
  * @param pixFmt - Pixel format
- * @param width - Image width
- * @param height - Image height
+ * @param width - Image width in pixels
+ * @param height - Image height in pixels
  * @param align - Buffer alignment
- * @returns Number of bytes written to dst, or negative error code
+ *
+ * @returns Number of bytes written to dst, or negative AVERROR on error:
+ *   - >0: Number of bytes written
+ *   - AVERROR(EINVAL): Invalid parameters
+ *   - AVERROR(ENOMEM): Destination buffer too small
+ *
+ * @example
+ * ```typescript
+ * import { avImageCopyToBuffer, avImageGetBufferSize, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_PIX_FMT_RGB24 } from '@seydx/ffmpeg';
+ *
+ * const width = 640, height = 480;
+ * const pixFmt = AV_PIX_FMT_RGB24;
+ *
+ * // Calculate required buffer size
+ * const dstSize = avImageGetBufferSize(pixFmt, width, height, 1);
+ * const dst = Buffer.alloc(dstSize);
+ *
+ * const ret = avImageCopyToBuffer(
+ *   dst, dstSize,
+ *   srcData, srcLinesize,
+ *   pixFmt, width, height, 1
+ * );
+ *
+ * FFmpegError.throwIfError(ret, 'avImageCopyToBuffer');
+ * console.log(`Copied ${ret} bytes to buffer`);
+ * ```
  */
 export function avImageCopyToBuffer(
   dst: Buffer,
@@ -238,14 +338,26 @@ export function avRescaleQ(a: bigint | number | null, bq: Rational, cq: Rational
 /**
  * Sleep for a specified number of microseconds.
  *
+ * Provides a cross-platform microsecond sleep function.
+ * Useful for timing operations or frame pacing.
+ *
  * Direct mapping to av_usleep()
  *
  * @param usec - Number of microseconds to sleep
  *
  * @example
  * ```typescript
- * // Sleep for 100ms
+ * import { avUsleep } from '@seydx/ffmpeg';
+ *
+ * // Sleep for 100ms (100,000 microseconds)
  * avUsleep(100000);
+ *
+ * // Sleep for 1 second
+ * avUsleep(1000000);
+ *
+ * // Frame pacing for 30fps (33.33ms per frame)
+ * const frameTime = 1000000 / 30;
+ * avUsleep(frameTime);
  * ```
  */
 export function avUsleep(usec: number): void {
@@ -288,7 +400,8 @@ export function avSamplesAlloc(
 } {
   const result = bindings.avSamplesAlloc(nbChannels, nbSamples, sampleFmt, align);
   if (typeof result === 'number') {
-    throw new Error(`Failed to allocate samples: error code ${result}`);
+    const { FFmpegError } = require('./error.js');
+    throw new FFmpegError(result);
   }
   return result;
 }

@@ -18,20 +18,26 @@ import type { NativeCodecParameters, NativeWrapper } from './native-types.js';
 import type { ChannelLayout } from './types.js';
 
 /**
- * FFmpeg codec parameters - Low Level API
+ * Codec parameters for stream configuration.
+ *
+ * Describes the properties of an encoded media stream.
+ * Used to transfer codec parameters between contexts and streams.
+ * Contains essential information like codec type, dimensions, and format.
  *
  * Direct mapping to FFmpeg's AVCodecParameters.
- * This struct describes the properties of an encoded stream.
  *
  * @example
  * ```typescript
+ * import { CodecParameters, FFmpegError } from '@seydx/ffmpeg';
+ * import { AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg/constants';
+ *
  * // Create and allocate codec parameters
  * const params = new CodecParameters();
  * params.alloc();
  *
  * // Copy parameters from a codec context
  * const ret = params.fromContext(codecContext);
- * if (ret < 0) throw new Error('Failed to copy parameters');
+ * FFmpegError.throwIfError(ret, 'fromContext');
  *
  * // Set video parameters manually
  * params.codecType = AVMEDIA_TYPE_VIDEO;
@@ -42,12 +48,13 @@ import type { ChannelLayout } from './types.js';
  *
  * // Apply parameters to another codec context
  * const ret2 = params.toContext(otherCodecContext);
- * if (ret2 < 0) throw new Error('Failed to apply parameters');
+ * FFmpegError.throwIfError(ret2, 'toContext');
  *
  * // Copy to another parameters struct
  * const params2 = new CodecParameters();
  * params2.alloc();
- * params.copy(params2);
+ * const copyRet = params.copy(params2);
+ * FFmpegError.throwIfError(copyRet, 'copy');
  *
  * // Clean up
  * params.free();
@@ -62,10 +69,14 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    * Create new codec parameters.
    *
    * The parameters are uninitialized - you must call alloc() before use.
+   * No FFmpeg resources are allocated until alloc() is called.
+   *
    * Direct wrapper around AVCodecParameters.
    *
    * @example
    * ```typescript
+   * import { CodecParameters } from '@seydx/ffmpeg';
+   *
    * const params = new CodecParameters();
    * params.alloc();
    * // Parameters are now ready for use
@@ -80,8 +91,9 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   /**
    * General type of the encoded data.
    *
+   * Identifies the media type (video, audio, subtitle, etc.).
+   *
    * Direct mapping to AVCodecParameters->codec_type
-   * AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_SUBTITLE, etc.
    */
   get codecType(): AVMediaType {
     return this.native.codecType;
@@ -94,8 +106,9 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   /**
    * Specific type of the encoded data.
    *
+   * Identifies the exact codec (H.264, AAC, etc.).
+   *
    * Direct mapping to AVCodecParameters->codec_id
-   * AV_CODEC_ID_H264, AV_CODEC_ID_AAC, etc.
    */
   get codecId(): AVCodecID {
     return this.native.codecId;
@@ -355,16 +368,23 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   /**
    * Allocate a new AVCodecParameters and set its fields to default values.
    *
+   * Allocates the parameters structure and initializes with defaults.
+   * Must be called before using the parameters.
+   *
    * Direct mapping to avcodec_parameters_alloc()
+   *
+   * @throws {Error} Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { CodecParameters } from '@seydx/ffmpeg';
+   *
    * const params = new CodecParameters();
    * params.alloc();
    * // Parameters are now allocated with default values
    * ```
    *
-   * @throws {Error} If allocation fails (ENOMEM)
+   * @see {@link free} To free the parameters
    */
   alloc(): void {
     this.native.alloc();
@@ -373,8 +393,10 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   /**
    * Free the codec parameters and everything associated with it.
    *
+   * Releases all resources associated with the parameters.
+   * The parameters become invalid after this call.
+   *
    * Direct mapping to avcodec_parameters_free()
-   * Sets the pointer to NULL.
    *
    * @example
    * ```typescript
@@ -388,6 +410,8 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
 
   /**
    * Copy the contents of this CodecParameters to dst.
+   *
+   * Copies all parameter values to the destination.
    * Any allocated fields in dst are freed and replaced with newly allocated duplicates.
    *
    * Direct mapping to avcodec_parameters_copy()
@@ -400,6 +424,8 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
+   * import { CodecParameters, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const src = new CodecParameters();
    * src.alloc();
    * // ... set up src parameters ...
@@ -407,10 +433,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    * const dst = new CodecParameters();
    * dst.alloc();
    * const ret = src.copy(dst);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'copy');
    * ```
+   *
+   * @see {@link fromContext} To copy from codec context
+   * @see {@link toContext} To copy to codec context
    */
   copy(dst: CodecParameters): number {
     return this.native.copy(dst.native);
@@ -418,6 +445,8 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
 
   /**
    * Fill this parameters struct based on the values from the supplied codec context.
+   *
+   * Copies codec parameters from a codec context to this parameters struct.
    * Any allocated fields are freed and replaced with duplicates.
    *
    * Direct mapping to avcodec_parameters_from_context()
@@ -431,14 +460,14 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Copy encoder parameters to stream
    * const ret = outputStream.codecpar.fromContext(encoderContext);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'fromContext');
    * ```
    *
-   * @see toContext() - To copy in the opposite direction
+   * @see {@link toContext} To copy in the opposite direction
    */
   fromContext(codecContext: CodecContext): number {
     return this.native.fromContext(codecContext.getNative());
@@ -446,6 +475,8 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
 
   /**
    * Fill the codec context based on the values from this codec parameters.
+   *
+   * Copies parameters from this struct to a codec context.
    * Any allocated fields in the codec context are freed and replaced with duplicates.
    *
    * Direct mapping to avcodec_parameters_to_context()
@@ -459,14 +490,14 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Copy stream parameters to decoder
    * const ret = inputStream.codecpar.toContext(decoderContext);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'toContext');
    * ```
    *
-   * @see fromContext() - To copy in the opposite direction
+   * @see {@link fromContext} To copy in the opposite direction
    */
   toContext(codecContext: CodecContext): number {
     return this.native.toContext(codecContext.getNative());

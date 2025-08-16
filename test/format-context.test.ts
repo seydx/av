@@ -156,10 +156,10 @@ describe('FormatContext', () => {
     it('should close input', async () => {
       await ctx.openInput(inputVideoFile, null, null);
       await ctx.findStreamInfo(null);
-      
+
       // Should be able to close input without error
-      ctx.closeInput();
-      
+      await ctx.closeInput();
+
       // After closing, we should be able to open again
       const ret = await ctx.openInput(inputVideoFile, null, null);
       assert.equal(ret, 0);
@@ -198,7 +198,7 @@ describe('FormatContext', () => {
       stream.codecpar.height = 1080;
 
       // Open output file explicitly
-      const openRet = ctx.openOutput();
+      const openRet = await ctx.openOutput();
       assert.equal(openRet, 0);
 
       const ret = await ctx.writeHeader(null);
@@ -215,7 +215,7 @@ describe('FormatContext', () => {
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
 
-      ctx.openOutput();
+      await ctx.openOutput();
 
       const options = new Dictionary();
       const ret = await ctx.writeHeader(options);
@@ -233,7 +233,7 @@ describe('FormatContext', () => {
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
 
-      ctx.openOutput();
+      await ctx.openOutput();
       await ctx.writeHeader(null);
 
       const packet = new Packet();
@@ -258,7 +258,7 @@ describe('FormatContext', () => {
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
 
-      ctx.openOutput();
+      await ctx.openOutput();
       await ctx.writeHeader(null);
       const ret = await ctx.writeTrailer();
       assert.equal(ret, 0);
@@ -274,7 +274,7 @@ describe('FormatContext', () => {
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
 
-      ctx.openOutput();
+      await ctx.openOutput();
       await ctx.writeHeader(null);
 
       const packet = new Packet();
@@ -298,7 +298,7 @@ describe('FormatContext', () => {
       const stream = ctx.newStream(null);
       stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
-      
+
       // Find best stream without decoder (original API)
       const streamIndex = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1);
       // With our mock setup, it should find stream 0 or return error
@@ -310,7 +310,7 @@ describe('FormatContext', () => {
       const stream = ctx.newStream(null);
       stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
-      
+
       // Find best stream with decoder (new API)
       const result = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1, true, 0);
       assert.ok(typeof result === 'object');
@@ -495,7 +495,7 @@ describe('FormatContext', () => {
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
-      ctx.openOutput();
+      await ctx.openOutput();
       await ctx.writeHeader(null);
       await ctx.writeTrailer();
       // ctx.closeOutput();
@@ -638,7 +638,7 @@ describe('FormatContext', () => {
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
 
-      ctx.openOutput();
+      await ctx.openOutput();
       await ctx.writeHeader(null);
 
       const packet = new Packet();
@@ -662,7 +662,7 @@ describe('FormatContext', () => {
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
 
-      ctx.openOutput();
+      await ctx.openOutput();
       await ctx.writeHeader(null);
 
       const packet = new Packet();

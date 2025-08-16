@@ -5,23 +5,30 @@ import type { AVIOFlag, AVSeekWhence } from './constants.js';
 import type { NativeIOContext, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg I/O Context - Low Level API
+ * I/O context for custom input/output operations.
+ *
+ * Provides buffered I/O and protocol handling for reading/writing data
+ * from/to files, network streams, memory buffers, or custom sources.
+ * Can be used with FormatContext for custom I/O or standalone for direct I/O operations.
  *
  * Direct mapping to FFmpeg's AVIOContext.
- * Provides custom I/O for reading/writing data from/to files, network, memory, etc.
  *
  * @example
  * ```typescript
+ * import { IOContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_IO_FLAG_READ, AV_SEEK_SET } from '@seydx/ffmpeg/constants';
+ *
  * // Open a file for reading
  * const io = new IOContext();
- * const ret = await io.open2('input.mp4', AVIO_FLAG_READ);
- * if (ret < 0) throw new FFmpegError(ret);
+ * const ret = await io.open2('input.mp4', AV_IO_FLAG_READ);
+ * FFmpegError.throwIfError(ret, 'open2');
  *
  * // Read data
  * const buffer = await io.read(4096);
  *
  * // Seek to position
- * await io.seek(1024n, SEEK_SET);
+ * const seekRet = await io.seek(1024n, AV_SEEK_SET);
+ * FFmpegError.throwIfError(seekRet < 0 ? -1 : 0, 'seek');
  *
  * // Get file size
  * const size = await io.size();
@@ -34,35 +41,47 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
  * ```typescript
  * // Custom I/O with callbacks
  * const io = new IOContext();
- * io.allocContext(
+ * io.allocContextWithCallbacks(
  *   4096,           // buffer size
  *   0,              // read mode
- *   readCallback,   // custom read function
+ *   (size) => {     // custom read function
+ *     return myBuffer.slice(pos, pos + size);
+ *   },
  *   null,           // no write
- *   seekCallback    // custom seek function
+ *   (offset, whence) => { // custom seek function
+ *     return BigInt(calculateNewPosition(offset, whence));
+ *   }
  * );
  *
  * // Use with FormatContext
  * const ctx = new FormatContext();
- * ctx.allocContext();
+ * ctx.allocOutputContext2(null, 'mp4', null);
  * ctx.pb = io;
- * await ctx.openInput(null, null, null);
+ * const openRet = await ctx.openInput(null, null, null);
+ * FFmpegError.throwIfError(openRet, 'openInput');
  * ```
+ *
+ * @see {@link FormatContext} For using custom I/O with containers
  */
 export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext> {
   private native: NativeIOContext;
 
   // Constructor
   /**
-   * Create a new I/O context.
+   * Create a new I/O context instance.
    *
    * The context is uninitialized - you must call allocContext() or open2() before use.
-   * Direct wrapper around AVIOContext.
+   * No FFmpeg resources are allocated until initialization.
+   *
+   * Direct wrapper around AVIOContext allocation.
    *
    * @example
    * ```typescript
+   * import { IOContext, FFmpegError, AV_IO_FLAG_READ } from '@seydx/ffmpeg';
+   *
    * const io = new IOContext();
-   * await io.open2('file.mp4', AVIO_FLAG_READ);
+   * const ret = await io.open2('file.mp4', AV_IO_FLAG_READ);
+   * FFmpegError.throwIfError(ret, 'open2');
    * // I/O context is now ready for use
    * ```
    */
@@ -191,20 +210,30 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
   // Public Methods - Lifecycle
 
   /**
-   * Create and initialize a AVIOContext for buffered I/O.
+   * Create and initialize a buffered I/O context.
+   *
+   * Allocates an I/O context with an internal buffer for efficient I/O operations.
+   * For file I/O, use open2() instead which handles allocation automatically.
    *
    * Direct mapping to avio_alloc_context()
    *
-   * @param bufferSize - Size of the buffer
-   * @param writeFlag - 1 if writing, 0 if reading
+   * @param bufferSize - Size of the internal buffer in bytes
+   * @param writeFlag - 1 for writing, 0 for reading
    *
    * @example
    * ```typescript
+   * import { IOContext } from '@seydx/ffmpeg';
+   *
    * const io = new IOContext();
    * io.allocContext(4096, 0); // 4KB buffer for reading
+   *
+   * // For writing
+   * const writeIO = new IOContext();
+   * writeIO.allocContext(8192, 1); // 8KB buffer for writing
    * ```
    *
-   * @note For file I/O, use open2() instead.
+   * @see {@link allocContextWithCallbacks} For custom I/O callbacks
+   * @see {@link open2} For file I/O
    */
   allocContext(bufferSize: number, writeFlag: number): void {
     return this.native.allocContext(bufferSize, writeFlag);
@@ -215,6 +244,8 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * Creates a custom I/O context with JavaScript callbacks for read, write, and seek operations.
    *
+   * Direct mapping to avio_alloc_context() with custom callbacks
+   *
    * @param bufferSize - Size of the buffer in bytes
    * @param writeFlag - 0 for read, 1 for write
    * @param readCallback - Callback for reading data. Returns Buffer, null for EOF, or negative error code
@@ -223,7 +254,12 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { IOContext, AV_SEEK_SET, AV_SEEK_CUR, AV_SEEK_END } from '@seydx/ffmpeg';
+   *
    * const io = new IOContext();
+   * let position = 0;
+   * const buffer = Buffer.from('example data');
+   *
    * io.allocContextWithCallbacks(
    *   4096,
    *   0,
@@ -234,13 +270,15 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *   null,
    *   (offset, whence) => {
    *     // Seek to position
-   *     if (whence === 0) position = Number(offset);
-   *     else if (whence === 1) position += Number(offset);
-   *     else if (whence === 2) position = buffer.length + Number(offset);
+   *     if (whence === AV_SEEK_SET) position = Number(offset);
+   *     else if (whence === AV_SEEK_CUR) position += Number(offset);
+   *     else if (whence === AV_SEEK_END) position = buffer.length + Number(offset);
    *     return BigInt(position);
    *   }
    * );
    * ```
+   *
+   * @see {@link allocContext} For simple buffer allocation
    */
   allocContextWithCallbacks(
     bufferSize: number,
@@ -259,6 +297,8 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { IOContext } from '@seydx/ffmpeg';
+   *
    * io.freeContext();
    * // io is now invalid and should not be used
    * ```
@@ -268,28 +308,46 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
   }
 
   /**
-   * Open resource for reading/writing.
+   * Open a resource for reading or writing.
+   *
+   * Opens a URL using the appropriate protocol handler (file, http, etc.).
+   * Automatically allocates and initializes the I/O context.
    *
    * Direct mapping to avio_open2()
    *
-   * @param url - URL to open (file://, http://, etc.)
-   * @param flags - AVIO_FLAG_READ, AVIO_FLAG_WRITE, etc.
+   * @param url - URL to open (file://, http://, https://, etc.)
+   * @param flags - I/O flags (AV_IO_FLAG_READ, AV_IO_FLAG_WRITE, etc.)
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
    *   - AVERROR(ENOENT): File not found
    *   - AVERROR(EACCES): Permission denied
    *   - AVERROR(EIO): I/O error
+   *   - AVERROR(ENOMEM): Memory allocation failure
    *   - <0: Other protocol-specific errors
    *
    * @example
    * ```typescript
+   * import { IOContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_IO_FLAG_READ, AV_IO_FLAG_WRITE } from '@seydx/ffmpeg/constants';
+   *
+   * // Open file for reading
    * const io = new IOContext();
-   * const ret = await io.open2('file.mp4', AVIO_FLAG_READ);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * const ret = await io.open2('input.mp4', AV_IO_FLAG_READ);
+   * FFmpegError.throwIfError(ret, 'open2');
+   *
+   * // Open file for writing
+   * const writeIO = new IOContext();
+   * const writeRet = await writeIO.open2('output.mp4', AV_IO_FLAG_WRITE);
+   * FFmpegError.throwIfError(writeRet, 'open2');
+   *
+   * // Open network stream
+   * const streamIO = new IOContext();
+   * const streamRet = await streamIO.open2('http://example.com/stream.m3u8', AV_IO_FLAG_READ);
+   * FFmpegError.throwIfError(streamRet, 'open2');
    * ```
+   *
+   * @see {@link closep} To close and free resources
    */
   async open2(url: string, flags: AVIOFlag = AV_IO_FLAG_READ): Promise<number> {
     return this.native.open2(url, flags);
@@ -307,10 +365,11 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = await io.closep();
-   * if (ret < 0) {
-   *   console.error('Error closing I/O context');
-   * }
+   * FFmpegError.throwIfError(ret, 'closep');
+   * // I/O context is now closed and freed
    * ```
    */
   async closep(): Promise<number> {
@@ -334,12 +393,14 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { FFmpegError, AVERROR_EOF } from '@seydx/ffmpeg';
+   *
    * const data = await io.read(1024);
    * if (typeof data === 'number' && data < 0) {
    *   if (data === AVERROR_EOF) {
    *     console.log('End of file');
    *   } else {
-   *     throw new FFmpegError(data);
+   *     FFmpegError.throwIfError(data, 'read');
    *   }
    * } else {
    *   // Process buffer
@@ -360,8 +421,11 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { IOContext } from '@seydx/ffmpeg';
+   *
    * const data = Buffer.from('Hello, World!');
    * await io.write(data);
+   * // Data written successfully
    * ```
    *
    * @throws {Error} If write fails
@@ -386,14 +450,18 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { FFmpegError, AV_SEEK_SET, AV_SEEK_END, AVSEEK_SIZE } from '@seydx/ffmpeg';
+   *
    * // Seek to beginning
    * const pos = await io.seek(0n, AV_SEEK_SET);
+   * FFmpegError.throwIfError(pos < 0n ? Number(pos) : 0, 'seek');
    *
    * // Seek to end
-   * await io.seek(0n, AV_SEEK_END);
+   * const endPos = await io.seek(0n, AV_SEEK_END);
+   * FFmpegError.throwIfError(endPos < 0n ? Number(endPos) : 0, 'seek');
    *
    * // Get file size without changing position
-   * const size = await io.seek(0n, AV_SEEK_SIZE);
+   * const size = await io.seek(0n, AVSEEK_SIZE);
    * console.log(`File size: ${size} bytes`);
    * ```
    */
@@ -413,8 +481,11 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const size = await io.size();
    * if (size < 0n) {
+   *   // Handle unsupported or error
    *   console.error('Cannot determine file size');
    * } else {
    *   console.log(`File size: ${size} bytes`);
@@ -432,6 +503,8 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { IOContext } from '@seydx/ffmpeg';
+   *
    * await io.flush();
    * // All buffered data has been written
    * ```
@@ -454,11 +527,12 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Skip 1024 bytes
    * const newPos = await io.skip(1024n);
-   * if (newPos < 0n) {
-   *   throw new FFmpegError(Number(newPos));
-   * }
+   * FFmpegError.throwIfError(newPos < 0n ? Number(newPos) : 0, 'skip');
+   * console.log(`New position: ${newPos}`);
    * ```
    */
   async skip(offset: bigint): Promise<bigint> {
@@ -474,6 +548,8 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { IOContext } from '@seydx/ffmpeg';
+   *
    * const position = io.tell();
    * console.log(`Current position: ${position} bytes`);
    * ```
@@ -502,9 +578,11 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
+   * import { IOContext, AV_IO_FLAG_READ } from '@seydx/ffmpeg';
+   *
    * {
    *   await using io = new IOContext();
-   *   await io.open2('file.mp4', AVIO_FLAG_READ);
+   *   await io.open2('file.mp4', AV_IO_FLAG_READ);
    *   // ... use I/O context
    * } // Automatically closed when leaving scope
    * ```

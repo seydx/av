@@ -514,7 +514,7 @@ describe('FilterContext', () => {
       graph.free();
     });
 
-    it('should get time base from buffersink', () => {
+    it('should get time base from buffersink', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -533,7 +533,7 @@ describe('FilterContext', () => {
       abufferCtx.link(0, abuffersinkCtx, 0);
 
       // Configure the graph
-      const configRet = graph.config();
+      const configRet = await graph.config();
       assert.equal(configRet, 0, 'Should configure graph');
 
       // Get time base from buffersink
@@ -669,7 +669,7 @@ describe('FilterContext', () => {
   });
 
   describe('Frame Operations', () => {
-    it('should add frame to buffer source filter', () => {
+    it('should add frame to buffer source filter', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -687,7 +687,7 @@ describe('FilterContext', () => {
       const linkRet = bufferCtx.link(0, sinkCtx, 0);
       assert.equal(linkRet, 0, 'Should link filters');
 
-      const configRet = graph.config();
+      const configRet = await graph.config();
       assert.equal(configRet, 0, 'Should configure graph');
 
       // Create a frame to add
@@ -700,14 +700,14 @@ describe('FilterContext', () => {
       frame.allocBuffer();
 
       // Add frame to buffer source
-      const ret = bufferCtx.buffersrcAddFrame(frame);
+      const ret = await bufferCtx.buffersrcAddFrame(frame);
       assert.ok(ret >= 0, 'Should add frame successfully');
 
       frame.free();
       graph.free();
     });
 
-    it('should get frame from buffer sink filter', () => {
+    it('should get frame from buffer sink filter', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -725,7 +725,7 @@ describe('FilterContext', () => {
       // Link and configure
       const linkRet = bufferCtx.link(0, sinkCtx, 0);
       assert.equal(linkRet, 0);
-      const configRet = graph.config();
+      const configRet = await graph.config();
       assert.equal(configRet, 0);
 
       // Add a frame
@@ -737,13 +737,13 @@ describe('FilterContext', () => {
       inFrame.pts = 0n;
       inFrame.allocBuffer();
 
-      const addRet = bufferCtx.buffersrcAddFrame(inFrame);
+      const addRet = await bufferCtx.buffersrcAddFrame(inFrame);
       assert.ok(addRet >= 0, 'Should add frame successfully');
 
       // Get frame from sink
       const outFrame = new Frame();
       outFrame.alloc();
-      const getRet = sinkCtx.buffersinkGetFrame(outFrame);
+      const getRet = await sinkCtx.buffersinkGetFrame(outFrame);
       assert.ok(getRet >= 0, 'Should get frame from sink');
       assert.equal(outFrame.width, 320);
       assert.equal(outFrame.height, 240);
@@ -753,7 +753,7 @@ describe('FilterContext', () => {
       graph.free();
     });
 
-    it('should handle audio buffer source and sink', () => {
+    it('should handle audio buffer source and sink', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -771,7 +771,7 @@ describe('FilterContext', () => {
       // Link and configure
       const linkRet = abufferCtx.link(0, abuffersinkCtx, 0);
       assert.equal(linkRet, 0);
-      const configRet = graph.config();
+      const configRet = await graph.config();
       assert.equal(configRet, 0);
 
       // Create audio frame
@@ -789,12 +789,12 @@ describe('FilterContext', () => {
       audioFrame.allocBuffer();
 
       // Add and get audio frame
-      const addRet = abufferCtx.buffersrcAddFrame(audioFrame);
+      const addRet = await abufferCtx.buffersrcAddFrame(audioFrame);
       assert.ok(addRet >= 0, 'Should add audio frame');
 
       const outFrame = new Frame();
       outFrame.alloc();
-      const getRet = abuffersinkCtx.buffersinkGetFrame(outFrame);
+      const getRet = await abuffersinkCtx.buffersinkGetFrame(outFrame);
       assert.ok(getRet >= 0, 'Should get audio frame');
       assert.equal(outFrame.sampleRate, 44100);
       assert.equal(outFrame.nbSamples, 1024);

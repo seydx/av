@@ -4,27 +4,36 @@ import { AV_DICT_NONE, type AVDictFlag } from './constants.js';
 import type { NativeDictionary, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg Dictionary for options and metadata - Low Level API
+ * Dictionary for options and metadata.
+ *
+ * Key-value storage for codec options, format options, and metadata.
+ * Used throughout FFmpeg for configuration and information storage.
+ * Supports parsing from strings and conversion back to strings.
  *
  * Direct mapping to FFmpeg's AVDictionary.
- * Used throughout FFmpeg for codec options, format options, and metadata.
- * User has full control over allocation and lifecycle.
  *
  * @example
  * ```typescript
+ * import { Dictionary, CodecContext, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Using Dictionary for codec options
  * const options = new Dictionary();
- * options.set('preset', 'fast', 0);
- * options.set('crf', '23', 0);
+ * const ret1 = options.set('preset', 'fast', 0);
+ * FFmpegError.throwIfError(ret1, 'set preset');
+ * const ret2 = options.set('crf', '23', 0);
+ * FFmpegError.throwIfError(ret2, 'set crf');
  *
  * const codecContext = new CodecContext();
  * codecContext.allocContext3(codec);
- * await codecContext.open2(codec, options);
+ * const openRet = await codecContext.open2(codec, options);
+ * FFmpegError.throwIfError(openRet, 'open2');
  *
  * // Using Dictionary for format options
  * const formatOptions = new Dictionary();
- * formatOptions.set('movflags', 'faststart', 0);
- * await formatContext.writeHeader(formatOptions);
+ * const ret3 = formatOptions.set('movflags', 'faststart', 0);
+ * FFmpegError.throwIfError(ret3, 'set movflags');
+ * const headerRet = await formatContext.writeHeader(formatOptions);
+ * FFmpegError.throwIfError(headerRet, 'writeHeader');
  *
  * // Reading metadata
  * const metadata = stream.metadata;
@@ -41,9 +50,12 @@ import type { NativeDictionary, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
+ * import { Dictionary, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Parsing options from string
  * const dict = new Dictionary();
- * dict.parseString('bitrate=128k:preset=fast', '=', ':', 0);
+ * const ret = dict.parseString('bitrate=128k:preset=fast', '=', ':', 0);
+ * FFmpegError.throwIfError(ret, 'parseString');
  *
  * // Getting all options as object
  * const allOptions = dict.getAll();
@@ -64,12 +76,17 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Create a new dictionary.
    *
    * The dictionary is uninitialized and will be auto-allocated on first set() call.
+   * No FFmpeg resources are allocated until first use.
+   *
    * Direct wrapper around AVDictionary.
    *
    * @example
    * ```typescript
+   * import { Dictionary, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const dict = new Dictionary();
-   * dict.set('key', 'value', 0); // Auto-allocates on first use
+   * const ret = dict.set('key', 'value', 0); // Auto-allocates on first use
+   * FFmpegError.throwIfError(ret, 'set');
    * ```
    */
   constructor() {
@@ -125,6 +142,9 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   /**
    * Copy entries from this dictionary to destination.
    *
+   * Copies all entries to the destination dictionary.
+   * Destination entries can be preserved or overwritten based on flags.
+   *
    * Direct mapping to av_dict_copy()
    *
    * @param dst - Target dictionary to copy to
@@ -136,18 +156,18 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
+   * import { Dictionary, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const src = new Dictionary();
    * src.set('key1', 'value1');
    * src.set('key2', 'value2');
    *
    * const dst = new Dictionary();
    * const ret = src.copy(dst);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'copy');
    * ```
    *
-   * Common flags:
+   * @note Common flags:
    * - AV_DICT_NONE: Default behavior
    * - AV_DICT_DONT_OVERWRITE: Don't overwrite existing entries
    * - AV_DICT_MULTIKEY: Allow multiple entries with same key
@@ -160,10 +180,12 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
 
   /**
    * Set the given entry in the dictionary.
-   * If key or value are NULL/empty, the entry is deleted.
+   *
+   * Adds or modifies a key-value pair in the dictionary.
+   * If key or value are empty, the entry is deleted.
+   * The dictionary will be auto-allocated on first call if needed.
    *
    * Direct mapping to av_dict_set()
-   * The dictionary will be auto-allocated on first call if needed.
    *
    * @param key - Entry key to add/modify
    * @param value - Entry value to add/modify
@@ -175,14 +197,20 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
-   * dict.set('bitrate', '128k');
-   * dict.set('preset', 'fast', AV_DICT_DONT_OVERWRITE);
+   * import { Dictionary, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_DICT_DONT_OVERWRITE } from '@seydx/ffmpeg/constants';
+   *
+   * const ret1 = dict.set('bitrate', '128k');
+   * FFmpegError.throwIfError(ret1, 'set bitrate');
+   *
+   * const ret2 = dict.set('preset', 'fast', AV_DICT_DONT_OVERWRITE);
+   * FFmpegError.throwIfError(ret2, 'set preset');
    *
    * // Delete an entry
    * dict.set('bitrate', '');
    * ```
    *
-   * Common flags:
+   * @note Common flags:
    * - AV_DICT_NONE: Default behavior (replace existing, copy strings)
    * - AV_DICT_DONT_OVERWRITE: Don't overwrite existing entries
    * - AV_DICT_APPEND: Append to existing value (with comma separator)
@@ -268,8 +296,10 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   /**
    * Parse the key/value pairs from a string.
    *
+   * Parses a formatted string into key-value pairs.
+   * Supports both single and multi-character separators.
+   *
    * Direct mapping to av_dict_parse_string()
-   * FFmpeg allows multi-character separators for parseString.
    *
    * @param str - String to parse (e.g., "key1=value1:key2=value2")
    * @param keyValSep - String separator between key and value (e.g., '=' or ':=')
@@ -283,15 +313,18 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
+   * import { Dictionary, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Parse codec options with single-char separators
    * const ret = dict.parseString('bitrate=128k:preset=fast', '=', ':');
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'parseString');
    *
    * // Parse with multi-char separators
-   * dict.parseString('title:=My Video;;artist:=Me', ':=', ';;');
+   * const ret2 = dict.parseString('title:=My Video;;artist:=Me', ':=', ';;');
+   * FFmpegError.throwIfError(ret2, 'parseString');
    * ```
+   *
+   * @see {@link getString} To convert back to string
    */
   parseString(str: string, keyValSep: string, pairsSep: string, flags: AVDictFlag = AV_DICT_NONE): number {
     return this.native.parseString(str, keyValSep, pairsSep, flags);
@@ -343,12 +376,17 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
+   * import { Dictionary, FFmpegError } from '@seydx/ffmpeg';
+   *
    * {
    *   using dict = new Dictionary();
-   *   dict.set('key', 'value', 0);
+   *   const ret = dict.set('key', 'value', 0);
+   *   FFmpegError.throwIfError(ret, 'set');
    *   // ... use dictionary
    * } // Automatically freed when leaving scope
    * ```
+   *
+   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

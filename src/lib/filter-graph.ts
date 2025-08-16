@@ -7,45 +7,61 @@ import type { Filter } from './filter.js';
 import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg filter graph - Low Level API
+ * Filter graph for media processing.
+ *
+ * Container for filters and their connections in a processing pipeline.
+ * Manages the entire filtering system from sources to sinks.
+ * Supports complex filter chains with multiple inputs and outputs.
  *
  * Direct mapping to FFmpeg's AVFilterGraph.
- * Container for filters and their connections.
- * Manages the entire filtering pipeline from sources to sinks.
  *
  * @example
  * ```typescript
+ * import { FilterGraph, Filter, FilterContext, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Create and configure a simple filter graph
  * const graph = new FilterGraph();
  * graph.alloc();
  *
  * // Create buffer source
+ * const bufferFilter = Filter.getByName('buffer');
+ * if (!bufferFilter) throw new Error('Buffer filter not found');
  * const bufferSrc = graph.createFilter(
- *   Filter.getByName('buffer')!,
+ *   bufferFilter,
  *   'in',
  *   'video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25'
  * );
+ * if (!bufferSrc) throw new Error('Failed to create buffer source');
  *
  * // Create scale filter
+ * const scaleFilter = Filter.getByName('scale');
+ * if (!scaleFilter) throw new Error('Scale filter not found');
  * const scale = graph.createFilter(
- *   Filter.getByName('scale')!,
+ *   scaleFilter,
  *   'scale',
  *   '1280:720'
  * );
+ * if (!scale) throw new Error('Failed to create scale filter');
  *
  * // Create buffer sink
+ * const sinkFilter = Filter.getByName('buffersink');
+ * if (!sinkFilter) throw new Error('Buffersink filter not found');
  * const bufferSink = graph.createFilter(
- *   Filter.getByName('buffersink')!,
+ *   sinkFilter,
  *   'out'
  * );
+ * if (!bufferSink) throw new Error('Failed to create buffer sink');
  *
  * // Link filters
- * bufferSrc!.link(0, scale!, 0);
- * scale!.link(0, bufferSink!, 0);
+ * const linkRet1 = bufferSrc.link(0, scale, 0);
+ * FFmpegError.throwIfError(linkRet1, 'link buffer to scale');
+ *
+ * const linkRet2 = scale.link(0, bufferSink, 0);
+ * FFmpegError.throwIfError(linkRet2, 'link scale to sink');
  *
  * // Configure the graph
- * const ret = graph.config();
- * if (ret < 0) throw new FFmpegError(ret);
+ * const configRet = graph.config();
+ * FFmpegError.throwIfError(configRet, 'config');
  *
  * // Clean up
  * graph.free();
@@ -59,10 +75,14 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * Create a new FilterGraph instance.
    *
    * The graph is uninitialized - you must call alloc() before use.
+   * No FFmpeg resources are allocated until alloc() is called.
+   *
    * Direct wrapper around AVFilterGraph.
    *
    * @example
    * ```typescript
+   * import { FilterGraph } from '@seydx/ffmpeg';
+   *
    * const graph = new FilterGraph();
    * graph.alloc();
    * // Graph is now ready for use
@@ -148,16 +168,23 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   /**
    * Allocate the filter graph.
    *
+   * Allocates the graph structure and initializes it.
+   * Must be called before adding filters to the graph.
+   *
    * Direct mapping to avfilter_graph_alloc()
+   *
+   * @throws {Error} Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { FilterGraph } from '@seydx/ffmpeg';
+   *
    * const graph = new FilterGraph();
    * graph.alloc();
    * // Graph is now allocated and ready
    * ```
    *
-   * @throws {Error} If allocation fails (ENOMEM)
+   * @see {@link free} To free the graph
    */
   alloc(): void {
     this.native.alloc();
@@ -165,6 +192,9 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
 
   /**
    * Free the filter graph.
+   *
+   * Releases all resources associated with the graph.
+   * All filters in the graph are also freed.
    *
    * Direct mapping to avfilter_graph_free()
    *
@@ -228,19 +258,23 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
+   * import { FilterGraph, Filter, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Allocate a filter without initializing
    * const scaleFilter = Filter.getByName('scale');
-   * const scaleCtx = graph.allocFilter(scaleFilter!, 'my_scale');
+   * if (!scaleFilter) throw new Error('Scale filter not found');
+   * const scaleCtx = graph.allocFilter(scaleFilter, 'my_scale');
+   * if (!scaleCtx) throw new Error('Failed to allocate filter');
    *
    * // Set options using setOpt
-   * scaleCtx.setOpt('width', '1280');
-   * scaleCtx.setOpt('height', '720');
+   * const ret1 = scaleCtx.setOpt('width', '1280');
+   * FFmpegError.throwIfError(ret1, 'setOpt width');
+   * const ret2 = scaleCtx.setOpt('height', '720');
+   * FFmpegError.throwIfError(ret2, 'setOpt height');
    *
    * // Initialize the filter
-   * const ret = scaleCtx.init();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * const initRet = scaleCtx.init();
+   * FFmpegError.throwIfError(initRet, 'init');
    * ```
    *
    * @note This provides an alternative workflow to createFilter,
@@ -286,17 +320,17 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
+   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // After creating and linking all filters
    * const ret = graph.config();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'config');
    * // Graph is now ready for processing
    * ```
    *
    * @note Must be called after all filters are added and connected.
    */
-  config(): number {
+  async config(): Promise<number> {
     return this.native.config();
   }
 
@@ -317,6 +351,8 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
+   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const inputs = new FilterInOut();
    * inputs.alloc();
    * inputs.name = 'in';
@@ -330,9 +366,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * outputs.padIdx = 0;
    *
    * const ret = graph.parse('[in] scale=1280:720 [out]', inputs, outputs);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'parse');
    * ```
    */
   parse(filters: string, inputs: FilterInOut | null, outputs: FilterInOut | null): number {
@@ -354,11 +388,11 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
+   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Parse a simple filter chain
    * const ret = graph.parse2('scale=1280:720,format=yuv420p');
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'parse2');
    * ```
    *
    * @note Automatically handles inputs and outputs.
@@ -384,17 +418,19 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
+   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Parse a complex filter graph
    * const ret = graph.parsePtr(
    *   '[0:v] scale=1280:720 [scaled]; [scaled] split [out1][out2]'
    * );
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'parsePtr');
    * ```
    *
    * @example
    * ```typescript
+   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Parse with explicit inputs/outputs
    * const inputs = new FilterInOut();
    * inputs.name = 'in';
@@ -407,9 +443,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * outputs.padIdx = 0;
    *
    * const ret = graph.parsePtr(filtersDescr, inputs, outputs);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'parsePtr');
    * ```
    *
    * @note Similar to parse2 but with different internal handling.
@@ -456,14 +490,17 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
+   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/ffmpeg/constants';
+   *
    * // Pull frames from the graph
    * while (true) {
-   *   const ret = graph.requestOldest();
-   *   if (ret === AVERROR_EOF) {
+   *   const ret = await graph.requestOldest();
+   *   if (FFmpegError.is(ret, AVERROR_EOF)) {
    *     break; // No more frames
    *   }
-   *   if (ret < 0 && ret !== AVERROR_EAGAIN) {
-   *     throw new FFmpegError(ret);
+   *   if (ret < 0 && !FFmpegError.is(ret, AVERROR_EAGAIN)) {
+   *     FFmpegError.throwIfError(ret, 'requestOldest');
    *   }
    *   // Process output from sinks
    * }
@@ -471,7 +508,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @note Triggers processing in the graph to produce output.
    */
-  requestOldest(): number {
+  async requestOldest(): Promise<number> {
     return this.native.requestOldest();
   }
 

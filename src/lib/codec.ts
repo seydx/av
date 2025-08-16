@@ -6,14 +6,19 @@ import type { NativeCodec, NativeWrapper } from './native-types.js';
 import type { ChannelLayout, CodecProfile } from './types.js';
 
 /**
- * FFmpeg codec (encoder/decoder) definition - Low Level API
+ * Codec (encoder/decoder) definition.
+ *
+ * Represents a codec implementation for encoding or decoding media.
+ * Provides codec information, capabilities, and supported formats.
+ * This is an immutable descriptor - actual encoding/decoding happens via CodecContext.
  *
  * Direct mapping to FFmpeg's AVCodec.
- * Represents a codec implementation (encoder or decoder).
- * This is an immutable descriptor - actual encoding/decoding happens via CodecContext.
  *
  * @example
  * ```typescript
+ * import { Codec } from '@seydx/ffmpeg';
+ * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+ *
  * // Find decoder by ID
  * const h264Decoder = Codec.findDecoder(AV_CODEC_ID_H264);
  * if (!h264Decoder) throw new Error('H264 decoder not found');
@@ -48,11 +53,19 @@ export class Codec implements NativeWrapper<NativeCodec> {
   // Constructor
   /**
    * Constructor is internal - use static factory methods.
+   *
    * Codecs are global immutable objects managed by FFmpeg.
+   * Use the static find methods to obtain codec instances.
+   *
    * @internal
+   *
+   * @param native - Native AVCodec to wrap
    *
    * @example
    * ```typescript
+   * import { Codec } from '@seydx/ffmpeg';
+   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   *
    * // Don't use constructor directly
    * // const codec = new Codec(); // ❌ Wrong
    *
@@ -79,18 +92,27 @@ export class Codec implements NativeWrapper<NativeCodec> {
   /**
    * Find a registered decoder with a matching codec ID.
    *
+   * Searches for a decoder that can decode the specified codec format.
+   *
    * Direct mapping to avcodec_find_decoder()
    *
    * @param id - AVCodecID of the requested decoder
+   *
    * @returns Codec object or null if no decoder found
    *
    * @example
    * ```typescript
+   * import { Codec } from '@seydx/ffmpeg';
+   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   *
    * const decoder = Codec.findDecoder(AV_CODEC_ID_H264);
    * if (!decoder) {
    *   throw new Error('H.264 decoder not available');
    * }
    * ```
+   *
+   * @see {@link findDecoderByName} To find by name
+   * @see {@link findEncoder} To find encoder
    */
   static findDecoder(id: AVCodecID): Codec | null {
     const native = bindings.Codec.findDecoder(id);
@@ -100,17 +122,25 @@ export class Codec implements NativeWrapper<NativeCodec> {
   /**
    * Find a registered decoder with the specified name.
    *
+   * Searches for a decoder by its exact name.
+   * Useful for selecting specific decoder implementations.
+   *
    * Direct mapping to avcodec_find_decoder_by_name()
    *
    * @param name - Name of the requested decoder
+   *
    * @returns Codec object or null if no decoder found
    *
    * @example
    * ```typescript
+   * import { Codec } from '@seydx/ffmpeg';
+   *
    * const decoder = Codec.findDecoderByName('h264');
    * // Can also use specific implementations:
-   * const decoder = Codec.findDecoderByName('h264_cuvid'); // NVIDIA hardware decoder
+   * const cudaDecoder = Codec.findDecoderByName('h264_cuvid'); // NVIDIA hardware decoder
    * ```
+   *
+   * @see {@link findDecoder} To find by codec ID
    */
   static findDecoderByName(name: string): Codec | null {
     const native = bindings.Codec.findDecoderByName(name);
@@ -120,18 +150,27 @@ export class Codec implements NativeWrapper<NativeCodec> {
   /**
    * Find a registered encoder with a matching codec ID.
    *
+   * Searches for an encoder that can encode to the specified codec format.
+   *
    * Direct mapping to avcodec_find_encoder()
    *
    * @param id - AVCodecID of the requested encoder
+   *
    * @returns Codec object or null if no encoder found
    *
    * @example
    * ```typescript
+   * import { Codec } from '@seydx/ffmpeg';
+   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   *
    * const encoder = Codec.findEncoder(AV_CODEC_ID_H264);
    * if (!encoder) {
    *   throw new Error('H.264 encoder not available');
    * }
    * ```
+   *
+   * @see {@link findEncoderByName} To find by name
+   * @see {@link findDecoder} To find decoder
    */
   static findEncoder(id: AVCodecID): Codec | null {
     const native = bindings.Codec.findEncoder(id);
@@ -141,18 +180,26 @@ export class Codec implements NativeWrapper<NativeCodec> {
   /**
    * Find a registered encoder with the specified name.
    *
+   * Searches for an encoder by its exact name.
+   * Useful for selecting specific encoder implementations.
+   *
    * Direct mapping to avcodec_find_encoder_by_name()
    *
    * @param name - Name of the requested encoder
+   *
    * @returns Codec object or null if no encoder found
    *
    * @example
    * ```typescript
+   * import { Codec } from '@seydx/ffmpeg';
+   *
    * // Find specific encoder implementation
-   * const encoder = Codec.findEncoderByName('libx264');    // Software H.264 encoder
-   * const encoder = Codec.findEncoderByName('h264_nvenc'); // NVIDIA hardware encoder
-   * const encoder = Codec.findEncoderByName('h264_vaapi'); // VAAPI hardware encoder
+   * const x264 = Codec.findEncoderByName('libx264');    // Software H.264 encoder
+   * const nvenc = Codec.findEncoderByName('h264_nvenc'); // NVIDIA hardware encoder
+   * const vaapi = Codec.findEncoderByName('h264_vaapi'); // VAAPI hardware encoder
    * ```
+   *
+   * @see {@link findEncoder} To find by codec ID
    */
   static findEncoderByName(name: string): Codec | null {
     const native = bindings.Codec.findEncoderByName(name);
@@ -162,12 +209,16 @@ export class Codec implements NativeWrapper<NativeCodec> {
   /**
    * Get list of all available codecs.
    *
+   * Returns all registered codecs in the system.
    * Internally uses av_codec_iterate() to collect all codecs.
    *
    * @returns Array of all registered codecs
    *
    * @example
    * ```typescript
+   * import { Codec } from '@seydx/ffmpeg';
+   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/ffmpeg/constants';
+   *
    * const codecs = Codec.getCodecList();
    * const videoEncoders = codecs.filter(c =>
    *   c.type === AVMEDIA_TYPE_VIDEO && c.isEncoder()
@@ -178,7 +229,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * @note This loads all codecs at once. For large codec lists,
    *       consider using iterateCodecs() instead.
    *
-   * @see iterateCodecs() - For memory-efficient iteration
+   * @see {@link iterateCodecs} For memory-efficient iteration
    */
   static getCodecList(): Codec[] {
     const natives = bindings.Codec.getCodecList();
@@ -187,15 +238,21 @@ export class Codec implements NativeWrapper<NativeCodec> {
 
   /**
    * Iterate through codecs one by one.
-   * More memory efficient than getCodecList() for large codec lists.
+   *
+   * Memory-efficient codec iteration.
+   * Processes codecs one at a time instead of loading all at once.
    *
    * Direct mapping to av_codec_iterate()
    *
    * @param opaque - Iterator state (null to start, or value from previous call)
+   *
    * @returns Object with codec and next iterator state, or null when done
    *
    * @example
    * ```typescript
+   * import { Codec } from '@seydx/ffmpeg';
+   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/ffmpeg/constants';
+   *
    * let opaque = null;
    * while (true) {
    *   const result = Codec.iterateCodecs(opaque);
@@ -210,7 +267,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * }
    * ```
    *
-   * @see getCodecList() - To get all codecs at once
+   * @see {@link getCodecList} To get all codecs at once
    */
   static iterateCodecs(opaque: bigint | null = null): { codec: Codec; opaque: bigint } | null {
     const result = bindings.Codec.iterateCodecs(opaque);

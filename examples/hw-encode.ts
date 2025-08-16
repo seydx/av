@@ -7,7 +7,7 @@
  * and write the H.264/H.265 encoded data to an output file.
  *
  * Usage: hw-encode.ts <device type> <codec> <width> <height> <input file> <output file>
- * Example: tsx examples/hw-encode.ts videotoolbox h264 1920 1080 input.yuv output.h264
+ * Example: tsx examples/hw-encode.ts videotoolbox h264 1920 1080 testdata/input.yuv examples/.tmp/hw_encode.h264
  */
 
 import fs from 'node:fs';
@@ -309,7 +309,7 @@ async function main(): Promise<number> {
 
       // Transfer data from software to hardware frame
       // For encoding, we upload from software to hardware
-      const transferRet = avctx.hwFramesCtx!.transferData(hwFrame, swFrame, 0);
+      const transferRet = await avctx.hwFramesCtx!.transferData(hwFrame, swFrame, 0);
       if (transferRet < 0) {
         console.error(`Error transferring frame data: ${new FFmpegError(transferRet).message}`);
         hwFrame.free();

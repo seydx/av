@@ -279,7 +279,7 @@ describe('FilterGraph', () => {
   });
 
   describe('Graph Configuration', () => {
-    it('should configure a simple graph', () => {
+    it('should configure a simple graph', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -299,13 +299,13 @@ describe('FilterGraph', () => {
       assert.equal(linkRet, 0, 'Should link successfully');
 
       // Configure graph
-      const ret = graph.config();
+      const ret = await graph.config();
       assert.equal(ret, 0, 'Should configure successfully');
 
       graph.free();
     });
 
-    it('should configure a chain of filters', () => {
+    it('should configure a chain of filters', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -332,7 +332,7 @@ describe('FilterGraph', () => {
       contexts.scale!.link(0, contexts.crop!, 0);
       contexts.crop!.link(0, contexts.sink!, 0);
 
-      const ret = graph.config();
+      const ret = await graph.config();
       assert.equal(ret, 0, 'Should configure filter chain');
 
       graph.free();
@@ -362,7 +362,7 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should handle invalid graph configuration', () => {
+    it('should handle invalid graph configuration', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -373,7 +373,7 @@ describe('FilterGraph', () => {
       graph.createFilter(filter, 'scale', '640:480');
 
       // Try to configure incomplete graph
-      const ret = graph.config();
+      const ret = await graph.config();
       // Should fail because scale filter has unconnected inputs/outputs
       assert.ok(ret < 0, 'Should fail to configure incomplete graph');
 
@@ -522,7 +522,7 @@ describe('FilterGraph', () => {
   });
 
   describe('Graph Processing', () => {
-    it('should request oldest frame', () => {
+    it('should request oldest frame', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -538,10 +538,10 @@ describe('FilterGraph', () => {
       assert.ok(sink);
 
       src.link(0, sink, 0);
-      graph.config();
+      await graph.config();
 
       // Request oldest frame (will likely return EAGAIN without input)
-      const ret = graph.requestOldest();
+      const ret = await graph.requestOldest();
       assert.equal(typeof ret, 'number', 'Should return status code');
 
       graph.free();
@@ -585,7 +585,7 @@ describe('FilterGraph', () => {
   });
 
   describe('Complex Graphs', () => {
-    it('should create a video processing pipeline', () => {
+    it('should create a video processing pipeline', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -616,7 +616,7 @@ describe('FilterGraph', () => {
       contexts.hflip!.link(0, contexts.vflip!, 0);
       contexts.vflip!.link(0, contexts.sink!, 0);
 
-      const ret = graph.config();
+      const ret = await graph.config();
       assert.equal(ret, 0, 'Should configure video pipeline');
 
       assert.equal(graph.nbFilters, 5, 'Should have 5 filters');
@@ -624,7 +624,7 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should create an audio processing pipeline', () => {
+    it('should create an audio processing pipeline', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -655,7 +655,7 @@ describe('FilterGraph', () => {
       contexts.atempo!.link(0, contexts.aformat!, 0);
       contexts.aformat!.link(0, contexts.abuffersink!, 0);
 
-      const ret = graph.config();
+      const ret = await graph.config();
       assert.equal(ret, 0, 'Should configure audio pipeline');
 
       // FFmpeg may add automatic conversion filters during config
@@ -664,7 +664,7 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should handle parallel processing paths', () => {
+    it('should handle parallel processing paths', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -705,7 +705,7 @@ describe('FilterGraph', () => {
       contexts.scale1!.link(0, contexts.sink1!, 0);
       contexts.scale2!.link(0, contexts.sink2!, 0);
 
-      const ret = graph.config();
+      const ret = await graph.config();
       assert.equal(ret, 0, 'Should configure parallel paths');
 
       assert.equal(graph.nbFilters, 6, 'Should have 6 filters');
@@ -715,14 +715,14 @@ describe('FilterGraph', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty graph', () => {
+    it('should handle empty graph', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
       assert.equal(graph.nbFilters, 0, 'Empty graph should have no filters');
       assert.ok(graph.filters === null || graph.filters?.length === 0, 'Should have empty filters array');
 
-      const ret = graph.config();
+      const ret = await graph.config();
       // Empty graph might configure successfully or return error
       assert.equal(typeof ret, 'number', 'Should return status code');
 

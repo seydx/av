@@ -6,14 +6,20 @@ import type { NativeSoftwareResampleContext, NativeWrapper } from './native-type
 import type { ChannelLayout } from './types.js';
 
 /**
- * FFmpeg software resampling context - Low Level API
+ * Software audio resampling context.
+ *
+ * Provides high-quality audio resampling, format conversion, and channel mixing.
+ * Supports sample rate conversion, channel layout remapping, and sample format conversion.
+ * Uses the libswresample library for efficient audio processing.
  *
  * Direct mapping to FFmpeg's SwrContext.
- * User has full control over allocation, configuration and lifecycle.
  *
  * @example
  * ```typescript
- * // Create and configure resample context - full control
+ * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+ *
+ * // Create and configure resample context
  * const swr = new SoftwareResampleContext();
  * const ret = swr.allocSetOpts2(
  *   { order: 0, nbChannels: 2, mask: 0x3 }, // stereo out
@@ -23,14 +29,15 @@ import type { ChannelLayout } from './types.js';
  *   AV_SAMPLE_FMT_FLTP,
  *   48000
  * );
- * if (ret < 0) throw new FFmpegError(ret);
+ * FFmpegError.throwIfError(ret, 'allocSetOpts2');
  *
  * // Initialize
  * const initRet = swr.init();
- * if (initRet < 0) throw new FFmpegError(initRet);
+ * FFmpegError.throwIfError(initRet, 'init');
  *
  * // Convert audio
- * const samplesOut = swr.convert(outBuffers, outSamples, inBuffers, inSamples);
+ * const samplesOut = await swr.convert(outBuffers, outSamples, inBuffers, inSamples);
+ * FFmpegError.throwIfError(samplesOut, 'convert');
  *
  * // Cleanup
  * swr.free();
@@ -44,16 +51,27 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    * Create a new software resample context.
    *
    * The context is uninitialized - you must call alloc() or allocSetOpts2() before use.
+   * No FFmpeg resources are allocated until initialization.
+   *
    * Direct wrapper around SwrContext.
    *
    * @example
    * ```typescript
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+   *
    * const swr = new SoftwareResampleContext();
-   * swr.allocSetOpts2(
-   *   stereoLayout, AV_SAMPLE_FMT_S16, 44100,
-   *   surroundLayout, AV_SAMPLE_FMT_FLTP, 48000
+   * const ret = swr.allocSetOpts2(
+   *   { order: 0, nbChannels: 2, mask: 0x3 },
+   *   AV_SAMPLE_FMT_S16,
+   *   44100,
+   *   { order: 0, nbChannels: 6, mask: 0x3f },
+   *   AV_SAMPLE_FMT_FLTP,
+   *   48000
    * );
-   * swr.init();
+   * FFmpegError.throwIfError(ret, 'allocSetOpts2');
+   * const initRet = swr.init();
+   * FFmpegError.throwIfError(initRet, 'init');
    * ```
    */
   constructor() {
@@ -65,18 +83,26 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Allocate SwrContext.
    *
+   * Allocates an uninitialized resample context.
+   * Options must be set through the AVOptions API before calling init().
+   *
    * Direct mapping to swr_alloc()
    *
-   * If you use this function you will need to set options through the
-   * AVOptions API before calling swr_init().
+   * @throws {Error} Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const swr = new SoftwareResampleContext();
    * swr.alloc();
    * // Set options via AVOptions API
-   * swr.init();
+   * const ret = swr.init();
+   * FFmpegError.throwIfError(ret, 'init');
    * ```
+   *
+   * @see {@link allocSetOpts2} For one-step configuration
+   * @see {@link init} To initialize after configuration
    */
   alloc(): void {
     this.native.alloc();
@@ -85,11 +111,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Allocate SwrContext if needed and set/reset common parameters.
    *
-   * Direct mapping to swr_alloc_set_opts2()
+   * One-step allocation and configuration of the resample context.
+   * Automatically allocates the context if not already allocated.
    *
-   * This function does not require swr to be allocated with swr_alloc(). On the
-   * other hand, swr_alloc() can use swr_alloc_set_opts2() to set the parameters
-   * on the allocated context.
+   * Direct mapping to swr_alloc_set_opts2()
    *
    * @param outChLayout - Output channel layout
    * @param outSampleFmt - Output sample format
@@ -105,6 +130,9 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+   *
    * const ret = swr.allocSetOpts2(
    *   { order: 0, nbChannels: 2, mask: 0x3 }, // stereo
    *   AV_SAMPLE_FMT_S16,
@@ -113,8 +141,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *   AV_SAMPLE_FMT_FLTP,
    *   48000
    * );
-   * if (ret < 0) throw new FFmpegError(ret);
+   * FFmpegError.throwIfError(ret, 'allocSetOpts2');
    * ```
+   *
+   * @see {@link init} To initialize after configuration
    */
   allocSetOpts2(
     outChLayout: ChannelLayout,
@@ -130,9 +160,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Initialize context after user parameters have been set.
    *
-   * Direct mapping to swr_init()
+   * Completes initialization of the resample context.
+   * Must be called after configuration and before conversion.
    *
-   * The context must be configured using the AVOption API.
+   * Direct mapping to swr_init()
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
@@ -141,11 +172,14 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = swr.init();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'init');
    * ```
+   *
+   * @see {@link allocSetOpts2} For configuration
+   * @see {@link convert} For audio conversion
    */
   init(): number {
     return this.native.init();
@@ -192,6 +226,9 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Convert audio.
    *
+   * Converts audio between different formats, sample rates, and channel layouts.
+   * Handles buffering internally when output space is insufficient.
+   *
    * Direct mapping to swr_convert()
    *
    * @param outBuffer - Output buffers, only the first one need be set in case of packed audio
@@ -206,52 +243,40 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * const samplesOut = swr.convert(
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
+   * const samplesOut = await swr.convert(
    *   outBuffers,
    *   outSamples,
    *   inBuffers,
    *   inSamples
    * );
-   * if (samplesOut < 0) {
-   *   throw new FFmpegError(samplesOut);
-   * }
+   * FFmpegError.throwIfError(samplesOut, 'convert');
+   * console.log(`Converted ${samplesOut} samples per channel`);
    * ```
+   *
+   * @see {@link getOutSamples} To calculate required output space
+   * @see {@link convertFrame} For frame-based conversion
    *
    * @note If more input is provided than output space, then the input will be buffered.
    * You can avoid this buffering by using swr_get_out_samples() to retrieve an
    * upper bound on the required number of output samples for the given number of
    * input samples. Conversion will run directly without copying whenever possible.
    */
-  convert(outBuffer: Buffer[] | null, outCount: number, inBuffer: Buffer[] | null, inCount: number): number {
+  async convert(outBuffer: Buffer[] | null, outCount: number, inBuffer: Buffer[] | null, inCount: number): Promise<number> {
     return this.native.convert(outBuffer, outCount, inBuffer, inCount);
   }
 
   /**
    * Convert the samples in the input AVFrame and write them to the output AVFrame.
    *
+   * Frame-based audio conversion with automatic buffer management.
+   * Handles format, sample rate, and channel layout conversion.
+   *
    * Direct mapping to swr_convert_frame()
    *
-   * Input and output AVFrames must have channel_layout, sample_rate and format set.
-   *
-   * If the output AVFrame does not have the data pointers allocated the nb_samples
-   * field will be set using av_frame_get_buffer() is called to allocate the frame.
-   *
-   * The output AVFrame can be NULL or have fewer allocated samples than required.
-   * In this case, any remaining samples not written to the output will be added
-   * to an internal FIFO buffer, to be returned at the next call to this function
-   * or to swr_convert().
-   *
-   * If converting sample rate, there may be data remaining in the internal
-   * resampling delay buffer. swr_get_delay() tells the number of
-   * remaining samples. To get this data as output, call this function or
-   * swr_convert() with NULL input.
-   *
-   * If the SwrContext configuration does not match the output and
-   * input AVFrame settings the conversion does not take place and depending on
-   * which AV_FRAME_CONFIG_CHANGE_* flags are set, the error code is returned.
-   *
-   * @param outFrame - Output AVFrame
-   * @param inFrame - Input AVFrame
+   * @param outFrame - Output AVFrame (can be null for flushing)
+   * @param inFrame - Input AVFrame (can be null for draining)
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
@@ -261,27 +286,37 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = swr.convertFrame(outFrame, inFrame);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'convertFrame');
+   *
+   * // Flush remaining samples
+   * const flushRet = swr.convertFrame(outFrame, null);
+   * FFmpegError.throwIfError(flushRet, 'flush');
    * ```
+   *
+   * @see {@link convert} For buffer-based conversion
+   * @see {@link getDelay} To check buffered samples
+   *
+   * @note Input and output AVFrames must have channel_layout, sample_rate and format set.
+   * If the output AVFrame does not have the data pointers allocated the nb_samples
+   * field will be set and av_frame_get_buffer() is called to allocate the frame.
    */
   convertFrame(outFrame: Frame | null, inFrame: Frame | null): number {
     return this.native.convertFrame(outFrame?.getNative() ?? null, inFrame?.getNative() ?? null);
   }
 
   /**
-   * Configure or reconfigure the SwrContext using the information
-   * provided by the AVFrames.
+   * Configure or reconfigure the SwrContext using the information provided by the AVFrames.
+   *
+   * Automatically configures the resample context from frame parameters.
+   * Resets the context even on failure and calls close() internally if open.
    *
    * Direct mapping to swr_config_frame()
    *
-   * The original resampling context is reset even on failure.
-   * The function calls swr_close() internally if the context is open.
-   *
-   * @param outFrame - Output AVFrame
-   * @param inFrame - Input AVFrame
+   * @param outFrame - Output AVFrame (provides output parameters)
+   * @param inFrame - Input AVFrame (provides input parameters)
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
@@ -291,12 +326,15 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = swr.configFrame(outFrame, inFrame);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
-   * swr.init();
+   * FFmpegError.throwIfError(ret, 'configFrame');
+   * const initRet = swr.init();
+   * FFmpegError.throwIfError(initRet, 'init');
    * ```
+   *
+   * @see {@link init} Must be called after configuration
    */
   configFrame(outFrame: Frame | null, inFrame: Frame | null): number {
     return this.native.configFrame(outFrame?.getNative() ?? null, inFrame?.getNative() ?? null);
@@ -307,15 +345,20 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Check whether an swr context has been initialized or not.
    *
+   * Checks if the context is ready for audio conversion.
+   *
    * Direct mapping to swr_is_initialized()
    *
-   * @returns positive if it has been initialized, 0 if not initialized
+   * @returns True if initialized, false otherwise
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * if (swr.isInitialized()) {
    *   // Context is ready for conversion
-   *   swr.convert(outBuf, outCount, inBuf, inCount);
+   *   const ret = await swr.convert(outBuf, outCount, inBuf, inCount);
+   *   FFmpegError.throwIfError(ret, 'convert');
    * }
    * ```
    */
@@ -326,22 +369,17 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Gets the delay the next input sample will experience relative to the next output sample.
    *
+   * Returns the total buffering delay in the resample context.
+   * Accounts for both buffered data and sample rate conversion delays.
+   *
    * Direct mapping to swr_get_delay()
    *
-   * SwrContext can buffer data if more input has been provided than available
-   * output space, also converting between sample rates needs a delay.
-   * This function returns the sum of all such delays.
-   * The exact delay is not necessarily an integer value in either input or
-   * output sample rate. Especially when downsampling by a large value, the
-   * output sample rate may be a poor choice to represent the delay, similarly
-   * for upsampling and the input sample rate.
-   *
    * @param base - Timebase in which the returned delay will be:
-   *   - if it's set to 1 the returned delay is in seconds
-   *   - if it's set to 1000 the returned delay is in milliseconds
-   *   - if it's set to the input sample rate then the returned delay is in input samples
-   *   - if it's set to the output sample rate then the returned delay is in output samples
-   *   - if it's the least common multiple of in_sample_rate and out_sample_rate then an exact rounding-free delay will be returned
+   *   - 1: delay in seconds
+   *   - 1000: delay in milliseconds
+   *   - input sample rate: delay in input samples
+   *   - output sample rate: delay in output samples
+   *   - LCM of rates: exact rounding-free delay
    *
    * @returns The delay in 1 / base units
    *
@@ -349,24 +387,26 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    * ```typescript
    * // Get delay in milliseconds
    * const delayMs = swr.getDelay(1000n);
+   * console.log(`Buffered: ${delayMs}ms`);
    *
    * // Get delay in output samples
    * const delaySamples = swr.getDelay(BigInt(outputSampleRate));
+   * console.log(`Buffered: ${delaySamples} samples`);
    * ```
+   *
+   * @see {@link getOutSamples} To calculate output buffer size
    */
   getDelay(base: bigint): bigint {
     return this.native.getDelay(base);
   }
 
   /**
-   * Find an upper bound on the number of samples that the next swr_convert
-   * call will output, if called with in_samples of input samples.
+   * Find an upper bound on the number of samples that the next swr_convert will output.
+   *
+   * Calculates maximum output samples for given input samples.
+   * Accounts for buffered data and sample rate conversion.
    *
    * Direct mapping to swr_get_out_samples()
-   *
-   * This depends on the internal state, and anything changing the internal state
-   * (like further swr_convert() calls) will may change the number of samples
-   * swr_get_out_samples() returns for the same number of input samples.
    *
    * @param inSamples - Number of input samples
    *
@@ -377,20 +417,28 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const outSamples = swr.getOutSamples(inSamples);
-   * if (outSamples < 0) {
-   *   throw new FFmpegError(outSamples);
-   * }
-   * // Allocate output buffer based on outSamples
+   * FFmpegError.throwIfError(outSamples, 'getOutSamples');
+   * // Allocate output buffer for outSamples samples
+   * const bufferSize = outSamples * bytesPerSample * channels;
    * ```
+   *
+   * @see {@link convert} For actual conversion
+   *
+   * @note This depends on the internal state, and anything changing the internal state
+   * (like further swr_convert() calls) may change the number of samples returned.
    */
   getOutSamples(inSamples: number): number {
     return this.native.getOutSamples(inSamples);
   }
 
   /**
-   * Convert the next timestamp from input to output
-   * timestamps are in 1/(in_sample_rate * out_sample_rate) units.
+   * Convert the next timestamp from input to output.
+   *
+   * Converts timestamps accounting for sample rate conversion.
+   * Timestamps are in 1/(in_sample_rate * out_sample_rate) units.
    *
    * Direct mapping to swr_next_pts()
    *
@@ -401,8 +449,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    * @example
    * ```typescript
    * const outPts = swr.nextPts(inPts);
-   * // Use outPts for the output frame
+   * outFrame.pts = outPts;
    * ```
+   *
+   * @see {@link setCompensation} For timestamp compensation
    */
   nextPts(pts: bigint): bigint {
     return this.native.nextPts(pts);
@@ -413,9 +463,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Activate resampling compensation ("soft" compensation).
    *
-   * Direct mapping to swr_set_compensation()
+   * Adjusts resampling to compensate for timestamp drift.
+   * Automatically called by nextPts() when needed.
    *
-   * This function is internally called when needed in swr_next_pts().
+   * Direct mapping to swr_set_compensation()
    *
    * @param sampleDelta - Delta in PTS per sample
    * @param compensationDistance - Number of samples to compensate for
@@ -428,11 +479,13 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = swr.setCompensation(delta, distance);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'setCompensation');
    * ```
+   *
+   * @see {@link nextPts} For automatic compensation
    */
   setCompensation(sampleDelta: number, compensationDistance: number): number {
     return this.native.setCompensation(sampleDelta, compensationDistance);
@@ -440,6 +493,9 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
 
   /**
    * Set a customized input channel mapping.
+   *
+   * Remaps input channels to output channels.
+   * Use -1 to mute a channel.
    *
    * Direct mapping to swr_set_channel_mapping()
    *
@@ -452,12 +508,14 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Map channels: 0->0, 1->1, mute channel 2
    * const ret = swr.setChannelMapping([0, 1, -1]);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'setChannelMapping');
    * ```
+   *
+   * @see {@link setMatrix} For custom mixing matrix
    */
   setChannelMapping(channelMap: number[]): number {
     return this.native.setChannelMapping(channelMap);
@@ -466,9 +524,12 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Set a customized remix matrix.
    *
+   * Sets custom coefficients for channel mixing.
+   * matrix[i + stride * o] is the weight of input channel i in output channel o.
+   *
    * Direct mapping to swr_set_matrix()
    *
-   * @param matrix - Remix coefficients; matrix[i + stride * o] is the weight of input channel i in output channel o
+   * @param matrix - Remix coefficients
    * @param stride - Offset between lines of the matrix
    *
    * @returns 0 on success, negative AVERROR on error:
@@ -478,13 +539,15 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Set custom mix matrix for stereo to mono
    * const matrix = [0.5, 0.5]; // Mix both channels equally
    * const ret = swr.setMatrix(matrix, 1);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'setMatrix');
    * ```
+   *
+   * @see {@link setChannelMapping} For channel remapping
    */
   setMatrix(matrix: number[], stride: number): number {
     return this.native.setMatrix(matrix, stride);
@@ -493,10 +556,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Drops the specified number of output samples.
    *
-   * Direct mapping to swr_drop_output()
+   * Discards output samples for "hard" timestamp compensation.
+   * Automatically called by nextPts() when needed.
    *
-   * This function, along with swr_inject_silence(), is called by swr_next_pts()
-   * if needed for "hard" compensation.
+   * Direct mapping to swr_drop_output()
    *
    * @param count - Number of samples to be dropped
    *
@@ -507,11 +570,14 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = swr.dropOutput(100);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'dropOutput');
    * ```
+   *
+   * @see {@link injectSilence} For adding silence
+   * @see {@link nextPts} For automatic compensation
    */
   dropOutput(count: number): number {
     return this.native.dropOutput(count);
@@ -520,10 +586,10 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   /**
    * Injects the specified number of silence samples.
    *
-   * Direct mapping to swr_inject_silence()
+   * Inserts silent samples for "hard" timestamp compensation.
+   * Automatically called by nextPts() when needed.
    *
-   * This function, along with swr_drop_output(), is called by swr_next_pts()
-   * if needed for "hard" compensation.
+   * Direct mapping to swr_inject_silence()
    *
    * @param count - Number of samples to be injected
    *
@@ -534,11 +600,14 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = swr.injectSilence(100);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'injectSilence');
    * ```
+   *
+   * @see {@link dropOutput} For dropping samples
+   * @see {@link nextPts} For automatic compensation
    */
   injectSilence(count: number): number {
     return this.native.injectSilence(count);
@@ -564,13 +633,19 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * {
    *   using swr = new SoftwareResampleContext();
-   *   swr.allocSetOpts2(...);
-   *   swr.init();
+   *   const ret = swr.allocSetOpts2(...);
+   *   FFmpegError.throwIfError(ret, 'allocSetOpts2');
+   *   const initRet = swr.init();
+   *   FFmpegError.throwIfError(initRet, 'init');
    *   // ... use context
    * } // Automatically freed when leaving scope
    * ```
+   *
+   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

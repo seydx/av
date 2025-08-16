@@ -98,7 +98,7 @@ async function openInputFile(filename: string): Promise<void> {
 /**
  * Initialize the filter graph
  */
-function initFilters(filtersDescr: string): void {
+async function initFilters(filtersDescr: string): Promise<void> {
   // Get filter definitions
   const abuffersrc = Filter.getByName('abuffer');
   const abuffersink = Filter.getByName('abuffersink');
@@ -186,7 +186,7 @@ function initFilters(filtersDescr: string): void {
   FFmpegError.throwIfError(ret, `Cannot parse filter graph: ${new FFmpegError(ret).message}`);
 
   // Configure the graph
-  ret = filterGraph.config();
+  ret = await filterGraph.config();
   FFmpegError.throwIfError(ret, `Cannot configure filter graph: ${new FFmpegError(ret).message}`);
 
   // FilterInOut structures are consumed by parsePtr, no need to free them
@@ -223,7 +223,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
     await openInputFile(inputFile);
 
     // Initialize filters
-    initFilters(FILTER_DESCR);
+    await initFilters(FILTER_DESCR);
 
     // Allocate frames and packet
     const packet = new Packet();
@@ -250,10 +250,10 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
               if (decRet < 0) break;
 
               // Push to filter graph
-              if (buffersrcCtx!.buffersrcAddFrame(frame) >= 0) {
+              if ((await buffersrcCtx!.buffersrcAddFrame(frame)) >= 0) {
                 // Pull filtered frames
                 while (true) {
-                  const filtRet = buffersinkCtx!.buffersinkGetFrame(filtFrame);
+                  const filtRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
                   if (filtRet < 0) break;
                   printFrame(filtFrame, outputStream);
                   filtFrame.unref();
@@ -263,11 +263,11 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
             }
 
             // Signal EOF to filter graph
-            buffersrcCtx!.buffersrcAddFrame(null);
+            await buffersrcCtx!.buffersrcAddFrame(null);
 
             // Pull remaining filtered frames
             while (true) {
-              const filtRet = buffersinkCtx!.buffersinkGetFrame(filtFrame);
+              const filtRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
               if (filtRet < 0) break;
               printFrame(filtFrame, outputStream);
               filtFrame.unref();
@@ -298,7 +298,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
           }
 
           // Push decoded frame to filter graph
-          const srcRet = buffersrcCtx!.buffersrcAddFrame(frame);
+          const srcRet = await buffersrcCtx!.buffersrcAddFrame(frame);
           if (srcRet < 0) {
             Log.log(AV_LOG_ERROR, `Error feeding filter graph: ${new FFmpegError(srcRet).message}`);
             break;
@@ -306,7 +306,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
 
           // Pull filtered frames
           while (true) {
-            const sinkRet = buffersinkCtx!.buffersinkGetFrame(filtFrame);
+            const sinkRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
             if (sinkRet === AV_ERROR_EAGAIN || sinkRet === AV_ERROR_EOF) {
               break;
             }
@@ -342,7 +342,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
       codecCtx.freeContext();
     }
     if (formatCtx) {
-      formatCtx.closeInput();
+      await formatCtx.closeInput();
     }
   }
 }

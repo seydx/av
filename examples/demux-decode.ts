@@ -371,7 +371,7 @@ async function demuxDecode(): Promise<void> {
     // Cleanup
     // CodecContext objects are cleaned up automatically
     if (fmtCtx) {
-      fmtCtx.closeInput();
+      await fmtCtx.closeInput();
     }
     if (videoDstFile !== null) {
       fs.closeSync(videoDstFile);

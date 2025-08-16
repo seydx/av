@@ -22,6 +22,9 @@ public:
   AVFrame* Get() { return frame_; }
 
 private:
+  // Friend classes
+  friend class HwframeTransferDataWorker;
+  
   // Static members
   static Napi::FunctionReference constructor;
   

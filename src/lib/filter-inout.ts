@@ -4,14 +4,18 @@ import { FilterContext } from './filter-context.js';
 import type { NativeFilterInOut, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg filter input/output helper - Low Level API
+ * Filter input/output helper for graph parsing.
  *
- * Direct mapping to FFmpeg's AVFilterInOut.
  * Helper structure for parsing filter graphs with named inputs and outputs.
  * Used to connect external sources/sinks to specific points in a filter graph.
+ * Supports linked lists for multiple I/O points in complex graphs.
+ *
+ * Direct mapping to FFmpeg's AVFilterInOut.
  *
  * @example
  * ```typescript
+ * import { FilterInOut, FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Create input/output points for filter graph
  * const inputs = new FilterInOut();
  * inputs.alloc();
@@ -31,6 +35,7 @@ import type { NativeFilterInOut, NativeWrapper } from './native-types.js';
  *   inputs,
  *   outputs
  * );
+ * FFmpegError.throwIfError(ret, 'parsePtr');
  *
  * // Clean up
  * inputs.free();
@@ -45,12 +50,14 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    * Create a new FilterInOut instance.
    *
    * The structure is uninitialized - you must call alloc() before use.
-   * Direct wrapper around AVFilterInOut.
+   * No FFmpeg resources are allocated until alloc() is called.
    *
-   * @param native - Optional existing native object to wrap
+   * Direct wrapper around AVFilterInOut.
    *
    * @example
    * ```typescript
+   * import { FilterInOut } from '@seydx/ffmpeg';
+   *
    * const inout = new FilterInOut();
    * inout.alloc();
    * // Structure is now ready for use
@@ -69,10 +76,13 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    * Useful for complex filter graphs with multiple I/O points.
    *
    * @param items - Array of {name, filterCtx, padIdx} objects
+   *
    * @returns The head of the linked list, or null if items is empty
    *
    * @example
    * ```typescript
+   * import { FilterInOut, FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   *
    * // Create multiple inputs
    * const inputs = FilterInOut.createList([
    *   { name: 'video_in', filterCtx: videoBufferCtx, padIdx: 0 },
@@ -80,7 +90,8 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    * ]);
    *
    * // Use in filter graph
-   * filterGraph.parsePtr(filterString, inputs, outputs);
+   * const ret = filterGraph.parsePtr(filterString, inputs, outputs);
+   * FFmpegError.throwIfError(ret, 'parsePtr');
    *
    * // Free the entire list
    * inputs?.free();
@@ -192,16 +203,23 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   /**
    * Allocate the FilterInOut structure.
    *
+   * Allocates the structure and initializes it.
+   * Must be called before setting properties or using the structure.
+   *
    * Direct mapping to avfilter_inout_alloc()
+   *
+   * @throws {Error} Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { FilterInOut } from '@seydx/ffmpeg';
+   *
    * const inout = new FilterInOut();
    * inout.alloc();
    * // Structure is now allocated and ready
    * ```
    *
-   * @throws {Error} If allocation fails (ENOMEM)
+   * @see {@link free} To free the structure
    */
   alloc(): void {
     this.native.alloc();
@@ -209,6 +227,9 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
 
   /**
    * Free the FilterInOut structure.
+   *
+   * Releases all resources associated with the structure.
+   * Also frees any linked structures in the chain.
    *
    * Direct mapping to avfilter_inout_free()
    *

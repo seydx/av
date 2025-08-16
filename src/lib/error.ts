@@ -2,23 +2,26 @@ import { bindings } from './binding.js';
 import type { NativeFFmpegError } from './native-types.js';
 
 /**
- * FFmpeg Error - Low Level API
+ * FFmpeg error handling.
+ *
+ * Represents FFmpeg errors with error codes and human-readable messages.
+ * Provides utilities for error checking and throwing.
+ * Essential for proper error handling in FFmpeg operations.
  *
  * Direct mapping to FFmpeg's error system.
- * Represents an FFmpeg error with its error code and message.
- * Provides utility methods for error handling.
  *
  * @example
  * ```typescript
+ * import { FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Check return codes
  * const ret = await codecContext.sendPacket(packet);
- * if (ret < 0) {
- *   throw new FFmpegError(ret);
- * }
+ * FFmpegError.throwIfError(ret, 'sendPacket');
  *
  * // Handle specific errors
  * try {
- *   await formatContext.openInput('file.mp4', null, null);
+ *   const openRet = await formatContext.openInput('file.mp4', null, null);
+ *   FFmpegError.throwIfError(openRet, 'openInput');
  * } catch (error) {
  *   if (error instanceof FFmpegError) {
  *     console.error(`Error code: ${error.code}`);
@@ -35,11 +38,17 @@ export class FFmpegError extends Error {
    * Create a new FFmpegError instance.
    *
    * Wraps an FFmpeg error code with a JavaScript Error.
+   * Automatically retrieves the error message from FFmpeg.
+   *
+   * Direct wrapper around FFmpeg error codes.
    *
    * @param code - FFmpeg error code (negative number)
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   *
    * const error = new FFmpegError(AVERROR_EOF);
    * console.log(error.message); // "End of file"
    * console.log(error.code);    // -541478725
@@ -64,6 +73,8 @@ export class FFmpegError extends Error {
   /**
    * Put a description of the AVERROR code errnum in a string.
    *
+   * Converts an error code to a human-readable message.
+   *
    * Direct mapping to av_strerror()
    *
    * @param errnum - Error code to describe
@@ -72,6 +83,9 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   *
    * const message = FFmpegError.strerror(AVERROR_EAGAIN);
    * console.log(message); // "Resource temporarily unavailable"
    *
@@ -86,6 +100,8 @@ export class FFmpegError extends Error {
   /**
    * Convert a POSIX error code to FFmpeg error code.
    *
+   * Converts standard POSIX error codes to FFmpeg's error format.
+   *
    * Direct mapping to AVERROR() macro
    *
    * @param posixError - POSIX error code (positive)
@@ -94,7 +110,9 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
    * import { EAGAIN } from 'errno';
+   *
    * const ffmpegError = FFmpegError.makeError(EAGAIN);
    * // ffmpegError is now AVERROR(EAGAIN)
    *
@@ -155,7 +173,8 @@ export class FFmpegError extends Error {
   /**
    * Throw FFmpegError if code indicates error.
    *
-   * Helper method for error checking.
+   * Checks return code and throws an error if negative.
+   * Essential for FFmpeg error handling pattern.
    *
    * @param code - FFmpeg return code
    * @param operation - Optional operation name for better error messages
@@ -164,6 +183,8 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = await codecContext.sendPacket(packet);
    * FFmpegError.throwIfError(ret, 'sendPacket');
    * // Continues if successful, throws if error
@@ -173,6 +194,9 @@ export class FFmpegError extends Error {
    * FFmpegError.throwIfError(ret2, 'allocOutputContext2');
    * // Error message: "allocOutputContext2 failed: ..."
    * ```
+   *
+   * @see {@link fromCode} To create error without throwing
+   * @see {@link isFFmpegError} To check if value is error
    */
   static throwIfError(code: number, operation?: string): void {
     if (code < 0) {
@@ -187,7 +211,8 @@ export class FFmpegError extends Error {
   /**
    * Check if error code matches specific error.
    *
-   * Helper method for error type checking.
+   * Compares return code with specific error constant.
+   * Useful for handling different error conditions.
    *
    * @param code - FFmpeg return code
    * @param errorCode - Error code to check against
@@ -196,7 +221,8 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
-   * import { AVERROR_EOF, AVERROR_EAGAIN } from './constants.js';
+   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/ffmpeg/constants';
    *
    * const ret = await codecContext.receiveFrame(frame);
    * if (FFmpegError.is(ret, AVERROR_EOF)) {

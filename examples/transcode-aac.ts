@@ -56,7 +56,7 @@ async function openInputFile(filename: string): Promise<{
 
   // Make sure that there is only one stream in the input file
   if (inputFormatContext.nbStreams !== 1) {
-    inputFormatContext.closeInput();
+    await inputFormatContext.closeInput();
     throw new Error(`Expected one audio input stream, but found ${inputFormatContext.nbStreams}`);
   }
 
@@ -65,7 +65,7 @@ async function openInputFile(filename: string): Promise<{
   // Find a decoder for the audio stream
   const inputCodec = Codec.findDecoder(stream.codecpar.codecId);
   if (!inputCodec) {
-    inputFormatContext.closeInput();
+    await inputFormatContext.closeInput();
     throw new Error('Could not find input codec');
   }
 
@@ -151,7 +151,7 @@ async function openOutputFile(
   FFmpegError.throwIfError(paramRet, 'fromContext');
 
   // Open output file
-  const openOutputRet = outputFormatContext.openOutput();
+  const openOutputRet = await outputFormatContext.openOutput();
   FFmpegError.throwIfError(openOutputRet, 'openOutput');
 
   return { outputFormatContext, outputCodecContext };
@@ -254,9 +254,9 @@ async function decodeAudioFrame(inputFormatContext: FormatContext, inputCodecCon
 /**
  * Convert the input audio samples into the output sample format.
  */
-function convertSamples(inputData: Buffer[], convertedData: Buffer[], frameSize: number, resampleContext: SoftwareResampleContext): void {
+async function convertSamples(inputData: Buffer[], convertedData: Buffer[], frameSize: number, resampleContext: SoftwareResampleContext): Promise<void> {
   // Convert the samples using the resampler
-  const convertRet = resampleContext.convert(convertedData, frameSize, inputData, frameSize);
+  const convertRet = await resampleContext.convert(convertedData, frameSize, inputData, frameSize);
   FFmpegError.throwIfError(convertRet, 'convert');
 }
 
@@ -312,7 +312,7 @@ async function readDecodeConvertAndStore(
 
       // Convert the input samples to the desired output sample format
       const inputData = inputFrame.extendedData ?? inputFrame.data ?? [];
-      convertSamples(inputData, convertedInputSamples, inputFrame.nbSamples, resampleContext);
+      await convertSamples(inputData, convertedInputSamples, inputFrame.nbSamples, resampleContext);
 
       // Add the converted input samples to the FIFO buffer for later processing
       await addSamplesToFifo(fifo, convertedInputSamples, inputFrame.nbSamples);
@@ -500,14 +500,14 @@ async function transcodeAAC(inputFile: string, outputFile: string): Promise<void
       outputCodecContext.freeContext();
     }
     if (outputFormatContext) {
-      outputFormatContext.closeOutput();
+      await outputFormatContext.closeOutput();
       outputFormatContext.freeContext();
     }
     if (inputCodecContext) {
       inputCodecContext.freeContext();
     }
     if (inputFormatContext) {
-      inputFormatContext.closeInput();
+      await inputFormatContext.closeInput();
     }
   }
 }

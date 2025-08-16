@@ -34,6 +34,9 @@ private:
   friend class FCWriteFrameWorker;
   friend class FCInterleavedWriteFrameWorker;
   friend class FCWriteTrailerWorker;
+  friend class FCOpenOutputWorker;
+  friend class FCCloseOutputWorker;
+  friend class FCCloseInputWorker;
 
   // Static members
   static Napi::FunctionReference constructor;

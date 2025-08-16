@@ -218,20 +218,6 @@ Napi::Value FilterGraph::GetFilter(const Napi::CallbackInfo& info) {
   return ctxObj;
 }
 
-Napi::Value FilterGraph::Config(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  AVFilterGraph* graph = Get();
-  if (!graph) {
-    Napi::Error::New(env, "FilterGraph not allocated").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  int ret = avfilter_graph_config(graph, nullptr);
-  
-  return Napi::Number::New(env, ret);
-}
-
 Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -419,20 +405,6 @@ Napi::Value FilterGraph::Validate(const Napi::CallbackInfo& info) {
   }
   
   return Napi::Number::New(env, 0);
-}
-
-Napi::Value FilterGraph::RequestOldest(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  AVFilterGraph* graph = Get();
-  if (!graph) {
-    Napi::Error::New(env, "FilterGraph not allocated").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  int ret = avfilter_graph_request_oldest(graph);
-  
-  return Napi::Number::New(env, ret);
 }
 
 Napi::Value FilterGraph::DumpToFile(const Napi::CallbackInfo& info) {

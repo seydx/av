@@ -148,7 +148,7 @@ export interface NativeFrame extends Disposable {
 
   // ===== Hardware Acceleration =====
   hwFramesCtx: NativeHardwareFramesContext | null;
-  hwframeTransferData(dst: NativeFrame, flags?: number): number;
+  hwframeTransferData(dst: NativeFrame, flags?: number): Promise<number>;
   isHwFrame(): boolean;
   isSwFrame(): boolean;
 
@@ -539,18 +539,18 @@ export interface NativeFormatContext extends Disposable {
   allocContext(): void;
   allocOutputContext2(oformat: NativeOutputFormat | null, formatName: string | null, filename: string | null): number;
   freeContext(): void;
-  closeInput(): void;
-  openOutput(): number;
-  closeOutput(): void;
 
   // ===== Input Operations - All Async =====
   openInput(url: string, fmt: NativeInputFormat | null, options: NativeDictionary | null): Promise<number>;
+  closeInput(): Promise<void>;
   findStreamInfo(options: NativeDictionary[] | null): Promise<number>;
   readFrame(pkt: NativePacket): Promise<number>;
   seekFrame(streamIndex: number, timestamp: bigint, flags: AVSeekFlag): Promise<number>;
   seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags: AVSeekFlag): Promise<number>;
 
   // ===== Output Operations - All Async =====
+  openOutput(): Promise<number>;
+  closeOutput(): Promise<void>;
   writeHeader(options: NativeDictionary | null): Promise<number>;
   writeFrame(pkt: NativePacket | null): Promise<number>;
   interleavedWriteFrame(pkt: NativePacket | null): Promise<number>;
@@ -660,8 +660,8 @@ export interface NativeSoftwareScaleContext extends Disposable {
   freeContext(): void;
 
   // ===== Operations =====
-  scale(srcSlice: Buffer[], srcStride: number[], srcSliceY: number, srcSliceH: number, dst: Buffer[], dstStride: number[]): number;
-  scaleFrame(dst: NativeFrame, src: NativeFrame): number;
+  scale(srcSlice: Buffer[], srcStride: number[], srcSliceY: number, srcSliceH: number, dst: Buffer[], dstStride: number[]): Promise<number>;
+  scaleFrame(dst: NativeFrame, src: NativeFrame): Promise<number>;
 
   // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
@@ -693,7 +693,7 @@ export interface NativeSoftwareResampleContext extends Disposable {
   close(): void;
 
   // ===== Operations =====
-  convert(outBuffer: Buffer[] | null, outCount: number, inBuffer: Buffer[] | null, inCount: number): number;
+  convert(outBuffer: Buffer[] | null, outCount: number, inBuffer: Buffer[] | null, inCount: number): Promise<number>;
   convertFrame(outFrame: NativeFrame | null, inFrame: NativeFrame | null): number;
   configFrame(outFrame: NativeFrame | null, inFrame: NativeFrame | null): number;
 
@@ -753,8 +753,8 @@ export interface NativeFilterContext extends Disposable {
   initStr(args?: string | null): number;
   link(srcPad: number, dst: NativeFilterContext, dstPad: number): number;
   unlink(pad: number): void;
-  buffersrcAddFrame(frame: NativeFrame | null): number;
-  buffersinkGetFrame(frame: NativeFrame): number;
+  buffersrcAddFrame(frame: NativeFrame | null): Promise<number>;
+  buffersinkGetFrame(frame: NativeFrame): Promise<number>;
   buffersinkSetFrameSize(frameSize: number): void;
   buffersinkGetTimeBase(): { num: number; den: number };
   setOpt(key: string, value: string, searchFlags?: AVOptionSearchFlags): number;
@@ -794,14 +794,14 @@ export interface NativeFilterGraph extends Disposable {
   getFilter(name: string): NativeFilterContext | null;
 
   // ===== Configuration =====
-  config(): number;
+  config(): Promise<number>;
   parse(filters: string, inputs: NativeFilterInOut | null, outputs: NativeFilterInOut | null): number;
   parse2(filters: string): number;
   parsePtr(filters: string, inputs?: NativeFilterInOut | null, outputs?: NativeFilterInOut | null): number;
   validate(): number;
 
   // ===== Execution =====
-  requestOldest(): number;
+  requestOldest(): Promise<number>;
   dumpToFile(filename: string): void;
 
   // ===== Properties =====
@@ -890,7 +890,7 @@ export interface NativeHardwareFramesContext extends Disposable {
   alloc(device: NativeHardwareDeviceContext): void;
   init(): number;
   getBuffer(frame: NativeFrame, flags?: number): number;
-  transferData(dst: NativeFrame, src: NativeFrame, flags?: number): number;
+  transferData(dst: NativeFrame, src: NativeFrame, flags?: number): Promise<number>;
   transferGetFormats(direction: AVHWFrameTransferDirection): AVPixelFormat[] | number;
   map(dst: NativeFrame, src: NativeFrame, flags?: number): number;
   createDerived(format: AVPixelFormat, derivedDevice: NativeHardwareDeviceContext, source: NativeHardwareFramesContext, flags?: number): number;

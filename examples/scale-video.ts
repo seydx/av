@@ -184,7 +184,7 @@ async function scaleVideo(outputFile: string, outputSize: string): Promise<void>
       fillYuvImage(srcFrame, srcW, srcH, i);
 
       // Scale the frame
-      const scaleRet = swsCtx.scaleFrame(dstFrame, srcFrame);
+      const scaleRet = await swsCtx.scaleFrame(dstFrame, srcFrame);
       FFmpegError.throwIfError(scaleRet, `Failed to scale frame ${i}`);
 
       // Write scaled image to file

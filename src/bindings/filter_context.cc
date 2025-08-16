@@ -295,62 +295,6 @@ Napi::Value FilterContext::OptSetBin(const Napi::CallbackInfo& info) {
   }
 }
 
-Napi::Value FilterContext::BuffersrcAddFrame(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  AVFilterContext* ctx = Get();
-  
-  if (!ctx) {
-    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  // Get the frame parameter (can be null)
-  AVFrame* frame = nullptr;
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Frame* frameWrapper = UnwrapNativeObject<Frame>(env, info[0], "Frame");
-    if (frameWrapper) {
-      frame = frameWrapper->Get();
-    } else if (!info[0].IsNull()) {
-      Napi::TypeError::New(env, "Invalid Frame object").ThrowAsJavaScriptException();
-      return Napi::Number::New(env, AVERROR(EINVAL));
-    }
-  }
-  
-  // Call av_buffersrc_add_frame
-  int ret = av_buffersrc_add_frame(ctx, frame);
-  
-  return Napi::Number::New(env, ret);
-}
-
-Napi::Value FilterContext::BuffersinkGetFrame(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  AVFilterContext* ctx = Get();
-  
-  if (!ctx) {
-    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "Expected a Frame object").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  // Get the frame parameter
-  Frame* frameWrapper = UnwrapNativeObject<Frame>(env, info[0], "Frame");
-  if (!frameWrapper || !frameWrapper->Get()) {
-    Napi::TypeError::New(env, "Invalid Frame object").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  AVFrame* frame = frameWrapper->Get();
-  
-  // Call av_buffersink_get_frame
-  int ret = av_buffersink_get_frame(ctx, frame);
-  
-  return Napi::Number::New(env, ret);
-}
-
 Napi::Value FilterContext::BuffersinkSetFrameSize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   AVFilterContext* ctx = Get();

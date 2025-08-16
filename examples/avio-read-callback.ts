@@ -14,16 +14,7 @@
  */
 
 import fs from 'node:fs';
-import {
-  AV_ERROR_EOF,
-  AV_SEEK_CUR,
-  AV_SEEK_END,
-  AV_SEEK_SET,
-  AV_SEEK_SIZE,
-  FFmpegError,
-  FormatContext,
-  IOContext,
-} from '../src/lib/index.js';
+import { AV_ERROR_EOF, AV_SEEK_CUR, AV_SEEK_END, AV_SEEK_SET, AV_SEEK_SIZE, FFmpegError, FormatContext, IOContext } from '../src/lib/index.js';
 
 /**
  * Buffer data structure for reading
@@ -195,7 +186,7 @@ async function customIORead(inputFile: string): Promise<void> {
       ioCtx.freeContext();
     }
     if (fmtCtx) {
-      fmtCtx.closeInput();
+      await fmtCtx.closeInput();
       fmtCtx.freeContext();
     }
   }

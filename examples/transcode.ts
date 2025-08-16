@@ -249,7 +249,7 @@ async function open_output_file(filename: string): Promise<number> {
   return 0;
 }
 
-function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ctx: CodecContext, filter_spec: string): number {
+async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ctx: CodecContext, filter_spec: string): Promise<number> {
   let args: string;
   let ret = 0;
   let buffersrc: Filter | null = null;
@@ -410,7 +410,7 @@ function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ctx: Cod
     return ret;
   }
 
-  if ((ret = filter_graph.config()) < 0) {
+  if ((ret = await filter_graph.config()) < 0) {
     goto_end();
     return ret;
   }
@@ -429,7 +429,7 @@ function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ctx: Cod
   return ret;
 }
 
-function init_filters(): number {
+async function init_filters(): Promise<number> {
   const filter_spec: string[] = [];
   let ret: number;
 
@@ -455,7 +455,7 @@ function init_filters(): number {
       filter_spec[i] = 'anull'; // passthrough (dummy) filter for audio
     }
 
-    ret = init_filter(filter_ctx[i], stream_ctx[i].dec_ctx!, stream_ctx[i].enc_ctx!, filter_spec[i]);
+    ret = await init_filter(filter_ctx[i], stream_ctx[i].dec_ctx!, stream_ctx[i].enc_ctx!, filter_spec[i]);
     if (ret) {
       console.log(`init_filter failed for stream ${i} with ret ${ret}`);
       return ret;
@@ -518,7 +518,7 @@ async function filter_encode_write_frame(frame: Frame | null, stream_index: numb
 
   // console.log('Pushing decoded frame to filters');
   // Push the decoded frame into the filtergraph
-  ret = filter.buffersrc_ctx!.buffersrcAddFrame(frame);
+  ret = await filter.buffersrc_ctx!.buffersrcAddFrame(frame);
   if (ret < 0) {
     console.error('Error while feeding the filtergraph');
     return ret;
@@ -527,7 +527,7 @@ async function filter_encode_write_frame(frame: Frame | null, stream_index: numb
   // Pull filtered frames from the filtergraph
   while (true) {
     // console.log('Pulling filtered frame from filters');
-    ret = filter.buffersink_ctx!.buffersinkGetFrame(filter.filtered_frame!);
+    ret = await filter.buffersink_ctx!.buffersinkGetFrame(filter.filtered_frame!);
     if (ret < 0) {
       // If no more frames for output - returns AVERROR(EAGAIN)
       // If flushed and no more frames for output - returns AVERROR_EOF
@@ -586,7 +586,7 @@ async function main(): Promise<void> {
     goto_end();
     return;
   }
-  if ((ret = init_filters()) < 0) {
+  if ((ret = await init_filters()) < 0) {
     goto_end();
     return;
   }
@@ -693,7 +693,7 @@ async function main(): Promise<void> {
 
   await ofmt_ctx!.writeTrailer();
 
-  function goto_end() {
+  async function goto_end() {
     packet.free();
 
     for (let i = 0; i < (ifmt_ctx?.nbStreams ?? 0); i++) {
@@ -710,7 +710,7 @@ async function main(): Promise<void> {
       }
     }
 
-    ifmt_ctx?.closeInput();
+    await ifmt_ctx?.closeInput();
     ifmt_ctx?.freeContext();
 
     if (ofmt_ctx && !(ofmt_ctx.oformat && ofmt_ctx.oformat?.flags & AV_FMT_NOFILE)) {

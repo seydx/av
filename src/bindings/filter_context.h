@@ -48,6 +48,8 @@ private:
   friend class Filter;
   friend class FilterGraph;
   friend class FilterInOut;
+  friend class FCBuffersrcAddFrameWorker;
+  friend class FCBuffersinkGetFrameWorker;
   
   // Static members
   static Napi::FunctionReference constructor;

@@ -22,6 +22,9 @@ public:
   SwrContext* Get() { return ctx_; }
 
 private:
+  // Friend classes
+  friend class SwrConvertWorker;
+  
   // Static members
   static Napi::FunctionReference constructor;
   

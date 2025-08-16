@@ -117,7 +117,7 @@ async function remux(inputFile: string, outputFile: string): Promise<void> {
 
     // Open output file if needed
     if (!(ofmt.flags & AV_FMT_NOFILE)) {
-      const openRet = ofmtCtx.openOutput();
+      const openRet = await ofmtCtx.openOutput();
       FFmpegError.throwIfError(openRet, 'openOutput');
     }
 
@@ -192,7 +192,7 @@ async function remux(inputFile: string, outputFile: string): Promise<void> {
     }
 
     if (ifmtCtx) {
-      ifmtCtx.closeInput();
+      await ifmtCtx.closeInput();
       ifmtCtx.freeContext();
     }
 
@@ -200,7 +200,7 @@ async function remux(inputFile: string, outputFile: string): Promise<void> {
       const ofmt = ofmtCtx.oformat;
       // Close output file if it was opened
       if (ofmt && !(ofmt.flags & AV_FMT_NOFILE)) {
-        ofmtCtx.closeOutput();
+        await ofmtCtx.closeOutput();
       }
       ofmtCtx.freeContext();
     }

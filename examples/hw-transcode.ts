@@ -436,7 +436,7 @@ async function main(): Promise<number> {
     }
 
     // Open output file
-    const openOutputRet = outputCtx.openOutput();
+    const openOutputRet = await outputCtx.openOutput();
     if (openOutputRet < 0) {
       console.error(`Failed to open output file: ${new FFmpegError(openOutputRet).message}`);
       return openOutputRet;
@@ -514,11 +514,11 @@ async function main(): Promise<number> {
     }
 
     if (inputCtx) {
-      inputCtx.closeInput();
+      await inputCtx.closeInput();
     }
 
     if (outputCtx) {
-      outputCtx.closeOutput();
+      await outputCtx.closeOutput();
     }
 
     if (hwDeviceCtx) {

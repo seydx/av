@@ -190,55 +190,6 @@ Napi::Value SoftwareResampleContext::Close(const Napi::CallbackInfo& info) {
 
 // === Operations ===
 
-Napi::Value SoftwareResampleContext::Convert(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  SwrContext* ctx = Get();
-  if (!ctx) {
-    Napi::Error::New(env, "Context not initialized").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  if (info.Length() < 4) {
-    Napi::TypeError::New(env, "Expected 4 arguments (out, outCount, in, inCount)")
-        .ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  // Parse output buffers
-  uint8_t* outPtr[8] = {nullptr};
-  if (!info[0].IsNull() && info[0].IsArray()) {
-    Napi::Array outArray = info[0].As<Napi::Array>();
-    for (uint32_t i = 0; i < outArray.Length() && i < 8; i++) {
-      Napi::Value val = outArray[i];
-      if (val.IsBuffer()) {
-        Napi::Buffer<uint8_t> buf = val.As<Napi::Buffer<uint8_t>>();
-        outPtr[i] = buf.Data();
-      }
-    }
-  }
-  int outCount = info[1].As<Napi::Number>().Int32Value();
-  
-  // Parse input buffers
-  const uint8_t* inPtr[8] = {nullptr};
-  if (!info[2].IsNull() && info[2].IsArray()) {
-    Napi::Array inArray = info[2].As<Napi::Array>();
-    for (uint32_t i = 0; i < inArray.Length() && i < 8; i++) {
-      Napi::Value val = inArray[i];
-      if (val.IsBuffer()) {
-        Napi::Buffer<uint8_t> buf = val.As<Napi::Buffer<uint8_t>>();
-        inPtr[i] = buf.Data();
-      }
-    }
-  }
-  int inCount = info[3].As<Napi::Number>().Int32Value();
-  
-  // Perform conversion
-  int ret = swr_convert(ctx, outPtr, outCount, inPtr, inCount);
-  
-  return Napi::Number::New(env, ret);
-}
-
 Napi::Value SoftwareResampleContext::ConvertFrame(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   

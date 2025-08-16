@@ -102,7 +102,7 @@ async function openInputFile(filename: string): Promise<void> {
  * instead of createFilter with args. This gives more flexibility for setting
  * options programmatically before initialization.
  */
-function initFilters(filtersDescr: string): void {
+async function initFilters(filtersDescr: string): Promise<void> {
   // Get filter definitions
   const buffersrc = Filter.getByName('buffer');
   const buffersink = Filter.getByName('buffersink');
@@ -178,7 +178,7 @@ function initFilters(filtersDescr: string): void {
   FFmpegError.throwIfError(configRet, 'Cannot parse filter graph');
 
   // Configure the graph
-  configRet = filterGraph.config();
+  configRet = await filterGraph.config();
   FFmpegError.throwIfError(configRet, 'Cannot configure filter graph');
 
   // Log output format info
@@ -235,7 +235,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
     await openInputFile(inputFile);
 
     // Initialize filters
-    initFilters(FILTER_DESCR);
+    await initFilters(FILTER_DESCR);
 
     // Allocate frames and packet
     const packet = new Packet();
@@ -264,10 +264,10 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
               frame.pts = frame.pts !== AV_NOPTS_VALUE ? frame.pts : BigInt(0);
 
               // Push to filter graph
-              if (buffersrcCtx!.buffersrcAddFrame(frame) >= 0) {
+              if ((await buffersrcCtx!.buffersrcAddFrame(frame)) >= 0) {
                 // Pull filtered frames
                 while (true) {
-                  const filtRet = buffersinkCtx!.buffersinkGetFrame(filtFrame);
+                  const filtRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
                   if (filtRet < 0) break;
 
                   const stream = formatCtx!.streams![videoStreamIndex];
@@ -279,11 +279,11 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
             }
 
             // Signal EOF to filter graph
-            buffersrcCtx!.buffersrcAddFrame(null);
+            await buffersrcCtx!.buffersrcAddFrame(null);
 
             // Pull remaining filtered frames
             while (true) {
-              const filtRet = buffersinkCtx!.buffersinkGetFrame(filtFrame);
+              const filtRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
               if (filtRet < 0) break;
 
               const stream = formatCtx!.streams![videoStreamIndex];
@@ -318,7 +318,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
           frame.pts = frame.bestEffortTimestamp;
 
           // Push decoded frame to filter graph
-          const srcRet = buffersrcCtx!.buffersrcAddFrame(frame);
+          const srcRet = await buffersrcCtx!.buffersrcAddFrame(frame);
           if (srcRet < 0) {
             Log.log(AV_LOG_ERROR, `Error feeding filter graph: ${new FFmpegError(srcRet).message}`);
             break;
@@ -326,7 +326,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
 
           // Pull filtered frames
           while (true) {
-            const sinkRet = buffersinkCtx!.buffersinkGetFrame(filtFrame);
+            const sinkRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
             if (sinkRet === AV_ERROR_EAGAIN || sinkRet === AV_ERROR_EOF) {
               break;
             }
@@ -359,7 +359,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
       codecCtx.freeContext();
     }
     if (formatCtx) {
-      formatCtx.closeInput();
+      await formatCtx.closeInput();
     }
   }
 }

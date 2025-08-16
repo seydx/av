@@ -5,17 +5,23 @@ import type { Dictionary } from './dictionary.js';
 import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.js';
 
 /**
- * FFmpeg Hardware Device Context - Low Level API
+ * Hardware device context for hardware acceleration.
+ *
+ * Manages hardware acceleration devices like CUDA, VAAPI, DXVA2, etc.
+ * Provides device creation, configuration, and constraint querying.
+ * Required for hardware-accelerated encoding, decoding, and filtering.
  *
  * Direct mapping to FFmpeg's AVHWDeviceContext.
- * Provides hardware acceleration device management.
  *
  * @example
  * ```typescript
+ * import { HardwareDeviceContext, HardwareFramesContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from '@seydx/ffmpeg/constants';
+ *
  * // Create CUDA device context
  * const device = new HardwareDeviceContext();
  * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
- * if (ret < 0) throw new FFmpegError(ret);
+ * FFmpegError.throwIfError(ret, 'create device');
  *
  * // Get device constraints
  * const constraints = device.getHwframeConstraints();
@@ -28,7 +34,8 @@ import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.
  * frames.swFormat = AV_PIX_FMT_NV12;
  * frames.width = 1920;
  * frames.height = 1080;
- * frames.init();
+ * const initRet = frames.init();
+ * FFmpegError.throwIfError(initRet, 'init frames');
  *
  * // Cleanup
  * frames.free();
@@ -37,6 +44,9 @@ import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.
  *
  * @example
  * ```typescript
+ * import { HardwareDeviceContext } from '@seydx/ffmpeg';
+ * import { AV_HWDEVICE_TYPE_NONE } from '@seydx/ffmpeg/constants';
+ *
  * // List available hardware device types
  * const types = HardwareDeviceContext.iterateTypes();
  * for (const type of types) {
@@ -48,9 +58,13 @@ import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.
  * const vaapi = HardwareDeviceContext.findTypeByName('vaapi');
  * if (vaapi !== AV_HWDEVICE_TYPE_NONE) {
  *   const device = new HardwareDeviceContext();
- *   device.create(vaapi, '/dev/dri/renderD128', null);
+ *   const ret = device.create(vaapi, '/dev/dri/renderD128', null);
+ *   FFmpegError.throwIfError(ret, 'create VAAPI device');
  * }
  * ```
+ *
+ * @see {@link HardwareFramesContext} For managing hardware frame pools
+ * @see {@link CodecContext} For hardware-accelerated encoding/decoding
  */
 export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHardwareDeviceContext> {
   private native: NativeHardwareDeviceContext;
@@ -60,12 +74,18 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * Create a new hardware device context.
    *
    * The context is uninitialized - you must call alloc() or create() before use.
+   * No FFmpeg resources are allocated until initialization.
+   *
    * Direct wrapper around AVHWDeviceContext.
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/ffmpeg/constants';
+   *
    * const device = new HardwareDeviceContext();
-   * device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
+   * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
+   * FFmpegError.throwIfError(ret, 'create device');
    * // Device is now ready for use
    * ```
    */
@@ -78,6 +98,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Get the string name of an AVHWDeviceType.
    *
+   * Returns the human-readable name for a hardware device type.
+   *
    * Direct mapping to av_hwdevice_get_type_name()
    *
    * @param type - Hardware device type (AVHWDeviceType)
@@ -86,6 +108,9 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext } from '@seydx/ffmpeg';
+   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/ffmpeg/constants';
+   *
    * const name = HardwareDeviceContext.getTypeName(AV_HWDEVICE_TYPE_CUDA);
    * console.log(name); // "cuda"
    * ```
@@ -97,12 +122,16 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Iterate over supported device types.
    *
+   * Returns all hardware device types supported by this FFmpeg build.
+   *
    * Direct mapping to av_hwdevice_iterate_types()
    *
    * @returns Array of supported AVHWDeviceType values
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext } from '@seydx/ffmpeg';
+   *
    * const types = HardwareDeviceContext.iterateTypes();
    * for (const type of types) {
    *   const name = HardwareDeviceContext.getTypeName(type);
@@ -117,6 +146,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Get the AVHWDeviceType corresponding to the name.
    *
+   * Looks up a hardware device type by its string name.
+   *
    * Direct mapping to av_hwdevice_find_type_by_name()
    *
    * @param name - Device type name (e.g., "cuda", "vaapi", "dxva2")
@@ -125,6 +156,9 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext } from '@seydx/ffmpeg';
+   * import { AV_HWDEVICE_TYPE_NONE } from '@seydx/ffmpeg/constants';
+   *
    * const type = HardwareDeviceContext.findTypeByName('cuda');
    * if (type !== AV_HWDEVICE_TYPE_NONE) {
    *   // CUDA is available
@@ -165,19 +199,29 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Allocate an AVHWDeviceContext for a given hardware type.
    *
+   * Allocates the device context structure but doesn't open the device.
+   * Must call init() after configuration to finalize.
+   *
    * Direct mapping to av_hwdevice_ctx_alloc()
    *
    * @param type - Hardware device type
    *
+   * @throws {Error} Memory allocation failure (ENOMEM)
+   *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/ffmpeg/constants';
+   *
    * const device = new HardwareDeviceContext();
    * device.alloc(AV_HWDEVICE_TYPE_CUDA);
    * // Configure device properties if needed
-   * device.init();
+   * const ret = device.init();
+   * FFmpegError.throwIfError(ret, 'init device');
    * ```
    *
-   * @throws {Error} If allocation fails
+   * @see {@link init} To finalize the device
+   * @see {@link create} For one-step device creation
    */
   alloc(type: AVHWDeviceType): void {
     this.native.alloc(type);
@@ -186,21 +230,27 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Finalize the device context before use.
    *
+   * Completes device initialization after alloc() and configuration.
+   * Must be called before using the device context.
+   *
    * Direct mapping to av_hwdevice_ctx_init()
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
+   *   - 0: Success (device ready)
    *   - AVERROR(EINVAL): Invalid parameters
    *   - AVERROR(ENOMEM): Memory allocation failure
    *   - <0: Device-specific errors
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = device.init();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'init device');
+   * // Device is now ready for use
    * ```
+   *
+   * @see {@link alloc} Must be called first
    */
   init(): number {
     return this.native.init();
@@ -209,6 +259,9 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Open a device of the specified type and create an AVHWDeviceContext.
    *
+   * One-step device creation that allocates, opens, and initializes the device.
+   * This is the preferred method for creating hardware devices.
+   *
    * Direct mapping to av_hwdevice_ctx_create()
    *
    * @param type - Hardware device type
@@ -216,7 +269,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * @param options - Device creation options, or null
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
+   *   - 0: Success (device created and ready)
    *   - AVERROR(EINVAL): Invalid parameters
    *   - AVERROR(ENOMEM): Memory allocation failure
    *   - AVERROR(ENOSYS): Device type not supported
@@ -224,11 +277,12 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from '@seydx/ffmpeg/constants';
+   *
    * // Create CUDA device
    * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'create CUDA device');
    *
    * // Create VAAPI device with specific device
    * const ret2 = device.create(
@@ -236,7 +290,11 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *   '/dev/dri/renderD128',
    *   null
    * );
+   * FFmpegError.throwIfError(ret2, 'create VAAPI device');
    * ```
+   *
+   * @see {@link alloc} For manual device allocation
+   * @see {@link createDerived} To derive from another device
    */
   create(type: AVHWDeviceType, device: string | null, options: Dictionary | null): number {
     return this.native.create(type, device, options?.getNative() ?? null);
@@ -245,29 +303,36 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Create a new device of the specified type from an existing device.
    *
+   * Creates a device that shares resources with the source device.
+   * Useful for interop between different hardware APIs.
+   *
    * Direct mapping to av_hwdevice_ctx_create_derived()
    *
    * @param source - Source device context to derive from
    * @param type - Target hardware device type
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
+   *   - 0: Success (derived device created)
    *   - AVERROR(ENOSYS): Derivation not supported
    *   - AVERROR(EINVAL): Invalid parameters
    *   - <0: Other errors
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_CUDA } from '@seydx/ffmpeg/constants';
+   *
    * // Create CUDA device from VAAPI device
    * const vaapi = new HardwareDeviceContext();
-   * vaapi.create(AV_HWDEVICE_TYPE_VAAPI, null, null);
+   * const vaapiRet = vaapi.create(AV_HWDEVICE_TYPE_VAAPI, null, null);
+   * FFmpegError.throwIfError(vaapiRet, 'create VAAPI');
    *
    * const cuda = new HardwareDeviceContext();
    * const ret = cuda.createDerived(vaapi, AV_HWDEVICE_TYPE_CUDA);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'derive CUDA from VAAPI');
    * ```
+   *
+   * @see {@link create} For standalone device creation
    */
   createDerived(source: HardwareDeviceContext, type: AVHWDeviceType): number {
     return this.native.createDerived(source.native, type);
@@ -276,10 +341,14 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Free the device context.
    *
-   * Unreferences the AVBufferRef.
+   * Unreferences the AVBufferRef and releases all device resources.
+   *
+   * Direct mapping to av_buffer_unref()
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext } from '@seydx/ffmpeg';
+   *
    * device.free();
    * // device is now invalid and should not be used
    * ```
@@ -293,18 +362,24 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Allocate a HW-specific configuration structure.
    *
+   * Allocates a configuration structure for querying device constraints.
+   *
    * Direct mapping to av_hwdevice_hwconfig_alloc()
    *
    * @returns Opaque pointer as BigInt or null
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext } from '@seydx/ffmpeg';
+   *
    * const hwconfig = device.hwconfigAlloc();
    * if (hwconfig) {
    *   // Use with getHwframeConstraints
    *   const constraints = device.getHwframeConstraints(hwconfig);
    * }
    * ```
+   *
+   * @see {@link getHwframeConstraints} To use the configuration
    */
   hwconfigAlloc(): bigint | null {
     return this.native.hwconfigAlloc();
@@ -313,14 +388,21 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Get the constraints on HW frames given a device and parameters.
    *
+   * Queries the device for supported formats, sizes, and other constraints.
+   * Essential for configuring hardware frames contexts.
+   *
    * Direct mapping to av_hwdevice_get_hwframe_constraints()
    *
    * @param hwconfig - Hardware configuration from hwconfigAlloc(), or undefined
    *
-   * @returns Constraints object or null
+   * @returns Constraints object or null:
+   *   - Object: Device constraints
+   *   - null: No constraints available
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext } from '@seydx/ffmpeg';
+   *
    * const constraints = device.getHwframeConstraints();
    * if (constraints) {
    *   console.log(`Size range: ${constraints.minWidth}x${constraints.minHeight} to ${constraints.maxWidth}x${constraints.maxHeight}`);
@@ -330,6 +412,9 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *   }
    * }
    * ```
+   *
+   * @see {@link hwconfigAlloc} To create configuration
+   * @see {@link HardwareFramesContext} To use with frame pools
    */
   getHwframeConstraints(hwconfig?: bigint): {
     validHwFormats?: number[];
@@ -362,12 +447,18 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
+   * import { HardwareDeviceContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/ffmpeg/constants';
+   *
    * {
    *   using device = new HardwareDeviceContext();
-   *   device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
+   *   const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
+   *   FFmpegError.throwIfError(ret, 'create device');
    *   // ... use device
    * } // Automatically freed when leaving scope
    * ```
+   *
+   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

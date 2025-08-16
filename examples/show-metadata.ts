@@ -78,7 +78,7 @@ async function showMetadata(inputFile: string): Promise<void> {
   } finally {
     // Cleanup
     if (fmtCtx) {
-      fmtCtx.closeInput();
+      await fmtCtx.closeInput();
       fmtCtx.freeContext();
     }
   }

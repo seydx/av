@@ -5,48 +5,63 @@ import type { NativePacket, NativeWrapper } from './native-types.js';
 import type { Rational } from './rational.js';
 
 /**
- * FFmpeg packet for compressed data - Low Level API
+ * Packet for compressed audio/video data.
+ *
+ * Contains compressed audio/video data read from demuxer or to be sent to muxer.
+ * Packets are the fundamental unit of data exchange between demuxers, muxers,
+ * encoders, and decoders in FFmpeg. User has full control over allocation and lifecycle.
  *
  * Direct mapping to FFmpeg's AVPacket.
- * Contains compressed audio/video data read from demuxer or to be sent to muxer.
- * User has full control over allocation and lifecycle.
  *
  * @example
  * ```typescript
+ * import { Packet, FormatContext, CodecContext, FFmpegError } from '@seydx/ffmpeg';
+ *
  * // Create and allocate packet - full control
  * const packet = new Packet();
  * packet.alloc();
  *
  * // Read from demuxer
  * const ret = await formatContext.readFrame(packet);
- * if (ret < 0) throw new FFmpegError(ret);
+ * FFmpegError.throwIfError(ret, 'readFrame');
  *
  * // Process packet
  * console.log(`Stream: ${packet.streamIndex}, PTS: ${packet.pts}`);
  *
  * // Send to decoder
- * await codecContext.sendPacket(packet);
+ * const sendRet = await codecContext.sendPacket(packet);
+ * FFmpegError.throwIfError(sendRet, 'sendPacket');
  *
  * // Cleanup
  * packet.unref(); // Clear data but keep packet allocated
  * packet.free();  // Free packet completely
  * ```
+ *
+ * @see {@link CodecContext} For encoding/decoding packets
+ * @see {@link FormatContext} For reading/writing packets
  */
 export class Packet implements Disposable, NativeWrapper<NativePacket> {
   private native: NativePacket;
 
   // Constructor
   /**
-   * Create a new packet.
+   * Create a new packet instance.
    *
    * The packet is uninitialized - you must call alloc() before use.
-   * Direct wrapper around AVPacket.
+   * No FFmpeg resources are allocated until alloc() is called.
+   *
+   * Direct wrapper around AVPacket allocation.
    *
    * @example
    * ```typescript
+   * import { Packet } from '@seydx/ffmpeg';
+   *
    * const packet = new Packet();
    * packet.alloc();
    * // Packet is now ready for use
+   *
+   * // Always free when done
+   * packet.free();
    * ```
    */
   constructor() {
@@ -202,21 +217,26 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Allocate an AVPacket and set its fields to default values.
    *
+   * Allocates the AVPacket structure and initializes all fields to default values.
+   * This only allocates the packet structure itself, not the data buffers.
+   *
    * Direct mapping to av_packet_alloc()
    *
-   * The packet must be freed with free().
+   * @throws {Error} Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { Packet } from '@seydx/ffmpeg';
+   *
    * const packet = new Packet();
    * packet.alloc();
    * // Packet is now allocated with default values
+   * // pts = AV_NOPTS_VALUE, dts = AV_NOPTS_VALUE
+   * // size = 0, data = null
    * ```
    *
-   * @throws {Error} If allocation fails (ENOMEM)
-   *
-   * @note This only allocates the AVPacket itself, not the data buffers.
-   *       Those must be allocated through other means such as av_new_packet().
+   * @see {@link free} Must be called when done
+   * @see {@link unref} To clear data but keep allocation
    */
   alloc(): void {
     this.native.alloc();
@@ -243,12 +263,11 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Setup a new reference to the data described by a given packet.
    *
-   * Direct mapping to av_packet_ref()
-   *
    * If src is reference counted, increase its reference count.
    * Otherwise allocate a new buffer for dst and copy the data from src into it.
-   *
    * All the other fields are copied from src.
+   *
+   * Direct mapping to av_packet_ref()
    *
    * @param src - Source packet to reference
    *
@@ -259,18 +278,20 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
+   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const src = new Packet();
    * // ... src contains data ...
    * const dst = new Packet();
    * dst.alloc();
+   *
    * const ret = dst.ref(src);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'packet.ref');
    * // dst now references the same data as src
    * ```
    *
-   * @see unref()
+   * @see {@link unref} To remove reference
+   * @see {@link clone} For simpler cloning
    */
   ref(src: Packet): number {
     return this.native.ref(src.getNative());
@@ -302,24 +323,31 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Create a new packet that references the same data as this packet.
    *
-   * Direct mapping to av_packet_clone()
-   *
    * This is a shortcut for av_packet_alloc() + av_packet_ref().
+   * The new packet shares the same data buffer through reference counting.
+   *
+   * Direct mapping to av_packet_clone()
    *
    * @returns New packet referencing the same data, or null on error (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { Packet } from '@seydx/ffmpeg';
+   *
    * const original = new Packet();
    * // ... original contains data ...
+   *
    * const cloned = original.clone();
    * if (!cloned) {
-   *   throw new Error('Failed to clone packet');
+   *   throw new Error('Failed to clone packet: Out of memory');
    * }
    * // cloned references the same data as original
+   * // Both packets must be freed independently
+   * cloned.free();
+   * original.free();
    * ```
    *
-   * @see ref()
+   * @see {@link ref} For manual reference setup
    */
   clone(): Packet | null {
     const cloned = this.native.clone();
@@ -335,28 +363,34 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   }
 
   /**
-   * Convert valid timing fields (timestamps / durations) in a packet from one
-   * timebase to another.
-   *
-   * Direct mapping to av_packet_rescale_ts()
+   * Convert valid timing fields (timestamps / durations) in a packet from one timebase to another.
    *
    * Timestamps with unknown values (AV_NOPTS_VALUE) will be ignored.
-   *
    * This function is useful when you need to convert packet timestamps between
    * different contexts, for example when remuxing or when the decoder and encoder
    * use different timebases.
+   *
+   * Direct mapping to av_packet_rescale_ts()
    *
    * @param srcTimebase - Source timebase, in which the timestamps are expressed
    * @param dstTimebase - Destination timebase, to which the timestamps will be converted
    *
    * @example
    * ```typescript
+   * import { Packet, Rational } from '@seydx/ffmpeg';
+   *
    * // Convert from stream timebase to codec timebase
+   * const streamTimebase = new Rational(1, 90000); // 90kHz
+   * const codecTimebase = new Rational(1, 25); // 25 fps
+   *
    * packet.rescaleTs(
-   *   stream.timeBase,
-   *   codecContext.timeBase
+   *   streamTimebase,
+   *   codecTimebase
    * );
+   * // PTS and DTS are now in codec timebase
    * ```
+   *
+   * @see {@link Rational} For timebase representation
    */
   rescaleTs(srcTimebase: Rational, dstTimebase: Rational): void {
     this.native.rescaleTs({ num: srcTimebase.num, den: srcTimebase.den }, { num: dstTimebase.num, den: dstTimebase.den });
@@ -364,6 +398,9 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
 
   /**
    * Ensure the data described by the packet is reference counted.
+   *
+   * Makes the packet data reference counted if it isn't already.
+   * This is useful when you need to share packet data between multiple owners.
    *
    * Direct mapping to av_packet_make_refcounted()
    *
@@ -373,31 +410,31 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
+   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   *
    * const ret = packet.makeRefcounted();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'makeRefcounted');
    * // Packet data is now reference counted
+   * // Safe to share with multiple owners
    * ```
    *
-   * @note This function does not ensure that the reference will be writable.
-   *       Use makeWritable() for that purpose.
+   * Note: This function does not ensure that the reference will be writable.
+   * Use makeWritable() for that purpose.
    *
-   * @see makeWritable()
+   * @see {@link makeWritable} To ensure data is writable
    */
   makeRefcounted(): number {
     return this.native.makeRefcounted();
   }
 
   /**
-   * Create a writable reference for the data described by the packet,
-   * avoiding data copy if possible.
-   *
-   * Direct mapping to av_packet_make_writable()
+   * Create a writable reference for the data described by the packet.
    *
    * If the packet data buffer is already writable, this does nothing.
    * Otherwise, a new buffer is allocated, data is copied, and the old buffer
-   * is unreferenced.
+   * is unreferenced. This avoids data copy if possible.
+   *
+   * Direct mapping to av_packet_make_writable()
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success (data is now writable)
@@ -405,14 +442,21 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
+   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   *
+   * // Before modifying packet data
    * const ret = packet.makeWritable();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
+   * FFmpegError.throwIfError(ret, 'makeWritable');
+   *
+   * // Now safe to modify packet data
+   * const data = packet.data;
+   * if (data) {
+   *   // Modify data buffer directly
+   *   data[0] = 0xFF;
    * }
-   * // Packet data is now writable and can be modified
    * ```
    *
-   * @see makeRefcounted()
+   * @see {@link makeRefcounted} To make data reference counted
    */
   makeWritable(): number {
     return this.native.makeWritable();
@@ -438,11 +482,23 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
+   * import { Packet } from '@seydx/ffmpeg';
+   *
+   * // Using 'using' declaration for automatic cleanup
    * {
    *   using packet = new Packet();
    *   packet.alloc();
    *   // ... use packet
    * } // Automatically freed when leaving scope
+   *
+   * // Or with try-finally
+   * const packet = new Packet();
+   * try {
+   *   packet.alloc();
+   *   // ... use packet
+   * } finally {
+   *   packet[Symbol.dispose]();
+   * }
    * ```
    */
   [Symbol.dispose](): void {

@@ -242,7 +242,7 @@ describe('Frame', () => {
       assert.ok(Array.isArray(extData), 'Should be an array');
       assert.ok(extData.length >= 1, 'Should have at least one buffer');
       assert.ok(extData[0] instanceof Buffer, 'Should contain Buffer objects');
-      
+
       // For audio frames, we should be able to access the data
       // The actual buffer content may differ, but both should exist
       assert.ok(frame.data, 'Should have data array');
@@ -525,13 +525,13 @@ describe('Frame', () => {
 
     it('should detect unallocated frame as neither hw nor sw', () => {
       frame.alloc();
-      
+
       // Unallocated frame has neither data nor hw_frames_ctx
       assert.equal(frame.isSwFrame(), false, 'Unallocated frame should not be software');
       assert.equal(frame.isHwFrame(), false, 'Unallocated frame should not be hardware');
     });
 
-    it('should transfer data between frames', () => {
+    it('should transfer data between frames', async () => {
       const srcFrame = new Frame();
       srcFrame.alloc();
       srcFrame.format = AV_PIX_FMT_YUV420P;
@@ -540,12 +540,12 @@ describe('Frame', () => {
       srcFrame.allocBuffer();
 
       frame.alloc();
-      
+
       // Note: This will likely fail without proper hardware context
       // but we test that the method exists and returns a number
-      const ret = frame.hwframeTransferData(srcFrame, 0);
+      const ret = await frame.hwframeTransferData(srcFrame, 0);
       assert.ok(typeof ret === 'number', 'Should return a number');
-      
+
       srcFrame.free();
     });
   });

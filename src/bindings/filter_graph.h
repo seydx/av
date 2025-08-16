@@ -47,6 +47,8 @@ public:
 private:
   // Friend classes
   friend class FilterContext;
+  friend class FGConfigWorker;
+  friend class FGRequestOldestWorker;
   
   // Static members
   static Napi::FunctionReference constructor;
