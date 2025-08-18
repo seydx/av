@@ -37,7 +37,6 @@ import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
 export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   private native: NativeOutputFormat;
 
-  // Constructor
   /**
    * Constructor is internal - use static factory methods.
    *
@@ -53,17 +52,15 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * import { OutputFormat } from '@seydx/ffmpeg';
    *
    * // Don't use constructor directly
-   * // const format = new OutputFormat(); // ❌ Wrong
+   * // const format = new OutputFormat(); // Wrong
    *
    * // Use static factory methods instead
-   * const format = OutputFormat.guessFormat('mp4', null, null); // ✅ Correct
+   * const format = OutputFormat.guessFormat('mp4', null, null); // Correct
    * ```
    */
   constructor(native: NativeOutputFormat) {
     this.native = native;
   }
-
-  // Static Methods - Low Level API
 
   /**
    * Return the output format which best matches the provided parameters.
@@ -106,8 +103,6 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
     }
     return new OutputFormat(native);
   }
-
-  // Getter Properties
 
   /**
    * A comma separated list of short names for the format.
@@ -211,8 +206,6 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   get flags(): AVFormatFlag {
     return this.native.flags;
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVOutputFormat pointer.

@@ -20,38 +20,9 @@ public:
   ~IOContext();
   
   // Native access
-  AVIOContext* Get() { 
-    return ctx_ ? ctx_ : unowned_ctx_; 
-  }
-  
-  // Transfer ownership of the context to the caller
-  AVIOContext* ReleaseOwnership() {
-    AVIOContext* result = ctx_;
-    ctx_ = nullptr;
-    unowned_ctx_ = result;
-    is_freed_ = true;  // Mark as freed since we no longer own it
-    return result;
-  }
-  void SetOwned(AVIOContext* ctx) { 
-    // Free old context if exists
-    if (ctx_ && !is_freed_) {
-      avio_context_free(&ctx_);
-    }
-    ctx_ = ctx;
-    unowned_ctx_ = nullptr;
-    is_freed_ = false;
-  }
-  void SetUnowned(AVIOContext* ctx) { 
-    if (ctx_ && !is_freed_) {
-      avio_context_free(&ctx_);
-    }
-    ctx_ = nullptr;
-    unowned_ctx_ = ctx;
-    is_freed_ = true;  // Mark as freed since we don't own it
-  }
+  AVIOContext* Get() { return ctx_; }
   
   // Static factory
-  static Napi::Value Wrap(Napi::Env env, AVIOContext* ctx);
   Napi::Value FreeContext(const Napi::CallbackInfo& info);
   Napi::Value ClosepAsync(const Napi::CallbackInfo& info);
   Napi::Value ReadAsync(const Napi::CallbackInfo& info);
@@ -89,9 +60,7 @@ private:
   static Napi::FunctionReference constructor;
   
   // Resources
-  AVIOContext* ctx_ = nullptr;  // Manual RAII
-  AVIOContext* unowned_ctx_ = nullptr;
-  bool is_freed_ = false;
+  AVIOContext* ctx_ = nullptr;  // The AVIOContext we manage
   
   // Custom I/O callback support
   struct CallbackData {
@@ -108,6 +77,9 @@ private:
   
   std::unique_ptr<CallbackData> callback_data_;
   uint8_t* buffer_ = nullptr;  // Buffer for custom I/O
+  
+  // Helper to clean up callbacks
+  void CleanupCallbacks();
   
   // Static callback functions for FFmpeg
   static int ReadPacket(void* opaque, uint8_t* buf, int buf_size);

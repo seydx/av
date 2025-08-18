@@ -29,8 +29,9 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FilterContext::SetOpt>("setOpt"),
     InstanceMethod<&FilterContext::OptSetBin>("optSetBin"),
     InstanceMethod<&FilterContext::BuffersrcAddFrame>("buffersrcAddFrame"),
+    InstanceMethod<&FilterContext::BuffersrcParametersSet>("buffersrcParametersSet"),
     InstanceMethod<&FilterContext::BuffersinkGetFrame>("buffersinkGetFrame"),
-    InstanceMethod<&FilterContext::BuffersinkSetFrameSize>("buffersinkSetFrameSize"),
+    // InstanceMethod<&FilterContext::BuffersinkSetFrameSize>("buffersinkSetFrameSize"),
     InstanceMethod<&FilterContext::BuffersinkGetTimeBase>("buffersinkGetTimeBase"),
 
     // Properties
@@ -295,27 +296,27 @@ Napi::Value FilterContext::OptSetBin(const Napi::CallbackInfo& info) {
   }
 }
 
-Napi::Value FilterContext::BuffersinkSetFrameSize(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  AVFilterContext* ctx = Get();
+// Napi::Value FilterContext::BuffersinkSetFrameSize(const Napi::CallbackInfo& info) {
+//   Napi::Env env = info.Env();
+//   AVFilterContext* ctx = Get();
   
-  if (!ctx) {
-    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
+//   if (!ctx) {
+//     Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+//     return env.Undefined();
+//   }
   
-  if (info.Length() < 1 || !info[0].IsNumber()) {
-    Napi::TypeError::New(env, "Expected frame size as number").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
+//   if (info.Length() < 1 || !info[0].IsNumber()) {
+//     Napi::TypeError::New(env, "Expected frame size as number").ThrowAsJavaScriptException();
+//     return env.Undefined();
+//   }
   
-  unsigned int frame_size = info[0].As<Napi::Number>().Uint32Value();
+//   unsigned int frame_size = info[0].As<Napi::Number>().Uint32Value();
   
-  // Set the frame size for buffersink
-  av_buffersink_set_frame_size(ctx, frame_size);
+//   // Set the frame size for buffersink
+//   av_buffersink_set_frame_size(ctx, frame_size);
   
-  return env.Undefined();
-}
+//   return env.Undefined();
+// }
 
 Napi::Value FilterContext::BuffersinkGetTimeBase(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

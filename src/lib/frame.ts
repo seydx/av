@@ -65,8 +65,8 @@ import type { ChannelLayout } from './types.js';
  */
 export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   private native: NativeFrame;
+  private _hwFramesCtx?: HardwareFramesContext | null; // Cache for hardware frames context wrapper
 
-  // Constructor
   /**
    * Create a new frame.
    *
@@ -87,8 +87,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   constructor() {
     this.native = new bindings.Frame();
   }
-
-  // Getter/Setter Properties - General
 
   /**
    * Format of the frame.
@@ -276,8 +274,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
     this.native.sampleAspectRatio = { num: value.num, den: value.den };
   }
 
-  // Getter/Setter Properties - Audio specific
-
   /**
    * Sample rate of the audio data.
    *
@@ -322,8 +318,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   get channels(): number {
     return this.native.channels;
   }
-
-  // Getter/Setter Properties - Video specific
 
   /**
    * Line size (stride) for each plane.
@@ -482,21 +476,29 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * AVHWFramesContext describing the frame.
    */
   get hwFramesCtx(): HardwareFramesContext | null {
+    // Return cached wrapper if we already have one
+    if (this._hwFramesCtx !== undefined) {
+      return this._hwFramesCtx;
+    }
+
     const native = this.native.hwFramesCtx;
     if (!native) {
+      this._hwFramesCtx = null;
       return null;
     }
-    // Wrap the native frames context
+
+    // Create and cache the wrapper
     const frames = Object.create(HardwareFramesContext.prototype) as HardwareFramesContext;
     (frames as any).native = native;
+    this._hwFramesCtx = frames;
     return frames;
   }
 
   set hwFramesCtx(value: HardwareFramesContext | null) {
     this.native.hwFramesCtx = value?.getNative() ?? null;
+    // Clear the cache as the underlying context has changed
+    this._hwFramesCtx = undefined;
   }
-
-  // Public Methods - Low Level API
 
   /**
    * Allocate an AVFrame and set its fields to default values.
@@ -819,7 +821,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_hwframe_transfer_data()
    *
    * @param dst - Destination frame
-   * @param flags - Transfer flags (0 for default)
+   * @param flags - Transfer flags (currently unused, should be set to zero)
    *
    * @returns Promise resolving to 0 on success, negative AVERROR on error:
    *   - 0: Success (data transferred)
@@ -897,8 +899,6 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   isSwFrame(): boolean {
     return this.native.isSwFrame();
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVFrame pointer.

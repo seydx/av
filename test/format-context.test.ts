@@ -32,7 +32,6 @@ describe('FormatContext', () => {
   const testFile = path.join(testDir, 'test.mp4');
   const testAudioFile = path.join(testDir, 'test-audio.wav');
   const inputVideoFile = path.join(__dirname, '../testdata/video.mp4');
-  const inputAudioFile = path.join(__dirname, '../testdata/audio-s16le.pcm');
 
   before(() => {
     // Create test directory if it doesn't exist
@@ -63,7 +62,7 @@ describe('FormatContext', () => {
       if (ctx) {
         ctx.freeContext();
       }
-    } catch (e) {
+    } catch {
       // Already freed or error during cleanup
       // This is expected for some tests
     }

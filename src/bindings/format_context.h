@@ -42,9 +42,8 @@ private:
   static Napi::FunctionReference constructor;
   
   // Resources
-  AVFormatContext* ctx_ = nullptr;  // Manual management, no RAII
-  bool is_output_ = false;
-  bool is_freed_ = false;
+  AVFormatContext* ctx_ = nullptr;  // The format context we manage
+  bool is_output_ = false;          // Whether this is an output context
   
   // === Methods ===
   
@@ -107,7 +106,6 @@ private:
   Napi::Value GetMaxStreams(const Napi::CallbackInfo& info);
   void SetMaxStreams(const Napi::CallbackInfo& info, const Napi::Value& value);
   
-  Napi::Value GetPb(const Napi::CallbackInfo& info);
   void SetPb(const Napi::CallbackInfo& info, const Napi::Value& value);
   
   // Utility

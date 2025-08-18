@@ -73,8 +73,8 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
  */
 export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHardwareFramesContext> {
   private native: NativeHardwareFramesContext;
+  private _deviceRef?: HardwareDeviceContext | null; // Cache for device context wrapper
 
-  // Constructor
   /**
    * Create a new hardware frames context.
    *
@@ -97,8 +97,6 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   constructor() {
     this.native = new bindings.HardwareFramesContext();
   }
-
-  // Getter/Setter Properties
 
   /**
    * Hardware pixel format.
@@ -182,17 +180,23 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * @readonly
    */
   get deviceRef(): HardwareDeviceContext | null {
+    // Return cached wrapper if we already have one
+    if (this._deviceRef !== undefined) {
+      return this._deviceRef;
+    }
+
     const native = this.native.deviceRef;
     if (!native) {
+      this._deviceRef = null;
       return null;
     }
-    // Wrap the native device context
+
+    // Create and cache the wrapper
     const device = Object.create(HardwareDeviceContext.prototype) as HardwareDeviceContext;
     (device as any).native = native;
+    this._deviceRef = device;
     return device;
   }
-
-  // Public Methods - Lifecycle
 
   /**
    * Allocate an AVHWFramesContext tied to a given device context.
@@ -255,8 +259,6 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   free(): void {
     this.native.free();
   }
-
-  // Public Methods - Frame Operations
 
   /**
    * Allocate a new frame attached to the given AVHWFramesContext.
@@ -418,8 +420,6 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   createDerived(format: AVPixelFormat, derivedDevice: HardwareDeviceContext, source: HardwareFramesContext, flags?: number): number {
     return this.native.createDerived(format, derivedDevice.getNative(), source.native, flags ?? 0);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVHWFramesContext pointer.

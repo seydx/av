@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import type { Stream } from '../src/lib/index.js';
 import {
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
@@ -14,7 +15,6 @@ import {
   Dictionary,
   FormatContext,
   Rational,
-  Stream,
 } from '../src/lib/index.js';
 
 describe('Stream', () => {
@@ -32,7 +32,7 @@ describe('Stream', () => {
       if (ctx) {
         ctx.freeContext();
       }
-    } catch (e) {
+    } catch {
       // Already freed
     }
   });

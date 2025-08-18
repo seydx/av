@@ -110,7 +110,7 @@ describe('Rational', () => {
         const r2 = new Rational(1, 2);
         const result = r1.sub(r2);
         assert.equal(result.num, -1); // (1*2 - 1*3) = -1
-        assert.equal(result.den, 6);  // 3*2 = 6
+        assert.equal(result.den, 6); // 3*2 = 6
       });
 
       it('should handle subtracting zero', () => {
@@ -188,7 +188,7 @@ describe('Rational', () => {
         const r2 = new Rational(4, 5);
         const result = r1.div(r2);
         assert.equal(result.num, -10); // -2*5 = -10
-        assert.equal(result.den, 12);  // 3*4 = 12
+        assert.equal(result.den, 12); // 3*4 = 12
       });
 
       it('should throw when dividing by zero', () => {
@@ -394,7 +394,7 @@ describe('Rational', () => {
 
       // NTSC 4:3
       const sarNtsc43 = new Rational(10, 11);
-      assert.ok(Math.abs(sarNtsc43.toDouble() - 0.9090) < 0.001);
+      assert.ok(Math.abs(sarNtsc43.toDouble() - 0.909) < 0.001);
     });
 
     it('should calculate frame duration from frame rate', () => {
@@ -418,7 +418,7 @@ describe('Rational', () => {
     it('should handle very large numbers', () => {
       const r1 = new Rational(2147483647, 1); // Max 32-bit int
       const r2 = new Rational(1, 2147483647);
-      
+
       assert.equal(r1.num, 2147483647);
       assert.equal(r2.den, 2147483647);
     });
@@ -435,11 +435,11 @@ describe('Rational', () => {
       const r1 = new Rational(1, 3);
       const r2 = new Rational(1, 7);
       const result = r1.add(r2);
-      
+
       // Should be exactly (7 + 3) / 21 = 10/21
       assert.equal(result.num, 10);
       assert.equal(result.den, 21);
-      
+
       // Cross-multiply to verify without floating point
       assert.equal(result.num * 21, 10 * result.den);
     });

@@ -46,7 +46,6 @@ import type { ChannelLayout } from './types.js';
 export class SoftwareResampleContext implements Disposable, NativeWrapper<NativeSoftwareResampleContext> {
   private native: NativeSoftwareResampleContext;
 
-  // Constructor
   /**
    * Create a new software resample context.
    *
@@ -77,8 +76,6 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   constructor() {
     this.native = new bindings.SoftwareResampleContext();
   }
-
-  // Public Methods - Lifecycle
 
   /**
    * Allocate SwrContext.
@@ -221,8 +218,6 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
     this.native.close();
   }
 
-  // Public Methods - Conversion
-
   /**
    * Convert audio.
    *
@@ -340,8 +335,6 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
     return this.native.configFrame(outFrame?.getNative() ?? null, inFrame?.getNative() ?? null);
   }
 
-  // Public Methods - Status
-
   /**
    * Check whether an swr context has been initialized or not.
    *
@@ -457,8 +450,6 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   nextPts(pts: bigint): bigint {
     return this.native.nextPts(pts);
   }
-
-  // Public Methods - Configuration
 
   /**
    * Activate resampling compensation ("soft" compensation).
@@ -612,8 +603,6 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
   injectSilence(count: number): number {
     return this.native.injectSilence(count);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg SwrContext pointer.

@@ -70,7 +70,6 @@ import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
 export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph> {
   private native: NativeFilterGraph;
 
-  // Constructor
   /**
    * Create a new FilterGraph instance.
    *
@@ -91,8 +90,6 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   constructor() {
     this.native = new bindings.FilterGraph();
   }
-
-  // Getter/Setter Properties
 
   /**
    * Number of filters in the graph.
@@ -162,8 +159,6 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
   set scaleSwsOpts(value: string | null) {
     this.native.scaleSwsOpts = value;
   }
-
-  // Public Methods - Low Level API
 
   /**
    * Allocate the filter graph.
@@ -238,7 +233,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * );
    * ```
    */
-  createFilter(filter: Filter, name: string, args?: string | null): FilterContext | null {
+  createFilter(filter: Filter, name: string, args: string | null = null): FilterContext | null {
     const native = this.native.createFilter(filter.getNative(), name, args ?? null);
     return native ? new FilterContext(native) : null;
   }
@@ -512,28 +507,23 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
     return this.native.requestOldest();
   }
 
-  // Public Methods
-
   /**
-   * Dump the graph structure to a file.
+   * Get the graph structure as a string.
    *
-   * Exports the graph in DOT format for visualization.
+   * Returns a string representation of the filter graph in DOT format.
    * Uses avfilter_graph_dump() internally.
    *
-   * @param filename - Output filename
+   * @returns String representation of the filter graph or null if not allocated
    *
    * @example
    * ```typescript
-   * // Export graph for visualization with Graphviz
-   * graph.dumpToFile('filter_graph.dot');
-   * // Then run: dot -Tpng filter_graph.dot -o graph.png
+   * const graphDescription = graph.dump();
+   * console.log('Filter graph:', graphDescription);
    * ```
    */
-  dumpToFile(filename: string): void {
-    this.native.dumpToFile(filename);
+  dump(): string | null {
+    return this.native.dump();
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVFilterGraph pointer.

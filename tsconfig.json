@@ -26,12 +26,12 @@
     "src",
     "test",
     "examples",
+    "scripts",
   ],
   "exclude": [
     "node_modules",
     "dist",
     ".tmp",
-    "scripts",
     "externals",
   ]
 }

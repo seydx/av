@@ -24,7 +24,7 @@ describe('IOContext', () => {
   afterEach(async () => {
     try {
       await fs.unlink(tempOutputFile);
-    } catch (e) {
+    } catch {
       // Ignore if file doesn't exist
     }
   });
@@ -111,8 +111,8 @@ describe('IOContext', () => {
 
       const data = await io.read(1024);
       assert.ok(Buffer.isBuffer(data), 'Should return a Buffer');
-      assert.ok((data as Buffer).length > 0, 'Should read some data');
-      assert.ok((data as Buffer).length <= 1024, 'Should not exceed requested size');
+      assert.ok(data.length > 0, 'Should read some data');
+      assert.ok(data.length <= 1024, 'Should not exceed requested size');
 
       const closeret = await io.closep();
       assert.equal(closeret, 0, 'Should return 0 on success');
@@ -128,7 +128,7 @@ describe('IOContext', () => {
 
       const data = await io.read(fileSize);
       assert.ok(Buffer.isBuffer(data));
-      assert.equal((data as Buffer).length, fileSize, 'Should read entire file');
+      assert.equal(data.length, fileSize, 'Should read entire file');
 
       const closeret = await io.closep();
       assert.equal(closeret, 0, 'Should return 0 on success');
@@ -622,7 +622,6 @@ describe('IOContext', () => {
     it('should handle EOF correctly in read callback', async () => {
       const testData = Buffer.from('Small test data');
       let position = 0;
-      let eofReached = false;
 
       const io = new IOContext();
       io.allocContextWithCallbacks(
@@ -630,7 +629,6 @@ describe('IOContext', () => {
         0,
         (size: number) => {
           if (position >= testData.length) {
-            eofReached = true;
             return -541478725; // AV_ERROR_EOF
           }
           const bytesToRead = Math.min(size, testData.length - position);

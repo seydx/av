@@ -45,7 +45,6 @@ import type { NativeFilterInOut, NativeWrapper } from './native-types.js';
 export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut> {
   private native: NativeFilterInOut;
 
-  // Constructor
   /**
    * Create a new FilterInOut instance.
    *
@@ -66,8 +65,6 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   constructor() {
     this.native = new bindings.FilterInOut();
   }
-
-  // Static Methods - Helper Functions
 
   /**
    * Create a linked list of FilterInOut structures.
@@ -127,8 +124,6 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
 
     return head;
   }
-
-  // Getter/Setter Properties
 
   /**
    * Name of this input/output point.
@@ -198,8 +193,6 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
     this.native.next = value ? value.getNative() : null;
   }
 
-  // Public Methods - Low Level API
-
   /**
    * Allocate the FilterInOut structure.
    *
@@ -243,8 +236,6 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
     this.native.free();
   }
 
-  // Public Methods
-
   /**
    * Count elements in the linked list.
    *
@@ -269,8 +260,6 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
 
     return count;
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVFilterInOut pointer.

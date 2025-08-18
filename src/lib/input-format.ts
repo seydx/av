@@ -39,7 +39,6 @@ import type { NativeInputFormat, NativeWrapper } from './native-types.js';
 export class InputFormat implements NativeWrapper<NativeInputFormat> {
   private native: NativeInputFormat;
 
-  // Constructor
   /**
    * Constructor is internal - use static factory methods.
    *
@@ -55,17 +54,15 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * import { InputFormat } from '@seydx/ffmpeg';
    *
    * // Don't use constructor directly
-   * // const format = new InputFormat(); // ❌ Wrong
+   * // const format = new InputFormat(); // Wrong
    *
    * // Use static factory methods instead
-   * const format = InputFormat.findInputFormat('mp4'); // ✅ Correct
+   * const format = InputFormat.findInputFormat('mp4'); // Correct
    * ```
    */
   constructor(native: NativeInputFormat) {
     this.native = native;
   }
-
-  // Static Methods - Low Level API
 
   /**
    * Find a registered input format with matching name.
@@ -105,8 +102,6 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
     }
     return new InputFormat(native);
   }
-
-  // Getter Properties
 
   /**
    * A comma separated list of short names for the format.
@@ -176,8 +171,6 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   get flags(): AVFormatFlag {
     return this.native.flags;
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVInputFormat pointer.

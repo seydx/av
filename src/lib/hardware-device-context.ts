@@ -69,7 +69,6 @@ import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.
 export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHardwareDeviceContext> {
   private native: NativeHardwareDeviceContext;
 
-  // Constructor
   /**
    * Create a new hardware device context.
    *
@@ -92,8 +91,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   constructor() {
     this.native = new bindings.HardwareDeviceContext();
   }
-
-  // Static Methods - Low Level API
 
   /**
    * Get the string name of an AVHWDeviceType.
@@ -169,8 +166,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
     return bindings.HardwareDeviceContext.findTypeByName(name);
   }
 
-  // Getter/Setter Properties
-
   /**
    * Hardware device type.
    *
@@ -193,8 +188,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   get hwctx(): bigint | null {
     return this.native.hwctx;
   }
-
-  // Public Methods - Lifecycle
 
   /**
    * Allocate an AVHWDeviceContext for a given hardware type.
@@ -296,7 +289,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * @see {@link alloc} For manual device allocation
    * @see {@link createDerived} To derive from another device
    */
-  create(type: AVHWDeviceType, device: string | null, options: Dictionary | null): number {
+  create(type: AVHWDeviceType, device: string | null = null, options: Dictionary | null = null): number {
     return this.native.create(type, device, options?.getNative() ?? null);
   }
 
@@ -356,8 +349,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   free(): void {
     this.native.free();
   }
-
-  // Public Methods - Configuration
 
   /**
    * Allocate a HW-specific configuration structure.
@@ -426,8 +417,6 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   } | null {
     return this.native.getHwframeConstraints(hwconfig);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVHWDeviceContext pointer.

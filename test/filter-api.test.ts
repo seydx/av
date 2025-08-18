@@ -1,0 +1,785 @@
+import assert from 'node:assert';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { after, before, describe, it } from 'node:test';
+
+import { Decoder } from '../src/api/decoder.js';
+import { Encoder } from '../src/api/encoder.js';
+import { FilterAPI, FilterPresets } from '../src/api/filter.js';
+import { MediaInput } from '../src/api/media-input.js';
+import {
+  AV_MEDIA_TYPE_AUDIO,
+  AV_MEDIA_TYPE_VIDEO,
+  AV_PIX_FMT_NV12,
+  AV_PIX_FMT_RGB24,
+  AV_PIX_FMT_YUV420P,
+  AV_SAMPLE_FMT_FLTP,
+  AV_SAMPLE_FMT_S16,
+} from '../src/lib/constants.js';
+import { Frame } from '../src/lib/index.js';
+
+import type { AudioFilterConfig, VideoFilterConfig } from '../src/api/types.js';
+
+describe('High-Level Filter API', () => {
+  const testVideoPath = path.join(import.meta.dirname, '..', 'testdata', 'demux.mp4');
+  const testAudioPath = path.join(import.meta.dirname, '..', 'testdata', 'audio.wav');
+  const tempDir = path.join(import.meta.dirname, '.tmp');
+
+  before(async () => {
+    await fs.mkdir(tempDir, { recursive: true });
+  });
+
+  after(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  describe('Filter Creation', () => {
+    it('should create a simple video filter', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+      assert.equal(filter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
+      filter.free();
+    });
+
+    it('should create a simple audio filter', async () => {
+      const config: AudioFilterConfig = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: 3n, // Stereo
+        timeBase: { num: 1, den: 48000 },
+      };
+
+      const filter = await FilterAPI.create('volume=0.5', config);
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+      assert.equal(filter.getMediaType(), AV_MEDIA_TYPE_AUDIO);
+      filter.free();
+    });
+
+    it('should create filter with null/passthrough', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('null', config);
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+      filter.free();
+    });
+
+    it('should create filter from decoder', async () => {
+      const media = await MediaInput.open(testVideoPath);
+      const decoder = await Decoder.create(media, 0);
+
+      const filter = await FilterAPI.createFromDecoder(decoder, 'scale=640:480');
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+      assert.equal(filter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
+
+      filter.free();
+      decoder.close();
+      media.close();
+    });
+
+    it('should create filter from encoder', async () => {
+      const encoder = await Encoder.create('libx264', {
+        width: 1280,
+        height: 720,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+      });
+
+      const inputConfig: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_RGB24,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.createFromEncoder(encoder, 'scale=1280:720', inputConfig);
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+
+      filter.free();
+      encoder.close();
+    });
+
+    it('should create filter with output constraints', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_RGB24,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config, {
+        output: {
+          pixelFormats: [AV_PIX_FMT_YUV420P, AV_PIX_FMT_NV12],
+        },
+      });
+
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+      filter.free();
+    });
+
+    it('should create filter with threading options', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config, {
+        threads: 4,
+      });
+
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+      filter.free();
+    });
+
+    it('should handle complex filter chain', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720,fps=30,format=yuv420p', config);
+
+      assert.ok(filter);
+      assert.ok(filter.isReady());
+      filter.free();
+    });
+
+    it('should throw on invalid filter description', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      await assert.rejects(async () => {
+        await FilterAPI.create('invalid_filter_xyz', config);
+      }, /Failed to parse filter description/);
+    });
+  });
+
+  describe('Frame Processing', () => {
+    it('should process a single frame', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+
+      // Create a test frame
+      const frame = new Frame();
+      frame.alloc();
+      frame.width = 1920;
+      frame.height = 1080;
+      frame.format = AV_PIX_FMT_YUV420P;
+      const ret = frame.getBuffer();
+      assert.ok(ret >= 0);
+
+      const output = await filter.process(frame);
+      assert.ok(output);
+      assert.equal(output.width, 1280);
+      assert.equal(output.height, 720);
+
+      frame.free();
+      output.free();
+      filter.free();
+    });
+
+    it('should handle multiple frames', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 640,
+        height: 480,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('fps=15', config);
+
+      const frames: Frame[] = [];
+      for (let i = 0; i < 3; i++) {
+        const frame = new Frame();
+        frame.alloc();
+        frame.width = 640;
+        frame.height = 480;
+        frame.format = AV_PIX_FMT_YUV420P;
+        frame.pts = BigInt(i * 1000);
+        const ret = frame.getBuffer();
+        assert.ok(ret >= 0);
+        frames.push(frame);
+      }
+
+      const outputs = await filter.processMultiple(frames);
+      assert.ok(outputs.length > 0);
+
+      // Clean up
+      frames.forEach((f) => f.free());
+      outputs.forEach((f) => f.free());
+      filter.free();
+    });
+
+    it('should flush and receive remaining frames', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 640,
+        height: 480,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('fps=15', config);
+
+      // Send some frames
+      for (let i = 0; i < 5; i++) {
+        const frame = new Frame();
+        frame.alloc();
+        frame.width = 640;
+        frame.height = 480;
+        frame.format = AV_PIX_FMT_YUV420P;
+        frame.pts = BigInt(i * 1000);
+        const ret = frame.getBuffer();
+        assert.ok(ret >= 0);
+
+        const output = await filter.process(frame);
+        if (output) {
+          output.free();
+        }
+        frame.free();
+      }
+
+      // Flush
+      await filter.flush();
+
+      // Receive remaining frames
+      let remainingCount = 0;
+      while (true) {
+        const frame = await filter.receive();
+        if (!frame) break;
+        remainingCount++;
+        frame.free();
+      }
+
+      assert.ok(remainingCount >= 0);
+      filter.free();
+    });
+  });
+
+  describe('Async Generator Interface', () => {
+    it('should process frames via async generator', async () => {
+      const media = await MediaInput.open(testVideoPath);
+      const decoder = await Decoder.create(media, 0);
+
+      const filter = await FilterAPI.createFromDecoder(decoder, 'scale=320:240,fps=15');
+
+      let frameCount = 0;
+      const maxFrames = 10;
+
+      async function* limitedFrames() {
+        let count = 0;
+        for await (const packet of media.packets()) {
+          if (packet.streamIndex === 0) {
+            const frame = await decoder.decode(packet);
+            if (frame) {
+              yield frame;
+              count++;
+              if (count >= maxFrames) break;
+            }
+          }
+        }
+      }
+
+      for await (const filtered of filter.frames(limitedFrames())) {
+        assert.ok(filtered);
+        assert.equal(filtered.width, 320);
+        assert.equal(filtered.height, 240);
+        filtered.free();
+        frameCount++;
+      }
+
+      assert.ok(frameCount > 0);
+
+      filter.free();
+      decoder.close();
+      media.close();
+    });
+  });
+
+  describe('FilterPresets', () => {
+    it('should create scale preset', () => {
+      const preset = FilterPresets.scale(1280, 720);
+      assert.equal(preset, 'scale=1280:720');
+
+      const presetWithFlags = FilterPresets.scale(1280, 720, 'bicubic');
+      assert.equal(presetWithFlags, 'scale=1280:720:flags=bicubic');
+    });
+
+    it('should create crop preset', () => {
+      const preset = FilterPresets.crop(640, 480);
+      assert.equal(preset, 'crop=640:480:0:0');
+
+      const presetWithOffset = FilterPresets.crop(640, 480, 100, 50);
+      assert.equal(presetWithOffset, 'crop=640:480:100:50');
+    });
+
+    it('should create fps preset', () => {
+      const preset = FilterPresets.fps(30);
+      assert.equal(preset, 'fps=30');
+    });
+
+    it('should create format preset with enum', () => {
+      const preset = FilterPresets.format(AV_PIX_FMT_YUV420P);
+      assert.ok(preset.startsWith('format='));
+    });
+
+    it('should create format preset with string', () => {
+      const preset = FilterPresets.format('yuv420p');
+      assert.equal(preset, 'format=yuv420p');
+    });
+
+    it('should create rotation preset', () => {
+      const preset = FilterPresets.rotate(90);
+      assert.equal(preset, 'rotate=90*PI/180');
+    });
+
+    it('should create flip presets', () => {
+      assert.equal(FilterPresets.hflip(), 'hflip');
+      assert.equal(FilterPresets.vflip(), 'vflip');
+    });
+
+    it('should create fade preset', () => {
+      const fadeIn = FilterPresets.fade('in', 0, 2);
+      assert.equal(fadeIn, 'fade=t=in:st=0:d=2');
+
+      const fadeOut = FilterPresets.fade('out', 5, 1);
+      assert.equal(fadeOut, 'fade=t=out:st=5:d=1');
+    });
+
+    it('should create overlay preset', () => {
+      const preset = FilterPresets.overlay();
+      assert.equal(preset, 'overlay=0:0');
+
+      const presetWithPosition = FilterPresets.overlay(100, 50);
+      assert.equal(presetWithPosition, 'overlay=100:50');
+    });
+
+    it('should create volume preset', () => {
+      const preset = FilterPresets.volume(0.5);
+      assert.equal(preset, 'volume=0.5');
+    });
+
+    it('should create aformat preset with enum', () => {
+      const preset = FilterPresets.aformat(AV_SAMPLE_FMT_S16);
+      assert.ok(preset.startsWith('aformat=sample_fmts='));
+    });
+
+    it('should create aformat preset with string', () => {
+      const preset = FilterPresets.aformat('s16', 48000, 'stereo');
+      assert.equal(preset, 'aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo');
+    });
+
+    it('should create atempo preset', () => {
+      const preset = FilterPresets.atempo(1.5);
+      assert.equal(preset, 'atempo=1.5');
+    });
+
+    it('should create afade preset', () => {
+      const preset = FilterPresets.afade('in', 0, 3);
+      assert.equal(preset, 'afade=t=in:st=0:d=3');
+    });
+
+    it('should create amix preset', () => {
+      const preset = FilterPresets.amix();
+      assert.equal(preset, 'amix=inputs=2:duration=longest');
+
+      const presetCustom = FilterPresets.amix(3, 'shortest');
+      assert.equal(presetCustom, 'amix=inputs=3:duration=shortest');
+    });
+  });
+
+  describe('Utility Methods', () => {
+    it('should get graph description', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      const description = filter.getGraphDescription();
+      assert.ok(description);
+      assert.equal(typeof description, 'string');
+
+      filter.free();
+    });
+
+    it('should get filter configuration', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      const returnedConfig = filter.getConfig();
+
+      assert.equal(returnedConfig.type, 'video');
+      if (returnedConfig.type === 'video') {
+        assert.equal(returnedConfig.width, 1920);
+        assert.equal(returnedConfig.height, 1080);
+        assert.equal(returnedConfig.pixelFormat, AV_PIX_FMT_YUV420P);
+      }
+
+      filter.free();
+    });
+
+    it('should check if filter is ready', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      assert.ok(filter.isReady());
+
+      filter.free();
+      assert.ok(!filter.isReady());
+    });
+
+    it('should get media type', async () => {
+      const videoConfig: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const videoFilter = await FilterAPI.create('scale=1280:720', videoConfig);
+      assert.equal(videoFilter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
+      videoFilter.free();
+
+      const audioConfig: AudioFilterConfig = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: 3n,
+        timeBase: { num: 1, den: 48000 },
+      };
+
+      const audioFilter = await FilterAPI.create('volume=0.5', audioConfig);
+      assert.equal(audioFilter.getMediaType(), AV_MEDIA_TYPE_AUDIO);
+      audioFilter.free();
+    });
+  });
+
+  describe('Symbol.dispose', () => {
+    it('should support using syntax', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      {
+        using filter = await FilterAPI.create('scale=1280:720', config);
+        assert.ok(filter.isReady());
+      }
+      // Filter should be automatically freed here
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should throw on invalid configuration', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 0, // Invalid width
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      await assert.rejects(async () => {
+        await FilterAPI.create('scale=1280:720', config);
+      });
+    });
+
+    it('should throw when processing after free', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      filter.free();
+
+      const frame = new Frame();
+      frame.alloc();
+      frame.width = 1920;
+      frame.height = 1080;
+      frame.format = AV_PIX_FMT_YUV420P;
+
+      await assert.rejects(async () => {
+        await filter.process(frame);
+      }, /Filter not initialized/);
+
+      frame.free();
+    });
+
+    it('should throw when flushing after free', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      filter.free();
+
+      await assert.rejects(async () => {
+        await filter.flush();
+      }, /Filter not initialized/);
+    });
+
+    it('should throw when receiving after free', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      filter.free();
+
+      await assert.rejects(async () => {
+        await filter.receive();
+      }, /Filter not initialized/);
+    });
+
+    it('should throw when exporting graph after free', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      await assert.rejects(async () => {
+        const filter = await FilterAPI.create('scale=1280:720', config);
+        filter.free();
+        await filter.flush();
+      }, /Filter not initialized/);
+    });
+  });
+
+  describe('Complex Filter Graphs', () => {
+    it('should handle video scaling and format conversion', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_RGB24,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720,format=yuv420p', config, {
+        output: {
+          pixelFormats: [AV_PIX_FMT_YUV420P],
+        },
+      });
+
+      const frame = new Frame();
+      frame.alloc();
+      frame.width = 1920;
+      frame.height = 1080;
+      frame.format = AV_PIX_FMT_RGB24;
+      const ret = frame.getBuffer();
+      assert.ok(ret >= 0);
+
+      const output = await filter.process(frame);
+      if (output) {
+        assert.equal(output.width, 1280);
+        assert.equal(output.height, 720);
+        assert.equal(output.format, AV_PIX_FMT_YUV420P);
+        output.free();
+      }
+
+      frame.free();
+      filter.free();
+    });
+
+    it('should handle audio resampling', async () => {
+      const config: AudioFilterConfig = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: 3n,
+        timeBase: { num: 1, den: 48000 },
+      };
+
+      const filter = await FilterAPI.create('aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', config, {
+        output: {
+          sampleFormats: [AV_SAMPLE_FMT_S16],
+          sampleRates: [44100],
+        },
+      });
+
+      assert.ok(filter.isReady());
+      filter.free();
+    });
+  });
+
+  describe('Real Media Processing', () => {
+    it('should process real video file', async () => {
+      const media = await MediaInput.open(testVideoPath);
+      const decoder = await Decoder.create(media, 0);
+
+      const filter = await FilterAPI.createFromDecoder(decoder, 'scale=640:480,format=yuv420p');
+
+      let processedFrames = 0;
+      const maxFrames = 5;
+
+      for await (const packet of media.packets()) {
+        if (packet.streamIndex === 0) {
+          const frame = await decoder.decode(packet);
+          if (frame) {
+            const filtered = await filter.process(frame);
+            if (filtered) {
+              assert.equal(filtered.width, 640);
+              assert.equal(filtered.height, 480);
+              filtered.free();
+              processedFrames++;
+            }
+            frame.free();
+            if (processedFrames >= maxFrames) break;
+          }
+        }
+      }
+
+      assert.ok(processedFrames > 0);
+
+      filter.free();
+      decoder.close();
+      media.close();
+    });
+
+    it('should chain multiple filter presets', async () => {
+      const config: VideoFilterConfig = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+      };
+
+      const filterChain = [FilterPresets.scale(1280, 720), FilterPresets.fps(24), FilterPresets.format(AV_PIX_FMT_YUV420P)].join(',');
+
+      const filter = await FilterAPI.create(filterChain, config);
+      assert.ok(filter.isReady());
+
+      const description = filter.getGraphDescription();
+      assert.ok(description);
+      assert.ok(description.includes('scale'));
+      assert.ok(description.includes('fps'));
+
+      filter.free();
+    });
+
+    it('should process real audio file', async () => {
+      const media = await MediaInput.open(testAudioPath);
+
+      // Find audio stream
+      let audioStreamIndex = -1;
+      for (let i = 0; i < media.streams.length; i++) {
+        if (media.streams[i].codecpar.codecType === AV_MEDIA_TYPE_AUDIO) {
+          audioStreamIndex = i;
+          break;
+        }
+      }
+
+      assert.ok(audioStreamIndex >= 0, 'Should find audio stream');
+
+      const decoder = await Decoder.create(media, audioStreamIndex);
+
+      // Apply audio filters: volume adjustment and resampling
+      const filter = await FilterAPI.createFromDecoder(decoder, 'volume=0.5,aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo');
+
+      let processedFrames = 0;
+      const maxFrames = 10;
+
+      for await (const packet of media.packets()) {
+        if (packet.streamIndex === audioStreamIndex) {
+          const frame = await decoder.decode(packet);
+          if (frame) {
+            const filtered = await filter.process(frame);
+            if (filtered) {
+              // Check that the filter applied the correct format
+              assert.equal(filtered.sampleRate, 44100);
+              assert.equal(filtered.format, AV_SAMPLE_FMT_S16);
+              filtered.free();
+              processedFrames++;
+            }
+            frame.free();
+            if (processedFrames >= maxFrames) break;
+          }
+        }
+      }
+
+      assert.ok(processedFrames > 0, 'Should process audio frames');
+
+      filter.free();
+      decoder.close();
+      media.close();
+    });
+  });
+});

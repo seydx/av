@@ -376,11 +376,11 @@ async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ct
       return ret;
     }
 
-    if (enc_ctx.frameSize && enc_ctx.frameSize > 0) {
-      // NOTE: Skipping buffersinkSetFrameSize as it hangs in current FFmpeg version
-      // This doesn't affect functionality - frames are still processed correctly
-      // buffersink_ctx.buffersinkSetFrameSize(enc_ctx.frameSize);
-    }
+    // if (enc_ctx.frameSize && enc_ctx.frameSize > 0) {
+    //   // NOTE: Skipping buffersinkSetFrameSize as it hangs in current FFmpeg version
+    //   // This doesn't affect functionality - frames are still processed correctly
+    //   buffersink_ctx.buffersinkSetFrameSize(enc_ctx.frameSize);
+    // }
 
     ret = buffersink_ctx.init(null);
     if (ret < 0) {
@@ -484,7 +484,7 @@ async function encode_write_frame(stream_index: number, flush: boolean): Promise
   enc_pkt.unref();
 
   if (filt_frame?.pts !== undefined && filt_frame.pts !== AV_NOPTS_VALUE) {
-    filt_frame.pts = avRescaleQ(filt_frame.pts, filt_frame.timeBase || new Rational(1, 1), stream.enc_ctx!.timeBase);
+    filt_frame.pts = avRescaleQ(filt_frame.pts, filt_frame.timeBase || { num: 1, den: 1 }, stream.enc_ctx!.timeBase);
   }
 
   ret = await stream.enc_ctx!.sendFrame(filt_frame);

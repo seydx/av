@@ -8,14 +8,14 @@
  * @example
  * ```typescript
  * import { avImageAlloc, avTs2TimeStr, avRescaleQ, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_PIX_FMT_YUV420P, Rational } from '@seydx/ffmpeg';
+ * import { AV_PIX_FMT_YUV420P, IRational } from '@seydx/ffmpeg';
  *
  * // Allocate image buffer
  * const image = avImageAlloc(1920, 1080, AV_PIX_FMT_YUV420P, 32);
  * console.log(`Allocated ${image.size} bytes`);
  *
  * // Convert timestamp to readable time
- * const timebase = new Rational(1, 90000);
+ * const timebase: IRational = { num: 1, den: 90000 };
  * const pts = 450000n;
  * console.log(avTs2TimeStr(pts, timebase)); // "5.000000"
  * ```
@@ -24,8 +24,8 @@
 import { bindings } from './binding.js';
 
 import type { AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
-import type { Rational } from './rational.js';
-import type { ChannelLayout } from './types.js';
+import { FFmpegError } from './error.js';
+import type { ChannelLayout, IRational } from './types.js';
 
 /**
  * Get bytes per sample for a sample format.
@@ -114,6 +114,14 @@ export function avGetPixFmtFromName(name: string): AVPixelFormat {
 }
 
 /**
+ * Check if a pixel format is hardware-accelerated
+ * Direct mapping using av_pix_fmt_desc_get() and AV_PIX_FMT_FLAG_HWACCEL
+ */
+export function avIsHardwarePixelFormat(pixFmt: AVPixelFormat): boolean {
+  return bindings.avIsHardwarePixelFormat(pixFmt);
+}
+
+/**
  * Get media type string
  * Direct mapping to av_get_media_type_string()
  */
@@ -170,7 +178,6 @@ export function avImageAlloc(
   const result = bindings.avImageAlloc(width, height, pixFmt, align);
   if (typeof result === 'number') {
     // Error code returned instead of object
-    const { FFmpegError } = require('./error.js');
     throw new FFmpegError(result);
   }
   return result;
@@ -279,7 +286,7 @@ export function avTs2Str(ts: bigint | number | null): string {
  * Convert timestamp to time string
  * Direct mapping to av_ts2timestr()
  */
-export function avTs2TimeStr(ts: bigint | number | null, timeBase: Rational | null): string {
+export function avTs2TimeStr(ts: bigint | number | null, timeBase: IRational | null): string {
   if (!timeBase) {
     return avTs2Str(ts);
   }
@@ -323,7 +330,7 @@ export function avImageAllocArrays(
  *
  * @returns -1 if tsA < tsB, 0 if tsA == tsB, 1 if tsA > tsB
  */
-export function avCompareTs(tsA: bigint | number | null, tbA: Rational, tsB: bigint | number | null, tbB: Rational): number {
+export function avCompareTs(tsA: bigint | number | null, tbA: IRational, tsB: bigint | number | null, tbB: IRational): number {
   return bindings.avCompareTs(tsA, tbA, tsB, tbB);
 }
 
@@ -331,7 +338,7 @@ export function avCompareTs(tsA: bigint | number | null, tbA: Rational, tsB: big
  * Rescale a timestamp from one timebase to another
  * Direct mapping to av_rescale_q()
  */
-export function avRescaleQ(a: bigint | number | null, bq: Rational, cq: Rational): bigint {
+export function avRescaleQ(a: bigint | number | null, bq: IRational, cq: IRational): bigint {
   return bindings.avRescaleQ(a, bq, cq);
 }
 
@@ -400,7 +407,6 @@ export function avSamplesAlloc(
 } {
   const result = bindings.avSamplesAlloc(nbChannels, nbSamples, sampleFmt, align);
   if (typeof result === 'number') {
-    const { FFmpegError } = require('./error.js');
     throw new FFmpegError(result);
   }
   return result;
@@ -427,7 +433,7 @@ export function avSamplesGetBufferSize(
 } {
   const result = bindings.avSamplesGetBufferSize(nbChannels, nbSamples, sampleFmt, align);
   if (typeof result === 'number') {
-    throw new Error(`Failed to get buffer size: error code ${result}`);
+    throw new FFmpegError(result);
   }
   return result;
 }

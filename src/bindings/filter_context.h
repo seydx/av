@@ -72,8 +72,9 @@ private:
   
   // Buffer source/sink operations
   Napi::Value BuffersrcAddFrame(const Napi::CallbackInfo& info);
+  Napi::Value BuffersrcParametersSet(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetFrame(const Napi::CallbackInfo& info);
-  Napi::Value BuffersinkSetFrameSize(const Napi::CallbackInfo& info);
+  // Napi::Value BuffersinkSetFrameSize(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetTimeBase(const Napi::CallbackInfo& info);
   
   // === Properties ===
@@ -81,20 +82,10 @@ private:
   // name
   Napi::Value GetName(const Napi::CallbackInfo& info);
   void SetName(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // filter
   Napi::Value GetFilter(const Napi::CallbackInfo& info);
-  
-  // graph
   Napi::Value GetGraph(const Napi::CallbackInfo& info);
-  
-  // nbInputs
   Napi::Value GetNbInputs(const Napi::CallbackInfo& info);
-  
-  // nbOutputs
   Napi::Value GetNbOutputs(const Napi::CallbackInfo& info);
-  
-  // ready
   Napi::Value GetReady(const Napi::CallbackInfo& info);
   
   // Utility

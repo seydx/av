@@ -307,7 +307,7 @@ describe('InputFormat', () => {
       // Try to modify (this should not work)
       try {
         (format as any).name = 'changed';
-      } catch (e) {
+      } catch {
         // Expected to fail
       }
 

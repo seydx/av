@@ -4,7 +4,9 @@ import { Rational } from './rational.js';
 
 import type { AVOptionSearchFlags } from './constants.js';
 import type { Frame } from './frame.js';
+import type { HardwareFramesContext } from './hardware-frames-context.js';
 import type { NativeDictionary, NativeFilterContext, NativeFilterGraph, NativeWrapper } from './native-types.js';
+import type { IRational } from './types.js';
 
 /**
  * Filter context for media processing.
@@ -45,7 +47,6 @@ import type { NativeDictionary, NativeFilterContext, NativeFilterGraph, NativeWr
 export class FilterContext implements Disposable, NativeWrapper<NativeFilterContext> {
   private native: NativeFilterContext;
 
-  // Constructor
   /**
    * Constructor is internal - use FilterGraph.createFilter().
    *
@@ -59,8 +60,6 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
   constructor(native: NativeFilterContext) {
     this.native = native;
   }
-
-  // Getter/Setter Properties
 
   /**
    * Filter instance name.
@@ -139,8 +138,6 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
     return this.native.ready;
   }
 
-  // Public Methods - Low Level API
-
   /**
    * Initialize the filter with options.
    *
@@ -171,7 +168,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @see initStr() - Alternative initialization with string arguments
    */
-  init(options?: NativeDictionary | null): number {
+  init(options: NativeDictionary | null = null): number {
     return this.native.init(options ?? null);
   }
 
@@ -203,7 +200,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @see init() - Alternative initialization with dictionary
    */
-  initStr(args?: string | null): number {
+  initStr(args: string | null = null): number {
     return this.native.initStr(args ?? null);
   }
 
@@ -288,6 +285,47 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    */
   async buffersrcAddFrame(frame: Frame | null): Promise<number> {
     return this.native.buffersrcAddFrame(frame ? frame.getNative() : null);
+  }
+
+  /**
+   * Set parameters for a buffer source filter.
+   *
+   * Direct mapping to av_buffersrc_parameters_set()
+   *
+   * This function configures a buffer source filter with specific parameters,
+   * including hardware frames context for hardware-accelerated filtering.
+   *
+   * @param params - Parameters for the buffer source
+   * @returns 0 on success, negative error code on failure
+   *
+   * @example
+   * ```typescript
+   * const ret = srcCtx.buffersrcParametersSet({
+   *   width: 1920,
+   *   height: 1080,
+   *   format: AV_PIX_FMT_YUV420P,
+   *   timeBase: { num: 1, den: 30 },
+   *   hwFramesCtx: decoder.getCodecContext()?.hwFramesCtx
+   * });
+   * FFmpegError.throwIfError(ret, 'buffersrcParametersSet');
+   * ```
+   */
+  buffersrcParametersSet(params: {
+    width?: number;
+    height?: number;
+    format?: number;
+    timeBase?: IRational;
+    frameRate?: IRational;
+    sampleAspectRatio?: IRational;
+    hwFramesCtx?: HardwareFramesContext | null;
+    sampleRate?: number;
+    channelLayout?: bigint;
+  }): number {
+    const nativeParams: any = { ...params };
+    if (params.hwFramesCtx) {
+      nativeParams.hwFramesCtx = params.hwFramesCtx.getNative();
+    }
+    return this.native.buffersrcParametersSet(nativeParams);
   }
 
   /**
@@ -433,9 +471,9 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    * }
    * ```
    */
-  buffersinkSetFrameSize(frameSize: number): void {
-    this.native.buffersinkSetFrameSize(frameSize);
-  }
+  // buffersinkSetFrameSize(frameSize: number): void {
+  //   this.native.buffersinkSetFrameSize(frameSize);
+  // }
 
   /**
    * Get the time base from a buffersink filter.
@@ -526,8 +564,6 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
   isReady(): boolean {
     return this.ready !== 0;
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVFilterContext pointer.

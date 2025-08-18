@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_FILTER_THREAD_NONE, AV_FILTER_THREAD_SLICE, Filter, FilterContext, FilterGraph, FilterInOut } from '../src/lib/index.js';
+import { AV_FILTER_THREAD_NONE, AV_FILTER_THREAD_SLICE, Filter, FilterContext, FilterGraph } from '../src/lib/index.js';
 
 describe('FilterGraph', () => {
   describe('Creation and Lifecycle', () => {
@@ -419,8 +419,8 @@ describe('FilterGraph', () => {
       assert.ok(sinkCtx);
 
       // Create FilterInOut for linking
-      const inputs = new FilterInOut();
-      const outputs = new FilterInOut();
+      // const inputs = new FilterInOut();
+      // const outputs = new FilterInOut();
 
       // Note: FilterInOut usage would require proper initialization
       // For now, test basic parse call
@@ -543,42 +543,6 @@ describe('FilterGraph', () => {
       // Request oldest frame (will likely return EAGAIN without input)
       const ret = await graph.requestOldest();
       assert.equal(typeof ret, 'number', 'Should return status code');
-
-      graph.free();
-    });
-  });
-
-  describe('Graph Export', () => {
-    it('should dump graph to file', () => {
-      const graph = new FilterGraph();
-      graph.alloc();
-
-      // Create a simple graph
-      const bufferFilter = Filter.getByName('buffer');
-      const scaleFilter = Filter.getByName('scale');
-      const sinkFilter = Filter.getByName('buffersink');
-
-      assert.ok(bufferFilter);
-      assert.ok(scaleFilter);
-      assert.ok(sinkFilter);
-
-      const src = graph.createFilter(bufferFilter, 'src', 'video_size=320x240:pix_fmt=0:time_base=1/25');
-      const scale = graph.createFilter(scaleFilter, 'scale', '640:480');
-      const sink = graph.createFilter(sinkFilter, 'sink');
-
-      assert.ok(src);
-      assert.ok(scale);
-      assert.ok(sink);
-
-      src.link(0, scale, 0);
-      scale.link(0, sink, 0);
-
-      // Dump to file
-      const filename = '/tmp/test_graph.dot';
-      graph.dumpToFile(filename);
-
-      // File should be created (we don't verify contents)
-      assert.ok(true, 'Should dump graph without error');
 
       graph.free();
     });
@@ -737,7 +701,7 @@ describe('FilterGraph', () => {
       assert.ok(filter);
 
       try {
-        const ctx = graph.createFilter(filter, 'test');
+        graph.createFilter(filter, 'test');
         assert.fail('Should throw error without allocation');
       } catch (error) {
         assert.ok(error, 'Should throw error');

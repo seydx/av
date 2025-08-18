@@ -36,7 +36,6 @@ import type { FilterPad } from './types.js';
 export class Filter implements NativeWrapper<NativeFilter> {
   private native: NativeFilter;
 
-  // Constructor
   /**
    * Constructor is internal - use static factory methods.
    *
@@ -52,18 +51,16 @@ export class Filter implements NativeWrapper<NativeFilter> {
    * import { Filter } from '@seydx/ffmpeg';
    *
    * // Don't use constructor directly
-   * // const filter = new Filter(); // ❌ Wrong
+   * // const filter = new Filter(); // Wrong
    *
    * // Use static factory methods instead
-   * const filter = Filter.getByName('scale'); // ✅ Correct
-   * const filters = Filter.getList(); // ✅ Correct
+   * const filter = Filter.getByName('scale'); // Correct
+   * const filters = Filter.getList(); // Correct
    * ```
    */
   constructor(native: NativeFilter) {
     this.native = native;
   }
-
-  // Static Methods - Low Level API
 
   /**
    * Find a filter by name.
@@ -134,8 +131,6 @@ export class Filter implements NativeWrapper<NativeFilter> {
     return natives.map((native) => new Filter(native));
   }
 
-  // Getter Properties
-
   /**
    * Filter name.
    *
@@ -192,8 +187,6 @@ export class Filter implements NativeWrapper<NativeFilter> {
   get flags(): number {
     return this.native.flags;
   }
-
-  // Public Methods
 
   /**
    * Check if this is a source filter.
@@ -270,8 +263,6 @@ export class Filter implements NativeWrapper<NativeFilter> {
   isAudio(): boolean {
     return this.inputs.some((i) => i.type === AV_MEDIA_TYPE_AUDIO) || this.outputs.some((o) => o.type === AV_MEDIA_TYPE_AUDIO);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVFilter pointer.

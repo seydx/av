@@ -226,7 +226,7 @@ describe('HardwareDeviceContext', () => {
               // Constraints might not be available for all device types
               assert.ok(true, 'No constraints available for this device');
             }
-          } catch (error) {
+          } catch {
             // Some devices might not support constraints
             assert.ok(true, 'Device does not support constraints');
           }

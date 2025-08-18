@@ -2,7 +2,7 @@ import { bindings } from './binding.js';
 
 import type { AVPacketFlag } from './constants.js';
 import type { NativePacket, NativeWrapper } from './native-types.js';
-import type { Rational } from './rational.js';
+import type { IRational } from './types.js';
 
 /**
  * Packet for compressed audio/video data.
@@ -43,7 +43,6 @@ import type { Rational } from './rational.js';
 export class Packet implements Disposable, NativeWrapper<NativePacket> {
   private native: NativePacket;
 
-  // Constructor
   /**
    * Create a new packet instance.
    *
@@ -67,8 +66,6 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   constructor() {
     this.native = new bindings.Packet();
   }
-
-  // Getter/Setter Properties
 
   /**
    * Stream index this packet belongs to.
@@ -211,8 +208,6 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   set isKeyframe(value: boolean) {
     this.native.isKeyframe = value;
   }
-
-  // Public Methods - Low Level API
 
   /**
    * Allocate an AVPacket and set its fields to default values.
@@ -358,7 +353,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
     // Wrap the native cloned packet
     const packet = Object.create(Packet.prototype) as Packet;
     // Need to set private property - this is safe since we control the implementation
-    (packet as unknown as { native: NativePacket }).native = cloned;
+    (packet as any).native = cloned;
     return packet;
   }
 
@@ -392,7 +387,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @see {@link Rational} For timebase representation
    */
-  rescaleTs(srcTimebase: Rational, dstTimebase: Rational): void {
+  rescaleTs(srcTimebase: IRational, dstTimebase: IRational): void {
     this.native.rescaleTs({ num: srcTimebase.num, den: srcTimebase.den }, { num: dstTimebase.num, den: dstTimebase.den });
   }
 
@@ -461,8 +456,6 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   makeWritable(): number {
     return this.native.makeWritable();
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVPacket pointer.

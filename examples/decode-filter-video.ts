@@ -32,12 +32,11 @@ import {
   Frame,
   Log,
   Packet,
-  Rational,
   avRescaleQ,
   avUsleep,
 } from '../src/lib/index.js';
 
-import type { FilterContext } from '../src/lib/index.js';
+import type { FilterContext, Rational } from '../src/lib/index.js';
 
 // Filter description - scale to 78x24, rotate counter-clockwise, and convert to gray8
 const FILTER_DESCR = 'scale=78:24,transpose=cclock,format=gray8';
@@ -193,7 +192,7 @@ function displayFrame(frame: Frame, timeBase: Rational): void {
   if (frame.pts !== AV_NOPTS_VALUE) {
     if (lastPts !== AV_NOPTS_VALUE) {
       // Sleep roughly the right amount of time
-      const delay = avRescaleQ(frame.pts - lastPts, timeBase, new Rational(1, AV_TIME_BASE));
+      const delay = avRescaleQ(frame.pts - lastPts, timeBase, { num: 1, den: AV_TIME_BASE });
       if (delay > 0n && delay < 1000000n) {
         // Sleep for the delay in microseconds
         avUsleep(Number(delay));

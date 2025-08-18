@@ -346,7 +346,7 @@ async function writeAudioFrame(oc: FormatContext, ost: OutputStream): Promise<nu
     FFmpegError.throwIfError(convertedSamples, 'Error while converting');
 
     const outputFrame = ost.frame!;
-    outputFrame.pts = avRescaleQ(ost.samplesCount, new Rational(1, c.sampleRate), c.timeBase);
+    outputFrame.pts = avRescaleQ(ost.samplesCount, { num: 1, den: c.sampleRate }, c.timeBase);
     ost.samplesCount += dstNbSamples;
 
     return writeFrame(oc, c, ost.st!, outputFrame, ost.tmpPkt!);

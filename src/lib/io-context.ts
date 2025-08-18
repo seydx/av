@@ -66,7 +66,6 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
 export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext> {
   private native: NativeIOContext;
 
-  // Constructor
   /**
    * Create a new I/O context instance.
    *
@@ -89,8 +88,6 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
     this.native = new bindings.IOContext();
   }
 
-  // Static Methods
-
   /**
    * Create an IOContext wrapper from a native IOContext.
    *
@@ -105,8 +102,6 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
     (io as any).native = native;
     return io;
   }
-
-  // Getter/Setter Properties
 
   /**
    * Check if end of file reached.
@@ -207,8 +202,6 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
     return this.native.writeFlag;
   }
 
-  // Public Methods - Lifecycle
-
   /**
    * Create and initialize a buffered I/O context.
    *
@@ -282,7 +275,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    */
   allocContextWithCallbacks(
     bufferSize: number,
-    writeFlag: number,
+    writeFlag: 0 | 1,
     readCallback?: (size: number) => Buffer | null | number,
     writeCallback?: (buffer: Buffer) => number | void,
     seekCallback?: (offset: bigint, whence: number) => bigint | number,
@@ -375,8 +368,6 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
   async closep(): Promise<number> {
     return this.native.closep();
   }
-
-  // Public Methods - I/O Operations
 
   /**
    * Read size bytes from AVIOContext.
@@ -557,8 +548,6 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
   tell(): bigint {
     return this.native.tell();
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVIOContext pointer.

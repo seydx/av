@@ -545,32 +545,6 @@ describe('FilterContext', () => {
 
       graph.free();
     });
-
-    it.skip('should handle buffersinkSetFrameSize', () => {
-      const graph = new FilterGraph();
-      graph.alloc();
-
-      // Create audio buffersink
-      const abuffersinkFilter = Filter.getByName('abuffersink');
-      assert.ok(abuffersinkFilter);
-
-      const abuffersinkCtx = graph.createFilter(abuffersinkFilter, 'sink', null);
-      assert.ok(abuffersinkCtx);
-
-      // Note: This might hang in some FFmpeg versions due to a bug
-      // We'll test it but with a comment about the potential issue
-      try {
-        // Set frame size for buffersink
-        abuffersinkCtx.buffersinkSetFrameSize(1024);
-        // If it doesn't hang, the function at least doesn't crash
-        assert.ok(true, 'buffersinkSetFrameSize executed without crash');
-      } catch (error) {
-        // If there's an error or hang, we note it
-        console.warn('buffersinkSetFrameSize might have issues in this FFmpeg version');
-      }
-
-      graph.free();
-    });
   });
 
   describe('Resource Management', () => {
@@ -801,6 +775,134 @@ describe('FilterContext', () => {
 
       audioFrame.free();
       outFrame.free();
+      graph.free();
+    });
+  });
+
+  describe('Buffer Source Parameters', () => {
+    it('should set buffer source parameters with buffersrcParametersSet', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Note: The filter for video sources is actually called "buffer", not "buffersrc"
+      // But we need to create it without args first, then set parameters
+      const bufferFilter = Filter.getByName('buffer');
+      assert.ok(bufferFilter, 'Should find buffer filter');
+
+      // Create filter without args (will set parameters later)
+      const ctx = graph.allocFilter(bufferFilter, 'src');
+      assert.ok(ctx, 'Should create buffer source context');
+
+      // Set parameters for video buffer source
+      const params = {
+        width: 1920,
+        height: 1080,
+        format: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
+        hwFramesCtx: null,
+      };
+
+      const ret = ctx.buffersrcParametersSet(params);
+      assert.equal(ret, 0, 'Should set parameters successfully');
+
+      // Initialize after setting parameters
+      const initRet = ctx.init(null);
+      assert.equal(initRet, 0, 'Should initialize successfully after setting parameters');
+
+      graph.free();
+    });
+
+    it('should set buffer source parameters with hardware frames context', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const bufferFilter = Filter.getByName('buffer');
+      assert.ok(bufferFilter, 'Should find buffer filter');
+
+      const ctx = graph.allocFilter(bufferFilter, 'src');
+      assert.ok(ctx, 'Should create buffer source context');
+
+      // Set parameters with null hwFramesCtx (simulating hardware context)
+      const params = {
+        width: 1280,
+        height: 720,
+        format: 160, // AV_PIX_FMT_VIDEOTOOLBOX
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
+        hwFramesCtx: null, // In real use, this would be a HardwareFramesContext
+      };
+
+      const ret = ctx.buffersrcParametersSet(params);
+      assert.equal(ret, 0, 'Should set parameters with hardware format');
+
+      // Initialize after setting parameters
+      const initRet = ctx.init(null);
+      assert.equal(initRet, 0, 'Should initialize successfully');
+
+      graph.free();
+    });
+
+    it('should handle invalid parameters in buffersrcParametersSet', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const bufferFilter = Filter.getByName('buffer');
+      assert.ok(bufferFilter, 'Should find buffer filter');
+
+      const ctx = graph.allocFilter(bufferFilter, 'src');
+      assert.ok(ctx, 'Should create buffer source context');
+
+      // Test with invalid width/height
+      const invalidParams = {
+        width: -1,
+        height: -1,
+        format: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
+        hwFramesCtx: null,
+      };
+
+      ctx.buffersrcParametersSet(invalidParams);
+      // FFmpeg might accept negative values and fail later during init
+      // or it might return an error immediately
+
+      // Try to initialize - this should definitely fail
+      const initRet = ctx.init(null);
+      assert.ok(initRet < 0, 'Should fail initialization with invalid parameters');
+
+      graph.free();
+    });
+
+    it('should set minimal buffer source parameters', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const bufferFilter = Filter.getByName('buffer');
+      assert.ok(bufferFilter, 'Should find buffer filter');
+
+      const ctx = graph.allocFilter(bufferFilter, 'src');
+      assert.ok(ctx, 'Should create buffer source context');
+
+      // Minimal required parameters
+      const params = {
+        width: 640,
+        height: 480,
+        format: AV_PIX_FMT_RGB24,
+        timeBase: { num: 1, den: 1 },
+        // Optional parameters can be omitted
+        hwFramesCtx: null,
+      };
+
+      const ret = ctx.buffersrcParametersSet(params);
+      assert.equal(ret, 0, 'Should set minimal parameters successfully');
+
+      const initRet = ctx.init(null);
+      assert.equal(initRet, 0, 'Should initialize with minimal parameters');
+
       graph.free();
     });
   });

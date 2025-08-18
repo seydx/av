@@ -179,7 +179,6 @@ describe('CodecParser', () => {
 
       if (bytesRead > 0) {
         let offset = 0;
-        let framesDecoded = 0;
 
         while (offset < bytesRead) {
           const consumed = parser.parse2(codecCtx, packet, inbuf.subarray(offset, bytesRead), AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
@@ -196,7 +195,6 @@ describe('CodecParser', () => {
             if (sendRet >= 0) {
               const recvRet = await codecCtx.receiveFrame(frame);
               if (recvRet >= 0) {
-                framesDecoded++;
                 frame.unref();
               }
             }

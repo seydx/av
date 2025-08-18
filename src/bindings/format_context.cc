@@ -55,7 +55,7 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor("metadata", &FormatContext::GetMetadata, &FormatContext::SetMetadata),
     InstanceAccessor("iformat", &FormatContext::GetIformat, nullptr),
     InstanceAccessor("oformat", &FormatContext::GetOformat, &FormatContext::SetOformat),
-    InstanceAccessor("pb", &FormatContext::GetPb, &FormatContext::SetPb),
+    InstanceAccessor("pb", nullptr, &FormatContext::SetPb),
     InstanceAccessor("strictStdCompliance", &FormatContext::GetStrictStdCompliance, &FormatContext::SetStrictStdCompliance),
     InstanceAccessor("maxStreams", &FormatContext::GetMaxStreams, &FormatContext::SetMaxStreams),
     
@@ -73,18 +73,19 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
 // === Lifecycle ===
 
 FormatContext::FormatContext(const Napi::CallbackInfo& info) 
-  : Napi::ObjectWrap<FormatContext>(info), is_freed_(false) {
+  : Napi::ObjectWrap<FormatContext>(info) {
   // Constructor does nothing - user must explicitly call allocContext or allocOutputContext2
 }
 
 FormatContext::~FormatContext() {
   // Clean up if user forgot to call freeContext()
-  if (!is_freed_ && ctx_) {
+  if (ctx_) {
+    // We never own custom pb - IOContext always keeps ownership
+    
     if (is_output_) {
       // For output contexts
-      // Close pb if it exists and the format requires file I/O
-      // OR if it's a custom IO context (no oformat check needed for custom IO)
-      if (ctx_->pb) {
+      // Only close pb if it's not custom IO
+      if (ctx_->pb && !(ctx_->flags & AVFMT_FLAG_CUSTOM_IO)) {
         if (!ctx_->oformat || !(ctx_->oformat->flags & AVFMT_NOFILE)) {
           avio_closep(&ctx_->pb);
         }
@@ -92,6 +93,7 @@ FormatContext::~FormatContext() {
       avformat_free_context(ctx_);
     } else {
       // For input contexts
+      // avformat_close_input will set pb to NULL but not free custom pb
       avformat_close_input(&ctx_);
     }
     ctx_ = nullptr;
@@ -166,7 +168,7 @@ Napi::Value FormatContext::AllocOutputContext2(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::FreeContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (is_freed_) {
+  if (!ctx_) {
     // Already freed
     return env.Undefined();
   }
@@ -195,7 +197,6 @@ Napi::Value FormatContext::FreeContext(const Napi::CallbackInfo& info) {
   }
   
   is_output_ = false;
-  is_freed_ = true;
   
   return env.Undefined();
 }
@@ -616,23 +617,6 @@ void FormatContext::SetOformat(const Napi::CallbackInfo& info, const Napi::Value
   }
 }
 
-Napi::Value FormatContext::GetPb(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  AVFormatContext* ctx = ctx_;
-  if (!ctx || !ctx->pb) {
-    return env.Null();
-  }
-  
-  // Create an IOContext wrapper
-  Napi::Object ioObj = IOContext::constructor.New({});
-  IOContext* io = Napi::ObjectWrap<IOContext>::Unwrap(ioObj);
-  // Note: We're not transferring ownership, just wrapping the pointer
-  io->SetUnowned(ctx->pb);
-  
-  return ioObj;
-}
-
 void FormatContext::SetPb(const Napi::CallbackInfo& info, const Napi::Value& value) {
   Napi::Env env = info.Env();
   
@@ -648,8 +632,14 @@ void FormatContext::SetPb(const Napi::CallbackInfo& info, const Napi::Value& val
   
   IOContext* io = UnwrapNativeObject<IOContext>(env, value, "IOContext");
   if (io) {
-    // Transfer ownership from IOContext to FormatContext
-    ctx->pb = io->ReleaseOwnership();
+    // Set the custom IO context
+    ctx->pb = io->Get();
+    
+    // CRITICAL: Set AVFMT_FLAG_CUSTOM_IO to indicate we're using custom IO
+    // This tells FFmpeg's avformat_close_input() to NOT free our pb
+    ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
+    
+    // We never own custom pb - IOContext keeps ownership
   }
 }
 

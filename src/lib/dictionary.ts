@@ -71,7 +71,6 @@ import type { NativeDictionary, NativeWrapper } from './native-types.js';
 export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   private native: NativeDictionary;
 
-  // Constructor
   /**
    * Create a new dictionary.
    *
@@ -104,7 +103,40 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
     return dict;
   }
 
-  // Public Methods - Lifecycle
+  /**
+   * Create a Dictionary from a JavaScript object.
+   *
+   * Converts a plain JavaScript object to a Dictionary.
+   * Useful for converting option objects to FFmpeg format.
+   *
+   * @param obj - Object with string key-value pairs
+   * @param flags - AV_DICT_* flags for set operations
+   *
+   * @returns New Dictionary containing all entries from the object
+   *
+   * @example
+   * ```typescript
+   * import { Dictionary } from '@seydx/ffmpeg';
+   *
+   * const options = {
+   *   bitrate: '128k',
+   *   preset: 'fast',
+   *   crf: '23'
+   * };
+   *
+   * const dict = Dictionary.fromObject(options);
+   * // Use with codec or format context
+   * await codecContext.open2(codec, dict);
+   * dict.free();
+   * ```
+   */
+  static fromObject(obj: Record<string, string>, flags: AVDictFlag = AV_DICT_NONE): Dictionary {
+    const dict = new Dictionary();
+    for (const [key, value] of Object.entries(obj)) {
+      dict.set(key, value, flags);
+    }
+    return dict;
+  }
 
   /**
    * Allocate a new dictionary.
@@ -175,8 +207,6 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   copy(dst: Dictionary, flags: AVDictFlag = AV_DICT_NONE): number {
     return this.native.copy(dst.getNative(), flags);
   }
-
-  // Public Methods - Operations
 
   /**
    * Set the given entry in the dictionary.
@@ -355,8 +385,6 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
   getString(keyValSep: string, pairsSep: string): string | null {
     return this.native.getString(keyValSep, pairsSep);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVDictionary pointer.

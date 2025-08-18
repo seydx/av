@@ -39,7 +39,6 @@ import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
 export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   private native: NativeAudioFifo;
 
-  // Constructor
   /**
    * Create a new audio FIFO buffer.
    *
@@ -61,8 +60,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   constructor() {
     this.native = new bindings.AudioFifo();
   }
-
-  // Getter Properties
 
   /**
    * Get the current number of samples in the AVAudioFifo.
@@ -116,8 +113,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
     return this.native.space;
   }
 
-  // Public Methods - Lifecycle
-
   /**
    * Allocate an AVAudioFifo.
    *
@@ -165,8 +160,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   free(): void {
     this.native.free();
   }
-
-  // Public Methods - I/O Operations (Async)
 
   /**
    * Write data to an AVAudioFifo.
@@ -284,8 +277,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
     return this.native.peek(data, nbSamples);
   }
 
-  // Public Methods - Sync Operations
-
   /**
    * Remove samples from the FIFO without reading them.
    *
@@ -353,8 +344,6 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   realloc(nbSamples: number): number {
     return this.native.realloc(nbSamples);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVAudioFifo pointer.

@@ -78,7 +78,7 @@ private:
   
   // Execution
   Napi::Value RequestOldest(const Napi::CallbackInfo& info);
-  Napi::Value DumpToFile(const Napi::CallbackInfo& info);
+  Napi::Value Dump(const Napi::CallbackInfo& info);
   
   // === Properties ===
   

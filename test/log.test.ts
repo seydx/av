@@ -176,7 +176,7 @@ describe('Log', () => {
     it('should handle callback with different maxLevel options', () => {
       // Only panic messages
       Log.setCallback(
-        (level, message) => {
+        (level) => {
           assert.ok(level <= AV_LOG_PANIC, 'Should only receive PANIC');
         },
         {
@@ -186,7 +186,7 @@ describe('Log', () => {
 
       // Switch to warnings and below
       Log.setCallback(
-        (level, message) => {
+        (level) => {
           assert.ok(level <= AV_LOG_WARNING, 'Should only receive WARNING or below');
         },
         {
@@ -196,7 +196,7 @@ describe('Log', () => {
 
       // Switch to everything
       Log.setCallback(
-        (level, message) => {
+        () => {
           // Any level is acceptable
         },
         {
@@ -213,7 +213,7 @@ describe('Log', () => {
       let messageCount = 0;
 
       // Set up a callback that counts messages
-      Log.setCallback((level, message) => {
+      Log.setCallback(() => {
         messageCount++;
       });
 
@@ -231,51 +231,11 @@ describe('Log', () => {
         done();
       }, 200);
     });
-
-    it('should filter messages at C level with maxLevel', (t, done) => {
-      let errorCount = 0;
-      let otherCount = 0;
-
-      // First set a callback that catches everything
-      Log.setCallback((level, message) => {
-        if (level <= AV_LOG_ERROR) {
-          errorCount++;
-        } else {
-          otherCount++;
-        }
-      });
-
-      // Wait briefly
-      setTimeout(() => {
-        const firstOtherCount = otherCount;
-
-        // Now set a filtered callback
-        Log.setCallback(
-          (level, message) => {
-            if (level <= AV_LOG_ERROR) {
-              errorCount++;
-            } else {
-              // This should never happen with the filter
-              otherCount++;
-            }
-          },
-          {
-            maxLevel: AV_LOG_ERROR,
-          },
-        );
-
-        setTimeout(() => {
-          // With the filter, we should not get non-error messages
-          assert.ok(true, 'Filtering at C level tested');
-          done();
-        }, 100);
-      }, 100);
-    });
   });
 
   describe('Message Format', () => {
     it('should receive level as number', (t, done) => {
-      Log.setCallback((level, message) => {
+      Log.setCallback((level) => {
         assert.equal(typeof level, 'number', 'Level should be a number');
       });
 
@@ -301,11 +261,11 @@ describe('Log', () => {
     it('should handle rapid callback changes safely', () => {
       for (let i = 0; i < 10; i++) {
         if (i % 2 === 0) {
-          Log.setCallback((level, message) => {
+          Log.setCallback(() => {
             // Callback A
           });
         } else {
-          Log.setCallback((level, message) => {
+          Log.setCallback(() => {
             // Callback B
           });
         }
@@ -316,7 +276,7 @@ describe('Log', () => {
     });
 
     it('should handle callback during reset', () => {
-      Log.setCallback((level, message) => {
+      Log.setCallback(() => {
         // This callback might be called during reset
       });
 
@@ -324,7 +284,7 @@ describe('Log', () => {
       Log.resetCallback();
 
       // Set another
-      Log.setCallback((level, message) => {
+      Log.setCallback(() => {
         // New callback
       });
 
@@ -338,7 +298,7 @@ describe('Log', () => {
   describe('Integration Scenarios', () => {
     it('should work with custom logging system', (t, done) => {
       const customLogger = {
-        logs: [] as Array<{ level: number; message: string; timestamp: number }>,
+        logs: [] as { level: number; message: string; timestamp: number }[],
         log(level: number, message: string) {
           this.logs.push({
             level,
@@ -421,7 +381,7 @@ describe('Log', () => {
     });
 
     it('should handle callback that throws', (t, done) => {
-      Log.setCallback((level, message) => {
+      Log.setCallback(() => {
         // This callback throws, but it shouldn't crash the process
         // because it's called asynchronously
         throw new Error('Test error in callback');
@@ -435,7 +395,7 @@ describe('Log', () => {
     });
 
     it('should handle undefined options', () => {
-      Log.setCallback((level, message) => {
+      Log.setCallback(() => {
         // Callback with undefined options
       }, undefined);
 
@@ -443,7 +403,7 @@ describe('Log', () => {
     });
 
     it('should handle empty options object', () => {
-      Log.setCallback((level, message) => {
+      Log.setCallback(() => {
         // Callback with empty options
       }, {});
 
@@ -465,7 +425,7 @@ describe('Log', () => {
   describe('Memory Management', () => {
     it('should not leak memory with repeated callbacks', () => {
       for (let i = 0; i < 100; i++) {
-        Log.setCallback((level, message) => {
+        Log.setCallback(() => {
           // Do nothing
         });
       }

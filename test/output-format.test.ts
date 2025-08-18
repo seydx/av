@@ -1,12 +1,7 @@
 import assert from 'node:assert';
-import path from 'node:path';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { AV_FMT_GLOBALHEADER, AV_FMT_NOFILE, AV_FMT_NOTIMESTAMPS, AV_FMT_VARIABLE_FPS, FormatContext, OutputFormat } from '../src/lib/index.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 describe('OutputFormat', () => {
   describe('Static Methods', () => {
@@ -397,7 +392,7 @@ describe('OutputFormat', () => {
       // Try to modify (this should not work)
       try {
         (format as any).name = 'changed';
-      } catch (e) {
+      } catch {
         // Expected to fail
       }
 

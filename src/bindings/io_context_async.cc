@@ -26,7 +26,11 @@ public:
     AVIOContext* avio_ctx = nullptr;
     ret_ = avio_open2(&avio_ctx, url_.c_str(), flags_, nullptr, nullptr);
     if (ret_ >= 0) {
-      ctx_->SetOwned(avio_ctx);
+      // Free old context if exists
+      if (ctx_->ctx_) {
+        avio_context_free(&ctx_->ctx_);
+      }
+      ctx_->ctx_ = avio_ctx;
     }
   }
 
@@ -64,15 +68,22 @@ public:
   void Execute() override {
     AVIOContext* ctx = ctx_->Get();
     if (ctx) {
+      // Mark callbacks as inactive to prevent further calls
+      // We can't release ThreadSafeFunctions from worker thread
+      if (ctx_->callback_data_) {
+        ctx_->callback_data_->active = false;
+      }
+      
       ret_ = avio_closep(&ctx);
       // avio_closep freed the context and set the pointer to NULL
       // Update our internal state
       ctx_->ctx_ = nullptr;
-      ctx_->is_freed_ = true;
     }
   }
 
   void OnOK() override {
+    // Clean up callbacks on the main thread after closep succeeds
+    ctx_->CleanupCallbacks();
     deferred_.Resolve(Napi::Number::New(Env(), ret_));
   }
 

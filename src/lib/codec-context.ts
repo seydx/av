@@ -72,8 +72,9 @@ import type { ChannelLayout } from './types.js';
  */
 export class CodecContext implements Disposable, NativeWrapper<NativeCodecContext> {
   private native: NativeCodecContext;
+  private _hwDeviceCtx?: HardwareDeviceContext; // Cache for hardware device context wrapper
+  private _hwFramesCtx?: HardwareFramesContext; // Cache for hardware frames context wrapper
 
-  // Constructor
   /**
    * Create a new codec context.
    *
@@ -94,8 +95,6 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   constructor() {
     this.native = new bindings.CodecContext();
   }
-
-  // Getter/Setter - General
 
   /**
    * Codec type.
@@ -273,8 +272,6 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   set threadCount(value: number) {
     this.native.threadCount = value;
   }
-
-  // Getter/Setter - Video
 
   /**
    * Picture width.
@@ -478,8 +475,6 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
     this.native.chromaLocation = value;
   }
 
-  // Getter/Setter - Audio
-
   /**
    * Sample rate of the audio data.
    * - encoding: MUST be set by user.
@@ -559,8 +554,6 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
     this.native.channelLayout = value;
   }
 
-  // Getter/Setter - Encoding
-
   /**
    * Minimum quantizer.
    * - encoding: Set by user.
@@ -639,16 +632,27 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   get hwDeviceCtx(): HardwareDeviceContext | null {
     const native = this.native.hwDeviceCtx;
     if (!native) {
+      // Clear cache if native is null
+      this._hwDeviceCtx = undefined;
       return null;
     }
-    // Wrap the native device context
+
+    // Return cached wrapper if available and still valid
+    if (this._hwDeviceCtx && (this._hwDeviceCtx as any).native === native) {
+      return this._hwDeviceCtx;
+    }
+
+    // Create and cache new wrapper
     const device = Object.create(HardwareDeviceContext.prototype) as HardwareDeviceContext;
     (device as any).native = native;
+    this._hwDeviceCtx = device;
     return device;
   }
 
   set hwDeviceCtx(value: HardwareDeviceContext | null) {
     this.native.hwDeviceCtx = value?.getNative() ?? null;
+    // Clear cache when setting new value
+    this._hwDeviceCtx = undefined;
   }
 
   /**
@@ -663,16 +667,27 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   get hwFramesCtx(): HardwareFramesContext | null {
     const native = this.native.hwFramesCtx;
     if (!native) {
+      // Clear cache if native is null
+      this._hwFramesCtx = undefined;
       return null;
     }
-    // Wrap the native frames context
+
+    // Return cached wrapper if available and still valid
+    if (this._hwFramesCtx && (this._hwFramesCtx as any).native === native) {
+      return this._hwFramesCtx;
+    }
+
+    // Create and cache new wrapper
     const frames = Object.create(HardwareFramesContext.prototype) as HardwareFramesContext;
     (frames as any).native = native;
+    this._hwFramesCtx = frames;
     return frames;
   }
 
   set hwFramesCtx(value: HardwareFramesContext | null) {
     this.native.hwFramesCtx = value?.getNative() ?? null;
+    // Clear cache when setting new value
+    this._hwFramesCtx = undefined;
   }
 
   /**
@@ -685,8 +700,6 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   get isOpen(): boolean {
     return this.native.isOpen;
   }
-
-  // Public Methods - Low Level API
 
   /**
    * Allocate an AVCodecContext and set its fields to default values.
@@ -716,7 +729,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @see {@link open2} To open the codec
    * @see {@link freeContext} To free the context
    */
-  allocContext3(codec?: Codec | null): void {
+  allocContext3(codec: Codec | null = null): void {
     this.native.allocContext3(codec?.getNative() ?? null);
   }
 
@@ -812,7 +825,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @see {@link close} To close the codec context
    * @see {@link allocContext3} Must be called before open2()
    */
-  async open2(codec?: Codec | null, options?: Dictionary | null): Promise<number> {
+  async open2(codec: Codec | null = null, options: Dictionary | null = null): Promise<number> {
     return await this.native.open2(codec?.getNative() ?? null, options?.getNative() ?? null);
   }
 
@@ -1092,8 +1105,6 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
   setHardwarePixelFormat(hwFormat: AVPixelFormat, swFormat?: AVPixelFormat): void {
     this.native.setHardwarePixelFormat(hwFormat, swFormat);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVCodecContext pointer.

@@ -576,14 +576,14 @@ describe('AudioFifo', () => {
 
     it('should handle resampling buffer scenario', async () => {
       const fifo = new AudioFifo();
-      
+
       // Resampling often produces variable output sizes
       // FIFO helps buffer these variations
       fifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 4096);
 
       // Simulate variable-sized outputs from resampler
       const sizes = [940, 941, 940, 941, 940]; // Common with 44.1kHz -> 48kHz
-      
+
       for (const size of sizes) {
         const buffers = [
           Buffer.alloc(size * 4), // Left channel
@@ -597,15 +597,10 @@ describe('AudioFifo', () => {
 
       // Read fixed-size frames
       const fixedFrameSize = 1024;
-      let totalRead = 0;
       while (fifo.size >= fixedFrameSize) {
-        const readBuffers = [
-          Buffer.alloc(fixedFrameSize * 4),
-          Buffer.alloc(fixedFrameSize * 4),
-        ];
+        const readBuffers = [Buffer.alloc(fixedFrameSize * 4), Buffer.alloc(fixedFrameSize * 4)];
         const read = await fifo.read(readBuffers, fixedFrameSize);
         assert.equal(read, fixedFrameSize, 'Should read fixed frame size');
-        totalRead += read;
       }
 
       assert.ok(fifo.size < fixedFrameSize, 'Should have remainder less than frame size');

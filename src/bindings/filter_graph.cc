@@ -34,7 +34,7 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
     
     // Execution
     InstanceMethod<&FilterGraph::RequestOldest>("requestOldest"),
-    InstanceMethod<&FilterGraph::DumpToFile>("dumpToFile"),
+    InstanceMethod<&FilterGraph::Dump>("dump"),
     
     // Properties
     InstanceAccessor<&FilterGraph::GetNbFilters>("nbFilters"),
@@ -407,44 +407,6 @@ Napi::Value FilterGraph::Validate(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, 0);
 }
 
-Napi::Value FilterGraph::DumpToFile(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  AVFilterGraph* graph = Get();
-  if (!graph) {
-    Napi::Error::New(env, "FilterGraph not allocated").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "Expected string argument (filename)").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  std::string filename = info[0].As<Napi::String>().Utf8Value();
-  
-  // avfilter_graph_dump returns a string representation
-  char* dump = avfilter_graph_dump(graph, nullptr);
-  if (!dump) {
-    Napi::Error::New(env, "Failed to dump graph").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  // Write to file
-  FILE* file = fopen(filename.c_str(), "w");
-  if (!file) {
-    av_free(dump);
-    Napi::Error::New(env, "Failed to open file for writing").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  fprintf(file, "%s", dump);
-  fclose(file);
-  av_free(dump);
-  
-  return env.Undefined();
-}
-
 // === Properties ===
 
 Napi::Value FilterGraph::GetNbFilters(const Napi::CallbackInfo& info) {
@@ -538,6 +500,25 @@ void FilterGraph::SetScaleSwsOpts(const Napi::CallbackInfo& info, const Napi::Va
 }
 
 // === Utility ===
+
+Napi::Value FilterGraph::Dump(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFilterGraph* graph = Get();
+  if (!graph) {
+    return env.Null();
+  }
+  
+  char* dump = avfilter_graph_dump(graph, nullptr);
+  if (!dump) {
+    return env.Null();
+  }
+  
+  std::string result(dump);
+  av_free(dump);
+  
+  return Napi::String::New(env, result);
+}
 
 Napi::Value FilterGraph::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);

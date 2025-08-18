@@ -54,42 +54,27 @@ Napi::Object IOContext::Init(Napi::Env env, Napi::Object exports) {
 IOContext::IOContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<IOContext>(info), 
     ctx_(nullptr),
-    unowned_ctx_(nullptr),
-    is_freed_(false) {
+    buffer_(nullptr) {
   // Constructor does nothing - user must call allocContext() or open2()
 }
 
 IOContext::~IOContext() {
-  // Clean up callbacks if still active (not already cleaned in FreeContext)
-  if (callback_data_ && callback_data_->active) {
-    callback_data_->active = false;
-    if (callback_data_->has_read_callback) {
-      callback_data_->read_callback.Release();
-      callback_data_->has_read_callback = false;
-    }
-    if (callback_data_->has_write_callback) {
-      callback_data_->write_callback.Release();
-      callback_data_->has_write_callback = false;
-    }
-    if (callback_data_->has_seek_callback) {
-      callback_data_->seek_callback.Release();
-      callback_data_->has_seek_callback = false;
-    }
-    callback_data_.reset();
+  // Clean up callbacks first
+  CleanupCallbacks();
+  
+  // Don't automatically free anything in destructor
+  // The user must explicitly call freeContext() or closep()
+  // This prevents double-free when FormatContext cleans up
+  
+  if (ctx_) {
+    #ifdef DEBUG
+    fprintf(stderr, "WARNING: IOContext destructor called with non-null ctx_. Call freeContext() or closep() explicitly.\n");
+    #endif
   }
   
-  // Free buffer if allocated
-  if (buffer_) {
-    av_free(buffer_);
-    buffer_ = nullptr;
-  }
-  
-  // Manual cleanup if not already done
-  if (ctx_ && !is_freed_) {
-    avio_context_free(&ctx_);
-    ctx_ = nullptr;
-  }
-  // Unowned contexts are not freed
+  // Clear pointers without freeing
+  ctx_ = nullptr;
+  buffer_ = nullptr;
 }
 
 // === Static Callback Functions ===
@@ -212,19 +197,28 @@ int64_t IOContext::Seek(void* opaque, int64_t offset, int whence) {
   return future.get();
 }
 
-// === Static Methods ===
+// === Helper Methods ===
 
-Napi::Value IOContext::Wrap(Napi::Env env, AVIOContext* ctx) {
-  if (!ctx) {
-    return env.Null();
+void IOContext::CleanupCallbacks() {
+  if (callback_data_ && callback_data_->active) {
+    callback_data_->active = false;
+    if (callback_data_->has_read_callback) {
+      callback_data_->read_callback.Release();
+      callback_data_->has_read_callback = false;
+    }
+    if (callback_data_->has_write_callback) {
+      callback_data_->write_callback.Release();
+      callback_data_->has_write_callback = false;
+    }
+    if (callback_data_->has_seek_callback) {
+      callback_data_->seek_callback.Release();
+      callback_data_->has_seek_callback = false;
+    }
+    callback_data_.reset();
   }
-  
-  Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
-  Napi::Object obj = constructor->New({});
-  IOContext* ioContext = Napi::ObjectWrap<IOContext>::Unwrap(obj);
-  ioContext->SetUnowned(ctx); // We don't own contexts that are wrapped
-  return obj;
 }
+
+// === Static Methods ===
 
 // === Methods ===
 
@@ -270,12 +264,11 @@ Napi::Value IOContext::AllocContext(const Napi::CallbackInfo& info) {
   }
   
   // Free old context if exists
-  if (ctx_ && !is_freed_) {
+  if (ctx_) {
     avio_context_free(&ctx_);
   }
   
   ctx_ = new_ctx;
-  is_freed_ = false;
   return env.Undefined();
 }
 
@@ -375,12 +368,11 @@ Napi::Value IOContext::AllocContextWithCallbacks(const Napi::CallbackInfo& info)
   }
   
   // Free old context if exists
-  if (ctx_ && !is_freed_) {
+  if (ctx_) {
     avio_context_free(&ctx_);
   }
   
   ctx_ = new_ctx;
-  is_freed_ = false;
   return env.Undefined();
 }
 
@@ -388,29 +380,14 @@ Napi::Value IOContext::FreeContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   // Clean up callbacks first if they exist
-  if (callback_data_ && callback_data_->active) {
-    callback_data_->active = false;
-    if (callback_data_->has_read_callback) {
-      callback_data_->read_callback.Release();
-      callback_data_->has_read_callback = false;
-    }
-    if (callback_data_->has_write_callback) {
-      callback_data_->write_callback.Release();
-      callback_data_->has_write_callback = false;
-    }
-    if (callback_data_->has_seek_callback) {
-      callback_data_->seek_callback.Release();
-      callback_data_->has_seek_callback = false;
-    }
-    callback_data_.reset();
-  }
+  CleanupCallbacks();
   
-  if (ctx_ && !is_freed_) {
+  if (ctx_) {
+    // avio_context_free will also free the buffer
     avio_context_free(&ctx_);
     ctx_ = nullptr;
-    is_freed_ = true;
+    buffer_ = nullptr;  // Buffer was freed by avio_context_free
   }
-  unowned_ctx_ = nullptr;
   
   return env.Undefined();
 }
@@ -539,8 +516,31 @@ Napi::Value IOContext::GetWriteFlag(const Napi::CallbackInfo& info) {
 // === Utility ===
 
 Napi::Value IOContext::AsyncDispose(const Napi::CallbackInfo& info) {
-  // Use the async closep method for proper async disposal
-  return ClosepAsync(info);
+  // Check if this context was created with callbacks or opened with avio_open2
+  // Contexts with callbacks should use freeContext, others use closep
+  if (callback_data_) {
+    // This context was created with allocContextWithCallbacks
+    // We need to clean it up with freeContext, not closep
+    // For now, we'll do synchronous cleanup and return a resolved promise
+    Napi::Env env = info.Env();
+    
+    // Clean up callbacks
+    CleanupCallbacks();
+    
+    // Free the context if it exists
+    if (ctx_) {
+      avio_context_free(&ctx_);
+      ctx_ = nullptr;
+    }
+    
+    // Return resolved promise
+    auto deferred = Napi::Promise::Deferred::New(env);
+    deferred.Resolve(env.Undefined());
+    return deferred.Promise();
+  } else {
+    // This context was opened with avio_open2, use closep
+    return ClosepAsync(info);
+  }
 }
 
 } // namespace ffmpeg

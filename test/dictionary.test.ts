@@ -27,7 +27,7 @@ describe('Dictionary', () => {
     it('should allocate and free a dictionary', () => {
       dict.alloc();
       assert.equal(dict.count(), 0);
-      
+
       dict.free();
       // After free, we can't test properties as dictionary is freed
     });
@@ -44,10 +44,10 @@ describe('Dictionary', () => {
     it('should set and get values', () => {
       const ret = dict.set('key1', 'value1', AV_DICT_NONE);
       assert.equal(ret, 0);
-      
+
       const value = dict.get('key1', AV_DICT_NONE);
       assert.equal(value, 'value1');
-      
+
       assert.equal(dict.count(), 1);
     });
 
@@ -55,7 +55,7 @@ describe('Dictionary', () => {
       dict.set('key1', 'value1', AV_DICT_NONE);
       dict.set('key2', 'value2', AV_DICT_NONE);
       dict.set('key3', 'value3', AV_DICT_NONE);
-      
+
       assert.equal(dict.count(), 3);
       assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
       assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
@@ -65,7 +65,7 @@ describe('Dictionary', () => {
     it('should overwrite existing values', () => {
       dict.set('key1', 'value1', AV_DICT_NONE);
       assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
-      
+
       dict.set('key1', 'newvalue', AV_DICT_NONE);
       assert.equal(dict.get('key1', AV_DICT_NONE), 'newvalue');
       assert.equal(dict.count(), 1); // Should still be 1 entry
@@ -86,7 +86,7 @@ describe('Dictionary', () => {
   describe('Case Sensitivity', () => {
     it('should be case-insensitive by default', () => {
       dict.set('Key1', 'value1', AV_DICT_NONE);
-      
+
       // Should find with different case
       const value = dict.get('key1', AV_DICT_NONE);
       assert.equal(value, 'value1');
@@ -94,11 +94,11 @@ describe('Dictionary', () => {
 
     it('should be case-sensitive with AV_DICT_MATCH_CASE flag', () => {
       dict.set('Key1', 'value1', AV_DICT_MATCH_CASE);
-      
+
       // Should not find with different case
       const value1 = dict.get('key1', AV_DICT_MATCH_CASE);
       assert.equal(value1, null);
-      
+
       // Should find with exact case
       const value2 = dict.get('Key1', AV_DICT_MATCH_CASE);
       assert.equal(value2, 'value1');
@@ -110,7 +110,7 @@ describe('Dictionary', () => {
       dict.set('prefix:key1', 'value1', AV_DICT_NONE);
       dict.set('prefix:key2', 'value2', AV_DICT_NONE);
       dict.set('other:key3', 'value3', AV_DICT_NONE);
-      
+
       // Should find with prefix
       const value = dict.get('prefix', AV_DICT_IGNORE_SUFFIX);
       assert.ok(value === 'value1' || value === 'value2'); // Could match either
@@ -122,7 +122,7 @@ describe('Dictionary', () => {
       dict.set('key1', 'value1', AV_DICT_NONE);
       dict.set('key2', 'value2', AV_DICT_NONE);
       dict.set('key3', 'value3', AV_DICT_NONE);
-      
+
       const all = dict.getAll();
       assert.equal(Object.keys(all).length, 3);
       assert.equal(all.key1, 'value1');
@@ -141,7 +141,7 @@ describe('Dictionary', () => {
     it('should parse options from string', () => {
       const ret = dict.parseString('key1=value1:key2=value2', '=', ':', AV_DICT_NONE);
       assert.ok(ret >= 0);
-      
+
       assert.equal(dict.count(), 2);
       assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
       assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
@@ -150,30 +150,24 @@ describe('Dictionary', () => {
     it('should serialize to string', () => {
       dict.set('key1', 'value1', AV_DICT_NONE);
       dict.set('key2', 'value2', AV_DICT_NONE);
-      
+
       const str = dict.getString('=', ':');
       assert.ok(str);
       // Order might vary, so check both possibilities
-      assert.ok(
-        str === 'key1=value1:key2=value2' ||
-        str === 'key2=value2:key1=value1'
-      );
+      assert.ok(str === 'key1=value1:key2=value2' || str === 'key2=value2:key1=value1');
     });
 
     it('should handle different separators', () => {
       const ret = dict.parseString('key1|value1,key2|value2', '|', ',', AV_DICT_NONE);
       assert.ok(ret >= 0);
-      
+
       assert.equal(dict.count(), 2);
       assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
       assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
-      
+
       const str = dict.getString('|', ',');
       assert.ok(str);
-      assert.ok(
-        str === 'key1|value1,key2|value2' ||
-        str === 'key2|value2,key1|value1'
-      );
+      assert.ok(str === 'key1|value1,key2|value2' || str === 'key2|value2,key1|value1');
     });
 
     it('should return null for empty dictionary getString', () => {
@@ -187,33 +181,33 @@ describe('Dictionary', () => {
     it('should copy dictionary to another', () => {
       dict.set('key1', 'value1', AV_DICT_NONE);
       dict.set('key2', 'value2', AV_DICT_NONE);
-      
+
       const dst = new Dictionary();
       const ret = dict.copy(dst, AV_DICT_NONE);
       assert.equal(ret, 0);
-      
+
       assert.equal(dst.count(), 2);
       assert.equal(dst.get('key1', AV_DICT_NONE), 'value1');
       assert.equal(dst.get('key2', AV_DICT_NONE), 'value2');
-      
+
       // Clean up
       dst.free();
     });
 
     it('should overwrite existing entries in destination', () => {
       dict.set('key1', 'value1', AV_DICT_NONE);
-      
+
       const dst = new Dictionary();
       dst.set('key1', 'oldvalue', AV_DICT_NONE);
       dst.set('key2', 'keep', AV_DICT_NONE);
-      
+
       const ret = dict.copy(dst, AV_DICT_NONE);
       assert.equal(ret, 0);
-      
+
       // key1 should be overwritten, key2 should remain
       assert.equal(dst.get('key1', AV_DICT_NONE), 'value1');
       assert.equal(dst.get('key2', AV_DICT_NONE), 'keep');
-      
+
       // Clean up
       dst.free();
     });
@@ -243,7 +237,7 @@ describe('Dictionary', () => {
       dict.set('crf', '23', AV_DICT_NONE);
       dict.set('profile', 'high', AV_DICT_NONE);
       dict.set('level', '4.1', AV_DICT_NONE);
-      
+
       assert.equal(dict.get('preset', AV_DICT_NONE), 'fast');
       assert.equal(dict.get('crf', AV_DICT_NONE), '23');
       assert.equal(dict.get('profile', AV_DICT_NONE), 'high');
@@ -255,7 +249,7 @@ describe('Dictionary', () => {
       dict.set('movflags', 'faststart', AV_DICT_NONE);
       dict.set('fflags', '+genpts', AV_DICT_NONE);
       dict.set('avoid_negative_ts', 'make_zero', AV_DICT_NONE);
-      
+
       assert.equal(dict.get('movflags', AV_DICT_NONE), 'faststart');
       assert.equal(dict.get('fflags', AV_DICT_NONE), '+genpts');
       assert.equal(dict.get('avoid_negative_ts', AV_DICT_NONE), 'make_zero');
@@ -268,7 +262,7 @@ describe('Dictionary', () => {
       dict.set('album', 'Best Album', AV_DICT_NONE);
       dict.set('date', '2024', AV_DICT_NONE);
       dict.set('comment', 'This is a comment', AV_DICT_NONE);
-      
+
       assert.equal(dict.get('title', AV_DICT_NONE), 'My Video');
       assert.equal(dict.get('artist', AV_DICT_NONE), 'John Doe');
       assert.equal(dict.get('album', AV_DICT_NONE), 'Best Album');
@@ -282,7 +276,7 @@ describe('Dictionary', () => {
       // These operations should not crash
       const value = dict.get('', AV_DICT_NONE);
       assert.equal(value, null);
-      
+
       // Empty key might be allowed
       const ret = dict.set('', 'value', AV_DICT_NONE);
       // Might succeed or fail depending on FFmpeg version
@@ -293,7 +287,7 @@ describe('Dictionary', () => {
       const longValue = 'x'.repeat(10000);
       const ret = dict.set('longkey', longValue, AV_DICT_NONE);
       assert.equal(ret, 0);
-      
+
       const retrieved = dict.get('longkey', AV_DICT_NONE);
       assert.equal(retrieved, longValue);
     });

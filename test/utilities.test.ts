@@ -11,7 +11,14 @@ import {
   AV_MEDIA_TYPE_DATA,
   AV_MEDIA_TYPE_SUBTITLE,
   AV_MEDIA_TYPE_VIDEO,
+  AV_PIX_FMT_BGR24,
+  AV_PIX_FMT_CUDA,
+  AV_PIX_FMT_NONE,
+  AV_PIX_FMT_NV12,
   AV_PIX_FMT_RGB24,
+  AV_PIX_FMT_RGBA,
+  AV_PIX_FMT_VAAPI,
+  AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_YUV420P,
   AV_ROUND_DOWN,
   AV_ROUND_UP,
@@ -196,11 +203,32 @@ describe('Utilities', () => {
     it('should get pixel format from name', () => {
       assert.equal(avGetPixFmtFromName('yuv420p'), AV_PIX_FMT_YUV420P);
       assert.equal(avGetPixFmtFromName('rgb24'), AV_PIX_FMT_RGB24);
+
+      // Test more common formats
+      assert.equal(avGetPixFmtFromName('nv12'), AV_PIX_FMT_NV12);
+      assert.equal(avGetPixFmtFromName('bgr24'), AV_PIX_FMT_BGR24);
+      assert.equal(avGetPixFmtFromName('rgba'), AV_PIX_FMT_RGBA);
+
+      // Test hardware formats (may not be available on all systems)
+      const videotoolbox = avGetPixFmtFromName('videotoolbox');
+      assert.ok(videotoolbox === AV_PIX_FMT_VIDEOTOOLBOX || videotoolbox === AV_PIX_FMT_NONE, 'VideoToolbox format should be 160 or -1 if not available');
+
+      const cuda = avGetPixFmtFromName('cuda');
+      assert.ok(cuda === AV_PIX_FMT_CUDA || cuda === AV_PIX_FMT_NONE, 'CUDA format should be 117 or -1 if not available');
+
+      const vaapi = avGetPixFmtFromName('vaapi');
+      assert.ok(vaapi === AV_PIX_FMT_VAAPI || vaapi === AV_PIX_FMT_NONE, 'VAAPI format should be 44 or -1 if not available');
     });
 
     it('should handle invalid pixel format name', () => {
       const invalidFormat = avGetPixFmtFromName('invalid_format_name');
       assert.equal(invalidFormat, -1, 'Should return -1 for invalid format name');
+
+      // Test empty string
+      assert.equal(avGetPixFmtFromName(''), -1, 'Should return -1 for empty string');
+
+      // Test case sensitivity
+      assert.equal(avGetPixFmtFromName('YUV420P'), -1, 'Should return -1 for uppercase (case sensitive)');
     });
 
     it('should handle invalid pixel format', () => {
@@ -257,7 +285,7 @@ describe('Utilities', () => {
 
       // Fill source buffer with some test data
       for (let i = 0; i < srcResult.buffer.length; i++) {
-        srcResult.buffer[i] = (i % 256);
+        srcResult.buffer[i] = i % 256;
       }
 
       // Create destination buffer

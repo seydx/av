@@ -5,24 +5,44 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "require": "./dist/src/index.js",
-      "default": "./dist/src/index.js"
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "require": "./dist/api/index.js",
+      "default": "./dist/api/index.js"
+    },
+    "./lib": {
+      "types": "./dist/lib/index.d.ts",
+      "require": "./dist/lib/index.js",
+      "default": "./dist/lib/index.js"
+    },
+    "./constants": {
+      "types": "./dist/lib/constants.d.ts",
+      "require": "./dist/lib/constants.js",
+      "default": "./dist/lib/constants.js"
+    },
+    "./layouts": {
+      "types": "./dist/lib/channel-layouts.d.ts",
+      "require": "./dist/lib/channel-layouts.js",
+      "default": "./dist/lib/channel-layouts.js"
     }
   },
   "scripts": {
     "build": "npm run build:native && npm run build:tsc",
     "build:diverse": "tsc -p tsconfig.json",
     "build:native": "node-gyp rebuild",
+    "build:test": "npm run build:diverse && npm run build && tsx --test test/**/*.test.ts",
     "build:tsc": "rimraf dist && tsc -p tsconfig.build.json",
     "clean": "node-gyp clean && rimraf dist",
-    "format": "prettier --write 'src/' --ignore-unknown --no-error-on-unmatched-pattern",
+    "format": "prettier --write 'src/' --write 'test/' --write 'scripts/' --write 'examples/' --ignore-unknown --no-error-on-unmatched-pattern",
     "generate:constants": "node scripts/generate-constants.js",
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "test": "npm run build:diverse && npm run build && tsx --test test/**/*.test.ts",
-    "test:watch": "node --import tsx --test --watch test/**/*.test.ts",
+    "test": "npm run build:diverse && npm run build:tsc && tsx --test test/**/*.test.ts",
     "update": "updates --update ./"
   },
   "dependencies": {
@@ -31,7 +51,7 @@
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.2.3",
     "@types/debug": "^4.1.12",
-    "@types/node": "^24.2.1",
+    "@types/node": "^24.3.0",
     "@types/pngjs": "^6.0.5",
     "@typescript-eslint/parser": "^8.39.1",
     "concurrently": "^9.2.0",

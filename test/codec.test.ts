@@ -7,7 +7,7 @@ import {
   AV_CODEC_ID_AV1,
   AV_CODEC_ID_FLAC,
   AV_CODEC_ID_H264,
-  AV_CODEC_ID_HEVC,  // H.265 is called HEVC in FFmpeg
+  AV_CODEC_ID_HEVC, // H.265 is called HEVC in FFmpeg
   AV_CODEC_ID_MJPEG,
   AV_CODEC_ID_MP3,
   AV_CODEC_ID_MPEG4,
@@ -72,7 +72,7 @@ describe('Codec', () => {
     it('should find common video decoders', () => {
       const codecIds = [
         AV_CODEC_ID_H264,
-        AV_CODEC_ID_HEVC,  // H.265
+        AV_CODEC_ID_HEVC, // H.265
         AV_CODEC_ID_VP8,
         AV_CODEC_ID_VP9,
         AV_CODEC_ID_AV1,
@@ -89,15 +89,7 @@ describe('Codec', () => {
     });
 
     it('should find common audio decoders', () => {
-      const codecIds = [
-        AV_CODEC_ID_AAC,
-        AV_CODEC_ID_MP3,
-        AV_CODEC_ID_OPUS,
-        AV_CODEC_ID_VORBIS,
-        AV_CODEC_ID_FLAC,
-        AV_CODEC_ID_AC3,
-        AV_CODEC_ID_PCM_S16LE,
-      ];
+      const codecIds = [AV_CODEC_ID_AAC, AV_CODEC_ID_MP3, AV_CODEC_ID_OPUS, AV_CODEC_ID_VORBIS, AV_CODEC_ID_FLAC, AV_CODEC_ID_AC3, AV_CODEC_ID_PCM_S16LE];
 
       for (const id of codecIds) {
         const decoder = Codec.findDecoder(id);
@@ -300,7 +292,7 @@ describe('Codec', () => {
 
       // Try to get first hardware config
       const hwConfig = decoder.getHwConfig(0);
-      
+
       // hwConfig might be null if no hardware acceleration available
       if (hwConfig) {
         assert.ok(typeof hwConfig === 'object');

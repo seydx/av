@@ -33,7 +33,6 @@ import type { NativeFFmpegError } from './native-types.js';
 export class FFmpegError extends Error {
   private native: NativeFFmpegError;
 
-  // Constructor
   /**
    * Create a new FFmpegError instance.
    *
@@ -67,8 +66,6 @@ export class FFmpegError extends Error {
       Error.captureStackTrace(this, FFmpegError);
     }
   }
-
-  // Static Methods
 
   /**
    * Put a description of the AVERROR code errnum in a string.
@@ -236,8 +233,6 @@ export class FFmpegError extends Error {
     return code === errorCode;
   }
 
-  // Getter Properties
-
   /**
    * Get error code.
    *
@@ -259,8 +254,6 @@ export class FFmpegError extends Error {
   get message(): string {
     return this.native.message;
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg error object.

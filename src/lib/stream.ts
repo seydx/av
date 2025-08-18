@@ -50,8 +50,8 @@ import type { Packet } from './packet.js';
  */
 export class Stream implements NativeWrapper<NativeStream> {
   private native: NativeStream;
+  private _codecpar?: CodecParameters; // Cache the wrapped codecpar
 
-  // Constructor
   /**
    * Constructor is internal - use FormatContext to create streams.
    *
@@ -66,20 +66,18 @@ export class Stream implements NativeWrapper<NativeStream> {
    * @example
    * ```typescript
    * // Don't create streams directly
-   * // const stream = new Stream(); // ❌ Wrong
+   * // const stream = new Stream(); // Wrong
    *
    * // For demuxing: streams are created automatically
-   * const streams = formatContext.streams; // ✅ Correct
+   * const streams = formatContext.streams; // Correct
    *
    * // For muxing: use newStream
-   * const stream = formatContext.newStream(null); // ✅ Correct
+   * const stream = formatContext.newStream(null); // Correct
    * ```
    */
   constructor(native: NativeStream) {
     this.native = native;
   }
-
-  // Getter/Setter Properties
 
   /**
    * Stream index in the format context.
@@ -156,18 +154,15 @@ export class Stream implements NativeWrapper<NativeStream> {
    * @see {@link CodecParameters} For detailed parameter documentation
    */
   get codecpar(): CodecParameters {
-    // The native binding returns a NativeCodecParameters which we need to wrap
-    const nativeCodecParams = this.native.codecpar;
-    if (!nativeCodecParams) {
-      // Create empty CodecParameters if null
-      const params = new CodecParameters();
-      params.alloc();
-      return params;
+    // Return cached wrapper if we already have one
+    if (this._codecpar) {
+      return this._codecpar;
     }
-    // Wrap the native object in our TypeScript class
-    // Note: We're creating a new wrapper instance each time
-    const params = Object.create(CodecParameters.prototype);
-    params.native = nativeCodecParams;
+
+    // Create and cache the wrapper
+    const params = Object.create(CodecParameters.prototype) as CodecParameters;
+    (params as any).native = this.native.codecpar;
+    this._codecpar = params;
     return params;
   }
 
@@ -175,6 +170,8 @@ export class Stream implements NativeWrapper<NativeStream> {
     // Copy codec parameters to the stream
     // The native binding handles the copying
     this.native.codecpar = value.getNative();
+    // Clear the cache as the underlying parameters have changed
+    this._codecpar = undefined;
   }
 
   /**
@@ -433,8 +430,6 @@ export class Stream implements NativeWrapper<NativeStream> {
   set eventFlags(value: AVStreamEventFlag) {
     this.native.eventFlags = value;
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVStream pointer.

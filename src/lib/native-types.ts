@@ -49,7 +49,7 @@ import type {
   AVSampleFormat,
   AVStreamEventFlag,
 } from './constants.js';
-import type { ChannelLayout, CodecProfile, FilterPad, Rational } from './types.js';
+import type { ChannelLayout, CodecProfile, FilterPad, IRational } from './types.js';
 
 // ============================================================================
 // CORE TYPES
@@ -72,7 +72,7 @@ export interface NativePacket extends Disposable {
   ref(src: NativePacket): number;
   unref(): void;
   clone(): NativePacket | null;
-  rescaleTs(srcTb: Rational, dstTb: Rational): void;
+  rescaleTs(srcTb: IRational, dstTb: IRational): void;
   makeRefcounted(): number;
   makeWritable(): number;
 
@@ -124,10 +124,10 @@ export interface NativeFrame extends Disposable {
   pts: bigint;
   pktDts: bigint;
   bestEffortTimestamp: bigint;
-  timeBase: Rational;
+  timeBase: IRational;
   keyFrame: number;
   pictType: AVPictureType;
-  sampleAspectRatio: Rational;
+  sampleAspectRatio: IRational;
 
   // ===== Properties - Audio specific =====
   sampleRate: number;
@@ -185,7 +185,7 @@ export interface NativeCodec {
   readonly wrapper: string | null;
 
   // ===== Supported formats =====
-  readonly supportedFramerates: Rational[] | null;
+  readonly supportedFramerates: IRational[] | null;
   readonly pixelFormats: AVPixelFormat[] | null;
   readonly supportedSamplerates: number[] | null;
   readonly sampleFormats: AVSampleFormat[] | null;
@@ -233,8 +233,8 @@ export interface NativeCodecContext extends Disposable {
   codecType: AVMediaType;
   codecId: AVCodecID;
   bitRate: bigint;
-  timeBase: Rational;
-  pktTimebase: Rational;
+  timeBase: IRational;
+  pktTimebase: IRational;
   readonly delay: number;
   flags: AVCodecFlag;
   flags2: AVCodecFlag2;
@@ -251,8 +251,8 @@ export interface NativeCodecContext extends Disposable {
   maxBFrames: number;
   mbDecision: number;
   readonly hasBFrames: number;
-  sampleAspectRatio: Rational;
-  framerate: Rational;
+  sampleAspectRatio: IRational;
+  framerate: IRational;
   colorRange: AVColorRange;
   colorPrimaries: AVColorPrimaries;
   colorTrc: AVColorTransferCharacteristic;
@@ -336,8 +336,8 @@ export interface NativeCodecParameters extends Disposable {
   // ===== Properties - Video =====
   width: number;
   height: number;
-  sampleAspectRatio: Rational;
-  frameRate: Rational;
+  sampleAspectRatio: IRational;
+  frameRate: IRational;
   colorRange: AVColorRange;
   colorPrimaries: AVColorPrimaries;
   colorTrc: AVColorTransferCharacteristic;
@@ -401,7 +401,7 @@ export interface NativeIOContext extends AsyncDisposable {
   allocContext(bufferSize: number, writeFlag: number): void;
   allocContextWithCallbacks(
     bufferSize: number,
-    writeFlag: number,
+    writeFlag: 0 | 1,
     readCallback?: (size: number) => Buffer | null | number,
     writeCallback?: (buffer: Buffer) => number | void,
     seekCallback?: (offset: bigint, whence: AVSeekWhence) => bigint | number,
@@ -500,7 +500,7 @@ export interface NativeStream {
   codecpar: NativeCodecParameters;
 
   // Timing
-  timeBase: Rational;
+  timeBase: IRational;
   startTime: bigint;
   duration: bigint;
   nbFrames: bigint;
@@ -510,9 +510,9 @@ export interface NativeStream {
   discard: AVDiscard;
 
   // Video specific
-  sampleAspectRatio: Rational;
-  avgFrameRate: Rational;
-  rFrameRate: Rational;
+  sampleAspectRatio: IRational;
+  avgFrameRate: IRational;
+  rFrameRate: IRational;
 
   // Metadata
   metadata: NativeDictionary | null;
@@ -583,7 +583,7 @@ export interface NativeFormatContext extends Disposable {
   metadata: NativeDictionary | null;
   readonly iformat: NativeInputFormat | null;
   oformat: NativeOutputFormat | null;
-  pb: NativeIOContext | null;
+  pb: NativeIOContext | null; // setter only
   readonly nbStreams: number;
   readonly streams: NativeStream[] | null;
   strictStdCompliance: number;
@@ -754,8 +754,19 @@ export interface NativeFilterContext extends Disposable {
   link(srcPad: number, dst: NativeFilterContext, dstPad: number): number;
   unlink(pad: number): void;
   buffersrcAddFrame(frame: NativeFrame | null): Promise<number>;
+  buffersrcParametersSet(params: {
+    width?: number;
+    height?: number;
+    format?: number;
+    timeBase?: IRational;
+    frameRate?: IRational;
+    sampleAspectRatio?: IRational;
+    hwFramesCtx?: NativeHardwareFramesContext | null;
+    sampleRate?: number;
+    channelLayout?: bigint;
+  }): number;
   buffersinkGetFrame(frame: NativeFrame): Promise<number>;
-  buffersinkSetFrameSize(frameSize: number): void;
+  // buffersinkSetFrameSize(frameSize: number): void;
   buffersinkGetTimeBase(): { num: number; den: number };
   setOpt(key: string, value: string, searchFlags?: AVOptionSearchFlags): number;
   optSetBin(key: string, values: number[] | number, searchFlags?: AVOptionSearchFlags): number;
@@ -802,7 +813,7 @@ export interface NativeFilterGraph extends Disposable {
 
   // ===== Execution =====
   requestOldest(): Promise<number>;
-  dumpToFile(filename: string): void;
+  dump(): string | null;
 
   // ===== Properties =====
   readonly nbFilters: number;

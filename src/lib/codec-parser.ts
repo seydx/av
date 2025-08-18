@@ -52,8 +52,6 @@ import type { Packet } from './packet.js';
 export class CodecParser implements NativeWrapper<NativeCodecParser> {
   private native: NativeCodecParser;
 
-  // Constructor
-
   /**
    * Create a new CodecParser instance.
    *
@@ -75,8 +73,6 @@ export class CodecParser implements NativeWrapper<NativeCodecParser> {
   constructor() {
     this.native = new bindings.CodecParser();
   }
-
-  // Public Methods
 
   /**
    * Initialize the parser with a specific codec ID.
@@ -193,8 +189,6 @@ export class CodecParser implements NativeWrapper<NativeCodecParser> {
   close(): void {
     this.native.close();
   }
-
-  // Internal Methods
 
   /**
    * @internal

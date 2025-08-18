@@ -101,8 +101,8 @@ describe('CodecParameters', () => {
       assert.equal(params.codecTag, 0);
 
       // Test with various values
-      params.codecTag = 0xFFFFFFFF;
-      assert.equal(params.codecTag, 0xFFFFFFFF);
+      params.codecTag = 0xffffffff;
+      assert.equal(params.codecTag, 0xffffffff);
     });
 
     it('should get and set bitrate', () => {
@@ -165,7 +165,7 @@ describe('CodecParameters', () => {
 
     it('should get and set frame rate', () => {
       params.alloc();
-      
+
       // Test common frame rates
       const frameRate30 = new Rational(30, 1); // 30 fps
       params.frameRate = frameRate30;
@@ -481,7 +481,7 @@ describe('CodecParameters', () => {
 
       const dst = new CodecParameters();
       dst.alloc();
-      
+
       const ret = params.copy(dst);
       assert.equal(ret, 0);
 
@@ -517,7 +517,7 @@ describe('CodecParameters', () => {
 
       const dst = new CodecParameters();
       dst.alloc();
-      
+
       const ret = params.copy(dst);
       assert.equal(ret, 0);
 
@@ -548,7 +548,7 @@ describe('CodecParameters', () => {
       dst.codecId = AV_CODEC_ID_AAC;
       dst.width = 640;
       dst.height = 480;
-      
+
       const ret = params.copy(dst);
       assert.equal(ret, 0);
 

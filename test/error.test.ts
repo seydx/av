@@ -74,12 +74,12 @@ describe('FFmpegError', () => {
 
       it('should handle common error codes', () => {
         const errors = [
-          -1,   // EPERM
-          -2,   // ENOENT
-          -5,   // EIO
-          -11,  // EAGAIN
-          -12,  // ENOMEM
-          -22,  // EINVAL
+          -1, // EPERM
+          -2, // ENOENT
+          -5, // EIO
+          -11, // EAGAIN
+          -12, // ENOMEM
+          -22, // EINVAL
         ];
 
         for (const code of errors) {
@@ -189,11 +189,15 @@ describe('FFmpegError', () => {
 
     describe('throwIfError', () => {
       it('should throw for negative code', () => {
-        assert.throws(() => {
-          FFmpegError.throwIfError(-22);
-        }, {
-          name: 'FFmpegError'
-        }, 'Should throw FFmpegError');
+        assert.throws(
+          () => {
+            FFmpegError.throwIfError(-22);
+          },
+          {
+            name: 'FFmpegError',
+          },
+          'Should throw FFmpegError',
+        );
       });
 
       it('should not throw for zero', () => {
@@ -209,23 +213,29 @@ describe('FFmpegError', () => {
       });
 
       it('should include operation name in error message', () => {
-        assert.throws(() => {
-          FFmpegError.throwIfError(-22, 'testOperation');
-        }, (err: any) => {
-          assert.ok(err.message.includes('testOperation'), 'Should include operation name');
-          assert.ok(err.message.includes('failed'), 'Should include "failed"');
-          return true;
-        });
+        assert.throws(
+          () => {
+            FFmpegError.throwIfError(-22, 'testOperation');
+          },
+          (err: any) => {
+            assert.ok(err.message.includes('testOperation'), 'Should include operation name');
+            assert.ok(err.message.includes('failed'), 'Should include "failed"');
+            return true;
+          },
+        );
       });
 
       it('should work without operation name', () => {
-        assert.throws(() => {
-          FFmpegError.throwIfError(-22);
-        }, (err: any) => {
-          assert.ok(err instanceof FFmpegError);
-          assert.equal(err.code, -22);
-          return true;
-        });
+        assert.throws(
+          () => {
+            FFmpegError.throwIfError(-22);
+          },
+          (err: any) => {
+            assert.ok(err instanceof FFmpegError);
+            assert.equal(err.code, -22);
+            return true;
+          },
+        );
       });
 
       it('should preserve error code when throwing', () => {
@@ -352,11 +362,14 @@ describe('FFmpegError', () => {
       }
 
       const ret = mockFFmpegFunction();
-      assert.throws(() => {
-        FFmpegError.throwIfError(ret, 'mockFunction');
-      }, {
-        name: 'FFmpegError'
-      });
+      assert.throws(
+        () => {
+          FFmpegError.throwIfError(ret, 'mockFunction');
+        },
+        {
+          name: 'FFmpegError',
+        },
+      );
     });
 
     it('should work with is pattern', () => {
@@ -400,7 +413,7 @@ describe('FFmpegError', () => {
       }
 
       assert.equal(errors.length, 100);
-      assert.ok(errors.every(e => e instanceof FFmpegError));
+      assert.ok(errors.every((e) => e instanceof FFmpegError));
     });
 
     it('should have unique stack traces', () => {

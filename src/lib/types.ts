@@ -12,7 +12,7 @@ import type { AVLogLevel, AVMediaType } from './constants.ts';
  * Maps to AVRational in FFmpeg
  * Used for time bases, aspect ratios, frame rates
  */
-export interface Rational {
+export interface IRational {
   /** Numerator */
   num: number;
 

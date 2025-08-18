@@ -50,7 +50,6 @@ import type { ChannelLayout, CodecProfile } from './types.js';
 export class Codec implements NativeWrapper<NativeCodec> {
   private native: NativeCodec;
 
-  // Constructor
   /**
    * Constructor is internal - use static factory methods.
    *
@@ -67,11 +66,11 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
    *
    * // Don't use constructor directly
-   * // const codec = new Codec(); // ❌ Wrong
+   * // const codec = new Codec(); // Wrong
    *
    * // Use static factory methods instead
-   * const decoder = Codec.findDecoder(AV_CODEC_ID_H264); // ✅ Correct
-   * const encoder = Codec.findEncoderByName('libx264'); // ✅ Correct
+   * const decoder = Codec.findDecoder(AV_CODEC_ID_H264); // Correct
+   * const encoder = Codec.findEncoderByName('libx264'); // Correct
    * ```
    */
   constructor(native: NativeCodec) {
@@ -86,8 +85,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
     if (!native) return null;
     return new Codec(native);
   }
-
-  // Static Methods - Low Level API
 
   /**
    * Find a registered decoder with a matching codec ID.
@@ -279,8 +276,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
     };
   }
 
-  // Getter Properties
-
   /**
    * Short name of the codec.
    *
@@ -430,8 +425,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
     return this.native.channelLayouts;
   }
 
-  // Public Methods
-
   /**
    * Check if the codec is an encoder.
    *
@@ -520,8 +513,6 @@ export class Codec implements NativeWrapper<NativeCodec> {
   } | null {
     return this.native.getHwConfig(index);
   }
-
-  // Internal Methods
 
   /**
    * Get the native codec object for use with C++ bindings

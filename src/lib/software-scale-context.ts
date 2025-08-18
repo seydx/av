@@ -44,7 +44,6 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
 export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {
   private native: NativeSoftwareScaleContext;
 
-  // Constructor
   /**
    * Create a new software scale context.
    *
@@ -69,8 +68,6 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
   constructor() {
     this.native = new bindings.SoftwareScaleContext();
   }
-
-  // Public Methods - Lifecycle
 
   /**
    * Allocate an empty SwsContext.
@@ -204,8 +201,6 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
     this.native.freeContext();
   }
 
-  // Public Methods - Scaling
-
   /**
    * Scale the image slice in srcSlice and put the resulting scaled slice in the image in dst.
    *
@@ -293,8 +288,6 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
   async scaleFrame(dst: Frame, src: Frame): Promise<number> {
     return this.native.scaleFrame(dst.getNative(), src.getNative());
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg SwsContext pointer.

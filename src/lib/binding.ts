@@ -33,7 +33,7 @@ import type {
   NativeSoftwareScaleContext,
   NativeStream,
 } from './native-types.js';
-import type { ChannelLayout, Rational } from './types.js';
+import type { ChannelLayout, IRational } from './types.js';
 
 const require = createRequire(import.meta.url);
 
@@ -172,6 +172,7 @@ export const bindings = require('../../build/Release/ffmpeg.node') as {
   avSampleFmtIsPlanar: (sampleFmt: AVSampleFormat) => boolean;
   avGetPixFmtName: (pixFmt: AVPixelFormat) => string | null;
   avGetPixFmtFromName: (name: string) => number;
+  avIsHardwarePixelFormat: (pixFmt: AVPixelFormat) => boolean;
   avGetMediaTypeString: (mediaType: AVMediaType) => string | null;
   avImageAlloc: (width: number, height: number, pixFmt: AVPixelFormat, align: number) => { buffer: Buffer; size: number; linesizes: number[] } | number;
   avImageCopy2: (dstData: Buffer[], dstLinesizes: number[], srcData: Buffer[], srcLinesizes: number[], pixFmt: AVPixelFormat, width: number, height: number) => void;
@@ -187,9 +188,9 @@ export const bindings = require('../../build/Release/ffmpeg.node') as {
     align: number,
   ) => number;
   avTs2Str: (ts: bigint | number | null) => string;
-  avTs2TimeStr: (ts: bigint | number | null, timeBase: Rational) => string;
-  avCompareTs: (tsA: bigint | number | null, tbA: Rational, tsB: bigint | number | null, tbB: Rational) => number;
-  avRescaleQ: (a: bigint | number | null, bq: Rational, cq: Rational) => bigint;
+  avTs2TimeStr: (ts: bigint | number | null, timeBase: IRational) => string;
+  avCompareTs: (tsA: bigint | number | null, tbA: IRational, tsB: bigint | number | null, tbB: IRational) => number;
+  avRescaleQ: (a: bigint | number | null, bq: IRational, cq: IRational) => bigint;
   avRescaleRnd: (a: bigint | number, b: bigint | number, c: bigint | number, rnd: number) => bigint;
   avUsleep: (usec: number) => void;
   avSamplesAlloc: (nbChannels: number, nbSamples: number, sampleFmt: AVSampleFormat, align: number) => { data: Buffer[]; linesize: number; size: number } | number;

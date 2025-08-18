@@ -21,7 +21,7 @@ const getFFmpegPath = () => {
       return match[1];
     }
   } catch (e) {
-    console.error('FFmpeg not found via pkg-config');
+    console.error('FFmpeg not found via pkg-config', e);
   }
 
   // Fallback paths
@@ -152,11 +152,11 @@ int main() {
   try {
     execSync(`gcc -I${FFMPEG_PATH} -L/opt/homebrew/lib ${tmpFile} -lavutil -o ${outFile}`, { stdio: 'inherit' });
     const output = execSync(outFile, { encoding: 'utf8' });
-    
+
     // Clean up
     fs.unlinkSync(tmpFile);
     fs.unlinkSync(outFile);
-    
+
     return output;
   } catch (error) {
     console.error('Failed to compile/run C code:', error);
@@ -167,7 +167,7 @@ int main() {
 // Generate the file
 const generateChannelLayoutsFile = () => {
   const outputPath = path.join(__dirname, '..', 'src', 'lib', 'channel-layouts.ts');
-  
+
   let content = `/**
  * FFmpeg Channel Layout Constants
  * Auto-generated from FFmpeg headers

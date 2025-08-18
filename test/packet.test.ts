@@ -1,16 +1,7 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import {
-  AV_NOPTS_VALUE,
-  AV_PKT_FLAG_CORRUPT,
-  AV_PKT_FLAG_DISCARD,
-  AV_PKT_FLAG_KEY,
-  AV_PKT_FLAG_NONE,
-  Packet,
-  Rational,
-  type AVPacketFlag,
-} from '../src/lib/index.js';
+import { AV_NOPTS_VALUE, AV_PKT_FLAG_CORRUPT, AV_PKT_FLAG_DISCARD, AV_PKT_FLAG_KEY, AV_PKT_FLAG_NONE, Packet, Rational, type AVPacketFlag } from '../src/lib/index.js';
 
 describe('Packet', () => {
   let packet: Packet;

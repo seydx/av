@@ -64,7 +64,6 @@ import type { ChannelLayout } from './types.js';
 export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   private native: NativeCodecParameters;
 
-  // Constructor
   /**
    * Create new codec parameters.
    *
@@ -85,8 +84,6 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   constructor() {
     this.native = new bindings.CodecParameters();
   }
-
-  // Getter/Setter Properties - General
 
   /**
    * General type of the encoded data.
@@ -206,8 +203,6 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
     this.native.level = value;
   }
 
-  // Getter/Setter Properties - Video
-
   /**
    * Video frame width in pixels.
    *
@@ -323,8 +318,6 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
     this.native.chromaLocation = value;
   }
 
-  // Getter/Setter Properties - Audio
-
   /**
    * Audio channel layout.
    * @deprecated use ch_layout
@@ -362,8 +355,6 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   set sampleRate(value: number) {
     this.native.sampleRate = value;
   }
-
-  // Public Methods - Low Level API
 
   /**
    * Allocate a new AVCodecParameters and set its fields to default values.
@@ -502,8 +493,6 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   toContext(codecContext: CodecContext): number {
     return this.native.toContext(codecContext.getNative());
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVCodecParameters pointer.

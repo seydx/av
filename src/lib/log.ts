@@ -43,8 +43,6 @@ export class Log {
     throw new Error('Log class cannot be instantiated');
   }
 
-  // Static Methods - Low Level API
-
   /**
    * Set FFmpeg's global log level.
    *

@@ -13,6 +13,7 @@ Napi::Object Utilities::Init(Napi::Env env, Napi::Object exports) {
   
   exports.Set("avGetPixFmtName", Napi::Function::New(env, GetPixFmtName));
   exports.Set("avGetPixFmtFromName", Napi::Function::New(env, GetPixFmtFromName));
+  exports.Set("avIsHardwarePixelFormat", Napi::Function::New(env, IsHardwarePixelFormat));
   
   exports.Set("avGetMediaTypeString", Napi::Function::New(env, GetMediaTypeString));
   
@@ -148,6 +149,26 @@ Napi::Value Utilities::GetPixFmtFromName(const Napi::CallbackInfo& info) {
   AVPixelFormat pix_fmt = av_get_pix_fmt(name.c_str());
   
   return Napi::Number::New(env, static_cast<int>(pix_fmt));
+}
+
+Napi::Value Utilities::IsHardwarePixelFormat(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected pixel format as number").ThrowAsJavaScriptException();
+    return Napi::Boolean::New(env, false);
+  }
+  
+  int pix_fmt = info[0].As<Napi::Number>().Int32Value();
+  const AVPixFmtDescriptor* desc = av_pix_fmt_desc_get(static_cast<AVPixelFormat>(pix_fmt));
+  
+  if (!desc) {
+    return Napi::Boolean::New(env, false);
+  }
+  
+  // Check if the pixel format has the HWACCEL flag
+  bool is_hw = (desc->flags & AV_PIX_FMT_FLAG_HWACCEL) != 0;
+  return Napi::Boolean::New(env, is_hw);
 }
 
 // === Media type utilities ===

@@ -403,9 +403,6 @@ describe('Frame', () => {
       srcFrame.height = 240;
       srcFrame.allocBuffer();
 
-      // Check if writable
-      const wasWritable = srcFrame.isWritable;
-
       // Make it writable
       const ret = srcFrame.makeWritable();
       assert.ok(ret >= 0);

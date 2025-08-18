@@ -51,6 +51,7 @@ public:
     if (result_ >= 0) {
       parent_->ctx_ = ctx;
       parent_->is_output_ = false;
+      // Successfully opened
     }
   }
 
@@ -611,6 +612,10 @@ public:
     } else {
       result_ = 0;
     }
+    
+    if (result_ >= 0) {
+      // Successfully opened
+    }
   }
 
   void OnOK() override {
@@ -648,6 +653,7 @@ public:
         avio_closep(&ctx->pb);
       }
     }
+    // Closed
   }
 
   void OnOK() override {
@@ -682,8 +688,25 @@ public:
     parent_->ctx_ = nullptr;
     
     if (ctx) {
-      avformat_close_input(&ctx);
-      parent_->is_freed_ = true;
+      // Check if this is a custom IO context
+      bool is_custom_io = (ctx->flags & AVFMT_FLAG_CUSTOM_IO) != 0;
+      
+      if (ctx->pb || ctx->nb_streams > 0) {
+        // Context was successfully opened (has pb or streams), use close_input
+        // IMPORTANT: avformat_close_input will:
+        // - For AVFMT_FLAG_CUSTOM_IO: set pb to NULL but NOT free it
+        // - For non-custom IO: close and free the pb
+        avformat_close_input(&ctx);
+      } else {
+        // Context was allocated but not opened successfully
+        // Clear pb reference before calling avformat_free_context to prevent double-free
+        if (is_custom_io && ctx->pb) {
+          ctx->pb = nullptr;
+        }
+        // Use avformat_free_context to free the allocated context
+        avformat_free_context(ctx);
+      }
+      
       parent_->is_output_ = false;
     }
   }
@@ -755,7 +778,7 @@ Napi::Value FormatContext::CloseOutput(const Napi::CallbackInfo& info) {
 Napi::Value FormatContext::CloseInput(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (is_freed_) {
+  if (!ctx_) {
     return env.Null();
   }
   

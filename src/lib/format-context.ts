@@ -3,11 +3,11 @@ import { Codec } from './codec.js';
 import { AV_SEEK_FLAG_NONE } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { InputFormat } from './input-format.js';
-import { IOContext } from './io-context.js';
 import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
 import type { AVFormatFlag, AVMediaType, AVSeekFlag } from './constants.js';
+import type { IOContext } from './io-context.js';
 import type { NativeFormatContext, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 
@@ -81,8 +81,8 @@ import type { Packet } from './packet.js';
  */
 export class FormatContext implements Disposable, NativeWrapper<NativeFormatContext> {
   private native: NativeFormatContext;
+  private _ioContext: IOContext | null = null;
 
-  // Constructor
   /**
    * Create a new format context.
    *
@@ -105,8 +105,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   constructor() {
     this.native = new bindings.FormatContext();
   }
-
-  // Getter/Setter Properties
 
   /**
    * Input or output URL/filename.
@@ -270,16 +268,16 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * - demuxing: Either set by user or internal (for protocols like file:)
    * - muxing: Set by user for custom I/O. Otherwise internal
+   *
+   * The FormatContext keeps track of the IOContext set by the user.
+   * This prevents ownership confusion.
    */
   get pb(): IOContext | null {
-    const nativeIO = this.native.pb;
-    if (!nativeIO) {
-      return null;
-    }
-    return IOContext.fromNative(nativeIO);
+    return this._ioContext;
   }
 
   set pb(value: IOContext | null) {
+    this._ioContext = value;
     this.native.pb = value?.getNative() ?? null;
   }
 
@@ -336,8 +334,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
     this.native.maxStreams = value;
   }
 
-  // Public Methods - Lifecycle
-
   /**
    * Allocate an AVFormatContext for input.
    *
@@ -380,6 +376,10 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * ```
    */
   allocOutputContext2(oformat: OutputFormat | null, formatName: string | null, filename: string | null): number {
+    if (!oformat && !formatName && !filename) {
+      throw new Error('At least one of oformat, formatName, or filename must be specified');
+    }
+
     return this.native.allocOutputContext2(oformat?.getNative() ?? null, formatName, filename);
   }
 
@@ -460,8 +460,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
     return this.native.closeOutput();
   }
 
-  // Public Methods - Input Operations (Async)
-
   /**
    * Open an input stream and read the header.
    *
@@ -491,7 +489,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * // Context is now open and header is read
    * ```
    */
-  async openInput(url: string, fmt: InputFormat | null, options: Dictionary | null): Promise<number> {
+  async openInput(url: string, fmt: InputFormat | null = null, options: Dictionary | null = null): Promise<number> {
     return this.native.openInput(url, fmt?.getNative() ?? null, options?.getNative() ?? null);
   }
 
@@ -520,7 +518,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * console.log(`Found ${ctx.nbStreams} streams`);
    * ```
    */
-  async findStreamInfo(options: Dictionary[] | null): Promise<number> {
+  async findStreamInfo(options: Dictionary[] | null = null): Promise<number> {
     return this.native.findStreamInfo(options?.map((d) => d.getNative()) ?? null);
   }
 
@@ -636,8 +634,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
   async seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags: AVSeekFlag = AV_SEEK_FLAG_NONE): Promise<number> {
     return this.native.seekFile(streamIndex, minTs, ts, maxTs, flags);
   }
-
-  // Public Methods - Output Operations (Async)
 
   /**
    * Allocate the stream private data and write the stream header.
@@ -790,8 +786,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
     return this.native.flush();
   }
 
-  // Public Methods - Utility
-
   /**
    * Dump format information to stderr.
    *
@@ -855,7 +849,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * // Process video stream
    * ```
    */
-  findBestStream(type: AVMediaType, wantedStreamNb: number, relatedStream: number): number;
+  findBestStream(type: AVMediaType, wantedStreamNb?: number, relatedStream?: number): number;
 
   /**
    * Find the "best" stream in the file and optionally return the decoder.
@@ -896,13 +890,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    */
   findBestStream(type: AVMediaType, wantedStreamNb: number, relatedStream: number, wantDecoder: true, flags?: number): { streamIndex: number; decoder: Codec | null };
 
-  findBestStream(
-    type: AVMediaType,
-    wantedStreamNb: number,
-    relatedStream: number,
-    wantDecoder?: boolean,
-    flags?: number,
-  ): number | { streamIndex: number; decoder: Codec | null } {
+  findBestStream(type: AVMediaType, wantedStreamNb = -1, relatedStream = -1, wantDecoder = false, flags = 0): number | { streamIndex: number; decoder: Codec | null } {
     if (wantDecoder === true) {
       const result = this.native.findBestStream(type, wantedStreamNb, relatedStream, true, flags ?? 0);
       if (typeof result === 'object' && result !== null) {
@@ -918,8 +906,6 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
 
     return this.native.findBestStream(type, wantedStreamNb, relatedStream, false, flags ?? 0) as number;
   }
-
-  // Public Methods - Stream Management
 
   /**
    * Add a new stream to the media file.
@@ -951,12 +937,10 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * videoStream.codecpar.height = 1080;
    * ```
    */
-  newStream(c: Codec | null): Stream {
+  newStream(c: Codec | null = null): Stream {
     const nativeStream = this.native.newStream(c?.getNative() ?? null);
     return new Stream(nativeStream);
   }
-
-  // Internal Methods
 
   /**
    * Get the native FFmpeg AVFormatContext pointer.

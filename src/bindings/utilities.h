@@ -29,6 +29,7 @@ public:
   // Pixel format utilities
   static Napi::Value GetPixFmtName(const Napi::CallbackInfo& info);
   static Napi::Value GetPixFmtFromName(const Napi::CallbackInfo& info);
+  static Napi::Value IsHardwarePixelFormat(const Napi::CallbackInfo& info);
   
   // Media type utilities
   static Napi::Value GetMediaTypeString(const Napi::CallbackInfo& info);

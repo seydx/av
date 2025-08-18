@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @stylistic/max-len */
 
 /**
  * Generate TypeScript constants from FFmpeg headers
@@ -22,7 +23,7 @@ const getFFmpegPath = () => {
       return match[1];
     }
   } catch (e) {
-    console.error('FFmpeg not found via pkg-config');
+    console.error('FFmpeg not found via pkg-config', e);
   }
 
   // Fallback paths
@@ -461,33 +462,33 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
 `;
 
   // Manually add AVMediaType since it's critical and might not parse correctly
-  output += `// Media types\n`;
-  output += `export type AVMediaType = number & { readonly [__ffmpeg_brand]: 'AVMediaType' };\n\n`;
-  output += `export const AV_MEDIA_TYPE_UNKNOWN = -1 as AVMediaType;\n`;
-  output += `export const AV_MEDIA_TYPE_VIDEO = 0 as AVMediaType;\n`;
-  output += `export const AV_MEDIA_TYPE_AUDIO = 1 as AVMediaType;\n`;
-  output += `export const AV_MEDIA_TYPE_DATA = 2 as AVMediaType;\n`;
-  output += `export const AV_MEDIA_TYPE_SUBTITLE = 3 as AVMediaType;\n`;
-  output += `export const AV_MEDIA_TYPE_ATTACHMENT = 4 as AVMediaType;\n`;
-  output += `export const AV_MEDIA_TYPE_NB = 5 as AVMediaType;\n\n`;
-  
+  output += '// Media types\n';
+  output += "export type AVMediaType = number & { readonly [__ffmpeg_brand]: 'AVMediaType' };\n\n";
+  output += 'export const AV_MEDIA_TYPE_UNKNOWN = -1 as AVMediaType;\n';
+  output += 'export const AV_MEDIA_TYPE_VIDEO = 0 as AVMediaType;\n';
+  output += 'export const AV_MEDIA_TYPE_AUDIO = 1 as AVMediaType;\n';
+  output += 'export const AV_MEDIA_TYPE_DATA = 2 as AVMediaType;\n';
+  output += 'export const AV_MEDIA_TYPE_SUBTITLE = 3 as AVMediaType;\n';
+  output += 'export const AV_MEDIA_TYPE_ATTACHMENT = 4 as AVMediaType;\n';
+  output += 'export const AV_MEDIA_TYPE_NB = 5 as AVMediaType;\n\n';
+
   // Add standard seek constants (from stdio.h, used with avio_seek)
-  output += `// Standard seek whence constants (from stdio.h)\n`;
-  output += `export const AV_SEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file\n`;
-  output += `export const AV_SEEK_CUR = 1 as AVSeekWhence; // Seek from current position\n`;
-  output += `export const AV_SEEK_END = 2 as AVSeekWhence; // Seek from end of file\n`;
-  output += `\n`;
-  
+  output += '// Standard seek whence constants (from stdio.h)\n';
+  output += 'export const AV_SEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file\n';
+  output += 'export const AV_SEEK_CUR = 1 as AVSeekWhence; // Seek from current position\n';
+  output += 'export const AV_SEEK_END = 2 as AVSeekWhence; // Seek from end of file\n';
+  output += '\n';
+
   // Manually add common "no flags" constants for flag types that need them
-  output += `// Common \"no flags\" constants for APIs that accept 0 as valid flag value\n`;
-  output += `export const AV_SEEK_FLAG_NONE = 0 as AVSeekFlag; // Default seek behavior\n`;
-  output += `export const AV_IO_FLAG_NONE = 0 as AVIOFlag; // Default IO behavior\n`;
-  output += `export const AV_FILTER_FLAG_NONE = 0 as AVFilterFlag; // No filter flags\n`;
-  output += `export const AV_FILTER_CMD_FLAG_NONE = 0 as AVFilterCmdFlag; // No filter command flags\n`;
-  output += `export const AV_FILTER_THREAD_NONE = 0 as AVFilterThreadType; // Disable threading\n`;
-  output += `export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2\n`;
-  output += `export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags\n`;
-  output += `export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags\n\n`;
+  output += '// Common "no flags" constants for APIs that accept 0 as valid flag value\n';
+  output += 'export const AV_SEEK_FLAG_NONE = 0 as AVSeekFlag; // Default seek behavior\n';
+  output += 'export const AV_IO_FLAG_NONE = 0 as AVIOFlag; // Default IO behavior\n';
+  output += 'export const AV_FILTER_FLAG_NONE = 0 as AVFilterFlag; // No filter flags\n';
+  output += 'export const AV_FILTER_CMD_FLAG_NONE = 0 as AVFilterCmdFlag; // No filter command flags\n';
+  output += 'export const AV_FILTER_THREAD_NONE = 0 as AVFilterThreadType; // Disable threading\n';
+  output += 'export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2\n';
+  output += 'export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags\n';
+  output += 'export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags\n\n';
 
   // Generate branded types for each enum
   const processedEnums = new Set();
@@ -585,26 +586,26 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     ['AV_GET_BUFFER_FLAG', 'AVGetBufferFlag'],
     ['AV_GET_ENCODE_BUFFER_FLAG', 'AVGetEncodeBufferFlag'],
     ['AV_INPUT_BUFFER', 'AVInputBuffer'],
-    
+
     // Frame flags
     ['AV_FRAME_SIDE_DATA_FLAG', 'AVFrameSideDataFlag'],
     ['AV_FRAME_FILENAME_FLAGS', 'AVFrameFilenameFlags'],
-    
+
     // CUDA flags
     ['AV_CUDA_USE', 'AVCudaContextFlags'],
-    
+
     // 3D/Stereo flags
     ['AV_STEREO3D_FLAG', 'AVStereo3DFlag'],
-    
+
     // IAMF flags
     ['AV_IAMF_LAYER_FLAG', 'AVIAMFLayerFlag'],
-    
+
     // FIFO flags
     ['AV_FIFO_FLAG', 'AVFifoFlag'],
-    
+
     // LZO constants
     ['AV_LZO', 'AVLZOResult'],
-    
+
     // Stream init
     ['AV_STREAM_INIT', 'AVStreamInitIn'],
 
@@ -703,7 +704,7 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   const ungroupedConstants = groups.get('OTHER');
   if (ungroupedConstants && ungroupedConstants.length > 0) {
     output += `// Other constants (ungrouped) - ${ungroupedConstants.length} constants\n`;
-    output += `// These are miscellaneous constants that don't fit into a specific category\n`;
+    output += "// These are miscellaneous constants that don't fit into a specific category\n";
     for (const constant of ungroupedConstants) {
       // Try to evaluate the value
       let value = constant.value;
@@ -736,14 +737,14 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   // Add hardware configuration method constants
   // These are defined as anonymous enum values in codec.h
   if (!processedTypes.has('AVCodecHWConfigMethod')) {
-    output += `// ============================================================================\n`;
-    output += `// AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods\n`;
-    output += `// ============================================================================\n\n`;
-    output += `export const AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;\n`;
-    output += `export const AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX = 0x02;\n`;
-    output += `export const AV_CODEC_HW_CONFIG_METHOD_INTERNAL = 0x04;\n`;
-    output += `export const AV_CODEC_HW_CONFIG_METHOD_AD_HOC = 0x08;\n`;
-    output += `\n`;
+    output += '// ============================================================================\n';
+    output += '// AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods\n';
+    output += '// ============================================================================\n\n';
+    output += 'export const AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;\n';
+    output += 'export const AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX = 0x02;\n';
+    output += 'export const AV_CODEC_HW_CONFIG_METHOD_INTERNAL = 0x04;\n';
+    output += 'export const AV_CODEC_HW_CONFIG_METHOD_AD_HOC = 0x08;\n';
+    output += '\n';
     processedTypes.add('AVCodecHWConfigMethod');
   }
 
@@ -813,7 +814,7 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
         fs.unlinkSync(tmpExe);
         return -parseInt(result); // FFmpeg uses negative error codes
       } catch (e) {
-        console.warn(`Failed to get platform-specific value for ${errorName}`);
+        console.warn(`Failed to get platform-specific value for ${errorName}`, e);
         return null;
       }
     };
@@ -848,8 +849,8 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     }
 
     // Generate error constants
-    output += `// Error codes\n`;
-    output += `export type AVError = number & { readonly [__ffmpeg_brand]: 'AVError' };\n\n`;
+    output += '// Error codes\n';
+    output += "export type AVError = number & { readonly [__ffmpeg_brand]: 'AVError' };\n\n";
     for (const error of errorConstants) {
       output += `export const ${error.name} = ${error.value} as AVError;\n`;
     }
@@ -858,22 +859,22 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   }
 
   // Add special time constants
-  output += `// Special time constants\n`;
-  output += `export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN\n\n`;
+  output += '// Special time constants\n';
+  output += 'export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN\n\n';
 
   // Add default/none constants for flags
-  output += `// Default/None flag values\n`;
-  output += `// These are commonly used to indicate "no flags" in FFmpeg\n`;
-  output += `export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag;\n`;
-  output += `export const AV_DICT_NONE = 0 as AVDictFlag;\n`;
-  output += `export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag;\n`;
-  output += `export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag;\n\n`;
+  output += '// Default/None flag values\n';
+  output += '// These are commonly used to indicate "no flags" in FFmpeg\n';
+  output += 'export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag;\n';
+  output += 'export const AV_DICT_NONE = 0 as AVDictFlag;\n';
+  output += 'export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag;\n';
+  output += 'export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag;\n\n';
 
   // Export convenience function for creating branded values
-  output += `// Helper function to cast numbers to branded types\n`;
-  output += `export function cast<T>(value: number): T {\n`;
-  output += `  return value as T;\n`;
-  output += `}\n`;
+  output += '// Helper function to cast numbers to branded types\n';
+  output += 'export function cast<T>(value: number): T {\n';
+  output += '  return value as T;\n';
+  output += '}\n';
 
   return output;
 };
@@ -900,7 +901,7 @@ const main = () => {
 
   console.log('\n=== Generation Summary ===');
   console.log(`Generated: ${lines} lines, ${constants} constants, ${types} branded types`);
-  console.log(`Note: Enums like AVPixelFormat are processed separately from #define constants`);
+  console.log('Note: Enums like AVPixelFormat are processed separately from #define constants');
 };
 
 main();
