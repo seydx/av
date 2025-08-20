@@ -15,6 +15,9 @@ export { HardwareContext } from './hardware.js';
 // Filter
 export { FilterAPI } from './filter.js';
 
+// BitStreamFilter
+export { BitStreamFilterAPI } from './bitstream-filter.js';
+
 // Pipeline
 export { pipeline } from './pipeline.js';
 

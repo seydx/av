@@ -82,7 +82,7 @@ IOContext::~IOContext() {
 int IOContext::ReadPacket(void* opaque, uint8_t* buf, int buf_size) {
   CallbackData* data = static_cast<CallbackData*>(opaque);
   if (!data || !data->active || !data->has_read_callback) {
-    return AV_ERROR_EOF;
+    return AVERROR_EOF;
   }
   
   int bytes_read = 0;
@@ -94,7 +94,7 @@ int IOContext::ReadPacket(void* opaque, uint8_t* buf, int buf_size) {
       Napi::Value result = jsCallback.Call({Napi::Number::New(env, buf_size)});
       
       if (result.IsNull() || result.IsUndefined()) {
-        bytes_read = AV_ERROR_EOF;
+        bytes_read = AVERROR_EOF;
       } else if (result.IsBuffer()) {
         Napi::Buffer<uint8_t> buffer = result.As<Napi::Buffer<uint8_t>>();
         bytes_read = std::min(static_cast<int>(buffer.Length()), buf_size);

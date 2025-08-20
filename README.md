@@ -243,13 +243,16 @@ const { MediaInput, Decoder } = ffmpeg;
 
 ## Stream Processing
 
-### From Node.js Streams
+### From Files
 
 ```typescript
-import { createReadStream } from 'fs';
+const media = await MediaInput.open('input.mp4');
+```
 
-const stream = createReadStream('input.mp4');
-const media = await MediaInput.open(stream);
+### From Network
+
+```typescript
+const media = await MediaInput.open('rtsp://example.com/stream');
 ```
 
 ### From Buffers
