@@ -329,37 +329,41 @@ try {
 
 | Example | FFmpeg | Low-Level API | High-Level API |
 |---------|--------|---------------|----------------|
-| `api-encode-decode.ts` | | | [✓](examples/api-encode-decode.ts) |
-| `api-frame-extract.ts` | | | [✓](examples/api-frame-extract.ts) |
-| `api-hw-decode-sw-encode.ts` | | | [✓](examples/api-hw-decode-sw-encode.ts) |
-| `api-hw-raw.ts` | | | [✓](examples/api-hw-raw.ts) |
-| `api-hw-rtsp.ts` | | | [✓](examples/api-hw-rtsp.ts) |
-| `api-hw-transcode.ts` | | | [✓](examples/api-hw-transcode.ts) |
-| `api-muxing.ts` | | | [✓](examples/api-muxing.ts) |
-| `api-pipeline-hw-rtsp.ts` | | | [✓](examples/api-pipeline-hw-rtsp.ts) |
-| `api-pipeline-raw-muxing.ts` | | | [✓](examples/api-pipeline-raw-muxing.ts) |
-| `api-stream-input.ts` | | | [✓](examples/api-stream-input.ts) |
-| `api-sw-decode-hw-encode.ts` | | | [✓](examples/api-sw-decode-hw-encode.ts) |
-| `api-sw-transcode.ts` | | | [✓](examples/api-sw-transcode.ts) |
-| `avio-read-callback.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/avio_read_callback.c) | [✓](examples/avio-read-callback.ts) | |
-| `decode-audio.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_audio.c) | [✓](examples/decode-audio.ts) | |
-| `decode-filter-audio.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_audio.c) | [✓](examples/decode-filter-audio.ts) | |
-| `decode-filter-video.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_video.c) | [✓](examples/decode-filter-video.ts) | |
-| `decode-video.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_video.c) | [✓](examples/decode-video.ts) | |
-| `demux-decode.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/demux_decode.c) | [✓](examples/demux-decode.ts) | |
-| `encode-audio.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_audio.c) | [✓](examples/encode-audio.ts) | |
-| `encode-video.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_video.c) | [✓](examples/encode-video.ts) | |
-| `filter-audio.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/filter_audio.c) | [✓](examples/filter-audio.ts) | |
-| `hw-decode.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/hw_decode.c) | [✓](examples/hw-decode.ts) | |
-| `hw-encode.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/hw_encode.c) | [✓](examples/hw-encode.ts) | |
-| `hw-transcode.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/hw_transcode.c) | [✓](examples/hw-transcode.ts) | |
-| `mux.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/mux.c) | [✓](examples/mux.ts) | |
-| `remux.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/remux.c) | [✓](examples/remux.ts) | |
-| `resample-audio.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/resample_audio.c) | [✓](examples/resample-audio.ts) | |
-| `scale-video.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/scale_video.c) | [✓](examples/scale-video.ts) | |
-| `show-metadata.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/show_metadata.c) | [✓](examples/show-metadata.ts) | |
-| `transcode-aac.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode_aac.c) | [✓](examples/transcode-aac.ts) | |
-| `transcode.ts` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓](examples/transcode.ts) | |
+| `api-encode-decode` | | | [✓](examples/api-encode-decode.ts) |
+| `api-frame-extract` | | | [✓](examples/api-frame-extract.ts) |
+| `api-hw-decode-sw-encode` | | | [✓](examples/api-hw-decode-sw-encode.ts) |
+| `api-hw-raw` | | | [✓](examples/api-hw-raw.ts) |
+| `api-hw-rtsp` | | | [✓](examples/api-hw-rtsp.ts) |
+| `api-hw-transcode` | | | [✓](examples/api-hw-transcode.ts) |
+| `api-muxing` | | | [✓](examples/api-muxing.ts) |
+| `api-pipeline-hw-rtsp` | | | [✓](examples/api-pipeline-hw-rtsp.ts) |
+| `api-pipeline-raw-muxing` | | | [✓](examples/api-pipeline-raw-muxing.ts) |
+| `api-stream-input` | | | [✓](examples/api-stream-input.ts) |
+| `api-sw-decode-hw-encode` | | | [✓](examples/api-sw-decode-hw-encode.ts) |
+| `api-sw-transcode` | | | [✓](examples/api-sw-transcode.ts) |
+| `avio-read-callback` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/avio_read_callback.c) | [✓](examples/avio-read-callback.ts) | |
+| `decode-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_audio.c) | [✓](examples/decode-audio.ts) | |
+| `decode-filter-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_audio.c) | [✓](examples/decode-filter-audio.ts) | |
+| `decode-filter-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_video.c) | [✓](examples/decode-filter-video.ts) | |
+| `decode-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_video.c) | [✓](examples/decode-video.ts) | |
+| `demux-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/demux_decode.c) | [✓](examples/demux-decode.ts) | |
+| `encode-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_audio.c) | [✓](examples/encode-audio.ts) | |
+| `encode-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_video.c) | [✓](examples/encode-video.ts) | |
+| `filter-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/filter_audio.c) | [✓](examples/filter-audio.ts) | |
+| `hw-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/hw_decode.c) | [✓](examples/hw-decode.ts) | |
+| `hw-encode` | | [✓](examples/hw-encode.ts) | |
+| `hw-transcode` | | [✓](examples/hw-transcode.ts) | |
+| `qsv-decode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/qsv_decode.c) | | |
+| `qsv-transcode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/qsv_transcode.c) | | |
+| `vaapi-encode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/vaapi_encode.c) | | |
+| `vaapi-transcode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/vaapi_transcode.c) | | |
+| `mux` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/mux.c) | [✓](examples/mux.ts) | |
+| `remux` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/remux.c) | [✓](examples/remux.ts) | |
+| `resample-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/resample_audio.c) | [✓](examples/resample-audio.ts) | |
+| `scale-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/scale_video.c) | [✓](examples/scale-video.ts) | |
+| `show-metadata` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/show_metadata.c) | [✓](examples/show-metadata.ts) | |
+| `transcode-aac` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode_aac.c) | [✓](examples/transcode-aac.ts) | |
+| `transcode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓](examples/transcode.ts) | |
 
 ## Building from Source
 
