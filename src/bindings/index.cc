@@ -20,6 +20,8 @@
 #include "filter_context.h"
 #include "filter_graph.h"
 #include "filter_inout.h"
+#include "bitstream_filter.h"
+#include "bitstream_filter_context.h"
 #include "hardware_device_context.h"
 #include "hardware_frames_context.h"
 #include "log.h"
@@ -61,6 +63,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   FilterContext::Init(env, exports);
   FilterGraph::Init(env, exports);
   FilterInOut::Init(env, exports);
+  
+  // Bitstream Filters
+  BitStreamFilter::Init(env, exports);
+  BitStreamFilterContext::Init(env, exports);
   
   // Hardware Acceleration
   HardwareDeviceContext::Init(env, exports);

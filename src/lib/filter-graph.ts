@@ -479,19 +479,19 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
-   *   - AVERROR_EOF: No more frames available
+   *   - AV_ERROR_EOF: No more frames available
    *   - AVERROR(EAGAIN): Need more input data
    *   - <0: Other processing errors
    *
    * @example
    * ```typescript
    * import { FilterGraph, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
+   * import { AV_ERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
    *
    * // Pull frames from the graph
    * while (true) {
    *   const ret = await graph.requestOldest();
-   *   if (FFmpegError.is(ret, AVERROR_EOF)) {
+   *   if (FFmpegError.is(ret, AV_ERROR_EOF)) {
    *     break; // No more frames
    *   }
    *   if (ret < 0 && !FFmpegError.is(ret, AVERROR_EAGAIN)) {

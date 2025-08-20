@@ -15,6 +15,7 @@
 
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
+
 import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR, FFmpegError, Frame, SoftwareScaleContext } from '../src/lib/index.js';
 
 /**

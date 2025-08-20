@@ -11,6 +11,7 @@
  */
 
 import fs from 'node:fs';
+
 import {
   AV_ERROR_EAGAIN,
   AV_ERROR_EOF,
@@ -31,9 +32,9 @@ import {
   HardwareFramesContext,
   Packet,
   Rational,
-  type AVHWDeviceType,
-  type AVPixelFormat,
 } from '../src/lib/index.js';
+
+import type { AVHWDeviceType, AVPixelFormat } from '../src/lib/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let width: number;

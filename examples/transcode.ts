@@ -10,7 +10,6 @@
  * Example: tsx examples/transcode.ts testdata/video.mp4 examples/.tmp/transcode.mp4
  */
 
-import type { FilterContext } from '../src/lib/index.js';
 import {
   AV_CODEC_FLAG_GLOBAL_HEADER,
   AV_ERROR_EAGAIN,
@@ -36,6 +35,8 @@ import {
   avChannelLayoutDescribe,
   avRescaleQ,
 } from '../src/lib/index.js';
+
+import type { FilterContext } from '../src/lib/index.js';
 
 // Global contexts - matching C structure
 let ifmt_ctx: FormatContext | null = null;
@@ -530,7 +531,7 @@ async function filter_encode_write_frame(frame: Frame | null, stream_index: numb
     ret = await filter.buffersink_ctx!.buffersinkGetFrame(filter.filtered_frame!);
     if (ret < 0) {
       // If no more frames for output - returns AVERROR(EAGAIN)
-      // If flushed and no more frames for output - returns AVERROR_EOF
+      // If flushed and no more frames for output - returns AV_ERROR_EOF
       // Rewrite retcode to 0 to show it as normal procedure completion
       if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
         ret = 0;

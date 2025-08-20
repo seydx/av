@@ -61,7 +61,7 @@ import type { ChannelLayout } from './types.js';
  *
  * while (true) {
  *   const ret = await ctx.receiveFrame(frame);
- *   if (ret === AVERROR_EOF || ret === AVERROR(EAGAIN)) break;
+ *   if (ret === AV_ERROR_EOF || ret === AVERROR(EAGAIN)) break;
  *   FFmpegError.throwIfError(ret, 'receiveFrame');
  *   // Process frame
  * }
@@ -913,7 +913,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
    *   - AVERROR(EAGAIN): Input not accepted - must read output with receiveFrame() first
-   *   - AVERROR_EOF: Decoder has been flushed, no new packets can be sent
+   *   - AV_ERROR_EOF: Decoder has been flushed, no new packets can be sent
    *   - AVERROR(EINVAL): Codec not opened, is an encoder, or requires flush
    *   - AVERROR(ENOMEM): Failed to add packet to internal queue
    *   - <0: Other legitimate decoding errors
@@ -955,14 +955,14 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success, a frame was returned
    *   - AVERROR(EAGAIN): Output not available, must send new input
-   *   - AVERROR_EOF: Decoder fully flushed, no more frames
+   *   - AV_ERROR_EOF: Decoder fully flushed, no more frames
    *   - AVERROR(EINVAL): Codec not opened or is an encoder
    *   - <0: Other legitimate decoding errors
    *
    * @example
    * ```typescript
    * import { Frame, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
+   * import { AVERROR_EAGAIN, AV_ERROR_EOF } from '@seydx/av/constants';
    *
    * // Receive all frames from decoder
    * const frame = new Frame();
@@ -970,7 +970,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * while (true) {
    *   const ret = await decoder.receiveFrame(frame);
-   *   if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+   *   if (ret === AVERROR_EAGAIN || ret === AV_ERROR_EOF) {
    *     break;
    *   }
    *   FFmpegError.throwIfError(ret, 'receiveFrame');
@@ -1001,7 +1001,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
    *   - AVERROR(EAGAIN): Input not accepted - must read output with receivePacket()
-   *   - AVERROR_EOF: Encoder has been flushed, no new frames can be sent
+   *   - AV_ERROR_EOF: Encoder has been flushed, no new frames can be sent
    *   - AVERROR(EINVAL): Codec not opened, is a decoder, or requires flush
    *   - AVERROR(ENOMEM): Failed to add packet to internal queue
    *   - <0: Other legitimate encoding errors
@@ -1047,14 +1047,14 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success, a packet was returned
    *   - AVERROR(EAGAIN): Output not available, must send new input
-   *   - AVERROR_EOF: Encoder fully flushed, no more packets
+   *   - AV_ERROR_EOF: Encoder fully flushed, no more packets
    *   - AVERROR(EINVAL): Codec not opened or is a decoder
    *   - <0: Other legitimate encoding errors
    *
    * @example
    * ```typescript
    * import { Packet, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
+   * import { AVERROR_EAGAIN, AV_ERROR_EOF } from '@seydx/av/constants';
    *
    * // Receive all packets from encoder
    * const packet = new Packet();
@@ -1062,7 +1062,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * while (true) {
    *   const ret = await encoder.receivePacket(packet);
-   *   if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+   *   if (ret === AVERROR_EAGAIN || ret === AV_ERROR_EOF) {
    *     break;
    *   }
    *   if (ret < 0) {

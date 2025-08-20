@@ -431,7 +431,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    * @see {@link toContext} To copy to codec context
    */
   copy(dst: CodecParameters): number {
-    return this.native.copy(dst.native);
+    return this.native.copy(dst.getNative());
   }
 
   /**

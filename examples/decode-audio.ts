@@ -19,6 +19,7 @@
 
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
+
 import {
   AV_CODEC_ID_MP2,
   AV_ERROR_EAGAIN,

@@ -11,8 +11,8 @@
  */
 
 import { mkdir, writeFile } from 'fs/promises';
-import { Decoder, Encoder, MediaInput } from '../src/api/index.js';
 
+import { Decoder, Encoder, MediaInput } from '../src/api/index.js';
 import { AV_PICTURE_TYPE_B, AV_PICTURE_TYPE_I, AV_PICTURE_TYPE_NONE, AV_PICTURE_TYPE_P, AV_PIX_FMT_RGB24, AV_PIX_FMT_YUVJ420P } from '../src/lib/index.js';
 
 const inputFile = process.argv[2];

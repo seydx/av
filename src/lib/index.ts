@@ -56,6 +56,10 @@ export { FilterGraph } from './filter-graph.js';
 export { FilterInOut } from './filter-inout.js';
 export { Filter } from './filter.js';
 
+// Bitstream Filter related classes  
+export { BitStreamFilter } from './bitstream-filter.js';
+export { BitStreamFilterContext } from './bitstream-filter-context.js';
+
 // Utils
 export { Rational } from './rational.js';
 

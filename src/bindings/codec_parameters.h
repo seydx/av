@@ -29,10 +29,12 @@ public:
     is_owned_ = owned;
     is_freed_ = false;
   }
+  
 
 private:
   // Friend classes
   friend class Stream;
+  friend class BitStreamFilterContext;
   
   // Static members
   static Napi::FunctionReference constructor;

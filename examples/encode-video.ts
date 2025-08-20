@@ -15,6 +15,7 @@
  */
 
 import fs from 'node:fs';
+
 import {
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MPEG1VIDEO,

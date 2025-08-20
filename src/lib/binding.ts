@@ -10,6 +10,8 @@ import { createRequire } from 'node:module';
 import type { AVHWDeviceType, AVLogLevel, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type {
   NativeAudioFifo,
+  NativeBitStreamFilter,
+  NativeBitStreamFilterContext,
   NativeCodec,
   NativeCodecContext,
   NativeCodecParameters,
@@ -96,6 +98,15 @@ type NativeFilterGraphConstructor = new () => NativeFilterGraph;
 
 type NativeFilterInOutConstructor = new () => NativeFilterInOut;
 
+// Bitstream Filters
+interface NativeBitStreamFilterConstructor {
+  new (): NativeBitStreamFilter;
+  getByName(name: string): NativeBitStreamFilter | null;
+  iterate(): NativeBitStreamFilter[];
+}
+
+type NativeBitStreamFilterContextConstructor = new () => NativeBitStreamFilterContext;
+
 // Processing
 type NativeAudioFifoConstructor = new () => NativeAudioFifo;
 type NativeSoftwareScaleContextConstructor = new () => NativeSoftwareScaleContext;
@@ -144,6 +155,10 @@ export const bindings = require('../../build/Release/ffmpeg.node') as {
   FilterContext: NativeFilterContextConstructor;
   FilterGraph: NativeFilterGraphConstructor;
   FilterInOut: NativeFilterInOutConstructor;
+
+  // Bitstream Filters
+  BitStreamFilter: NativeBitStreamFilterConstructor;
+  BitStreamFilterContext: NativeBitStreamFilterContextConstructor;
 
   // Processing
   AudioFifo: NativeAudioFifoConstructor;

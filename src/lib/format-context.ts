@@ -534,21 +534,21 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
-   *   - AVERROR_EOF: End of file reached
+   *   - AV_ERROR_EOF: End of file reached
    *   - AVERROR(EAGAIN): Temporarily unavailable
    *   - AVERROR(EIO): I/O error
    *   - <0: Other errors
    *
    * @example
    * ```typescript
-   * import { Packet, FormatContext, FFmpegError, AVERROR_EOF } from '@seydx/av';
+   * import { Packet, FormatContext, FFmpegError, AV_ERROR_EOF } from '@seydx/av';
    *
    * const packet = new Packet();
    * packet.alloc();
    *
    * while (true) {
    *   const ret = await ctx.readFrame(packet);
-   *   if (ret === AVERROR_EOF) break;
+   *   if (ret === AV_ERROR_EOF) break;
    *   FFmpegError.throwIfError(ret, 'readFrame');
    *
    *   // Process packet

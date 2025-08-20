@@ -515,4 +515,5 @@ Napi::Value CodecParameters::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);
 }
 
+
 } // namespace ffmpeg

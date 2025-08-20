@@ -10,7 +10,6 @@
  * Example: tsx examples/transcode-aac.ts testdata/audio.wav examples/.tmp/transcode_aac.m4a
  */
 
-import type { AVCodecFlag } from '../src/lib/index.js';
 import {
   AudioFifo,
   AV_CHANNEL_LAYOUT_STEREO,
@@ -30,6 +29,8 @@ import {
   Rational,
   SoftwareResampleContext,
 } from '../src/lib/index.js';
+
+import type { AVCodecFlag } from '../src/lib/index.js';
 
 // The output bit rate in bit/s
 const OUTPUT_BIT_RATE = 96000;

@@ -11,6 +11,7 @@
  */
 
 import fs from 'node:fs';
+
 import {
   AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
   AV_ERROR_EAGAIN,
@@ -26,9 +27,9 @@ import {
   Packet,
   avImageCopyToBuffer,
   avImageGetBufferSize,
-  type AVHWDeviceType,
-  type AVPixelFormat,
 } from '../src/lib/index.js';
+
+import type { AVHWDeviceType, AVPixelFormat } from '../src/lib/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let hwPixFmt: AVPixelFormat = AV_PIX_FMT_NONE;

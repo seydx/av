@@ -921,6 +921,51 @@ export interface NativeHardwareFramesContext extends Disposable {
 }
 
 // ============================================================================
+// BITSTREAM FILTERS
+// ============================================================================
+
+/**
+ * Native BitStreamFilter (avcodec)
+ * @internal
+ */
+export interface NativeBitStreamFilter {
+  readonly __brand: 'NativeBitStreamFilter';
+
+  // ===== Properties (all readonly - filter definitions are immutable) =====
+  readonly name: string | null;
+  readonly codecIds: number[] | null;
+}
+
+/**
+ * Native BitStreamFilterContext (avcodec)
+ * @internal
+ */
+export interface NativeBitStreamFilterContext extends Disposable {
+  readonly __brand: 'NativeBitStreamFilterContext';
+
+  // ===== Lifecycle Methods - Low Level API =====
+  alloc(filter: NativeBitStreamFilter): number;
+  init(): number;
+  free(): void;
+  flush(): void;
+  // ===== Operations =====
+  sendPacket(packet: NativePacket | null): Promise<number>;
+  receivePacket(packet: NativePacket): Promise<number>;
+  // ===== Utility =====
+  isInitialized(): boolean;
+
+  // ===== Properties =====
+  readonly inputCodecParameters: NativeCodecParameters | null;
+  readonly outputCodecParameters: NativeCodecParameters | null;
+  inputTimeBase: IRational;
+  readonly outputTimeBase: IRational | null;
+  readonly filter: NativeBitStreamFilter | null;
+
+  // Symbol.dispose for cleanup
+  [Symbol.dispose](): void;
+}
+
+// ============================================================================
 // LOGGING
 // ============================================================================
 

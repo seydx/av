@@ -10,7 +10,6 @@
  * Example: tsx examples/hw-transcode.ts videotoolbox testdata/demux.mp4 h264 examples/.tmp/hw_transcoded.mp4
  */
 
-import type { AVCodecID, Stream } from '../src/lib/index.js';
 import {
   AV_ERROR_EAGAIN,
   AV_ERROR_EOF,
@@ -31,9 +30,9 @@ import {
   HardwareDeviceContext,
   Packet,
   Rational,
-  type AVHWDeviceType,
-  type AVPixelFormat,
 } from '../src/lib/index.js';
+
+import type { AVCodecID, AVHWDeviceType, AVPixelFormat, Stream } from '../src/lib/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let inputCtx: FormatContext | null = null;

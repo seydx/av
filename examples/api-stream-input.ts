@@ -11,6 +11,7 @@
  */
 
 import { readFile } from 'fs/promises';
+
 import { MediaInput } from '../src/api/index.js';
 
 const inputFile = process.argv[2];

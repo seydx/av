@@ -18,9 +18,10 @@
  *   tsx examples/api-pipeline-hw-rtsp.ts rtsp://server/live output.mp4 --scale 1280x720
  */
 
-import type { PipelineControl } from '../src/api/pipeline.js';
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/api/index.js';
 import { AV_PIX_FMT_YUV420P } from '../src/lib/index.js';
+
+import type { PipelineControl } from '../src/api/pipeline.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);

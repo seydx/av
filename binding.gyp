@@ -37,7 +37,10 @@
         "src/bindings/log.cc",
         "src/bindings/utilities.cc",
         "src/bindings/audio_fifo.cc",
-        "src/bindings/audio_fifo_async.cc"
+        "src/bindings/audio_fifo_async.cc",
+        "src/bindings/bitstream_filter.cc",
+        "src/bindings/bitstream_filter_context.cc",
+        "src/bindings/bitstream_filter_context_async.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

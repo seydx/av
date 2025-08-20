@@ -381,17 +381,17 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @returns Buffer with data or error code if negative:
    *   - Buffer: Successfully read data
-   *   - AVERROR_EOF: End of file reached
+   *   - AV_ERROR_EOF: End of file reached
    *   - AVERROR(EIO): I/O error
    *   - <0: Other errors
    *
    * @example
    * ```typescript
-   * import { FFmpegError, AVERROR_EOF } from '@seydx/av';
+   * import { FFmpegError, AV_ERROR_EOF } from '@seydx/av';
    *
    * const data = await io.read(1024);
    * if (typeof data === 'number' && data < 0) {
-   *   if (data === AVERROR_EOF) {
+   *   if (data === AV_ERROR_EOF) {
    *     console.log('End of file');
    *   } else {
    *     FFmpegError.throwIfError(data, 'read');
@@ -516,7 +516,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @returns New position or negative AVERROR:
    *   - >=0: New position in bytes
-   *   - AVERROR_EOF: End of file reached
+   *   - AV_ERROR_EOF: End of file reached
    *   - <0: Other errors
    *
    * @example

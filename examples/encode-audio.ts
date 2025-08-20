@@ -14,6 +14,7 @@
  */
 
 import fs from 'node:fs';
+
 import { AV_CODEC_ID_MP2, AV_ERROR_EAGAIN, AV_ERROR_EOF, AV_SAMPLE_FMT_S16, Codec, CodecContext, FFmpegError, Frame, Packet } from '../src/lib/index.js';
 
 import type { AVSampleFormat, ChannelLayout } from '../src/lib/index.js';
