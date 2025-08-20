@@ -16,8 +16,8 @@ import type { ChannelLayout, CodecProfile } from './types.js';
  *
  * @example
  * ```typescript
- * import { Codec } from '@seydx/ffmpeg';
- * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+ * import { Codec } from '@seydx/av';
+ * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
  *
  * // Find decoder by ID
  * const h264Decoder = Codec.findDecoder(AV_CODEC_ID_H264);
@@ -62,8 +62,8 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * import { Codec } from '@seydx/ffmpeg';
-   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   * import { Codec } from '@seydx/av';
+   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
    *
    * // Don't use constructor directly
    * // const codec = new Codec(); // Wrong
@@ -99,8 +99,8 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * import { Codec } from '@seydx/ffmpeg';
-   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   * import { Codec } from '@seydx/av';
+   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
    *
    * const decoder = Codec.findDecoder(AV_CODEC_ID_H264);
    * if (!decoder) {
@@ -130,7 +130,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * import { Codec } from '@seydx/ffmpeg';
+   * import { Codec } from '@seydx/av';
    *
    * const decoder = Codec.findDecoderByName('h264');
    * // Can also use specific implementations:
@@ -157,8 +157,8 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * import { Codec } from '@seydx/ffmpeg';
-   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   * import { Codec } from '@seydx/av';
+   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
    *
    * const encoder = Codec.findEncoder(AV_CODEC_ID_H264);
    * if (!encoder) {
@@ -188,7 +188,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * import { Codec } from '@seydx/ffmpeg';
+   * import { Codec } from '@seydx/av';
    *
    * // Find specific encoder implementation
    * const x264 = Codec.findEncoderByName('libx264');    // Software H.264 encoder
@@ -213,8 +213,8 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * import { Codec } from '@seydx/ffmpeg';
-   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/ffmpeg/constants';
+   * import { Codec } from '@seydx/av';
+   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/av/constants';
    *
    * const codecs = Codec.getCodecList();
    * const videoEncoders = codecs.filter(c =>
@@ -247,8 +247,8 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * import { Codec } from '@seydx/ffmpeg';
-   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/ffmpeg/constants';
+   * import { Codec } from '@seydx/av';
+   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/av/constants';
    *
    * let opaque = null;
    * while (true) {

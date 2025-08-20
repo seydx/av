@@ -26,7 +26,7 @@ import type { IOCallbacks } from './types.js';
  *
  * @example
  * ```typescript
- * import { IOStream } from '@seydx/ffmpeg/api';
+ * import { IOStream } from '@seydx/av/api';
  * import { createReadStream } from 'fs';
  *
  * // From file stream

@@ -18,8 +18,8 @@ import type { Packet } from './packet.js';
  *
  * @example
  * ```typescript
- * import { CodecParser, CodecContext, Packet, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_CODEC_ID_H264, AV_NOPTS_VALUE } from '@seydx/ffmpeg/constants';
+ * import { CodecParser, CodecContext, Packet, FFmpegError } from '@seydx/av';
+ * import { AV_CODEC_ID_H264, AV_NOPTS_VALUE } from '@seydx/av/constants';
  *
  * const parser = new CodecParser();
  * parser.init(AV_CODEC_ID_H264);
@@ -62,8 +62,8 @@ export class CodecParser implements NativeWrapper<NativeCodecParser> {
    *
    * @example
    * ```typescript
-   * import { CodecParser } from '@seydx/ffmpeg';
-   * import { AV_CODEC_ID_MPEG1VIDEO } from '@seydx/ffmpeg/constants';
+   * import { CodecParser } from '@seydx/av';
+   * import { AV_CODEC_ID_MPEG1VIDEO } from '@seydx/av/constants';
    *
    * const parser = new CodecParser();
    * parser.init(AV_CODEC_ID_MPEG1VIDEO);
@@ -88,8 +88,8 @@ export class CodecParser implements NativeWrapper<NativeCodecParser> {
    *
    * @example
    * ```typescript
-   * import { CodecParser } from '@seydx/ffmpeg';
-   * import { AV_CODEC_ID_H264, AV_CODEC_ID_HEVC } from '@seydx/ffmpeg/constants';
+   * import { CodecParser } from '@seydx/av';
+   * import { AV_CODEC_ID_H264, AV_CODEC_ID_HEVC } from '@seydx/av/constants';
    *
    * const parser = new CodecParser();
    *
@@ -131,8 +131,8 @@ export class CodecParser implements NativeWrapper<NativeCodecParser> {
    *
    * @example
    * ```typescript
-   * import { CodecParser, CodecContext, Packet, FFmpegError } from '@seydx/ffmpeg';
-   * import { AV_NOPTS_VALUE } from '@seydx/ffmpeg/constants';
+   * import { CodecParser, CodecContext, Packet, FFmpegError } from '@seydx/av';
+   * import { AV_NOPTS_VALUE } from '@seydx/av/constants';
    * import * as fs from 'fs';
    *
    * const inbuf = Buffer.alloc(4096);
@@ -176,7 +176,7 @@ export class CodecParser implements NativeWrapper<NativeCodecParser> {
    *
    * @example
    * ```typescript
-   * import { CodecParser } from '@seydx/ffmpeg';
+   * import { CodecParser } from '@seydx/av';
    *
    * const parser = new CodecParser();
    * // ... use parser ...

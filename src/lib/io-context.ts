@@ -15,8 +15,8 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { IOContext, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_IO_FLAG_READ, AV_SEEK_SET } from '@seydx/ffmpeg/constants';
+ * import { IOContext, FFmpegError } from '@seydx/av';
+ * import { AV_IO_FLAG_READ, AV_SEEK_SET } from '@seydx/av/constants';
  *
  * // Open a file for reading
  * const io = new IOContext();
@@ -76,7 +76,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext, FFmpegError, AV_IO_FLAG_READ } from '@seydx/ffmpeg';
+   * import { IOContext, FFmpegError, AV_IO_FLAG_READ } from '@seydx/av';
    *
    * const io = new IOContext();
    * const ret = await io.open2('file.mp4', AV_IO_FLAG_READ);
@@ -215,7 +215,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext } from '@seydx/ffmpeg';
+   * import { IOContext } from '@seydx/av';
    *
    * const io = new IOContext();
    * io.allocContext(4096, 0); // 4KB buffer for reading
@@ -247,7 +247,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext, AV_SEEK_SET, AV_SEEK_CUR, AV_SEEK_END } from '@seydx/ffmpeg';
+   * import { IOContext, AV_SEEK_SET, AV_SEEK_CUR, AV_SEEK_END } from '@seydx/av';
    *
    * const io = new IOContext();
    * let position = 0;
@@ -290,7 +290,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext } from '@seydx/ffmpeg';
+   * import { IOContext } from '@seydx/av';
    *
    * io.freeContext();
    * // io is now invalid and should not be used
@@ -321,8 +321,8 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext, FFmpegError } from '@seydx/ffmpeg';
-   * import { AV_IO_FLAG_READ, AV_IO_FLAG_WRITE } from '@seydx/ffmpeg/constants';
+   * import { IOContext, FFmpegError } from '@seydx/av';
+   * import { AV_IO_FLAG_READ, AV_IO_FLAG_WRITE } from '@seydx/av/constants';
    *
    * // Open file for reading
    * const io = new IOContext();
@@ -358,7 +358,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = await io.closep();
    * FFmpegError.throwIfError(ret, 'closep');
@@ -384,7 +384,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { FFmpegError, AVERROR_EOF } from '@seydx/ffmpeg';
+   * import { FFmpegError, AVERROR_EOF } from '@seydx/av';
    *
    * const data = await io.read(1024);
    * if (typeof data === 'number' && data < 0) {
@@ -412,7 +412,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext } from '@seydx/ffmpeg';
+   * import { IOContext } from '@seydx/av';
    *
    * const data = Buffer.from('Hello, World!');
    * await io.write(data);
@@ -441,7 +441,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { FFmpegError, AV_SEEK_SET, AV_SEEK_END, AVSEEK_SIZE } from '@seydx/ffmpeg';
+   * import { FFmpegError, AV_SEEK_SET, AV_SEEK_END, AVSEEK_SIZE } from '@seydx/av';
    *
    * // Seek to beginning
    * const pos = await io.seek(0n, AV_SEEK_SET);
@@ -472,7 +472,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const size = await io.size();
    * if (size < 0n) {
@@ -494,7 +494,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext } from '@seydx/ffmpeg';
+   * import { IOContext } from '@seydx/av';
    *
    * await io.flush();
    * // All buffered data has been written
@@ -518,7 +518,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * // Skip 1024 bytes
    * const newPos = await io.skip(1024n);
@@ -539,7 +539,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext } from '@seydx/ffmpeg';
+   * import { IOContext } from '@seydx/av';
    *
    * const position = io.tell();
    * console.log(`Current position: ${position} bytes`);
@@ -567,7 +567,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * @example
    * ```typescript
-   * import { IOContext, AV_IO_FLAG_READ } from '@seydx/ffmpeg';
+   * import { IOContext, AV_IO_FLAG_READ } from '@seydx/av';
    *
    * {
    *   await using io = new IOContext();

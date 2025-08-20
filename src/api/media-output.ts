@@ -34,7 +34,7 @@ interface StreamInfo {
  *
  * @example
  * ```typescript
- * import { MediaOutput, Encoder } from '@seydx/ffmpeg/api';
+ * import { MediaOutput, Encoder } from '@seydx/av/api';
  *
  * // Open output file
  * const output = await MediaOutput.open('output.mp4');

@@ -14,7 +14,7 @@ import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { OutputFormat, FormatContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { OutputFormat, FormatContext, FFmpegError } from '@seydx/av';
  *
  * // Guess output format from filename
  * const format = OutputFormat.guessFormat(null, 'output.mp4', null);
@@ -49,7 +49,7 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    *
    * @example
    * ```typescript
-   * import { OutputFormat } from '@seydx/ffmpeg';
+   * import { OutputFormat } from '@seydx/av';
    *
    * // Don't use constructor directly
    * // const format = new OutputFormat(); // Wrong
@@ -78,7 +78,7 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    *
    * @example
    * ```typescript
-   * import { OutputFormat } from '@seydx/ffmpeg';
+   * import { OutputFormat } from '@seydx/av';
    *
    * // Guess by short name
    * const mp4Format = OutputFormat.guessFormat('mp4', null, null);

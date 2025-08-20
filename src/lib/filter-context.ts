@@ -20,7 +20,7 @@ import type { IRational } from './types.js';
  *
  * @example
  * ```typescript
- * import { FilterGraph, Filter, FFmpegError } from '@seydx/ffmpeg';
+ * import { FilterGraph, Filter, FFmpegError } from '@seydx/av';
  *
  * // Create filter context through FilterGraph
  * const filterGraph = new FilterGraph();
@@ -189,7 +189,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { Dictionary, FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { Dictionary, FilterContext, FFmpegError } from '@seydx/av';
    *
    * const options = new Dictionary();
    * const ret1 = options.set('width', '1280', 0);
@@ -223,7 +223,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterContext, FFmpegError } from '@seydx/av';
    *
    * // Initialize scale filter
    * const scaleRet = scaleCtx.initStr('1280:720');
@@ -257,7 +257,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterContext, FFmpegError } from '@seydx/av';
    *
    * // Link buffer source to scale filter
    * const linkRet1 = bufferCtx.link(0, scaleCtx, 0);
@@ -308,7 +308,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { Frame, FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FilterContext, FFmpegError } from '@seydx/av';
    *
    * // Feed a frame to the buffer source
    * const addRet = srcCtx.buffersrcAddFrame(frame);
@@ -382,8 +382,8 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { Frame, FilterContext, FFmpegError } from '@seydx/ffmpeg';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   * import { Frame, FilterContext, FFmpegError } from '@seydx/av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
    *
    * // Get filtered frames
    * const frame = new Frame();
@@ -425,7 +425,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterContext, FFmpegError } from '@seydx/av';
    *
    * // Set pixel format for a buffersink
    * const ret = buffersinkCtx.setOpt('pixel_formats', 'gray8');
@@ -434,7 +434,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterContext, FFmpegError } from '@seydx/av';
    *
    * // Set multiple options
    * const ret1 = buffersinkCtx.setOpt('sample_rates', '44100');
@@ -449,8 +449,8 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
-   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ } from '@seydx/ffmpeg/constants';
+   * import { FilterContext, FFmpegError } from '@seydx/av';
+   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ } from '@seydx/av/constants';
    *
    * const ret = buffersinkCtx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
    * FFmpegError.throwIfError(ret, 'setOpt');
@@ -479,8 +479,8 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/ffmpeg';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P } from '@seydx/ffmpeg/constants';
+   * import { FilterContext, FFmpegError } from '@seydx/av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P } from '@seydx/av/constants';
    *
    * // Set supported pixel formats
    * const ret = buffersinkCtx.optSetBin('pix_fmts', [AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P]);

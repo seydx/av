@@ -17,7 +17,7 @@ import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { FilterGraph, Filter, FilterContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { FilterGraph, Filter, FilterContext, FFmpegError } from '@seydx/av';
  *
  * // Create and configure a simple filter graph
  * const graph = new FilterGraph();
@@ -80,7 +80,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph } from '@seydx/ffmpeg';
+   * import { FilterGraph } from '@seydx/av';
    *
    * const graph = new FilterGraph();
    * graph.alloc();
@@ -172,7 +172,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph } from '@seydx/ffmpeg';
+   * import { FilterGraph } from '@seydx/av';
    *
    * const graph = new FilterGraph();
    * graph.alloc();
@@ -253,7 +253,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph, Filter, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterGraph, Filter, FFmpegError } from '@seydx/av';
    *
    * // Allocate a filter without initializing
    * const scaleFilter = Filter.getByName('scale');
@@ -315,7 +315,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterGraph, FFmpegError } from '@seydx/av';
    *
    * // After creating and linking all filters
    * const ret = graph.config();
@@ -346,7 +346,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/av';
    *
    * const inputs = new FilterInOut();
    * inputs.alloc();
@@ -383,7 +383,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterGraph, FFmpegError } from '@seydx/av';
    *
    * // Parse a simple filter chain
    * const ret = graph.parse2('scale=1280:720,format=yuv420p');
@@ -413,7 +413,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterGraph, FFmpegError } from '@seydx/av';
    *
    * // Parse a complex filter graph
    * const ret = graph.parsePtr(
@@ -424,7 +424,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/ffmpeg';
+   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/av';
    *
    * // Parse with explicit inputs/outputs
    * const inputs = new FilterInOut();
@@ -485,8 +485,8 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/ffmpeg';
-   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/ffmpeg/constants';
+   * import { FilterGraph, FFmpegError } from '@seydx/av';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
    *
    * // Pull frames from the graph
    * while (true) {

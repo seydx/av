@@ -7,8 +7,8 @@
  *
  * @example
  * ```typescript
- * import { avImageAlloc, avTs2TimeStr, avRescaleQ, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_PIX_FMT_YUV420P, IRational } from '@seydx/ffmpeg';
+ * import { avImageAlloc, avTs2TimeStr, avRescaleQ, FFmpegError } from '@seydx/av';
+ * import { AV_PIX_FMT_YUV420P, IRational } from '@seydx/av';
  *
  * // Allocate image buffer
  * const image = avImageAlloc(1920, 1080, AV_PIX_FMT_YUV420P, 32);
@@ -40,7 +40,7 @@ import type { ChannelLayout, IRational } from './types.js';
  *
  * @example
  * ```typescript
- * import { avGetBytesPerSample, AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLT } from '@seydx/ffmpeg';
+ * import { avGetBytesPerSample, AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLT } from '@seydx/av';
  *
  * console.log(avGetBytesPerSample(AV_SAMPLE_FMT_S16)); // 2
  * console.log(avGetBytesPerSample(AV_SAMPLE_FMT_FLT)); // 4
@@ -63,7 +63,7 @@ export function avGetBytesPerSample(sampleFmt: AVSampleFormat): number {
  *
  * @example
  * ```typescript
- * import { avGetSampleFmtName, AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg';
+ * import { avGetSampleFmtName, AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/av';
  *
  * console.log(avGetSampleFmtName(AV_SAMPLE_FMT_S16)); // "s16"
  * console.log(avGetSampleFmtName(AV_SAMPLE_FMT_FLTP)); // "fltp"
@@ -151,7 +151,7 @@ export function avGetMediaTypeString(mediaType: AVMediaType): string | null {
  *
  * @example
  * ```typescript
- * import { avImageAlloc, AV_PIX_FMT_YUV420P, FFmpegError } from '@seydx/ffmpeg';
+ * import { avImageAlloc, AV_PIX_FMT_YUV420P, FFmpegError } from '@seydx/av';
  *
  * try {
  *   const result = avImageAlloc(1920, 1080, AV_PIX_FMT_YUV420P, 32);
@@ -241,8 +241,8 @@ export function avImageGetBufferSize(pixFmt: AVPixelFormat, width: number, heigh
  *
  * @example
  * ```typescript
- * import { avImageCopyToBuffer, avImageGetBufferSize, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_PIX_FMT_RGB24 } from '@seydx/ffmpeg';
+ * import { avImageCopyToBuffer, avImageGetBufferSize, FFmpegError } from '@seydx/av';
+ * import { AV_PIX_FMT_RGB24 } from '@seydx/av';
  *
  * const width = 640, height = 480;
  * const pixFmt = AV_PIX_FMT_RGB24;
@@ -354,7 +354,7 @@ export function avRescaleQ(a: bigint | number | null, bq: IRational, cq: IRation
  *
  * @example
  * ```typescript
- * import { avUsleep } from '@seydx/ffmpeg';
+ * import { avUsleep } from '@seydx/av';
  *
  * // Sleep for 100ms (100,000 microseconds)
  * avUsleep(100000);

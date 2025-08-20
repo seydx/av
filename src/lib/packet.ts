@@ -15,7 +15,7 @@ import type { IRational } from './types.js';
  *
  * @example
  * ```typescript
- * import { Packet, FormatContext, CodecContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { Packet, FormatContext, CodecContext, FFmpegError } from '@seydx/av';
  *
  * // Create and allocate packet - full control
  * const packet = new Packet();
@@ -53,7 +53,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/ffmpeg';
+   * import { Packet } from '@seydx/av';
    *
    * const packet = new Packet();
    * packet.alloc();
@@ -221,7 +221,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/ffmpeg';
+   * import { Packet } from '@seydx/av';
    *
    * const packet = new Packet();
    * packet.alloc();
@@ -276,7 +276,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   * import { Packet, FFmpegError } from '@seydx/av';
    *
    * const src = new Packet();
    * // ... src contains data ...
@@ -330,7 +330,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/ffmpeg';
+   * import { Packet } from '@seydx/av';
    *
    * const original = new Packet();
    * // ... original contains data ...
@@ -375,7 +375,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, Rational } from '@seydx/ffmpeg';
+   * import { Packet, Rational } from '@seydx/av';
    *
    * // Convert from stream timebase to codec timebase
    * const streamTimebase = new Rational(1, 90000); // 90kHz
@@ -408,7 +408,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   * import { Packet, FFmpegError } from '@seydx/av';
    *
    * const ret = packet.makeRefcounted();
    * FFmpegError.throwIfError(ret, 'makeRefcounted');
@@ -440,7 +440,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
+   * import { Packet, FFmpegError } from '@seydx/av';
    *
    * // Before modifying packet data
    * const ret = packet.makeWritable();
@@ -478,7 +478,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/ffmpeg';
+   * import { Packet } from '@seydx/av';
    *
    * // Using 'using' declaration for automatic cleanup
    * {

@@ -15,7 +15,7 @@ import type { FilterPad } from './types.js';
  *
  * @example
  * ```typescript
- * import { Filter } from '@seydx/ffmpeg';
+ * import { Filter } from '@seydx/av';
  *
  * // Find a filter by name
  * const scaleFilter = Filter.getByName('scale');
@@ -48,7 +48,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    *
    * @example
    * ```typescript
-   * import { Filter } from '@seydx/ffmpeg';
+   * import { Filter } from '@seydx/av';
    *
    * // Don't use constructor directly
    * // const filter = new Filter(); // Wrong
@@ -76,7 +76,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    *
    * @example
    * ```typescript
-   * import { Filter } from '@seydx/ffmpeg';
+   * import { Filter } from '@seydx/av';
    *
    * // Find the scale filter
    * const scaleFilter = Filter.getByName('scale');
@@ -110,7 +110,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    *
    * @example
    * ```typescript
-   * import { Filter } from '@seydx/ffmpeg';
+   * import { Filter } from '@seydx/av';
    *
    * // Get all video filters
    * const allFilters = Filter.getList();

@@ -14,7 +14,7 @@ import type { NativeInputFormat, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { InputFormat, FormatContext, FFmpegError } from '@seydx/ffmpeg';
+ * import { InputFormat, FormatContext, FFmpegError } from '@seydx/av';
  *
  * // Find a specific input format
  * const mp4Format = InputFormat.findInputFormat('mp4');
@@ -51,7 +51,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @example
    * ```typescript
-   * import { InputFormat } from '@seydx/ffmpeg';
+   * import { InputFormat } from '@seydx/av';
    *
    * // Don't use constructor directly
    * // const format = new InputFormat(); // Wrong
@@ -78,7 +78,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @example
    * ```typescript
-   * import { InputFormat, FormatContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { InputFormat, FormatContext, FFmpegError } from '@seydx/av';
    *
    * const format = InputFormat.findInputFormat('mp4');
    * if (format) {

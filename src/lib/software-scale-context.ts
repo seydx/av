@@ -16,8 +16,8 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
  *
  * @example
  * ```typescript
- * import { SoftwareScaleContext, Frame, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/ffmpeg/constants';
+ * import { SoftwareScaleContext, Frame, FFmpegError } from '@seydx/av';
+ * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
  *
  * // Create and configure scale context
  * const sws = new SoftwareScaleContext();
@@ -54,8 +54,8 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from '@seydx/ffmpeg';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/ffmpeg/constants';
+   * import { SoftwareScaleContext } from '@seydx/av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
    *
    * const sws = new SoftwareScaleContext();
    * sws.getContext(
@@ -81,7 +81,7 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { SoftwareScaleContext, FFmpegError } from '@seydx/av';
    *
    * const sws = new SoftwareScaleContext();
    * sws.allocContext();
@@ -128,8 +128,8 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from '@seydx/ffmpeg';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/ffmpeg/constants';
+   * import { SoftwareScaleContext } from '@seydx/av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
    *
    * // Scale from 1080p YUV to 720p RGB
    * sws.getContext(
@@ -170,7 +170,7 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = sws.initContext();
    * FFmpegError.throwIfError(ret, 'initContext');
@@ -259,8 +259,8 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
-   * import { AV_PIX_FMT_RGB24 } from '@seydx/ffmpeg/constants';
+   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { AV_PIX_FMT_RGB24 } from '@seydx/av/constants';
    *
    * const srcFrame = new Frame();
    * srcFrame.alloc();
@@ -307,8 +307,8 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from '@seydx/ffmpeg';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/ffmpeg/constants';
+   * import { SoftwareScaleContext } from '@seydx/av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
    *
    * {
    *   using sws = new SoftwareScaleContext();

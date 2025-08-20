@@ -1,5 +1,5 @@
 {
-  "name": "@seydx/ffmpeg",
+  "name": "@seydx/av",
   "version": "0.1.0",
   "description": "FFmpeg N-API bindings for Node.js",
   "type": "module",
@@ -32,6 +32,7 @@
   },
   "scripts": {
     "build": "npm run build:native && npm run build:tsc",
+    "build:all": "npm run build:native && npm run build:tests && npm run build:examples && npm run build:tsc",
     "build:examples": "tsc -p tsconfig.examples.json",
     "build:native": "node-gyp rebuild",
     "build:tests": "tsc -p tsconfig.tests.json",
@@ -43,7 +44,6 @@
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "test": "tsx --test",
     "test:all": "npm run build:tests && npm run build:tsc && tsx --test test/**/*.test.ts",
     "update": "updates --update ./"
   },
@@ -55,7 +55,7 @@
     "@types/debug": "^4.1.12",
     "@types/node": "^24.3.0",
     "@types/pngjs": "^6.0.5",
-    "@typescript-eslint/parser": "^8.39.1",
+    "@typescript-eslint/parser": "^8.40.0",
     "concurrently": "^9.2.0",
     "eslint": "^9.33.0",
     "globals": "^16.3.0",
@@ -65,7 +65,7 @@
     "rimraf": "^6.0.1",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.1",
+    "typescript-eslint": "^8.40.0",
     "updates": "^16.6.2"
   },
   "gypfile": true

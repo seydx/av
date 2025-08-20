@@ -49,7 +49,7 @@ type FilterConfig = VideoFilterConfig | AudioFilterConfig;
  *
  * @example
  * ```typescript
- * import { FilterAPI, Frame } from '@seydx/ffmpeg/api';
+ * import { FilterAPI, Frame } from '@seydx/av/api';
  *
  * // Create a simple video filter from a stream
  * const videoStream = media.video();

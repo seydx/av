@@ -38,8 +38,8 @@ import type { ChannelLayout } from './types.js';
  *
  * @example
  * ```typescript
- * import { CodecContext, Codec, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg/constants';
+ * import { CodecContext, Codec, FFmpegError } from '@seydx/av';
+ * import { AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
  *
  * // Create and configure decoder context
  * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
@@ -85,7 +85,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { CodecContext, Codec } from '@seydx/ffmpeg';
+   * import { CodecContext, Codec } from '@seydx/av';
    *
    * const ctx = new CodecContext();
    * ctx.allocContext3(codec);
@@ -717,8 +717,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { CodecContext, Codec } from '@seydx/ffmpeg';
-   * import { AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+   * import { CodecContext, Codec } from '@seydx/av';
+   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
    *
    * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
    * const ctx = new CodecContext();
@@ -771,7 +771,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * // Set H.264 preset
    * const ret1 = ctx.setOpt('preset', 'slow');
@@ -784,7 +784,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ, FFmpegError } from '@seydx/ffmpeg';
+   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ, FFmpegError } from '@seydx/av';
    *
    * // With specific search flags
    * const ret = ctx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
@@ -816,7 +816,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = await ctx.open2(codec, null);
    * FFmpegError.throwIfError(ret, 'open2');
@@ -920,8 +920,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { FFmpegError, Frame } from '@seydx/ffmpeg';
-   * import { AVERROR_EAGAIN } from '@seydx/ffmpeg/constants';
+   * import { FFmpegError, Frame } from '@seydx/av';
+   * import { AVERROR_EAGAIN } from '@seydx/av/constants';
    *
    * // Decode packet
    * const ret = await decoder.sendPacket(packet);
@@ -961,8 +961,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
    *
    * // Receive all frames from decoder
    * const frame = new Frame();
@@ -1008,8 +1008,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
-   * import { AVERROR_EAGAIN } from '@seydx/ffmpeg/constants';
+   * import { Packet, FFmpegError } from '@seydx/av';
+   * import { AVERROR_EAGAIN } from '@seydx/av/constants';
    *
    * // Send frame to encoder
    * const ret = await encoder.sendFrame(frame);
@@ -1053,8 +1053,8 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/ffmpeg';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/ffmpeg/constants';
+   * import { Packet, FFmpegError } from '@seydx/av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
    *
    * // Receive all packets from encoder
    * const packet = new Packet();

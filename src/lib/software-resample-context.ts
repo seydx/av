@@ -16,8 +16,8 @@ import type { ChannelLayout } from './types.js';
  *
  * @example
  * ```typescript
- * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+ * import { SoftwareResampleContext, FFmpegError } from '@seydx/av';
+ * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
  *
  * // Create and configure resample context
  * const swr = new SoftwareResampleContext();
@@ -56,8 +56,8 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
-   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/av';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
    *
    * const swr = new SoftwareResampleContext();
    * const ret = swr.allocSetOpts2(
@@ -89,7 +89,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/av';
    *
    * const swr = new SoftwareResampleContext();
    * swr.alloc();
@@ -127,8 +127,8 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
-   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/av';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
    *
    * const ret = swr.allocSetOpts2(
    *   { order: 0, nbChannels: 2, mask: 0x3 }, // stereo
@@ -169,7 +169,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = swr.init();
    * FFmpegError.throwIfError(ret, 'init');
@@ -238,7 +238,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const samplesOut = await swr.convert(
    *   outBuffers,
@@ -281,7 +281,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError } from '@seydx/av';
    *
    * const ret = swr.convertFrame(outFrame, inFrame);
    * FFmpegError.throwIfError(ret, 'convertFrame');
@@ -321,7 +321,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = swr.configFrame(outFrame, inFrame);
    * FFmpegError.throwIfError(ret, 'configFrame');
@@ -346,7 +346,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * if (swr.isInitialized()) {
    *   // Context is ready for conversion
@@ -410,7 +410,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const outSamples = swr.getOutSamples(inSamples);
    * FFmpegError.throwIfError(outSamples, 'getOutSamples');
@@ -470,7 +470,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = swr.setCompensation(delta, distance);
    * FFmpegError.throwIfError(ret, 'setCompensation');
@@ -499,7 +499,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * // Map channels: 0->0, 1->1, mute channel 2
    * const ret = swr.setChannelMapping([0, 1, -1]);
@@ -530,7 +530,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * // Set custom mix matrix for stereo to mono
    * const matrix = [0.5, 0.5]; // Mix both channels equally
@@ -561,7 +561,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = swr.dropOutput(100);
    * FFmpegError.throwIfError(ret, 'dropOutput');
@@ -591,7 +591,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/ffmpeg';
+   * import { FFmpegError } from '@seydx/av';
    *
    * const ret = swr.injectSilence(100);
    * FFmpegError.throwIfError(ret, 'injectSilence');
@@ -622,7 +622,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    *
    * @example
    * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from '@seydx/ffmpeg';
+   * import { SoftwareResampleContext, FFmpegError } from '@seydx/av';
    *
    * {
    *   using swr = new SoftwareResampleContext();

@@ -26,8 +26,8 @@ import type { ChannelLayout } from './types.js';
  *
  * @example
  * ```typescript
- * import { Frame, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '@seydx/ffmpeg/constants';
+ * import { Frame, FFmpegError } from '@seydx/av';
+ * import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
  *
  * // Create and allocate frame - full control
  * const frame = new Frame();
@@ -77,7 +77,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * const frame = new Frame();
    * frame.alloc();
@@ -512,7 +512,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * const frame = new Frame();
    * frame.alloc();
@@ -540,7 +540,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * frame.free();
    * // frame is now invalid and should not be used
@@ -571,7 +571,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError } from '@seydx/av';
    *
    * const ret = frame.ref(sourceFrame);
    * FFmpegError.throwIfError(ret, 'frame.ref');
@@ -595,7 +595,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * frame.unref();
    * // Frame is now empty but still allocated
@@ -622,7 +622,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * const clonedFrame = frame.clone();
    * if (!clonedFrame) {
@@ -665,7 +665,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError, AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError, AV_PIX_FMT_YUV420P } from '@seydx/av';
    *
    * // Video frame
    * frame.format = AV_PIX_FMT_YUV420P;
@@ -704,7 +704,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError } from '@seydx/av';
    *
    * const ret = frame.allocBuffer();
    * FFmpegError.throwIfError(ret, 'allocBuffer');
@@ -733,7 +733,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError } from '@seydx/av';
    *
    * if (!frame.isWritable) {
    *   const ret = frame.makeWritable();
@@ -765,7 +765,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError } from '@seydx/av';
    *
    * const ret = dstFrame.copyProps(srcFrame);
    * FFmpegError.throwIfError(ret, 'copyProps');
@@ -795,7 +795,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError } from '@seydx/av';
    *
    * // Destination must be allocated with same parameters
    * dstFrame.format = srcFrame.format;
@@ -835,7 +835,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/ffmpeg';
+   * import { Frame, FFmpegError } from '@seydx/av';
    *
    * // Transfer from hardware to software frame
    * const swFrame = new Frame();
@@ -862,7 +862,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * if (frame.isHwFrame()) {
    *   console.log('Frame is in GPU memory');
@@ -889,7 +889,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * if (frame.isSwFrame()) {
    *   console.log('Frame is in CPU memory');
@@ -921,7 +921,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/ffmpeg';
+   * import { Frame } from '@seydx/av';
    *
    * {
    *   using frame = new Frame();

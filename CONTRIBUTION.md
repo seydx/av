@@ -1,6 +1,6 @@
-# Contributing to @seydx/ffmpeg
+# Contributing to @seydx/av
 
-Thank you for your interest in contributing to @seydx/ffmpeg! This guide will help you understand our development practices and code standards.
+Thank you for your interest in contributing to @seydx/av! This guide will help you understand our development practices and code standards.
 
 ## Table of Contents
 
@@ -380,4 +380,4 @@ If you have questions about contributing, please:
 - Open a new issue for clarification
 - Join our community discussions
 
-Thank you for contributing to @seydx/ffmpeg!
+Thank you for contributing to @seydx/av!

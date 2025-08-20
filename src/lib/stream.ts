@@ -18,8 +18,8 @@ import type { Packet } from './packet.js';
  *
  * @example
  * ```typescript
- * import { FormatContext, FFmpegError } from '@seydx/ffmpeg';
- * import { AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO } from '@seydx/ffmpeg/constants';
+ * import { FormatContext, FFmpegError } from '@seydx/av';
+ * import { AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO } from '@seydx/av/constants';
  *
  * // Streams are obtained from FormatContext
  * const formatContext = new FormatContext();
@@ -189,7 +189,7 @@ export class Stream implements NativeWrapper<NativeStream> {
    *
    * @example
    * ```typescript
-   * import { Rational } from '@seydx/ffmpeg';
+   * import { Rational } from '@seydx/av';
    *
    * // Common time bases
    * stream.timeBase = new Rational(1, 90000); // 90kHz (MPEG-TS)

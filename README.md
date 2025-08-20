@@ -1,4 +1,4 @@
-# @seydx/ffmpeg - Node.js FFmpeg Bindings
+# @seydx/av - Node.js FFmpeg Bindings
 
 Native Node.js bindings for FFmpeg libraries, providing both low-level and high-level APIs for audio/video processing.
 
@@ -16,7 +16,7 @@ Native Node.js bindings for FFmpeg libraries, providing both low-level and high-
 ## Installation
 
 ```bash
-npm install @seydx/ffmpeg
+npm install @seydx/av
 ```
 
 ## Requirements
@@ -30,8 +30,8 @@ npm install @seydx/ffmpeg
 ### High-Level API
 
 ```typescript
-import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/ffmpeg/api';
-import { AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg';
+import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/av/api';
+import { AV_PIX_FMT_YUV420P } from '@seydx/av';
 
 // Open media
 const input = await MediaInput.open('input.mp4');
@@ -87,7 +87,7 @@ The Pipeline API provides streamlined media processing with automatic flow contr
 #### Simple Pipeline (single stream)
 
 ```typescript
-import { pipeline, MediaInput, MediaOutput, Decoder, Encoder, FilterAPI } from '@seydx/ffmpeg/api';
+import { pipeline, MediaInput, MediaOutput, Decoder, Encoder, FilterAPI } from '@seydx/av/api';
 
 // Full transcode pipeline: input → decoder → encoder → output
 const input = await MediaInput.open('input.mp4');
@@ -177,7 +177,7 @@ The library supports all hardware acceleration methods available in FFmpeg. The 
 ### Auto-Detection
 
 ```typescript
-import { HardwareContext } from '@seydx/ffmpeg/api';
+import { HardwareContext } from '@seydx/av/api';
 
 // Automatically detect best available hardware
 const hw = await HardwareContext.auto();
@@ -199,7 +199,7 @@ if (hw) {
 ### Specific Hardware
 
 ```typescript
-import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from '@seydx/ffmpeg';
+import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from '@seydx/av';
 
 // Use specific hardware type
 const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
@@ -212,19 +212,19 @@ The library provides multiple entry points for optimal tree shaking:
 
 ```typescript
 // High-Level API only - Recommended for most use cases
-import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/ffmpeg/api';
+import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/av/api';
 
 // Low-Level API only - Direct FFmpeg bindings
-import { FormatContext, CodecContext, Frame, Packet } from '@seydx/ffmpeg/lib';
+import { FormatContext, CodecContext, Frame, Packet } from '@seydx/av/lib';
 
 // Constants only - When you just need FFmpeg constants
-import { AV_PIX_FMT_YUV420P, AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+import { AV_PIX_FMT_YUV420P, AV_CODEC_ID_H264 } from '@seydx/av/constants';
 
 // Channel layouts only - For audio channel configurations
-import { AV_CHANNEL_LAYOUT_STEREO, AV_CHANNEL_LAYOUT_5POINT1 } from '@seydx/ffmpeg/layouts';
+import { AV_CHANNEL_LAYOUT_STEREO, AV_CHANNEL_LAYOUT_5POINT1 } from '@seydx/av/layouts';
 
 // Default export - Includes everything (larger bundle)
-import * as ffmpeg from '@seydx/ffmpeg';
+import * as ffmpeg from '@seydx/av';
 ```
 
 ### Recommended Import Strategy
@@ -233,11 +233,11 @@ For optimal bundle size, import only what you need:
 
 ```typescript
 // ✅ Good - Only imports what's needed
-import { MediaInput, Decoder } from '@seydx/ffmpeg/api';
-import { AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg/constants';
+import { MediaInput, Decoder } from '@seydx/av/api';
+import { AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
 
 // ❌ Avoid - Imports everything
-import * as ffmpeg from '@seydx/ffmpeg';
+import * as ffmpeg from '@seydx/av';
 const { MediaInput, Decoder } = ffmpeg;
 ```
 
@@ -293,7 +293,7 @@ TODO: Full API documentation will be available at [link]
 ## Error Handling
 
 ```typescript
-import { FFmpegError } from '@seydx/ffmpeg';
+import { FFmpegError } from '@seydx/av';
 
 try {
   const media = await MediaInput.open('input.mp4');
