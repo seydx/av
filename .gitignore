@@ -44,3 +44,5 @@ debug.txt
 .tmp
 go-astiav
 ffmpeg_examples
+/script.ts
+/output.txt
