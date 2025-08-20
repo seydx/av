@@ -286,10 +286,6 @@ const rawAudio = await MediaInput.open({
 });
 ```
 
-## API Reference
-
-TODO: Full API documentation will be available at [link]
-
 ## Error Handling
 
 ```typescript
@@ -365,13 +361,17 @@ try {
 | `transcode-aac` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode_aac.c) | [✓](examples/transcode-aac.ts) | |
 | `transcode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓](examples/transcode.ts) | |
 
+## API Reference
+
+TODO
+
 ## Building from Source
 
-**[WIP - Build instructions]**
+TODO
 
 ## Testing
 
-**[WIP - Testing instructions]**
+TODO
 
 ## License
 
