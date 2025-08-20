@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { after, describe, it } from 'node:test';
+
 import { MediaInput } from '../src/api/index.js';
 import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO } from '../src/index.js';
 

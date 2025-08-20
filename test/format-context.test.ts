@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
-
 import { fileURLToPath } from 'node:url';
+
 import {
   AV_CODEC_ID_H264,
   AV_CODEC_ID_PCM_S16LE,

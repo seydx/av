@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
+
 import { IOStream } from '../src/api/index.js';
 import { AV_SEEK_SET } from '../src/lib/constants.js';
 

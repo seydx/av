@@ -1,9 +1,9 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import { afterEach, beforeEach, describe, it } from 'node:test';
-
 import path from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+
 import {
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,

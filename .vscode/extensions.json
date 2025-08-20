@@ -1,24 +1,14 @@
 {
   "recommendations": [
-    "Vue.volar",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     "redhat.vscode-yaml",
-    "bradlc.vscode-tailwindcss",
-    "charliermarsh.ruff",
-    "ecmel.vscode-html-css",
     "VisualStudioExptTeam.vscodeintellicode",
-    "ms-python.isort",
-    "xabikos.JavaScriptSnippets",
-    "KevinRose.vsc-python-indent",
-    "ms-python.vscode-pylance",
-    "ms-python.python",
-    "ms-python.debugpy",
     "donjayamanne.python-environment-manager",
-    "christian-kohler.npm-intellisense",
-    "tamasfe.even-better-toml",
     "fill-labs.dependi",
-    "1YiB.rust-bundle",
-    "rust-lang.rust-analyzer"
+    "ms-vscode.cpptools",
+    "wix.vscode-import-cost",
+    "mrkou47.npmignore",
+    "codezombiech.gitignore",
   ]
 }

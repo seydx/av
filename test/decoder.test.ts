@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
+
 import { Decoder } from '../src/api/decoder.js';
 import { MediaInput } from '../src/api/media-input.js';
 import { Packet } from '../src/lib/index.js';

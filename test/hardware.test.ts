@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
+
 import { Decoder, Encoder, HardwareContext, MediaInput } from '../src/api/index.js';
 import {
   AV_HWDEVICE_TYPE_CUDA,

@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+
 import type { Stream } from '../src/lib/index.js';
 import {
   AV_CODEC_ID_AAC,
