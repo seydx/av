@@ -9,7 +9,7 @@ export default [
     files: ['**/*.{js,mjs,cjs,ts,mts}'],
   },
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/public/**', '**/build/**', '**/bundle/**', '**/wasm/**', '**/.tmp/**', '**/externals/**'],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/public/**', '**/build/**', '**/bundle/**', '**/wasm/**', '**/.tmp/**', '**/externals/**', 'script.ts'],
   },
   jsLint.configs.recommended,
   // ...tsLint.configs.recommended,
