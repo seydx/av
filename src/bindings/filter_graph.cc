@@ -239,14 +239,14 @@ Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {
   AVFilterInOut* outputs = nullptr;
   
   if (!info[1].IsNull() && !info[1].IsUndefined()) {
-    FilterInOut* inObj = Napi::ObjectWrap<FilterInOut>::Unwrap(info[1].As<Napi::Object>());
+    FilterInOut* inObj = UnwrapNativeObject<FilterInOut>(env, info[1], "FilterInOut");
     if (inObj) {
       inputs = inObj->Get();
     }
   }
   
   if (!info[2].IsNull() && !info[2].IsUndefined()) {
-    FilterInOut* outObj = Napi::ObjectWrap<FilterInOut>::Unwrap(info[2].As<Napi::Object>());
+    FilterInOut* outObj = UnwrapNativeObject<FilterInOut>(env, info[2], "FilterInOut");
     if (outObj) {
       outputs = outObj->Get();
     }
@@ -257,14 +257,14 @@ Napi::Value FilterGraph::Parse(const Napi::CallbackInfo& info) {
   // avfilter_graph_parse consumes the FilterInOut structures
   // Mark them as consumed so JavaScript won't try to free them again
   if (!info[1].IsNull() && !info[1].IsUndefined()) {
-    FilterInOut* inObj = Napi::ObjectWrap<FilterInOut>::Unwrap(info[1].As<Napi::Object>());
+    FilterInOut* inObj = UnwrapNativeObject<FilterInOut>(env, info[1], "FilterInOut");
     if (inObj) {
       inObj->MarkAsConsumed();
     }
   }
   
   if (!info[2].IsNull() && !info[2].IsUndefined()) {
-    FilterInOut* outObj = Napi::ObjectWrap<FilterInOut>::Unwrap(info[2].As<Napi::Object>());
+    FilterInOut* outObj = UnwrapNativeObject<FilterInOut>(env, info[2], "FilterInOut");
     if (outObj) {
       outObj->MarkAsConsumed();
     }

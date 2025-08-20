@@ -3,6 +3,7 @@
 #include "frame.h"
 #include "codec.h"
 #include "dictionary.h"
+#include "common.h"
 #include <napi.h>
 
 extern "C" {
@@ -215,13 +216,13 @@ Napi::Value CodecContext::Open2Async(const Napi::CallbackInfo& info) {
   // Parse arguments (codec, options) - both optional
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
     Napi::Object codecObj = info[0].As<Napi::Object>();
-    Codec* codecWrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+    Codec* codecWrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
     codec = codecWrapper->Get();
   }
   
   if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
     Napi::Object dictObj = info[1].As<Napi::Object>();
-    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, dictObj, "Dictionary");
     if (dict) {
       options = dict->Get();
     }
@@ -242,7 +243,7 @@ Napi::Value CodecContext::SendPacketAsync(const Napi::CallbackInfo& info) {
   // Parse packet argument - can be null for flush
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
     Napi::Object pktObj = info[0].As<Napi::Object>();
-    packet = Napi::ObjectWrap<Packet>::Unwrap(pktObj);
+    packet = UnwrapNativeObject<Packet>(env, pktObj, "Packet");
   }
   
   auto* worker = new CCSendPacketWorker(env, this, packet);
@@ -262,7 +263,7 @@ Napi::Value CodecContext::ReceiveFrameAsync(const Napi::CallbackInfo& info) {
   }
   
   Napi::Object frameObj = info[0].As<Napi::Object>();
-  Frame* frame = Napi::ObjectWrap<Frame>::Unwrap(frameObj);
+  Frame* frame = UnwrapNativeObject<Frame>(env, frameObj, "Frame");
   if (!frame) {
     Napi::TypeError::New(env, "Invalid frame object")
         .ThrowAsJavaScriptException();
@@ -284,7 +285,7 @@ Napi::Value CodecContext::SendFrameAsync(const Napi::CallbackInfo& info) {
   // Parse frame argument - can be null for flush
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
     Napi::Object frameObj = info[0].As<Napi::Object>();
-    frame = Napi::ObjectWrap<Frame>::Unwrap(frameObj);
+    frame = UnwrapNativeObject<Frame>(env, frameObj, "Frame");
   }
   
   auto* worker = new CCSendFrameWorker(env, this, frame);
@@ -304,7 +305,7 @@ Napi::Value CodecContext::ReceivePacketAsync(const Napi::CallbackInfo& info) {
   }
   
   Napi::Object pktObj = info[0].As<Napi::Object>();
-  Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(pktObj);
+  Packet* packet = UnwrapNativeObject<Packet>(env, pktObj, "Packet");
   if (!packet) {
     Napi::TypeError::New(env, "Invalid packet object")
         .ThrowAsJavaScriptException();

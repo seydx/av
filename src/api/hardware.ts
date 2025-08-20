@@ -38,12 +38,14 @@ import {
   AV_PIX_FMT_VAAPI,
   AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_VULKAN,
-  AV_PIX_FMT_YUV420P,
-} from '../lib/constants.js';
-import { Codec, Dictionary, FFmpegError, HardwareDeviceContext, HardwareFramesContext } from '../lib/index.js';
+  Codec,
+  Dictionary,
+  FFmpegError,
+  HardwareDeviceContext,
+  HardwareFramesContext,
+} from '../lib/index.js';
 
-import type { CodecContext } from '../lib/codec-context.js';
-import type { AVCodecID, AVHWDeviceType, AVPixelFormat } from '../lib/constants.js';
+import type { AVCodecID, AVHWDeviceType, AVPixelFormat } from '../lib/index.js';
 import type { HardwareOptions } from './types.js';
 
 /**
@@ -67,7 +69,7 @@ import type { HardwareOptions } from './types.js';
  * }
  *
  * // Use specific hardware
- * const cuda = await HardwareContext.create('cuda');
+ * const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
  * encoder.hwDeviceCtx = cuda.deviceContext;
  *
  * // Clean up when done
@@ -80,7 +82,12 @@ export class HardwareContext implements Disposable {
   private _framesContext?: HardwareFramesContext;
   private _deviceType: AVHWDeviceType;
   private _deviceName?: string;
+  private _devicePixelFormat: AVPixelFormat;
   private _isDisposed = false;
+  private waitingComponents = new Set<{
+    resolve: (ctx: HardwareFramesContext) => void;
+    reject: (error: Error) => void;
+  }>();
 
   /**
    * Create a new HardwareContext instance.
@@ -97,6 +104,7 @@ export class HardwareContext implements Disposable {
     this._deviceContext = deviceContext;
     this._deviceType = deviceType;
     this._deviceName = deviceName;
+    this._devicePixelFormat = this.getHardwarePixelFormat();
   }
 
   /**
@@ -147,7 +155,7 @@ export class HardwareContext implements Disposable {
    * Creates and initializes a hardware device context using FFmpeg's
    * av_hwdevice_ctx_create() internally.
    *
-   * @param device - Device type name (e.g., 'cuda', 'vaapi', 'videotoolbox')
+   * @param device - Device type name (e.g., AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VIDEOTOOLBOX)
    * @param deviceName - Optional device name/index
    * @param options - Optional device initialization options
    *
@@ -158,19 +166,18 @@ export class HardwareContext implements Disposable {
    * @example
    * ```typescript
    * // Create CUDA context
-   * const cuda = await HardwareContext.create('cuda', '0');
+   * const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA, '0');
    *
    * // Create VAAPI context
-   * const vaapi = await HardwareContext.create('vaapi', '/dev/dri/renderD128');
+   * const vaapi = await HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI, '/dev/dri/renderD128');
    * ```
    */
-  static async create(device: string, deviceName?: string, options?: Record<string, string>): Promise<HardwareContext> {
-    const deviceType = this.parseDeviceType(device);
-    if (deviceType === AV_HWDEVICE_TYPE_NONE) {
+  static async create(device: AVHWDeviceType, deviceName?: string, options?: Record<string, string>): Promise<HardwareContext> {
+    if (device === AV_HWDEVICE_TYPE_NONE) {
       throw new Error(`Unknown hardware device type: ${device}`);
     }
 
-    const hw = await this.createFromType(deviceType, deviceName, options);
+    const hw = await this.createFromType(device, deviceName, options);
     if (!hw) {
       throw new Error(`Failed to create hardware context for ${device}`);
     }
@@ -229,6 +236,28 @@ export class HardwareContext implements Disposable {
   }
 
   /**
+   * Set the hardware frames context.
+   *
+   * First component to set it "wins" - subsequent sets are ignored.
+   * This is typically called by the decoder after decoding the first frame,
+   * allowing other components (encoder, filters) to share the same frames context.
+   *
+   * @param framesContext - The hardware frames context to set
+   */
+  set framesContext(framesContext: HardwareFramesContext | undefined) {
+    // Only set if we don't have one yet (first wins)
+    if (framesContext && !this._framesContext) {
+      this._framesContext = framesContext;
+
+      // Notify all waiting components
+      for (const waiter of this.waitingComponents) {
+        waiter.resolve(this._framesContext);
+      }
+      this.waitingComponents.clear();
+    }
+  }
+
+  /**
    * Get the device type enum value.
    *
    * @returns AVHWDeviceType enum value
@@ -238,9 +267,11 @@ export class HardwareContext implements Disposable {
   }
 
   /**
-   * Get the device type name.
+   * Get the hardware device type name.
    *
-   * @returns Device type name (e.g., 'cuda', 'vaapi')
+   * Uses FFmpeg's native av_hwdevice_get_type_name() function.
+   *
+   * @returns Device type name as string (e.g., 'cuda', 'videotoolbox')
    */
   get deviceTypeName(): string {
     return HardwareDeviceContext.getTypeName(this._deviceType) ?? 'unknown';
@@ -256,39 +287,61 @@ export class HardwareContext implements Disposable {
   }
 
   /**
-   * Create a frames context for this hardware device.
+   * Get the device pixel format.
    *
-   * Required for allocating hardware frames for processing.
+   * @returns Device pixel format
+   */
+  get devicePixelFormat(): AVPixelFormat {
+    return this._devicePixelFormat;
+  }
+
+  /**
+   * Check if this hardware context has been disposed.
    *
-   * Uses av_hwframe_ctx_alloc() and av_hwframe_ctx_init() internally.
-   * The frames context manages a pool of hardware frames.
+   * @returns True if disposed
+   */
+  get isDisposed(): boolean {
+    return this._isDisposed;
+  }
+
+  /**
+   * Create or ensure a frames context exists for this hardware device.
    *
-   * @param format - Hardware pixel format
-   * @param swFormat - Software pixel format
+   * If a frames context already exists with different dimensions, throws an error.
+   * This is used for raw/generated frames that need hardware processing.
+   *
    * @param width - Frame width
    * @param height - Frame height
+   * @param swFormat - Software pixel format (default: AV_PIX_FMT_NV12)
    * @param initialPoolSize - Initial frame pool size (default: 20)
    *
-   * @returns HardwareFramesContext
+   * @returns HardwareFramesContext - Either existing or newly created
    *
-   * @throws {Error} If frames context creation fails
+   * @throws {Error} If frames context exists with incompatible dimensions
    *
    * @example
    * ```typescript
-   * import { AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from '@seydx/ffmpeg/constants';
-   *
-   * const frames = hw.createFramesContext(
-   *   AV_PIX_FMT_CUDA,
-   *   AV_PIX_FMT_NV12,
-   *   1920,
-   *   1080
-   * );
+   * // For raw frames
+   * hw.ensureFramesContext(1920, 1080, AV_PIX_FMT_YUV420P);
    * ```
    */
-  createFramesContext(format: AVPixelFormat, swFormat: AVPixelFormat, width: number, height: number, initialPoolSize = 20): HardwareFramesContext {
+  ensureFramesContext(width: number, height: number, swFormat: AVPixelFormat = AV_PIX_FMT_NV12, initialPoolSize = 20): HardwareFramesContext {
+    if (this._framesContext) {
+      // Validate compatibility
+      if (this._framesContext.width !== width || this._framesContext.height !== height) {
+        // prettier-ignore
+        throw new Error(
+          `Incompatible frames context: existing ${this._framesContext.width}x${this._framesContext.height} ` +
+          `vs requested ${width}x${height}. Use separate HardwareContext instances for different sizes.`,
+        );
+      }
+      return this._framesContext;
+    }
+
+    // Create new frames context on our device
     const frames = new HardwareFramesContext();
     frames.alloc(this._deviceContext);
-    frames.format = format;
+    frames.format = this.getHardwarePixelFormat();
     frames.swFormat = swFormat;
     frames.width = width;
     frames.height = height;
@@ -298,75 +351,45 @@ export class HardwareContext implements Disposable {
     FFmpegError.throwIfError(ret, 'Failed to initialize hardware frames context');
 
     this._framesContext = frames;
+
+    // Notify waiting components
+    for (const waiter of this.waitingComponents) {
+      waiter.resolve(this._framesContext);
+    }
+    this.waitingComponents.clear();
+
     return frames;
   }
 
   /**
-   * Apply this hardware context to a codec context.
+   * Wait for frames context to become available.
    *
-   * Sets up the codec context for hardware acceleration.
-   * For encoders, this only sets the device context.
-   * Use setupEncoderFramesContext() for encoders that need frames context.
+   * Used by components that need hw_frames_ctx but don't have it yet.
+   * Resolves when another component (typically decoder) sets the frames context.
    *
-   * Simply assigns the hardware device context to the codec context.
+   * @param timeout - Maximum time to wait in milliseconds (default: 5000)
    *
-   * @param codecContext - Codec context to configure
-   */
-  applyToCodecContext(codecContext: CodecContext): void {
-    codecContext.hwDeviceCtx = this._deviceContext;
-  }
-
-  /**
-   * Setup hardware frames context for encoding.
+   * @returns Promise that resolves with the frames context
    *
-   * Many hardware encoders (like VideoToolbox) require a frames context
-   * instead of just a device context. This method sets up the frames context
-   * with the appropriate hardware pixel format.
-   *
-   * Creates a frames context and assigns it to the codec context's hwFramesCtx.
-   * The frames context is owned by this HardwareContext and will be freed on dispose.
-   *
-   * @param codecContext - Encoder codec context
-   * @param width - Frame width
-   * @param height - Frame height
-   * @param swFormat - Software pixel format (default: AV_PIX_FMT_YUV420P)
-   * @param initialPoolSize - Initial frame pool size (default: 20)
-   *
-   * @returns HardwareFramesContext that was created and set
-   *
-   * @throws {Error} If frames context creation or initialization fails
+   * @throws {Error} If timeout expires or HardwareContext is disposed
    *
    * @example
    * ```typescript
-   * const hw = await HardwareContext.create('videotoolbox');
-   * const encoder = new CodecContext();
-   * encoder.allocContext3(codec);
-   * encoder.width = 1920;
-   * encoder.height = 1080;
-   *
-   * // Setup frames context for hardware encoding
-   * hw.setupEncoderFramesContext(encoder, 1920, 1080);
-   *
-   * await encoder.open2(codec, null);
+   * // Wait up to 3 seconds for frames context
+   * const framesCtx = await hw.waitForFramesContext(3000);
    * ```
    */
-  setupEncoderFramesContext(
-    codecContext: CodecContext,
-    width: number,
-    height: number,
-    swFormat: AVPixelFormat = AV_PIX_FMT_YUV420P,
-    initialPoolSize = 20,
-  ): HardwareFramesContext {
-    // Get the hardware pixel format for this device type
-    const hwFormat = this.getHardwarePixelFormat();
+  async waitForFramesContext(timeout = 5000): Promise<HardwareFramesContext> {
+    if (this._framesContext) {
+      return Promise.resolve(this._framesContext);
+    }
 
-    // Create and configure frames context
-    const framesCtx = this.createFramesContext(hwFormat, swFormat, width, height, initialPoolSize);
-
-    // Set the frames context on the codec context
-    codecContext.hwFramesCtx = framesCtx;
-
-    return framesCtx;
+    return Promise.race([
+      new Promise<HardwareFramesContext>((resolve, reject) => {
+        this.waitingComponents.add({ resolve, reject });
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout waiting for frames context')), timeout)),
+    ]);
   }
 
   /**
@@ -496,11 +519,18 @@ export class HardwareContext implements Disposable {
    * Called automatically by Decoder/Encoder on close.
    *
    * Frees both frames context (if created) and device context.
+   * Notifies any waiting components that disposal occurred.
    */
   dispose(): void {
     if (this._isDisposed) {
       return; // Already disposed, safe to return
     }
+
+    // Notify waiting components that we're disposing
+    for (const waiter of this.waitingComponents) {
+      waiter.reject(new Error('HardwareContext disposed'));
+    }
+    this.waitingComponents.clear();
 
     if (this._framesContext) {
       this._framesContext.free();
@@ -508,15 +538,6 @@ export class HardwareContext implements Disposable {
     }
     this._deviceContext.free();
     this._isDisposed = true;
-  }
-
-  /**
-   * Check if this hardware context has been disposed.
-   *
-   * @returns True if disposed
-   */
-  get isDisposed(): boolean {
-    return this._isDisposed;
   }
 
   /**
@@ -555,48 +576,6 @@ export class HardwareContext implements Disposable {
   }
 
   /**
-   * Parse device type string to enum value.
-   *
-   * Maps string names to AVHWDeviceType constants.
-   *
-   * @param device - Device type name
-   *
-   * @returns AVHWDeviceType enum value
-   */
-  private static parseDeviceType(device: string): AVHWDeviceType {
-    const normalized = device.toLowerCase();
-
-    switch (normalized) {
-      case 'vdpau':
-        return AV_HWDEVICE_TYPE_VDPAU;
-      case 'cuda':
-        return AV_HWDEVICE_TYPE_CUDA;
-      case 'vaapi':
-        return AV_HWDEVICE_TYPE_VAAPI;
-      case 'dxva2':
-        return AV_HWDEVICE_TYPE_DXVA2;
-      case 'qsv':
-        return AV_HWDEVICE_TYPE_QSV;
-      case 'videotoolbox':
-        return AV_HWDEVICE_TYPE_VIDEOTOOLBOX;
-      case 'd3d11va':
-        return AV_HWDEVICE_TYPE_D3D11VA;
-      case 'drm':
-        return AV_HWDEVICE_TYPE_DRM;
-      case 'opencl':
-        return AV_HWDEVICE_TYPE_OPENCL;
-      case 'mediacodec':
-        return AV_HWDEVICE_TYPE_MEDIACODEC;
-      case 'vulkan':
-        return AV_HWDEVICE_TYPE_VULKAN;
-      case 'd3d12va':
-        return AV_HWDEVICE_TYPE_D3D12VA;
-      default:
-        return AV_HWDEVICE_TYPE_NONE;
-    }
-  }
-
-  /**
    * Get platform-specific preference order for hardware types.
    *
    * Returns the optimal hardware types for the current platform.
@@ -608,16 +587,21 @@ export class HardwareContext implements Disposable {
 
     if (platform === 'darwin') {
       // macOS: VideoToolbox is preferred
-      return [AV_HWDEVICE_TYPE_VIDEOTOOLBOX];
+      return [AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_OPENCL];
     } else if (platform === 'win32') {
       // Windows: D3D12VA (newest), D3D11VA, DXVA2, QSV, CUDA
-      return [AV_HWDEVICE_TYPE_D3D12VA, AV_HWDEVICE_TYPE_D3D11VA, AV_HWDEVICE_TYPE_DXVA2, AV_HWDEVICE_TYPE_QSV, AV_HWDEVICE_TYPE_CUDA];
-    } else if (platform === 'android') {
-      // Android: MediaCodec is preferred
-      return [AV_HWDEVICE_TYPE_MEDIACODEC, AV_HWDEVICE_TYPE_OPENCL];
+      return [
+        AV_HWDEVICE_TYPE_D3D12VA,
+        AV_HWDEVICE_TYPE_D3D11VA,
+        AV_HWDEVICE_TYPE_DXVA2,
+        AV_HWDEVICE_TYPE_QSV,
+        AV_HWDEVICE_TYPE_CUDA,
+        AV_HWDEVICE_TYPE_VULKAN,
+        AV_HWDEVICE_TYPE_OPENCL,
+      ];
     } else {
       // Linux: VAAPI, VDPAU, CUDA, Vulkan, DRM
-      return [AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VDPAU, AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_DRM];
+      return [AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VDPAU, AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_DRM, AV_HWDEVICE_TYPE_OPENCL];
     }
   }
 

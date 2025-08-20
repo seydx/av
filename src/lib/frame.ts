@@ -535,6 +535,9 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * Direct mapping to av_frame_free()
    *
+   * @note
+   * Calling this multiple times is safe, because we check the freed state
+   *
    * @example
    * ```typescript
    * import { Frame } from '@seydx/ffmpeg';

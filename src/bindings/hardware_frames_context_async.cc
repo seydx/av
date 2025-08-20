@@ -1,5 +1,6 @@
 #include "hardware_frames_context.h"
 #include "frame.h"
+#include "common.h"
 #include <napi.h>
 
 extern "C" {
@@ -62,8 +63,8 @@ Napi::Value HardwareFramesContext::TransferData(const Napi::CallbackInfo& info) 
     return env.Null();
   }
   
-  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
-  Frame* src = Napi::ObjectWrap<Frame>::Unwrap(info[1].As<Napi::Object>());
+  Frame* dst = UnwrapNativeObject<Frame>(env, info[0], "Frame");
+  Frame* src = UnwrapNativeObject<Frame>(env, info[1], "Frame");
   
   if (!dst || !dst->Get() || !src || !src->Get()) {
     Napi::Error::New(env, "Invalid frame(s)").ThrowAsJavaScriptException();

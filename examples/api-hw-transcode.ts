@@ -11,7 +11,6 @@
  */
 
 import { Decoder, Encoder, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_PIX_FMT_YUV420P } from '../src/lib/index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];
@@ -46,20 +45,26 @@ async function main() {
 
     // Open input media
     console.log('\nOpening input:', inputFile);
-    const media = await MediaInput.open(inputFile);
+    const input = await MediaInput.open(inputFile);
 
     // Get video stream
-    const videoStream = media.video(0);
+    const videoStream = input.video();
     if (!videoStream) {
       throw new Error('No video stream found');
+    }
+
+    // Get audio stream
+    const audioStream = input.audio();
+    if (!audioStream) {
+      throw new Error('No audio stream found');
     }
 
     console.log(`Input video: ${videoStream.codecpar.width}x${videoStream.codecpar.height} ${videoStream.codecpar.codecId}`);
 
     // Create hardware decoder
     console.log('\nCreating hardware decoder...');
-    const decoder = await Decoder.create(media, videoStream.index, {
-      hardware: hw ?? undefined,
+    const decoder = await Decoder.create(videoStream, {
+      hardware: hw,
     });
 
     // Hardware context is now initialized automatically when hardware is provided
@@ -100,23 +105,15 @@ async function main() {
     console.log(`Creating encoder: ${encoderName}...`);
 
     // Create encoder with shared decoder for zero-copy when both use hardware
-    const encoder = await Encoder.create(encoderName, {
-      width: videoStream.codecpar.width,
-      height: videoStream.codecpar.height,
-      pixelFormat: AV_PIX_FMT_YUV420P,
-      bitrate: '2M',
-      gopSize: 60,
-      frameRate: videoStream.codecpar.frameRate,
-      timeBase: videoStream.timeBase, // Use input stream's timebase
-      sourceTimeBase: videoStream.timeBase, // For automatic PTS rescaling
-      hardware: hw ?? undefined,
-      sharedDecoder: decoder, // Enable zero-copy when possible!
-      codecOptions,
+    const encoder = await Encoder.create(encoderName, videoStream, {
+      hardware: hw,
+      options: codecOptions,
     });
 
     // Create output using MediaOutput
     const output = await MediaOutput.open(outputFile);
-    const outputStreamIndex = output.addStream(encoder);
+    const videoOutputIndex = output.addStream(encoder);
+    const audioOutputIndex = output.addStream(audioStream);
 
     // Write header
     await output.writeHeader();
@@ -126,10 +123,11 @@ async function main() {
     let decodedFrames = 0;
     let encodedPackets = 0;
     let hardwareFrames = 0;
+    let audioFrames = 0;
 
     const startTime = Date.now();
 
-    for await (const packet of media.packets()) {
+    for await (const packet of input.packets()) {
       if (packet.streamIndex === videoStream.index) {
         // Decode packet to frame
         const frame = await decoder.decode(packet);
@@ -145,19 +143,16 @@ async function main() {
           const encodedPacket = await encoder.encode(frame);
           if (encodedPacket) {
             // Write packet (MediaOutput handles timestamp rescaling)
-            await output.writePacket(encodedPacket, outputStreamIndex);
+            await output.writePacket(encodedPacket, videoOutputIndex);
             encodedPackets++;
             encodedPacket.free();
           }
 
           frame.free();
-
-          // Progress
-          if (decodedFrames % 10 === 0) {
-            const fps = (decodedFrames / ((Date.now() - startTime) / 1000)).toFixed(1);
-            process.stdout.write(`\rFrames: ${decodedFrames} | Packets: ${encodedPackets} | FPS: ${fps} | GPU frames: ${hardwareFrames}`);
-          }
         }
+      } else if (packet.streamIndex === audioStream.index) {
+        await output.writePacket(packet, audioOutputIndex);
+        audioFrames++;
       }
       // Don't free - managed by generator
     }
@@ -168,7 +163,7 @@ async function main() {
     while ((flushFrame = await decoder.flush()) !== null) {
       const encodedPacket = await encoder.encode(flushFrame);
       if (encodedPacket) {
-        await output.writePacket(encodedPacket, outputStreamIndex);
+        await output.writePacket(encodedPacket, videoOutputIndex);
         encodedPackets++;
         encodedPacket.free();
       }
@@ -179,7 +174,7 @@ async function main() {
     console.log('Flushing encoder...');
     let flushPacket;
     while ((flushPacket = await encoder.flush()) !== null) {
-      await output.writePacket(flushPacket, outputStreamIndex);
+      await output.writePacket(flushPacket, videoOutputIndex);
       encodedPackets++;
       flushPacket.free();
     }
@@ -194,7 +189,7 @@ async function main() {
     decoder.close();
     encoder.close();
     hw?.dispose();
-    await media.close();
+    await input.close();
     await output.close();
 
     console.log('\n✅ Transcoding complete!');
@@ -202,6 +197,7 @@ async function main() {
     console.log(`   Decoded: ${decodedFrames} frames`);
     console.log(`   Encoded: ${encodedPackets} packets`);
     console.log(`   GPU frames: ${hardwareFrames} (${((hardwareFrames / decodedFrames) * 100).toFixed(1)}% zero-copy)`);
+    console.log(`   Audio frames: ${audioFrames}`);
     console.log(`   Time: ${elapsed.toFixed(2)}s`);
     console.log(`   Average FPS: ${avgFps}`);
     console.log(`   Output: ${outputFile}`);

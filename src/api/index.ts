@@ -15,7 +15,11 @@ export { HardwareContext } from './hardware.js';
 // Filter
 export { FilterAPI } from './filter.js';
 
-// Utilities
-// export * from './utils.js';
+// Pipeline
+export { pipeline } from './pipeline.js';
 
+// Utilities
+export * from './utils.js';
+
+// Types
 export type * from './types.js';

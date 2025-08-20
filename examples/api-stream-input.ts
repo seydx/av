@@ -75,7 +75,7 @@ async function processFromStream() {
     console.log('\nDecoding first 5 frames...');
 
     // Create decoder
-    const decoder = await Decoder.create(media, videoStream.index);
+    const decoder = await Decoder.create(videoStream);
     console.log('  Decoder created successfully');
 
     // Re-open from file since stream was consumed

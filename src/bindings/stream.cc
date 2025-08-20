@@ -2,6 +2,7 @@
 #include "codec_parameters.h"
 #include "dictionary.h"
 #include "packet.h"
+#include "common.h"
 
 namespace ffmpeg {
 
@@ -81,7 +82,7 @@ Napi::Value Stream::GetCodecpar(const Napi::CallbackInfo& info) {
   // Create a CodecParameters wrapper for the AVCodecParameters
   // The AVCodecParameters is owned by AVStream, so we don't transfer ownership
   Napi::Object codecParamsObj = CodecParameters::constructor.New({});
-  CodecParameters* codecParams = Napi::ObjectWrap<CodecParameters>::Unwrap(codecParamsObj);
+  CodecParameters* codecParams = UnwrapNativeObject<CodecParameters>(env, codecParamsObj, "CodecParameters");
   
   // Set the internal pointer without transferring ownership
   // The user can read/write through this wrapper, and changes will affect the stream directly
@@ -246,7 +247,7 @@ Napi::Value Stream::GetMetadata(const Napi::CallbackInfo& info) {
   
   // Create a Dictionary wrapper for the AVDictionary
   Napi::Object dictObj = Dictionary::constructor.New({});
-  Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
+  Dictionary* dict = UnwrapNativeObject<Dictionary>(env, dictObj, "Dictionary");
   
   // Copy the dictionary content (we transfer ownership of the copy)
   AVDictionary* copy = nullptr;
@@ -292,7 +293,7 @@ Napi::Value Stream::GetAttachedPic(const Napi::CallbackInfo& info) {
   
   // Create a Packet wrapper for the attached picture
   Napi::Object packetObj = Packet::constructor.New({});
-  Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(packetObj);
+  Packet* packet = UnwrapNativeObject<Packet>(env, packetObj, "Packet");
   
   // The packet constructor already allocates, so we just need to copy
   av_packet_ref(packet->Get(), &stream_->attached_pic);

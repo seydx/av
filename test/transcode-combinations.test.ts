@@ -55,7 +55,7 @@ describe('Transcode Combinations', () => {
     if (targetPixelFormat !== undefined) {
       decoderOptions.targetPixelFormat = targetPixelFormat;
     }
-    const decoder = await Decoder.create(media, videoStream.index, decoderOptions);
+    const decoder = await Decoder.create(videoStream, decoderOptions);
 
     // Hardware context is now initialized automatically in create()
     // when hardware option is provided
@@ -84,10 +84,17 @@ describe('Transcode Combinations', () => {
     }
 
     // Create encoder
-    const encoderOptions: any = {
+    const streamInfo: any = {
+      type: 'video',
       width: videoStream.codecpar.width,
       height: videoStream.codecpar.height,
       pixelFormat: pixelFormat,
+      frameRate: { num: 30, den: 1 },
+      timeBase: { num: 1, den: 30 },
+      sampleAspectRatio: { num: 1, den: 1 },
+    };
+
+    const encoderOptions: any = {
       bitrate: '1M',
       gopSize: 30,
     };
@@ -100,7 +107,7 @@ describe('Transcode Combinations', () => {
       encoderOptions.sharedDecoder = decoder;
     }
 
-    const encoder = await Encoder.create(encoderName, encoderOptions);
+    const encoder = await Encoder.create(encoderName, streamInfo, encoderOptions);
 
     // Create output
     const output = new FormatContext();
@@ -346,7 +353,7 @@ describe('Transcode Combinations', () => {
         assert.ok(videoStream, 'Should have video stream');
 
         // Create hardware decoder
-        const decoder = await Decoder.create(media, videoStream.index, {
+        const decoder = await Decoder.create(videoStream, {
           hardware: hw,
         });
 
@@ -354,14 +361,22 @@ describe('Transcode Combinations', () => {
 
         // Create hardware encoder with shared context
         const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
-        const encoder = await Encoder.create(encoderName, {
-          width: videoStream.codecpar.width,
-          height: videoStream.codecpar.height,
-          pixelFormat: AV_PIX_FMT_NV12,
-          bitrate: '2M',
-          hardware: hw,
-          sharedDecoder: decoder,
-        });
+        const encoder = await Encoder.create(
+          encoderName,
+          {
+            type: 'video',
+            width: videoStream.codecpar.width,
+            height: videoStream.codecpar.height,
+            pixelFormat: AV_PIX_FMT_NV12,
+            frameRate: { num: 30, den: 1 },
+            timeBase: { num: 1, den: 30 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {
+            bitrate: '2M',
+            hardware: hw,
+          },
+        );
 
         // Process one frame to verify zero-copy
         for await (const packet of media.packets()) {

@@ -37,13 +37,15 @@ async function extractFrameAsPNG(frameNumber: number) {
   }
 
   // Create decoder
-  const decoder = await Decoder.create(media, videoStream.index);
+  const decoder = await Decoder.create(videoStream);
 
   // Create PNG encoder
   const pngEncoder = await Encoder.create('png', {
+    type: 'video',
     width: videoStream.codecpar.width,
     height: videoStream.codecpar.height,
     pixelFormat: AV_PIX_FMT_RGB24,
+    timeBase: videoStream.timeBase,
   });
 
   let currentFrame = 0;
@@ -109,16 +111,22 @@ async function extractFramesAtInterval(intervalSeconds: number, count: number) {
   console.log(`  Frame interval: ${frameInterval} frames`);
 
   // Create decoder
-  const decoder = await Decoder.create(media, videoStream.index);
+  const decoder = await Decoder.create(videoStream);
 
   // Create JPEG encoder for thumbnails
-  const jpegEncoder = await Encoder.create('mjpeg', {
-    width: 320, // Thumbnail size
-    height: 240,
-    pixelFormat: AV_PIX_FMT_YUVJ420P,
-    // For MJPEG, quality is controlled by bitrate
-    bitrate: '2M', // Higher bitrate = better quality
-  });
+  const jpegEncoder = await Encoder.create(
+    'mjpeg',
+    {
+      type: 'video',
+      width: 320, // Thumbnail size
+      height: 240,
+      pixelFormat: AV_PIX_FMT_YUVJ420P,
+      timeBase: videoStream.timeBase,
+    },
+    {
+      bitrate: '2M', // Higher bitrate = better quality
+    },
+  );
 
   let currentFrame = 0;
   let extractedCount = 0;
@@ -173,7 +181,7 @@ async function analyzeFrames(count: number) {
   }
 
   // Create decoder
-  const decoder = await Decoder.create(media, videoStream.index);
+  const decoder = await Decoder.create(videoStream);
 
   const frameTypes: Record<string, number> = {};
   let minPts = Number.MAX_SAFE_INTEGER;
@@ -241,7 +249,7 @@ async function generateGIF(startTime: number, duration: number) {
   console.log(`  Processing frames ${startFrame} to ${endFrame}`);
 
   // Create decoder
-  const decoder = await Decoder.create(media, videoStream.index);
+  const decoder = await Decoder.create(videoStream);
 
   // Create GIF encoder (using libx264 as example, real GIF would need gif encoder)
   // For demo purposes, we'll just extract the frames

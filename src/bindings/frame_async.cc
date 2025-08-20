@@ -1,4 +1,5 @@
 #include "frame.h"
+#include "common.h"
 #include <napi.h>
 
 extern "C" {
@@ -71,7 +72,7 @@ Napi::Value Frame::HwframeTransferData(const Napi::CallbackInfo& info) {
     return env.Null();
   }
   
-  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  Frame* dst = UnwrapNativeObject<Frame>(env, info[0], "Frame");
   if (!dst || !dst->frame_) {
     Napi::Error::New(env, "Invalid destination frame").ThrowAsJavaScriptException();
     return env.Null();

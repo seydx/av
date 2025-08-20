@@ -1,23 +1,44 @@
 import {
   AV_ERROR_EAGAIN,
   AV_ERROR_EOF,
+  AV_FILTER_FLAG_HWDEVICE,
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_VIDEO,
-  AV_OPT_SEARCH_CHILDREN,
   FFmpegError,
   Frame,
   Filter as LowLevelFilter,
   FilterGraph as LowLevelFilterGraph,
   FilterInOut as LowLevelFilterInOut,
+  Stream,
   avGetPixFmtName,
   avGetSampleFmtName,
 } from '../lib/index.js';
 
-import type { AVMediaType, AVPixelFormat, AVSampleFormat } from '../lib/constants.js';
-import type { CodecContext, FormatContext, FilterContext as LowLevelFilterContext, Stream } from '../lib/index.js';
-import type { Decoder } from './decoder.js';
-import type { Encoder } from './encoder.js';
-import type { FilterConfig, FilterOptions, FilterOutputOptions, VideoFilterConfig } from './types.js';
+import type { AVMediaType, AVPixelFormat, AVSampleFormat, HardwareFramesContext, IRational, FilterContext as LowLevelFilterContext } from '../lib/index.js';
+import type { HardwareContext } from './hardware.js';
+import type { FilterOptions, StreamInfo } from './types.js';
+
+// Internal filter configuration types
+interface VideoFilterConfig {
+  type: 'video';
+  width: number;
+  height: number;
+  pixelFormat: AVPixelFormat;
+  timeBase: IRational;
+  frameRate?: IRational;
+  sampleAspectRatio?: IRational;
+  hwFramesCtx?: HardwareFramesContext | null;
+}
+
+interface AudioFilterConfig {
+  type: 'audio';
+  sampleRate: number;
+  sampleFormat: AVSampleFormat;
+  channelLayout: bigint;
+  timeBase: IRational;
+}
+
+type FilterConfig = VideoFilterConfig | AudioFilterConfig;
 
 /**
  * High-level filter API for media processing.
@@ -28,15 +49,11 @@ import type { FilterConfig, FilterOptions, FilterOutputOptions, VideoFilterConfi
  *
  * @example
  * ```typescript
- * import { Filter, Frame } from '@seydx/ffmpeg/api';
+ * import { FilterAPI, Frame } from '@seydx/ffmpeg/api';
  *
- * // Create a simple video filter
- * const filter = await Filter.create('scale=1280:720,format=yuv420p', {
- *   width: 1920,
- *   height: 1080,
- *   pixelFormat: AV_PIX_FMT_YUV420P,
- *   timeBase: { num: 1, den: 30 }
- * });
+ * // Create a simple video filter from a stream
+ * const videoStream = media.video();
+ * const filter = await FilterAPI.create('scale=1280:720,format=yuv420p', videoStream);
  *
  * // Process frames
  * const outputFrame = await filter.process(inputFrame);
@@ -44,11 +61,11 @@ import type { FilterConfig, FilterOptions, FilterOutputOptions, VideoFilterConfi
  *
  * @example
  * ```typescript
- * // Create filter from decoder
- * const filter = await Filter.createFromDecoder(
- *   decoder,
- *   'scale=640:480,fps=30'
- * );
+ * // Create filter with hardware acceleration
+ * const hw = await HardwareContext.auto();
+ * const filter = await FilterAPI.create('scale_vt=640:480', videoStream, {
+ *   hardware: hw
+ * });
  * ```
  */
 export class FilterAPI implements Disposable {
@@ -58,6 +75,9 @@ export class FilterAPI implements Disposable {
   private config: FilterConfig;
   private mediaType: AVMediaType;
   private initialized = false;
+  private needsHardware = false; // Track if this filter REQUIRES hardware
+  private hardware?: HardwareContext | null; // Store reference for hardware context
+  private pendingInit?: { description: string; options: FilterOptions }; // For delayed init
 
   /**
    * Create a new Filter instance.
@@ -65,10 +85,13 @@ export class FilterAPI implements Disposable {
    * The filter is uninitialized until setup with a filter description.
    * Use the static factory methods for easier creation.
    *
+   * @param config - Filter configuration
+   * @param hardware - Optional hardware context for late framesContext binding
    * @internal
    */
-  private constructor(config: FilterConfig) {
+  private constructor(config: FilterConfig, hardware?: HardwareContext | null) {
     this.config = config;
+    this.hardware = hardware;
     this.mediaType = config.type === 'video' ? AV_MEDIA_TYPE_VIDEO : AV_MEDIA_TYPE_AUDIO;
     this.graph = new LowLevelFilterGraph();
   }
@@ -76,12 +99,16 @@ export class FilterAPI implements Disposable {
   /**
    * Create a filter from a filter description string.
    *
-   * Parses and initializes a filter graph from the description.
+   * Accepts either a Stream (from MediaInput/Decoder) or StreamInfo (for raw data).
    * Automatically sets up buffer source and sink filters.
    *
-   * @param description - Filter graph description (e.g., "scale=1280:720")
-   * @param config - Input stream configuration
-   * @param options - Optional filter options
+   * Handles complex filter chains with multiple filters. Automatically detects if ANY
+   * filter in the chain requires hardware acceleration (e.g., scale_vt in
+   * "format=nv12,hwupload,scale_vt=640:480").
+   *
+   * @param description - Filter graph description (e.g., "scale=1280:720" or complex chains)
+   * @param input - Stream or StreamInfo describing the input
+   * @param options - Optional filter options including hardware context
    *
    * @returns Promise resolving to configured Filter instance
    *
@@ -89,7 +116,19 @@ export class FilterAPI implements Disposable {
    *
    * @example
    * ```typescript
-   * const filter = await Filter.create('scale=640:480,format=yuv420p', {
+   * // Simple filter
+   * const filter = await FilterAPI.create('scale=640:480', videoStream);
+   *
+   * // Complex filter chain with hardware
+   * const hw = await HardwareContext.auto();
+   * const filter = await FilterAPI.create(
+   *   'format=nv12,hwupload,scale_vt=640:480,hwdownload,format=yuv420p',
+   *   videoStream,
+   *   { hardware: hw }
+   * );
+   *
+   * // From StreamInfo (for raw data)
+   * const filter = await FilterAPI.create('scale=640:480', {
    *   type: 'video',
    *   width: 1920,
    *   height: 1080,
@@ -98,135 +137,113 @@ export class FilterAPI implements Disposable {
    * });
    * ```
    */
-  static async create(description: string, config: FilterConfig, options: FilterOptions = {}): Promise<FilterAPI> {
-    const filter = new FilterAPI(config);
-    await filter.initialize(description, options);
-    return filter;
-  }
+  static async create(description: string, input: Stream | StreamInfo, options: FilterOptions = {}): Promise<FilterAPI> {
+    let config: FilterConfig;
 
-  /**
-   * Create a filter from a decoder context.
-   *
-   * Extracts configuration from the decoder and creates the filter.
-   * Useful for applying filters during decoding pipelines.
-   *
-   * @param decoder - Decoder instance or CodecContext
-   * @param description - Filter graph description
-   * @param options - Optional filter options
-   *
-   * @returns Promise resolving to configured Filter instance
-   *
-   * @throws {Error} If decoder is not initialized or incompatible
-   * @throws {FFmpegError} If filter creation fails
-   *
-   * @example
-   * ```typescript
-   * const filter = await Filter.createFromDecoder(
-   *   decoder,
-   *   'scale=1280:720,fps=30'
-   * );
-   * ```
-   */
-  static async createFromDecoder(decoder: Decoder | CodecContext, description: string, options: FilterOptions = {}): Promise<FilterAPI> {
-    const codecCtx = 'getCodecContext' in decoder ? decoder.getCodecContext() : decoder;
-
-    if (!codecCtx) {
-      throw new Error('Decoder not initialized');
-    }
-
-    const config = FilterAPI.extractConfigFromCodecContext(codecCtx);
-    return FilterAPI.create(description, config, options);
-  }
-
-  /**
-   * Create a filter from an encoder context.
-   *
-   * Configures the filter to match encoder input requirements.
-   * Ensures frames are in the correct format for encoding.
-   *
-   * @param encoder - Encoder instance or CodecContext
-   * @param description - Filter graph description
-   * @param inputConfig - Input stream configuration
-   * @param options - Optional filter options
-   *
-   * @returns Promise resolving to configured Filter instance
-   *
-   * @throws {Error} If encoder is not initialized
-   * @throws {FFmpegError} If filter creation fails
-   *
-   * @example
-   * ```typescript
-   * const filter = await Filter.createFromEncoder(
-   *   encoder,
-   *   'scale=1920:1080',
-   *   inputConfig,
-   *   {
-   *     output: {
-   *       pixelFormats: [encoder.pixelFormat]
-   *     }
-   *   }
-   * );
-   * ```
-   */
-  static async createFromEncoder(encoder: Encoder | CodecContext, description: string, inputConfig: FilterConfig, options: FilterOptions = {}): Promise<FilterAPI> {
-    const codecCtx = 'getCodecContext' in encoder ? encoder.getCodecContext() : encoder;
-
-    if (!codecCtx) {
-      throw new Error('Encoder not initialized');
-    }
-
-    // Set output constraints to match encoder requirements
-    options.output ??= {};
-
-    if (codecCtx.codecType === AV_MEDIA_TYPE_VIDEO && codecCtx.pixelFormat >= 0) {
-      options.output.pixelFormats = [codecCtx.pixelFormat];
-    } else if (codecCtx.codecType === AV_MEDIA_TYPE_AUDIO && codecCtx.sampleFormat >= 0) {
-      options.output.sampleFormats = [codecCtx.sampleFormat];
-      if (codecCtx.sampleRate > 0) {
-        options.output.sampleRates = [codecCtx.sampleRate];
+    if (input instanceof Stream) {
+      if (input.codecpar.codecType === AV_MEDIA_TYPE_VIDEO) {
+        config = {
+          type: 'video',
+          width: input.codecpar.width,
+          height: input.codecpar.height,
+          pixelFormat: input.codecpar.format as AVPixelFormat,
+          timeBase: input.timeBase,
+          frameRate: input.rFrameRate,
+          sampleAspectRatio: input.codecpar.sampleAspectRatio,
+        };
+      } else if (input.codecpar.codecType === AV_MEDIA_TYPE_AUDIO) {
+        config = {
+          type: 'audio',
+          sampleRate: input.codecpar.sampleRate,
+          sampleFormat: input.codecpar.format as AVSampleFormat,
+          channelLayout: input.codecpar.channelLayout.mask,
+          timeBase: input.timeBase,
+        };
+      } else {
+        throw new Error('Unsupported codec type');
+      }
+    } else {
+      if (input.type === 'video') {
+        config = {
+          type: 'video',
+          width: input.width,
+          height: input.height,
+          pixelFormat: input.pixelFormat,
+          timeBase: input.timeBase,
+          frameRate: input.frameRate,
+          sampleAspectRatio: input.sampleAspectRatio,
+        };
+      } else {
+        config = {
+          type: 'audio',
+          sampleRate: input.sampleRate,
+          sampleFormat: input.sampleFormat,
+          channelLayout: typeof input.channelLayout === 'bigint' ? input.channelLayout : input.channelLayout.mask || 3n,
+          timeBase: input.timeBase,
+        };
       }
     }
 
-    return FilterAPI.create(description, inputConfig, options);
-  }
+    const filter = new FilterAPI(config, options.hardware);
 
-  /**
-   * Create a filter from a stream in a format context.
-   *
-   * Extracts stream parameters and creates an appropriate filter.
-   * Useful for processing streams directly from input files.
-   *
-   * @param formatCtx - Format context containing the stream
-   * @param streamIndex - Index of the stream to use
-   * @param description - Filter graph description
-   * @param options - Optional filter options
-   *
-   * @returns Promise resolving to configured Filter instance
-   *
-   * @throws {Error} If stream not found or invalid
-   * @throws {FFmpegError} If filter creation fails
-   *
-   * @example
-   * ```typescript
-   * const filter = await Filter.createFromStream(
-   *   formatContext,
-   *   videoStreamIndex,
-   *   'scale=1280:720'
-   * );
-   * ```
-   */
-  static async createFromStream(formatCtx: FormatContext, streamIndex: number, description: string, options: FilterOptions = {}): Promise<FilterAPI> {
-    const streams = formatCtx.streams;
-    if (!streams || streamIndex < 0 || streamIndex >= streams.length) {
-      throw new Error(`Invalid stream index: ${streamIndex}`);
+    // Parse the entire filter chain to check if ANY filter requires hardware
+    // Split by comma to get individual filters, handle complex chains like:
+    // "format=nv12,hwupload,scale_vt=100:100,hwdownload,format=yuv420p"
+    const filterNames = description
+      .split(',')
+      .map((f) => {
+        // Extract filter name (before = or : or whitespace)
+        const match = /^([a-zA-Z0-9_]+)/.exec(f.trim());
+        return match ? match[1] : null;
+      })
+      .filter(Boolean);
+
+    // Check if chain contains hwupload (which creates hw frames context)
+    const hasHwUpload = filterNames.some((name) => name === 'hwupload');
+    // Check each filter in the chain
+    let needsHardwareFramesContext = false;
+    let needsHardwareDevice = false;
+
+    for (const filterName of filterNames) {
+      if (!filterName) continue;
+
+      const lowLevelFilter = LowLevelFilter.getByName(filterName);
+      if (lowLevelFilter) {
+        // Check if this filter needs hardware
+        if ((lowLevelFilter.flags & AV_FILTER_FLAG_HWDEVICE) !== 0) {
+          needsHardwareDevice = true;
+          // Only non-hwupload filters need frames context from decoder
+          if (filterName !== 'hwupload' && filterName !== 'hwdownload') {
+            needsHardwareFramesContext = true;
+          }
+        }
+      }
     }
 
-    const stream = streams[streamIndex];
-    const config = FilterAPI.extractConfigFromStream(stream);
-    return FilterAPI.create(description, config, options);
-  }
+    // If we have hwupload, we don't need hardware frames context from decoder
+    filter.needsHardware = needsHardwareFramesContext && !hasHwUpload;
 
-  // Public Processing Methods
+    // Validation: Hardware filter MUST have HardwareContext
+    if (needsHardwareDevice && !options.hardware) {
+      throw new Error('Hardware filter in chain requires a hardware context. ' + 'Please provide one via options.hardware');
+    }
+
+    // Check if we can initialize immediately
+    // Initialize if: (1) we don't need hardware, OR (2) we need hardware AND have framesContext
+    if (!filter.needsHardware || (filter.needsHardware && options.hardware?.framesContext)) {
+      // Can initialize now
+      if (options.hardware?.framesContext && config.type === 'video') {
+        config.hwFramesCtx = options.hardware.framesContext;
+      }
+      await filter.initialize(description, options);
+      filter.initialized = true;
+    } else {
+      // Delay initialization until first frame (hardware needed but no framesContext yet)
+      filter.pendingInit = { description, options };
+    }
+
+    return filter;
+  }
 
   /**
    * Process a single frame through the filter.
@@ -249,6 +266,29 @@ export class FilterAPI implements Disposable {
    * ```
    */
   async process(frame: Frame): Promise<Frame | null> {
+    // Check for delayed initialization
+    if (!this.initialized && this.pendingInit) {
+      // Check if hardware frames context became available
+      if (this.hardware?.framesContext && this.config.type === 'video') {
+        this.config.hwFramesCtx = this.hardware.framesContext;
+        // Update pixel format to match hardware frames if using hardware
+        if (this.needsHardware) {
+          this.config.pixelFormat = this.hardware.getHardwarePixelFormat();
+        }
+        // Now we can initialize
+        await this.initialize(this.pendingInit.description, this.pendingInit.options);
+        this.pendingInit = undefined;
+        this.initialized = true;
+      } else if (this.needsHardware) {
+        throw new Error('Hardware filter requires frames context which is not yet available');
+      } else {
+        // Software filter or hardware not required, can initialize now
+        await this.initialize(this.pendingInit.description, this.pendingInit.options);
+        this.pendingInit = undefined;
+        this.initialized = true;
+      }
+    }
+
     if (!this.initialized || !this.buffersrcCtx || !this.buffersinkCtx) {
       throw new Error('Filter not initialized');
     }
@@ -388,35 +428,79 @@ export class FilterAPI implements Disposable {
   }
 
   /**
+   * Flush filter and yield all remaining frames as a generator.
+   *
+   * More convenient than calling flush() + receive() in a loop.
+   * Automatically sends flush signal and yields all buffered frames.
+   *
+   * @returns Async generator of remaining frames
+   *
+   * @throws {Error} If filter is not initialized
+   *
+   * @example
+   * ```typescript
+   * // Process all remaining frames with generator
+   * for await (const frame of filter.flushFrames()) {
+   *   // Process final frame
+   *   using _ = frame; // Auto cleanup
+   * }
+   * ```
+   */
+  async *flushFrames(): AsyncGenerator<Frame> {
+    if (!this.initialized || !this.buffersrcCtx) {
+      throw new Error('Filter not initialized');
+    }
+
+    // Send flush signal
+    await this.flush();
+
+    // Yield all remaining frames
+    let frame;
+    while ((frame = await this.receive()) !== null) {
+      yield frame;
+    }
+  }
+
+  /**
    * Process frames as an async generator.
    *
    * Provides a convenient iterator interface for filtering.
    * Automatically handles buffering and draining.
+   * Input frames are automatically freed after processing.
    *
-   * @param frames - Async generator of input frames
+   * IMPORTANT: The yielded frames MUST be freed by the caller!
+   * Input frames are automatically freed after processing.
    *
-   * @returns Async generator of filtered frames
+   * @param frames - Async generator of input frames (will be freed automatically)
+   *
+   * @returns Async generator of filtered frames (ownership transferred to caller)
    *
    * @example
    * ```typescript
    * for await (const filtered of filter.frames(decoder.frames())) {
    *   // Process filtered frame
+   *   filtered.free(); // Must free output frame
    * }
    * ```
    */
   async *frames(frames: AsyncGenerator<Frame>): AsyncGenerator<Frame> {
     for await (const frame of frames) {
-      // Process input frame
-      const output = await this.process(frame);
-      if (output) {
-        yield output;
-      }
+      try {
+        // Process input frame
+        const output = await this.process(frame);
+        if (output) {
+          yield output;
+        }
 
-      // Drain any buffered frames
-      while (true) {
-        const buffered = await this.receive();
-        if (!buffered) break;
-        yield buffered;
+        // Drain any buffered frames
+        while (true) {
+          const buffered = await this.receive();
+          if (!buffered) break;
+          yield buffered;
+        }
+      } finally {
+        // Free the input frame after processing
+        frame.free();
       }
     }
 
@@ -428,8 +512,6 @@ export class FilterAPI implements Disposable {
       yield remaining;
     }
   }
-
-  // Public Utility Methods
 
   /**
    * Get the filter graph description.
@@ -525,11 +607,26 @@ export class FilterAPI implements Disposable {
     // Create buffer source
     this.createBufferSource();
 
-    // Create buffer sink with output constraints
-    this.createBufferSink(options.output);
+    // Create buffer sink
+    this.createBufferSink();
 
     // Parse filter description
     this.parseFilterDescription(description);
+
+    // Set hw_device_ctx on hardware filters if we have hardware context
+    if (this.hardware?.deviceContext) {
+      const filters = this.graph.filters;
+      if (filters) {
+        for (const filterCtx of filters) {
+          // Check if this filter needs hardware device context
+          const filter = filterCtx.filter;
+          if (filter && (filter.flags & AV_FILTER_FLAG_HWDEVICE) !== 0) {
+            // Set hardware device context on this filter
+            filterCtx.hwDeviceCtx = this.hardware.deviceContext;
+          }
+        }
+      }
+    }
 
     // Configure the graph
     const ret = await this.graph.config();
@@ -593,7 +690,7 @@ export class FilterAPI implements Disposable {
       } else {
         const cfg = this.config;
         // Use sample format name from utilities
-        const sampleFmtName = this.getSampleFormatName(cfg.sampleFormat);
+        const sampleFmtName = avGetSampleFmtName(cfg.sampleFormat);
         // Handle invalid channel layout (0) by using stereo as default
         const channelLayout = cfg.channelLayout === 0n ? 'stereo' : cfg.channelLayout.toString();
         args = `sample_rate=${cfg.sampleRate}:sample_fmt=${sampleFmtName}:channel_layout=${channelLayout}:time_base=${cfg.timeBase.num}/${cfg.timeBase.den}`;
@@ -611,45 +708,18 @@ export class FilterAPI implements Disposable {
    *
    * @internal
    */
-  private createBufferSink(output?: FilterOutputOptions): void {
+  private createBufferSink(): void {
     const filterName = this.config.type === 'video' ? 'buffersink' : 'abuffersink';
     const sinkFilter = LowLevelFilter.getByName(filterName);
     if (!sinkFilter) {
       throw new Error(`${filterName} filter not found`);
     }
 
-    // Allocate sink without initializing
-    this.buffersinkCtx = this.graph.allocFilter(sinkFilter, 'out');
+    // Create sink filter - no automatic format conversion
+    this.buffersinkCtx = this.graph.createFilter(sinkFilter, 'out', null);
     if (!this.buffersinkCtx) {
       throw new Error('Failed to create buffer sink');
     }
-
-    // Set output constraints if specified
-    if (output) {
-      if (this.config.type === 'video' && output.pixelFormats) {
-        const ret = this.buffersinkCtx.optSetBin('pix_fmts', output.pixelFormats, AV_OPT_SEARCH_CHILDREN);
-        FFmpegError.throwIfError(ret, 'Failed to set pixel formats');
-      } else if (this.config.type === 'audio') {
-        if (output.sampleFormats) {
-          const ret = this.buffersinkCtx.optSetBin('sample_fmts', output.sampleFormats, AV_OPT_SEARCH_CHILDREN);
-          FFmpegError.throwIfError(ret, 'Failed to set sample formats');
-        }
-        if (output.sampleRates) {
-          const ret = this.buffersinkCtx.optSetBin('sample_rates', output.sampleRates, AV_OPT_SEARCH_CHILDREN);
-          FFmpegError.throwIfError(ret, 'Failed to set sample rates');
-        }
-        if (output.channelLayouts) {
-          // Convert bigint array to number array for optSetBin
-          const layoutNumbers = output.channelLayouts.map((layout) => Number(layout));
-          const ret = this.buffersinkCtx.optSetBin('channel_layouts', layoutNumbers, AV_OPT_SEARCH_CHILDREN);
-          FFmpegError.throwIfError(ret, 'Failed to set channel layouts');
-        }
-      }
-    }
-
-    // Initialize the sink
-    const ret = this.buffersinkCtx.init();
-    FFmpegError.throwIfError(ret, 'Failed to initialize buffer sink');
   }
 
   /**
@@ -690,108 +760,6 @@ export class FilterAPI implements Disposable {
     // Clean up FilterInOut structures
     inputs.free();
     outputs.free();
-  }
-
-  /**
-   * Get pixel format name for filter string.
-   *
-   * @internal
-   */
-  private getPixelFormatName(format: AVPixelFormat): string {
-    const name = avGetPixFmtName(format);
-    if (!name) {
-      throw new Error(`Unknown pixel format: ${format}`);
-    }
-    return name;
-  }
-
-  /**
-   * Get sample format name for filter string.
-   *
-   * @internal
-   */
-  private getSampleFormatName(format: AVSampleFormat): string {
-    const name = avGetSampleFmtName(format);
-    if (!name) {
-      throw new Error(`Unknown sample format: ${format}`);
-    }
-    return name;
-  }
-
-  /**
-   * Extract filter configuration from a codec context.
-   *
-   * @internal
-   */
-  private static extractConfigFromCodecContext(codecCtx: CodecContext): FilterConfig {
-    if (codecCtx.codecType === AV_MEDIA_TYPE_VIDEO) {
-      // Use pktTimebase if timeBase is invalid
-      let timeBase = codecCtx.timeBase;
-      if (!timeBase || timeBase.num === 0 || timeBase.den === 0) {
-        timeBase = codecCtx.pktTimebase || { num: 1, den: 25 };
-      }
-      return {
-        type: 'video',
-        width: codecCtx.width,
-        height: codecCtx.height,
-        pixelFormat: codecCtx.pixelFormat,
-        timeBase,
-        frameRate: codecCtx.framerate,
-        sampleAspectRatio: codecCtx.sampleAspectRatio,
-        hwFramesCtx: codecCtx.hwFramesCtx,
-      };
-    } else if (codecCtx.codecType === AV_MEDIA_TYPE_AUDIO) {
-      // Use pktTimebase if timeBase is invalid
-      let timeBase = codecCtx.timeBase;
-      if (!timeBase || timeBase.num === 0 || timeBase.den === 0) {
-        timeBase = codecCtx.pktTimebase || { num: 1, den: codecCtx.sampleRate || 48000 };
-      }
-      // Handle invalid channel layout (use stereo as default)
-      const channelLayout = codecCtx.channelLayout?.mask || 3n; // 3n = stereo
-      return {
-        type: 'audio',
-        sampleRate: codecCtx.sampleRate,
-        sampleFormat: codecCtx.sampleFormat,
-        channelLayout,
-        timeBase,
-      };
-    } else {
-      throw new Error('Unsupported codec type');
-    }
-  }
-
-  /**
-   * Extract filter configuration from a stream.
-   *
-   * @internal
-   */
-  private static extractConfigFromStream(stream: Stream): FilterConfig {
-    const codecpar = stream.codecpar;
-    if (!codecpar) {
-      throw new Error('Stream has no codec parameters');
-    }
-
-    if (codecpar.codecType === AV_MEDIA_TYPE_VIDEO) {
-      return {
-        type: 'video',
-        width: codecpar.width,
-        height: codecpar.height,
-        pixelFormat: codecpar.format as AVPixelFormat,
-        timeBase: stream.timeBase,
-        frameRate: stream.rFrameRate,
-        sampleAspectRatio: codecpar.sampleAspectRatio,
-      };
-    } else if (codecpar.codecType === AV_MEDIA_TYPE_AUDIO) {
-      return {
-        type: 'audio',
-        sampleRate: codecpar.sampleRate,
-        sampleFormat: codecpar.format as AVSampleFormat,
-        channelLayout: codecpar.channelLayout.mask,
-        timeBase: stream.timeBase,
-      };
-    } else {
-      throw new Error('Unsupported codec type');
-    }
   }
 
   /**

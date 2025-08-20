@@ -3,11 +3,13 @@
 #include "filter_graph.h"
 #include "dictionary.h"
 #include "frame.h"
+#include "hardware_device_context.h"
 #include "common.h"
 
 extern "C" {
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
+#include <libavutil/buffer.h>
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/buffersink.h>
 }
@@ -41,6 +43,7 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&FilterContext::GetNbInputs>("nbInputs"),
     InstanceAccessor<&FilterContext::GetNbOutputs>("nbOutputs"),
     InstanceAccessor<&FilterContext::GetReady>("ready"),
+    InstanceAccessor<&FilterContext::GetHwDeviceCtx, &FilterContext::SetHwDeviceCtx>("hwDeviceCtx"),
     
     // Utility
     InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterContext::Dispose),
@@ -418,6 +421,49 @@ Napi::Value FilterContext::GetReady(const Napi::CallbackInfo& info) {
     return Napi::Number::New(env, 0);
   }
   return Napi::Number::New(env, ctx->ready);
+}
+
+Napi::Value FilterContext::GetHwDeviceCtx(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  if (!ctx || !ctx->hw_device_ctx) {
+    return env.Null();
+  }
+  
+  // Use Wrap to create a HardwareDeviceContext wrapper for the existing AVBufferRef
+  return HardwareDeviceContext::Wrap(env, ctx->hw_device_ctx);
+}
+
+void FilterContext::SetHwDeviceCtx(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  if (!ctx) {
+    Napi::Error::New(env, "FilterContext not allocated").ThrowAsJavaScriptException();
+    return;
+  }
+  
+  if (value.IsNull() || value.IsUndefined()) {
+    // Clear hw_device_ctx
+    if (ctx->hw_device_ctx) {
+      av_buffer_unref(&ctx->hw_device_ctx);
+    }
+  } else if (value.IsObject()) {
+    // Expect a HardwareDeviceContext object
+    HardwareDeviceContext* hwDeviceCtx = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(value.As<Napi::Object>());
+    if (hwDeviceCtx) {
+      AVBufferRef* deviceRef = hwDeviceCtx->Get();
+      if (deviceRef) {
+        // Unref old if exists
+        if (ctx->hw_device_ctx) {
+          av_buffer_unref(&ctx->hw_device_ctx);
+        }
+        // Ref the new one
+        ctx->hw_device_ctx = av_buffer_ref(deviceRef);
+      }
+    }
+  } else {
+    Napi::TypeError::New(env, "hwDeviceCtx must be a HardwareDeviceContext or null").ThrowAsJavaScriptException();
+  }
 }
 
 // === Utility ===

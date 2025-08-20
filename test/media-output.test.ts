@@ -79,11 +79,7 @@ describe('MediaOutput', () => {
         write: (buffer: Buffer) => buffer.length,
       };
 
-      await assert.rejects(
-        // @ts-expect-error - Testing missing format
-        async () => await MediaOutput.open(callbacks),
-        /Format must be specified for custom IO/,
-      );
+      await assert.rejects(async () => await MediaOutput.open(callbacks), /Format must be specified for custom IO/);
     });
 
     it('should support custom buffer size for custom IO', async () => {
@@ -106,12 +102,21 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        bitrate: '1M',
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {
+          bitrate: '1M',
+        },
+      );
 
       const streamIndex = output.addStream(encoder);
       assert.equal(typeof streamIndex, 'number');
@@ -150,11 +155,19 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       const customTimeBase = { num: 1, den: 60 };
       const streamIndex = output.addStream(encoder, {
@@ -175,17 +188,31 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const videoEncoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const videoEncoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
-      const audioEncoder = await Encoder.create('aac', {
-        sampleRate: 48000,
-        channelLayout: { nbChannels: 2, order: 1, mask: 3n }, // order: 1 for native layout
-        sampleFormat: AV_SAMPLE_FMT_FLTP,
-      });
+      const audioEncoder = await Encoder.create(
+        'aac',
+        {
+          type: 'audio',
+          sampleRate: 48000,
+          channelLayout: { nbChannels: 2, order: 1, mask: 3n }, // order: 1 for native layout
+          sampleFormat: AV_SAMPLE_FMT_FLTP,
+          timeBase: { num: 1, den: 48000 },
+        },
+        {},
+      );
 
       const videoIdx = output.addStream(videoEncoder);
       const audioIdx = output.addStream(audioEncoder);
@@ -204,11 +231,19 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       output.addStream(encoder);
       await output.writeHeader();
@@ -225,11 +260,19 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
       await output.close();
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       await assert.rejects(async () => output.addStream(encoder), /MediaOutput is closed/);
 
@@ -243,11 +286,19 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       output.addStream(encoder);
 
@@ -273,11 +324,19 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       output.addStream(encoder);
       await output.writeHeader();
@@ -303,11 +362,19 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       output.addStream(encoder);
       await output.writeHeader();
@@ -329,12 +396,21 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        gopSize: 12,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {
+          gopSize: 12,
+        },
+      );
 
       const streamIdx = output.addStream(encoder);
       await output.writeHeader();
@@ -363,11 +439,19 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       const streamIdx = output.addStream(encoder);
 
@@ -386,11 +470,19 @@ describe('MediaOutput', () => {
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
-      const encoder = await Encoder.create('libx264', {
-        width: 640,
-        height: 480,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
       output.addStream(encoder);
       await output.writeHeader();
@@ -418,11 +510,19 @@ describe('MediaOutput', () => {
         output = o;
         assert(output instanceof MediaOutput);
 
-        const encoder = await Encoder.create('libx264', {
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-        });
+        const encoder = await Encoder.create(
+          'libx264',
+          {
+            type: 'video',
+            width: 640,
+            height: 480,
+            pixelFormat: AV_PIX_FMT_YUV420P,
+            frameRate: { num: 25, den: 1 },
+            timeBase: { num: 1, den: 25 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {},
+        );
 
         output.addStream(encoder);
         await output.writeHeader();
@@ -448,15 +548,23 @@ describe('MediaOutput', () => {
       assert(videoStream);
 
       // Setup decoder and encoder
-      const decoder = await Decoder.create(input, 0);
-      const encoder = await Encoder.create('libx264', {
-        width: 320,
-        height: 240,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        bitrate: '500k',
-        timeBase: videoStream.timeBase, // Use input stream timebase
-        maxBFrames: 0, // Disable B-frames to simplify timing
-      });
+      const decoder = await Decoder.create(videoStream);
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 320,
+          height: 240,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          timeBase: videoStream.timeBase, // Use input stream timebase
+          frameRate: { num: 25, den: 1 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {
+          bitrate: '500k',
+          maxBFrames: 0, // Disable B-frames to simplify timing
+        },
+      );
 
       const streamIdx = output.addStream(encoder);
       await output.writeHeader();

@@ -14,8 +14,8 @@
  * Example: tsx examples/api-hw-decode-sw-encode.ts testdata/video.mp4 examples/.tmp/api-hw-decode-sw-encode.mp4
  */
 
-import { Decoder, Encoder, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_PIX_FMT_NV12 } from '../src/lib/constants.js';
+import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
+import { AV_PIX_FMT_YUV420P } from '../src/lib/index.js';
 
 async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   console.log('🎬 Hardware Decode + Software Encode Example');
@@ -52,31 +52,39 @@ async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   }
   console.log('');
 
-  // Create hardware decoder with automatic format conversion to CPU YUV420P
-  console.log('🔧 Setting up hardware decoder with automatic format conversion...');
-
-  const decoder = await Decoder.create(media, videoStream.index, {
+  // Create hardware decoder
+  console.log('🔧 Setting up hardware decoder...');
+  const decoder = await Decoder.create(videoStream, {
     hardware: hw,
-    targetPixelFormat: AV_PIX_FMT_NV12,
   });
-  console.log(`  ✓ Hardware decoder created (${hw.deviceTypeName}) with automatic format conversion`);
+  console.log(`  ✓ Hardware decoder created (${hw.deviceTypeName})`);
+
+  // Create filter to convert from hardware to software format
+  // scale_vt for videotoolbox, hwdownload to nv12, then convert to yuv420p
+  console.log('🔧 Setting up format conversion filter...');
+  const filter = await FilterAPI.create('scale_vt,hwdownload,format=nv12,format=yuv420p', videoStream, { hardware: hw });
+  console.log('  ✓ Format conversion filter created (HW→CPU)');
 
   // Create software encoder (CPU)
   console.log('🔧 Setting up software encoder...');
-  const encoder = await Encoder.create('libx264', {
-    width: videoStream.codecpar.width,
-    height: videoStream.codecpar.height,
-    pixelFormat: AV_PIX_FMT_NV12,
-    bitrate: '2M',
-    gopSize: 60,
-    frameRate: videoStream.codecpar.frameRate,
-    timeBase: videoStream.timeBase,
-    sourceTimeBase: videoStream.timeBase, // For automatic PTS rescaling
-    codecOptions: {
-      preset: 'medium',
-      crf: 23,
+  const encoder = await Encoder.create(
+    'libx264',
+    {
+      type: 'video',
+      width: videoStream.codecpar.width,
+      height: videoStream.codecpar.height,
+      pixelFormat: AV_PIX_FMT_YUV420P, // libx264 prefers YUV420P
+      frameRate: videoStream.avgFrameRate,
+      timeBase: videoStream.timeBase,
+      sampleAspectRatio: videoStream.sampleAspectRatio,
     },
-  });
+    {
+      options: {
+        preset: 'medium',
+        crf: '23',
+      },
+    },
+  );
   console.log('  ✓ Software encoder created (libx264)');
   console.log('');
 
@@ -98,20 +106,25 @@ async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
 
   for await (const packet of media.packets()) {
     if (packet.streamIndex === videoStream.index) {
-      // Hardware decode with automatic format conversion to CPU YUV420P
+      // Hardware decode
       const frame = await decoder.decode(packet);
       if (frame) {
-        frameCount++;
+        // Convert from hardware to CPU format
+        const cpuFrame = await filter.process(frame);
+        if (cpuFrame) {
+          frameCount++;
 
-        // Software encode (encoder handles PTS rescaling automatically)
-        const encodedPacket = await encoder.encode(frame);
-        if (encodedPacket) {
-          // Write to output (MediaOutput handles timestamp rescaling)
-          await output.writePacket(encodedPacket, outputStreamIndex);
-          packetCount++;
-          encodedPacket.free();
+          // Software encode
+          const encodedPacket = await encoder.encode(cpuFrame);
+          if (encodedPacket) {
+            // Write to output
+            await output.writePacket(encodedPacket, outputStreamIndex);
+            packetCount++;
+            encodedPacket.free();
+          }
+
+          cpuFrame.free();
         }
-
         frame.free();
 
         // Progress indicator
@@ -127,14 +140,28 @@ async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   // Flush decoder
   let flushFrame;
   while ((flushFrame = await decoder.flush()) !== null) {
-    const encodedPacket = await encoder.encode(flushFrame);
+    const cpuFrame = await filter.process(flushFrame);
+    if (cpuFrame) {
+      const encodedPacket = await encoder.encode(cpuFrame);
+      if (encodedPacket) {
+        await output.writePacket(encodedPacket, outputStreamIndex);
+        packetCount++;
+        encodedPacket.free();
+      }
+      cpuFrame.free();
+    }
+    flushFrame.free();
+  }
+
+  // Flush filter
+  for await (const cpuFrame of filter.flushFrames()) {
+    const encodedPacket = await encoder.encode(cpuFrame);
     if (encodedPacket) {
       await output.writePacket(encodedPacket, outputStreamIndex);
       packetCount++;
       encodedPacket.free();
     }
-
-    flushFrame.free();
+    cpuFrame.free();
   }
 
   // Flush encoder

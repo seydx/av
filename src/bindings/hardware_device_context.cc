@@ -1,6 +1,7 @@
 #include "hardware_device_context.h"
 #include "dictionary.h"
 #include "error.h"
+#include "common.h"
 #include <sstream>
 
 namespace ffmpeg {
@@ -179,16 +180,11 @@ Napi::Value HardwareDeviceContext::Create(const Napi::CallbackInfo& info) {
   }
   
   AVDictionary* opts = nullptr;
-  Dictionary* dict = nullptr;
+  
   if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined()) {
-    if (!info[2].IsObject()) {
-      Napi::TypeError::New(env, "Options must be Dictionary or null")
-          .ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-    dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[2].As<Napi::Object>());
-    if (dict) {
-      opts = dict->Get();
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[2], "Dictionary");
+    if (dict && dict->Get()) {
+      av_dict_copy(&opts, dict->Get(), 0);
     }
   }
   
@@ -219,7 +215,7 @@ Napi::Value HardwareDeviceContext::CreateDerived(const Napi::CallbackInfo& info)
     return env.Undefined();
   }
   
-  HardwareDeviceContext* src = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(info[0].As<Napi::Object>());
+  HardwareDeviceContext* src = UnwrapNativeObject<HardwareDeviceContext>(env, info[0], "HardwareDeviceContext");
   if (!src || !src->Get()) {
     Napi::Error::New(env, "Invalid source device context").ThrowAsJavaScriptException();
     return env.Undefined();

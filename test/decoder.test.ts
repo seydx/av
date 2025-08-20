@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import { Decoder } from '../src/api/decoder.js';
 import { MediaInput } from '../src/api/media-input.js';
-import { AV_PIX_FMT_NV12, AV_PIX_FMT_RGB24 } from '../src/lib/constants.js';
 import { Packet } from '../src/lib/index.js';
 
 describe('Decoder', () => {
@@ -15,7 +14,7 @@ describe('Decoder', () => {
       assert.ok(videoStream, 'Should find video stream');
 
       // Create decoder
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
       assert.ok(decoder);
       assert.equal(decoder.isDecoderOpen, true);
       assert.equal(decoder.getStreamIndex(), videoStream.index);
@@ -32,7 +31,7 @@ describe('Decoder', () => {
       assert.ok(audioStream, 'Should find audio stream');
 
       // Create decoder
-      const decoder = await Decoder.create(media, audioStream.index);
+      const decoder = await Decoder.create(audioStream);
       assert.ok(decoder);
       assert.equal(decoder.isDecoderOpen, true);
 
@@ -46,20 +45,12 @@ describe('Decoder', () => {
       assert.ok(videoStream);
 
       // Create decoder with 4 threads
-      const decoder = await Decoder.create(media, videoStream.index, {
+      const decoder = await Decoder.create(videoStream, {
         threads: 4,
       });
       assert.ok(decoder);
 
       decoder.close();
-      await media.close();
-    });
-
-    it('should throw for invalid stream index', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
-
-      await assert.rejects(async () => await Decoder.create(media, 999), /Stream 999 not found/);
-
       await media.close();
     });
 
@@ -76,7 +67,7 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
 
       let frameCount = 0;
       let packetCount = 0;
@@ -108,7 +99,7 @@ describe('Decoder', () => {
       const audioStream = media.audio();
       assert.ok(audioStream);
 
-      const decoder = await Decoder.create(media, audioStream.index);
+      const decoder = await Decoder.create(audioStream);
 
       let frameCount = 0;
       let packetCount = 0;
@@ -140,7 +131,7 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
 
       // Some packets might not immediately produce frames
       for await (const packet of media.packets()) {
@@ -163,7 +154,7 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
       decoder.close();
 
       const packet = new Packet();
@@ -182,7 +173,7 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
 
       // Decode some packets first
       let packetCount = 0;
@@ -213,109 +204,11 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
       decoder.close();
 
       await assert.rejects(async () => await decoder.flush(), /Decoder is closed/);
 
-      await media.close();
-    });
-  });
-
-  describe('pixel format conversion', () => {
-    it('should convert pixel format when targetPixelFormat is specified', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
-      const videoStream = media.video();
-      assert.ok(videoStream);
-
-      // Create decoder with target pixel format conversion
-      const decoder = await Decoder.create(media, videoStream.index, {
-        targetPixelFormat: AV_PIX_FMT_RGB24,
-      });
-
-      // Decode a frame
-      let frameDecoded = false;
-      for await (const packet of media.packets()) {
-        if (packet.streamIndex === videoStream.index) {
-          const frame = await decoder.decode(packet);
-          if (frame) {
-            // Check that frame has been converted to RGB24
-            assert.equal(frame.format, AV_PIX_FMT_RGB24);
-            frame.free();
-            frameDecoded = true;
-            break;
-          }
-        }
-      }
-
-      assert.ok(frameDecoded, 'Should decode at least one frame');
-      decoder.close();
-      await media.close();
-    });
-
-    it('should handle same format without conversion', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
-      const videoStream = media.video();
-      assert.ok(videoStream);
-
-      // Get codec context to check original format
-      const testDecoder = await Decoder.create(media, videoStream.index);
-      const codecCtx = testDecoder.getCodecContext();
-      const originalFormat = codecCtx?.pixelFormat;
-      testDecoder.close();
-
-      // Create decoder with same format as original
-      const decoder = await Decoder.create(media, videoStream.index, {
-        targetPixelFormat: originalFormat,
-      });
-
-      // Decode a frame
-      let frameDecoded = false;
-      for await (const packet of media.packets()) {
-        if (packet.streamIndex === videoStream.index) {
-          const frame = await decoder.decode(packet);
-          if (frame) {
-            // Should still be original format
-            assert.equal(frame.format, originalFormat);
-            frame.free();
-            frameDecoded = true;
-            break;
-          }
-        }
-      }
-
-      assert.ok(frameDecoded, 'Should decode at least one frame');
-      decoder.close();
-      await media.close();
-    });
-
-    it('should convert between different YUV formats', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
-      const videoStream = media.video();
-      assert.ok(videoStream);
-
-      // Create decoder with NV12 format conversion
-      const decoder = await Decoder.create(media, videoStream.index, {
-        targetPixelFormat: AV_PIX_FMT_NV12,
-      });
-
-      // Decode a frame
-      let frameDecoded = false;
-      for await (const packet of media.packets()) {
-        if (packet.streamIndex === videoStream.index) {
-          const frame = await decoder.decode(packet);
-          if (frame) {
-            // Check that frame has been converted to NV12
-            assert.equal(frame.format, AV_PIX_FMT_NV12);
-            frame.free();
-            frameDecoded = true;
-            break;
-          }
-        }
-      }
-
-      assert.ok(frameDecoded, 'Should decode at least one frame');
-      decoder.close();
       await media.close();
     });
   });
@@ -327,7 +220,7 @@ describe('Decoder', () => {
       assert.ok(videoStream);
 
       {
-        using decoder = await Decoder.create(media, videoStream.index);
+        using decoder = await Decoder.create(videoStream);
         assert.equal(decoder.isDecoderOpen, true);
         // Decoder will be closed automatically
       }
@@ -340,7 +233,7 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
 
       // Should not throw
       decoder.close();
@@ -359,7 +252,7 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
 
       let frameCount = 0;
       const maxFrames = 10;
@@ -386,7 +279,7 @@ describe('Decoder', () => {
       assert.ok(videoStream);
       assert.ok(audioStream);
 
-      const videoDecoder = await Decoder.create(media, videoStream.index);
+      const videoDecoder = await Decoder.create(videoStream);
 
       let videoFrameCount = 0;
       const maxFrames = 5;
@@ -411,7 +304,7 @@ describe('Decoder', () => {
       const videoStream = media.video();
       assert.ok(videoStream);
 
-      const decoder = await Decoder.create(media, videoStream.index);
+      const decoder = await Decoder.create(videoStream);
 
       // Empty async generator
       async function* emptyPackets() {
@@ -439,8 +332,8 @@ describe('Decoder', () => {
       assert.ok(videoStream);
       assert.ok(audioStream);
 
-      const videoDecoder = await Decoder.create(media, videoStream.index);
-      const audioDecoder = await Decoder.create(media, audioStream.index);
+      const videoDecoder = await Decoder.create(videoStream);
+      const audioDecoder = await Decoder.create(audioStream);
 
       assert.equal(videoDecoder.getStreamIndex(), videoStream.index);
       assert.equal(audioDecoder.getStreamIndex(), audioStream.index);

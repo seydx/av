@@ -7,18 +7,10 @@ import { Decoder } from '../src/api/decoder.js';
 import { Encoder } from '../src/api/encoder.js';
 import { FilterAPI, FilterPresets } from '../src/api/filter.js';
 import { MediaInput } from '../src/api/media-input.js';
-import {
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
-  AV_PIX_FMT_NV12,
-  AV_PIX_FMT_RGB24,
-  AV_PIX_FMT_YUV420P,
-  AV_SAMPLE_FMT_FLTP,
-  AV_SAMPLE_FMT_S16,
-} from '../src/lib/constants.js';
+import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO, AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from '../src/lib/constants.js';
 import { Frame } from '../src/lib/index.js';
 
-import type { AudioFilterConfig, VideoFilterConfig } from '../src/api/types.js';
+import type { AudioInfo, VideoInfo } from '../src/api/types.js';
 
 describe('High-Level Filter API', () => {
   const testVideoPath = path.join(import.meta.dirname, '..', 'testdata', 'demux.mp4');
@@ -35,12 +27,14 @@ describe('High-Level Filter API', () => {
 
   describe('Filter Creation', () => {
     it('should create a simple video filter', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
+        frameRate: { num: 30, den: 1 },
         timeBase: { num: 1, den: 30 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
@@ -51,11 +45,11 @@ describe('High-Level Filter API', () => {
     });
 
     it('should create a simple audio filter', async () => {
-      const config: AudioFilterConfig = {
+      const config: AudioInfo = {
         type: 'audio',
         sampleRate: 48000,
         sampleFormat: AV_SAMPLE_FMT_FLTP,
-        channelLayout: 3n, // Stereo
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n }, // Stereo
         timeBase: { num: 1, den: 48000 },
       };
 
@@ -67,12 +61,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should create filter with null/passthrough', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
+        frameRate: { num: 30, den: 1 },
         timeBase: { num: 1, den: 30 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('null', config);
@@ -81,36 +77,46 @@ describe('High-Level Filter API', () => {
       filter.free();
     });
 
-    it('should create filter from decoder', async () => {
+    it('should create filter from stream', async () => {
       const media = await MediaInput.open(testVideoPath);
-      const decoder = await Decoder.create(media, 0);
+      const videoStream = media.video();
+      assert.ok(videoStream);
 
-      const filter = await FilterAPI.createFromDecoder(decoder, 'scale=640:480');
+      const filter = await FilterAPI.create('scale=640:480', videoStream);
       assert.ok(filter);
       assert.ok(filter.isReady());
       assert.equal(filter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
 
       filter.free();
-      decoder.close();
-      media.close();
+      await media.close();
     });
 
-    it('should create filter from encoder', async () => {
-      const encoder = await Encoder.create('libx264', {
-        width: 1280,
-        height: 720,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-      });
+    it('should create filter for encoder', async () => {
+      const encoder = await Encoder.create(
+        'libx264',
+        {
+          type: 'video',
+          width: 1280,
+          height: 720,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 30, den: 1 },
+          timeBase: { num: 1, den: 30 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
 
-      const inputConfig: VideoFilterConfig = {
+      const inputConfig: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_RGB24,
+        frameRate: { num: 30, den: 1 },
         timeBase: { num: 1, den: 30 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
-      const filter = await FilterAPI.createFromEncoder(encoder, 'scale=1280:720', inputConfig);
+      const filter = await FilterAPI.create('scale=1280:720', inputConfig);
       assert.ok(filter);
       assert.ok(filter.isReady());
 
@@ -119,19 +125,18 @@ describe('High-Level Filter API', () => {
     });
 
     it('should create filter with output constraints', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_RGB24,
+        frameRate: { num: 30, den: 1 },
         timeBase: { num: 1, den: 30 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
-      const filter = await FilterAPI.create('scale=1280:720', config, {
-        output: {
-          pixelFormats: [AV_PIX_FMT_YUV420P, AV_PIX_FMT_NV12],
-        },
-      });
+      // Note: output constraints are not supported in the new API
+      const filter = await FilterAPI.create('scale=1280:720,format=pix_fmts=yuv420p|nv12', config);
 
       assert.ok(filter);
       assert.ok(filter.isReady());
@@ -139,12 +144,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should create filter with threading options', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config, {
@@ -157,12 +164,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should handle complex filter chain', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720,fps=30,format=yuv420p', config);
@@ -173,12 +182,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should throw on invalid filter description', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       await assert.rejects(async () => {
@@ -189,12 +200,14 @@ describe('High-Level Filter API', () => {
 
   describe('Frame Processing', () => {
     it('should process a single frame', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
@@ -219,12 +232,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should handle multiple frames', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 640,
         height: 480,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('fps=15', config);
@@ -252,12 +267,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should flush and receive remaining frames', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 640,
         height: 480,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('fps=15', config);
@@ -300,9 +317,11 @@ describe('High-Level Filter API', () => {
   describe('Async Generator Interface', () => {
     it('should process frames via async generator', async () => {
       const media = await MediaInput.open(testVideoPath);
-      const decoder = await Decoder.create(media, 0);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+      const decoder = await Decoder.create(videoStream);
 
-      const filter = await FilterAPI.createFromDecoder(decoder, 'scale=320:240,fps=15');
+      const filter = await FilterAPI.create('scale=320:240,fps=15', videoStream);
 
       let frameCount = 0;
       const maxFrames = 10;
@@ -310,7 +329,7 @@ describe('High-Level Filter API', () => {
       async function* limitedFrames() {
         let count = 0;
         for await (const packet of media.packets()) {
-          if (packet.streamIndex === 0) {
+          if (packet.streamIndex === videoStream!.index) {
             const frame = await decoder.decode(packet);
             if (frame) {
               yield frame;
@@ -431,12 +450,14 @@ describe('High-Level Filter API', () => {
 
   describe('Utility Methods', () => {
     it('should get graph description', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
@@ -448,7 +469,7 @@ describe('High-Level Filter API', () => {
     });
 
     it('should get filter configuration', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
@@ -471,12 +492,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should check if filter is ready', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
@@ -487,23 +510,25 @@ describe('High-Level Filter API', () => {
     });
 
     it('should get media type', async () => {
-      const videoConfig: VideoFilterConfig = {
+      const videoConfig: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const videoFilter = await FilterAPI.create('scale=1280:720', videoConfig);
       assert.equal(videoFilter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
       videoFilter.free();
 
-      const audioConfig: AudioFilterConfig = {
+      const audioConfig: AudioInfo = {
         type: 'audio',
         sampleRate: 48000,
         sampleFormat: AV_SAMPLE_FMT_FLTP,
-        channelLayout: 3n,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
         timeBase: { num: 1, den: 48000 },
       };
 
@@ -515,12 +540,14 @@ describe('High-Level Filter API', () => {
 
   describe('Symbol.dispose', () => {
     it('should support using syntax', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       {
@@ -533,12 +560,14 @@ describe('High-Level Filter API', () => {
 
   describe('Error Handling', () => {
     it('should throw on invalid configuration', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 0, // Invalid width
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       await assert.rejects(async () => {
@@ -547,12 +576,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should throw when processing after free', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
@@ -572,12 +603,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should throw when flushing after free', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
@@ -589,12 +622,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should throw when receiving after free', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
@@ -606,12 +641,14 @@ describe('High-Level Filter API', () => {
     });
 
     it('should throw when exporting graph after free', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       await assert.rejects(async () => {
@@ -624,19 +661,17 @@ describe('High-Level Filter API', () => {
 
   describe('Complex Filter Graphs', () => {
     it('should handle video scaling and format conversion', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_RGB24,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
-      const filter = await FilterAPI.create('scale=1280:720,format=yuv420p', config, {
-        output: {
-          pixelFormats: [AV_PIX_FMT_YUV420P],
-        },
-      });
+      const filter = await FilterAPI.create('scale=1280:720,format=yuv420p', config);
 
       const frame = new Frame();
       frame.alloc();
@@ -659,20 +694,15 @@ describe('High-Level Filter API', () => {
     });
 
     it('should handle audio resampling', async () => {
-      const config: AudioFilterConfig = {
+      const config: AudioInfo = {
         type: 'audio',
         sampleRate: 48000,
         sampleFormat: AV_SAMPLE_FMT_FLTP,
-        channelLayout: 3n,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
         timeBase: { num: 1, den: 48000 },
       };
 
-      const filter = await FilterAPI.create('aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', config, {
-        output: {
-          sampleFormats: [AV_SAMPLE_FMT_S16],
-          sampleRates: [44100],
-        },
-      });
+      const filter = await FilterAPI.create('aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', config);
 
       assert.ok(filter.isReady());
       filter.free();
@@ -682,15 +712,17 @@ describe('High-Level Filter API', () => {
   describe('Real Media Processing', () => {
     it('should process real video file', async () => {
       const media = await MediaInput.open(testVideoPath);
-      const decoder = await Decoder.create(media, 0);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+      const decoder = await Decoder.create(videoStream);
 
-      const filter = await FilterAPI.createFromDecoder(decoder, 'scale=640:480,format=yuv420p');
+      const filter = await FilterAPI.create('scale=640:480,format=yuv420p', videoStream);
 
       let processedFrames = 0;
       const maxFrames = 5;
 
       for await (const packet of media.packets()) {
-        if (packet.streamIndex === 0) {
+        if (packet.streamIndex === videoStream.index) {
           const frame = await decoder.decode(packet);
           if (frame) {
             const filtered = await filter.process(frame);
@@ -710,16 +742,18 @@ describe('High-Level Filter API', () => {
 
       filter.free();
       decoder.close();
-      media.close();
+      await media.close();
     });
 
     it('should chain multiple filter presets', async () => {
-      const config: VideoFilterConfig = {
+      const config: VideoInfo = {
         type: 'video',
         width: 1920,
         height: 1080,
         pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
       };
 
       const filterChain = [FilterPresets.scale(1280, 720), FilterPresets.fps(24), FilterPresets.format(AV_PIX_FMT_YUV420P)].join(',');
@@ -739,26 +773,19 @@ describe('High-Level Filter API', () => {
       const media = await MediaInput.open(testAudioPath);
 
       // Find audio stream
-      let audioStreamIndex = -1;
-      for (let i = 0; i < media.streams.length; i++) {
-        if (media.streams[i].codecpar.codecType === AV_MEDIA_TYPE_AUDIO) {
-          audioStreamIndex = i;
-          break;
-        }
-      }
+      const audioStream = media.audio();
+      assert.ok(audioStream, 'Should find audio stream');
 
-      assert.ok(audioStreamIndex >= 0, 'Should find audio stream');
-
-      const decoder = await Decoder.create(media, audioStreamIndex);
+      const decoder = await Decoder.create(audioStream);
 
       // Apply audio filters: volume adjustment and resampling
-      const filter = await FilterAPI.createFromDecoder(decoder, 'volume=0.5,aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo');
+      const filter = await FilterAPI.create('volume=0.5,aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', audioStream);
 
       let processedFrames = 0;
       const maxFrames = 10;
 
       for await (const packet of media.packets()) {
-        if (packet.streamIndex === audioStreamIndex) {
+        if (packet.streamIndex === audioStream.index) {
           const frame = await decoder.decode(packet);
           if (frame) {
             const filtered = await filter.process(frame);
@@ -779,7 +806,7 @@ describe('High-Level Filter API', () => {
 
       filter.free();
       decoder.close();
-      media.close();
+      await media.close();
     });
   });
 });

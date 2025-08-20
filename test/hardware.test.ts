@@ -1,7 +1,14 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import { Decoder, Encoder, HardwareContext, MediaInput } from '../src/api/index.js';
-import { AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
+import {
+  AV_HWDEVICE_TYPE_CUDA,
+  AV_HWDEVICE_TYPE_NONE,
+  AV_HWDEVICE_TYPE_VAAPI,
+  AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+  AV_PIX_FMT_NV12,
+  AV_PIX_FMT_YUV420P,
+} from '../src/lib/constants.js';
 import type { Frame } from '../src/lib/index.js';
 
 describe('HardwareContext', () => {
@@ -25,7 +32,7 @@ describe('HardwareContext', () => {
     });
 
     it('should handle unknown device type', async () => {
-      await assert.rejects(async () => await HardwareContext.create('unknown_device'), /Unknown hardware device type/, 'Should throw for unknown device');
+      await assert.rejects(async () => await HardwareContext.create(999 as any), /Failed to create hardware context for/, 'Should throw for unknown device');
     });
   });
 
@@ -55,7 +62,7 @@ describe('HardwareContext', () => {
   describe('specific hardware types', () => {
     it('should handle CUDA if available', async () => {
       try {
-        const cuda = await HardwareContext.create('cuda');
+        const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
         console.log('CUDA hardware acceleration available');
         assert.equal(cuda.deviceTypeName, 'cuda', 'Should be CUDA device');
         cuda.dispose();
@@ -67,7 +74,7 @@ describe('HardwareContext', () => {
     it('should handle VideoToolbox if available', async () => {
       if (process.platform === 'darwin') {
         try {
-          const vt = await HardwareContext.create('videotoolbox');
+          const vt = await HardwareContext.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
           console.log('VideoToolbox hardware acceleration available');
           assert.equal(vt.deviceTypeName, 'videotoolbox', 'Should be VideoToolbox device');
           vt.dispose();
@@ -80,7 +87,7 @@ describe('HardwareContext', () => {
     it('should handle VAAPI if available', async () => {
       if (process.platform === 'linux') {
         try {
-          const vaapi = await HardwareContext.create('vaapi');
+          const vaapi = await HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI);
           console.log('VAAPI hardware acceleration available');
           assert.equal(vaapi.deviceTypeName, 'vaapi', 'Should be VAAPI device');
           vaapi.dispose();
@@ -123,7 +130,7 @@ describe('HardwareContext', () => {
       const videoStream = media.video(0);
       assert.ok(videoStream, 'Should have video stream');
 
-      const decoder = await Decoder.create(media, videoStream.index, {
+      const decoder = await Decoder.create(videoStream, {
         hardware: hw,
       });
 
@@ -147,13 +154,22 @@ describe('HardwareContext', () => {
 
       try {
         // This test just checks disposal, software encoder is fine
-        const encoder = await Encoder.create('libx264', {
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          bitrate: '1M',
-          hardware: hw,
-        });
+        const encoder = await Encoder.create(
+          'libx264',
+          {
+            type: 'video',
+            width: 640,
+            height: 480,
+            pixelFormat: AV_PIX_FMT_YUV420P,
+            frameRate: { num: 25, den: 1 },
+            timeBase: { num: 1, den: 25 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {
+            bitrate: '1M',
+            hardware: hw,
+          },
+        );
 
         assert.ok(!hw.isDisposed, 'Hardware should not be disposed yet');
 
@@ -185,10 +201,10 @@ describe('HardwareContext', () => {
       assert.ok(videoStream1 && videoStream2, 'Should have video streams');
 
       // Create two decoders sharing the same hardware
-      const decoder1 = await Decoder.create(media1, videoStream1.index, {
+      const decoder1 = await Decoder.create(videoStream1, {
         hardware: hw,
       });
-      const decoder2 = await Decoder.create(media2, videoStream2.index, {
+      const decoder2 = await Decoder.create(videoStream2, {
         hardware: hw,
       });
 
@@ -227,7 +243,7 @@ describe('HardwareContext', () => {
         assert.ok(videoStream, 'Should have video stream');
 
         // Create decoder with hardware acceleration
-        const decoder = await Decoder.create(media, videoStream.index, {
+        const decoder = await Decoder.create(videoStream, {
           hardware: hw,
         });
 
@@ -262,7 +278,7 @@ describe('HardwareContext', () => {
 
       // Auto-detect hardware and create decoder
       const hw = await HardwareContext.auto();
-      const decoder = await Decoder.create(media, videoStream.index, hw ? { hardware: hw } : {});
+      const decoder = await Decoder.create(videoStream, hw ? { hardware: hw } : {});
 
       // Decode first frame
       let frameCount = 0;
@@ -296,13 +312,22 @@ describe('HardwareContext', () => {
         // Try to create encoder with hardware
         // Use explicit hardware codec name
         const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
-        const encoder = await Encoder.create(encoderName, {
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          bitrate: '1M',
-          hardware: hw,
-        });
+        const encoder = await Encoder.create(
+          encoderName,
+          {
+            type: 'video',
+            width: 640,
+            height: 480,
+            pixelFormat: AV_PIX_FMT_YUV420P,
+            frameRate: { num: 25, den: 1 },
+            timeBase: { num: 1, den: 25 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {
+            bitrate: '1M',
+            hardware: hw,
+          },
+        );
 
         // Just verify it was created successfully
         assert.ok(encoder, 'Should create hardware encoder');
@@ -321,13 +346,22 @@ describe('HardwareContext', () => {
       try {
         // Use appropriate encoder based on hardware availability
         const encoderName = hw?.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
-        const encoder = await Encoder.create(encoderName, {
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          bitrate: '1M',
-          hardware: hw ?? undefined,
-        });
+        const encoder = await Encoder.create(
+          encoderName,
+          {
+            type: 'video',
+            width: 640,
+            height: 480,
+            pixelFormat: AV_PIX_FMT_YUV420P,
+            frameRate: { num: 25, den: 1 },
+            timeBase: { num: 1, den: 25 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {
+            bitrate: '1M',
+            hardware: hw ?? undefined,
+          },
+        );
 
         // Just verify it was created
         assert.ok(encoder, 'Should create encoder');
@@ -359,7 +393,7 @@ describe('HardwareContext', () => {
         assert.ok(videoStream, 'Should have video stream');
 
         // Create hardware decoder
-        const decoder = await Decoder.create(media, videoStream.index, {
+        const decoder = await Decoder.create(videoStream, {
           hardware: hw,
         });
 
@@ -368,13 +402,22 @@ describe('HardwareContext', () => {
         const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
         let encoder;
         try {
-          encoder = await Encoder.create(encoderName, {
-            width: videoStream.codecpar.width,
-            height: videoStream.codecpar.height,
-            pixelFormat: AV_PIX_FMT_NV12,
-            bitrate: '2M',
-            hardware: hw,
-          });
+          encoder = await Encoder.create(
+            encoderName,
+            {
+              type: 'video',
+              width: videoStream.codecpar.width,
+              height: videoStream.codecpar.height,
+              pixelFormat: AV_PIX_FMT_NV12,
+              frameRate: { num: 25, den: 1 },
+              timeBase: { num: 1, den: 25 },
+              sampleAspectRatio: { num: 1, den: 1 },
+            },
+            {
+              bitrate: '2M',
+              hardware: hw,
+            },
+          );
         } catch (error) {
           console.log('Hardware encoding not supported:', error);
           decoder.close();
@@ -456,10 +499,10 @@ describe('HardwareContext', () => {
         assert.ok(videoStream1 && videoStream2, 'Should have video streams');
 
         // Create decoders sharing same hardware context
-        const decoder1 = await Decoder.create(media1, videoStream1.index, {
+        const decoder1 = await Decoder.create(videoStream1, {
           hardware: hw,
         });
-        const decoder2 = await Decoder.create(media2, videoStream2.index, {
+        const decoder2 = await Decoder.create(videoStream2, {
           hardware: hw,
         });
 
@@ -522,13 +565,22 @@ describe('HardwareContext', () => {
 
         // If VideoToolbox supports h264 encoding, try to create encoder
         if (hw.deviceTypeName === 'videotoolbox') {
-          const encoder = await Encoder.create('h264_videotoolbox', {
-            width: 640,
-            height: 480,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            bitrate: '1M',
-            hardware: hw,
-          });
+          const encoder = await Encoder.create(
+            'h264_videotoolbox',
+            {
+              type: 'video',
+              width: 640,
+              height: 480,
+              pixelFormat: AV_PIX_FMT_YUV420P,
+              frameRate: { num: 25, den: 1 },
+              timeBase: { num: 1, den: 25 },
+              sampleAspectRatio: { num: 1, den: 1 },
+            },
+            {
+              bitrate: '1M',
+              hardware: hw,
+            },
+          );
 
           assert.ok(encoder, 'Should create hardware encoder');
           encoder.close();

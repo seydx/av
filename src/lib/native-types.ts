@@ -779,6 +779,7 @@ export interface NativeFilterContext extends Disposable {
   readonly nbInputs: number;
   readonly nbOutputs: number;
   readonly ready: number;
+  hwDeviceCtx: NativeHardwareDeviceContext | null;
 
   // Symbol.dispose for cleanup
   [Symbol.dispose](): void;

@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "outDir": "./dist",
-    "target": "ESNext",
+    "target": "ES2024",
     "moduleResolution": "NodeNext",
     "module": "NodeNext",
     "lib": [
-      "ESNext"
+      "ES2024"
     ],
     "noEmit": true,
     "declaration": false,
@@ -23,15 +23,15 @@
     "noImplicitAny": true,
   },
   "include": [
-    "src",
     "test",
-    "examples",
-    "scripts",
   ],
   "exclude": [
+    "src",
     "node_modules",
     "dist",
     ".tmp",
+    "scripts",
+    "examples",
     "externals",
   ]
 }

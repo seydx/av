@@ -32,17 +32,19 @@
   },
   "scripts": {
     "build": "npm run build:native && npm run build:tsc",
-    "build:diverse": "tsc -p tsconfig.json",
+    "build:examples": "tsc -p tsconfig.examples.json",
     "build:native": "node-gyp rebuild",
-    "build:test": "npm run build:diverse && npm run build && tsx --test test/**/*.test.ts",
+    "build:tests": "tsc -p tsconfig.tests.json",
     "build:tsc": "rimraf dist && tsc -p tsconfig.build.json",
     "clean": "node-gyp clean && rimraf dist",
     "format": "prettier --write 'src/' --write 'test/' --write 'scripts/' --write 'examples/' --ignore-unknown --no-error-on-unmatched-pattern",
     "generate:constants": "node scripts/generate-constants.js",
+    "generate:layouts": "node scripts/generate-channel-layouts.js",
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "test": "npm run build:diverse && npm run build:tsc && tsx --test test/**/*.test.ts",
+    "test": "tsx --test",
+    "test:all": "npm run build:tests && npm run build:tsc && tsx --test test/**/*.test.ts",
     "update": "updates --update ./"
   },
   "dependencies": {

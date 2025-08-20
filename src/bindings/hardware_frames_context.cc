@@ -2,6 +2,7 @@
 #include "hardware_device_context.h"
 #include "frame.h"
 #include "error.h"
+#include "common.h"
 
 namespace ffmpeg {
 
@@ -83,7 +84,7 @@ Napi::Value HardwareFramesContext::Alloc(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
   
-  HardwareDeviceContext* device = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(info[0].As<Napi::Object>());
+  HardwareDeviceContext* device = UnwrapNativeObject<HardwareDeviceContext>(env, info[0], "HardwareDeviceContext");
   if (!device || !device->Get()) {
     Napi::Error::New(env, "Invalid device context").ThrowAsJavaScriptException();
     return env.Undefined();
@@ -127,7 +128,7 @@ Napi::Value HardwareFramesContext::GetBuffer(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
   
-  Frame* frame = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  Frame* frame = UnwrapNativeObject<Frame>(env, info[0], "Frame");
   if (!frame || !frame->Get()) {
     Napi::Error::New(env, "Invalid frame").ThrowAsJavaScriptException();
     return env.Undefined();
@@ -195,8 +196,8 @@ Napi::Value HardwareFramesContext::Map(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
   
-  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
-  Frame* src = Napi::ObjectWrap<Frame>::Unwrap(info[1].As<Napi::Object>());
+  Frame* dst = UnwrapNativeObject<Frame>(env, info[0], "Frame");
+  Frame* src = UnwrapNativeObject<Frame>(env, info[1], "Frame");
   
   if (!dst || !dst->Get() || !src || !src->Get()) {
     Napi::Error::New(env, "Invalid frame(s)").ThrowAsJavaScriptException();
@@ -223,13 +224,13 @@ Napi::Value HardwareFramesContext::CreateDerived(const Napi::CallbackInfo& info)
   
   enum AVPixelFormat format = static_cast<AVPixelFormat>(info[0].As<Napi::Number>().Int32Value());
   
-  HardwareDeviceContext* derivedDevice = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(info[1].As<Napi::Object>());
+  HardwareDeviceContext* derivedDevice = UnwrapNativeObject<HardwareDeviceContext>(env, info[1], "HardwareDeviceContext");
   if (!derivedDevice || !derivedDevice->Get()) {
     Napi::Error::New(env, "Invalid derived device context").ThrowAsJavaScriptException();
     return env.Undefined();
   }
   
-  HardwareFramesContext* src = Napi::ObjectWrap<HardwareFramesContext>::Unwrap(info[2].As<Napi::Object>());
+  HardwareFramesContext* src = UnwrapNativeObject<HardwareFramesContext>(env, info[2], "HardwareFramesContext");
   if (!src || !src->Get()) {
     Napi::Error::New(env, "Invalid source frames context").ThrowAsJavaScriptException();
     return env.Undefined();

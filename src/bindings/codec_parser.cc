@@ -1,6 +1,7 @@
 #include "codec_parser.h"
 #include "codec_context.h"
 #include "packet.h"
+#include "common.h"
 #include <napi.h>
 
 namespace ffmpeg {
@@ -65,14 +66,14 @@ Napi::Value CodecParser::Parse2(const Napi::CallbackInfo& info) {
   }
   
   // Get codec context
-  CodecContext* codecCtx = Napi::ObjectWrap<CodecContext>::Unwrap(info[0].As<Napi::Object>());
+  CodecContext* codecCtx = UnwrapNativeObject<CodecContext>(env, info[0], "CodecContext");
   if (!codecCtx) {
     Napi::TypeError::New(env, "Invalid codec context").ThrowAsJavaScriptException();
     return env.Undefined();
   }
   
   // Get packet
-  Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(info[1].As<Napi::Object>());
+  Packet* packet = UnwrapNativeObject<Packet>(env, info[1], "Packet");
   if (!packet) {
     Napi::TypeError::New(env, "Invalid packet").ThrowAsJavaScriptException();
     return env.Undefined();

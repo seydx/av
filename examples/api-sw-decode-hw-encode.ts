@@ -14,10 +14,7 @@
  * Example: tsx examples/api-sw-decode-hw-encode.ts testdata/video.mp4 examples/.tmp/api-sw-decode-hw-encode.mp4
  */
 
-import { Decoder, Encoder, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
-
-import type { EncoderOptions } from '../src/api/index.js';
+import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
 
 async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   console.log('🎬 Software Decode + Hardware Encode Example');
@@ -54,27 +51,21 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   }
   console.log('');
 
-  // Create software decoder with format conversion for hardware encoder
+  // Create software decoder
   console.log('🔧 Setting up software decoder...');
+  const decoder = await Decoder.create(videoStream);
+  console.log('  ✓ Software decoder created (CPU)');
 
-  // Determine target pixel format based on hardware encoder
-  let targetPixelFormat = AV_PIX_FMT_YUV420P;
-  if (hw.deviceTypeName === 'videotoolbox') {
-    // VideoToolbox prefers NV12 for CPU frames
-    targetPixelFormat = AV_PIX_FMT_NV12;
-  }
-
-  const decoder = await Decoder.create(media, videoStream.index, {
-    targetPixelFormat,
-  });
-  console.log(`  ✓ Software decoder created (CPU) with conversion to ${targetPixelFormat === AV_PIX_FMT_NV12 ? 'NV12' : 'YUV420P'}`);
+  // Create filter to upload frames to hardware
+  console.log('🔧 Setting up hardware upload filter...');
+  const filter = await FilterAPI.create('hwupload', videoStream, { hardware: hw });
+  console.log('  ✓ Hardware upload filter created (CPU→HW)');
 
   // Create hardware encoder (GPU)
   console.log('🔧 Setting up hardware encoder...');
 
   // Select appropriate hardware encoder based on platform
   let encoderName: string;
-
   switch (hw.deviceTypeName) {
     case 'videotoolbox':
       encoderName = 'h264_videotoolbox';
@@ -92,26 +83,12 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
       throw new Error(`Unsupported hardware type: ${hw.deviceTypeName}`);
   }
 
-  // For SW decode + HW encode, VideoToolbox encoder accepts CPU frames directly
-  // without needing a hardware context - just pass the encoder the appropriate format
-  const encoderOptions: EncoderOptions = {
-    width: videoStream.codecpar.width,
-    height: videoStream.codecpar.height,
-    pixelFormat: AV_PIX_FMT_NV12,
+  // Hardware encoder needs hardware context
+  const encoder = await Encoder.create(encoderName, videoStream, {
     bitrate: '4M',
     gopSize: 60,
-    frameRate: videoStream.codecpar.frameRate,
-    timeBase: videoStream.timeBase,
-    sourceTimeBase: videoStream.timeBase, // For automatic PTS rescaling
-  };
-
-  // Only pass hardware context for non-VideoToolbox or if doing HW->HW
-  // VideoToolbox encoder accepts CPU frames directly without hardware context
-  if (hw.deviceTypeName !== 'videotoolbox') {
-    encoderOptions.hardware = hw;
-  }
-
-  const encoder = await Encoder.create(encoderName, encoderOptions);
+    hardware: hw,
+  });
   console.log(`  ✓ Hardware encoder created (${encoderName})`);
   console.log('');
 
@@ -124,7 +101,7 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
 
   // Process video
   console.log('🎥 Processing video...');
-  console.log('  Software decoding → CPU→GPU transfer → Hardware encoding');
+  console.log('  Software decoding → Hardware upload → Hardware encoding');
   console.log('');
 
   let frameCount = 0;
@@ -133,20 +110,25 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
 
   for await (const packet of media.packets()) {
     if (packet.streamIndex === videoStream.index) {
-      // Software decode with automatic format conversion
+      // Software decode
       const frame = await decoder.decode(packet);
       if (frame) {
-        frameCount++;
+        // Upload to hardware
+        const hwFrame = await filter.process(frame);
+        if (hwFrame) {
+          frameCount++;
 
-        // Hardware encode (encoder handles PTS rescaling automatically)
-        const encodedPacket = await encoder.encode(frame);
-        if (encodedPacket) {
-          // Write to output (MediaOutput handles timestamp rescaling)
-          await output.writePacket(encodedPacket, outputStreamIndex);
-          packetCount++;
-          encodedPacket.free();
+          // Hardware encode
+          const encodedPacket = await encoder.encode(hwFrame);
+          if (encodedPacket) {
+            // Write to output
+            await output.writePacket(encodedPacket, outputStreamIndex);
+            packetCount++;
+            encodedPacket.free();
+          }
+
+          hwFrame.free();
         }
-
         frame.free();
 
         // Progress indicator
@@ -162,13 +144,28 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   // Flush decoder
   let flushFrame;
   while ((flushFrame = await decoder.flush()) !== null) {
-    const encodedPacket = await encoder.encode(flushFrame);
+    const hwFrame = await filter.process(flushFrame);
+    if (hwFrame) {
+      const encodedPacket = await encoder.encode(hwFrame);
+      if (encodedPacket) {
+        await output.writePacket(encodedPacket, outputStreamIndex);
+        packetCount++;
+        encodedPacket.free();
+      }
+      hwFrame.free();
+    }
+    flushFrame.free();
+  }
+
+  // Flush filter
+  for await (const hwFrame of filter.flushFrames()) {
+    const encodedPacket = await encoder.encode(hwFrame);
     if (encodedPacket) {
       await output.writePacket(encodedPacket, outputStreamIndex);
       packetCount++;
       encodedPacket.free();
     }
-    flushFrame.free();
+    hwFrame.free();
   }
 
   // Flush encoder

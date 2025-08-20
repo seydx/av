@@ -10,14 +10,11 @@
  * @module api/media-output
  */
 
-import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE } from '../lib/constants.js';
-import { FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
+import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
 import { Encoder } from './encoder.js';
 
-import type { Packet } from '../lib/packet.js';
-import type { Stream } from '../lib/stream.js';
-import type { IRational } from '../lib/types.js';
-import type { IOCallbacks } from './types.js';
+import type { IRational, Packet, Stream } from '../lib/index.js';
+import type { IOCallbacks, MediaOutputOptions } from './types.js';
 
 interface StreamInfo {
   stream: Stream;
@@ -95,42 +92,18 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
-   * Opens a media output for writing to a file or stream URL.
+   * Opens a media output for writing with custom IO callbacks or stream URL or file output
    *
    * Creates a FormatContext and prepares the output for writing.
    * Automatically detects format from filename/URL if not specified.
    *
-   * Uses avformat_alloc_output_context2() and avio_open2() internally.
-   *
-   * @param target - File path or stream URL
-   * @param options - Optional configuration
-   *
-   * @returns Promise resolving to MediaOutput instance
-   *
-   * @throws {Error} If output context cannot be allocated or opened
-   *
-   * @example
-   * ```typescript
-   * const output = await MediaOutput.open('output.mp4');
-   * ```
-   *
-   * @example
-   * ```typescript
-   * const output = await MediaOutput.open('rtmp://server/live/streamkey', { format: 'flv' });
-   * ```
-   */
-  static async open(target: string, options?: { format?: string }): Promise<MediaOutput>;
-
-  /**
-   * Opens a media output for writing with custom IO callbacks.
-   *
-   * Creates a FormatContext with custom IO handling.
+   * If io callbacks is used, it creates a FormatContext with custom IO handling.
    * Format must be explicitly specified for custom IO.
    *
    * Uses avformat_alloc_output_context2() and avio_alloc_context() internally.
    *
-   * @param target - Custom IO callbacks
-   * @param options - Configuration with required format
+   * @param target - File path or stream URL or custom IO callbacks
+   * @param options - Optional configuration
    *
    * @returns Promise resolving to MediaOutput instance
    *
@@ -144,16 +117,18 @@ export class MediaOutput implements AsyncDisposable {
    * };
    * const output = await MediaOutput.open(callbacks, { format: 'mp4' });
    * ```
+   *
+   * @example
+   * ```typescript
+   * const output = await MediaOutput.open('output.mp4');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * const output = await MediaOutput.open('rtmp://server/live/streamkey', { format: 'flv' });
+   * ```
    */
-  static async open(target: IOCallbacks, options: { format: string; bufferSize?: number }): Promise<MediaOutput>;
-
-  static async open(
-    target: string | IOCallbacks,
-    options?: {
-      format?: string;
-      bufferSize?: number;
-    },
-  ): Promise<MediaOutput> {
+  static async open(target: string | IOCallbacks, options?: MediaOutputOptions): Promise<MediaOutput> {
     const output = new MediaOutput();
 
     try {
@@ -291,27 +266,23 @@ export class MediaOutput implements AsyncDisposable {
       const ret = stream.codecpar.fromContext(codecContext);
       FFmpegError.throwIfError(ret, 'Failed to copy codec parameters from encoder');
 
+      // Store the encoder's timebase as source (we'll need it for rescaling)
+      sourceTimeBase = codecContext.timeBase;
+
       // Output stream uses encoder's timebase (or custom if specified)
       stream.timeBase = options?.timeBase ? new Rational(options.timeBase.num, options.timeBase.den) : codecContext.timeBase;
-
-      // Store source timebase if output differs from encoder
-      if (options?.timeBase) {
-        sourceTimeBase = codecContext.timeBase;
-      }
     } else {
       // Stream copy
       const ret = source.codecpar.copy(stream.codecpar);
       FFmpegError.throwIfError(ret, 'Failed to copy codec parameters');
 
+      // Store the input stream's timebase as source (we'll need it for rescaling)
+      sourceTimeBase = source.timeBase;
+
       // Output stream uses input stream's timebase (or custom if specified)
       stream.timeBase = options?.timeBase ? new Rational(options.timeBase.num, options.timeBase.den) : source.timeBase;
       stream.codecpar.codecTag = 0; // Important for format compatibility
       isStreamCopy = true;
-
-      // Store source timebase if output differs from input
-      if (options?.timeBase) {
-        sourceTimeBase = source.timeBase;
-      }
     }
 
     this.streams.set(stream.index, {
@@ -368,10 +339,16 @@ export class MediaOutput implements AsyncDisposable {
     packet.streamIndex = streamIndex;
 
     // Rescale packet timestamps if source and output timebases differ
+    // Note: The stream's timebase may have been changed by writeHeader (e.g., MP4 uses 1/time_scale)
     if (streamInfo.sourceTimeBase) {
       const outputStream = this.formatContext.streams?.[streamIndex];
       if (outputStream) {
-        packet.rescaleTs(streamInfo.sourceTimeBase, outputStream.timeBase);
+        // Only rescale if timebases actually differ
+        const srcTb = streamInfo.sourceTimeBase;
+        const dstTb = outputStream.timeBase;
+        if (srcTb.num !== dstTb.num || srcTb.den !== dstTb.den) {
+          packet.rescaleTs(streamInfo.sourceTimeBase, outputStream.timeBase);
+        }
       }
     }
 
@@ -397,7 +374,7 @@ export class MediaOutput implements AsyncDisposable {
    * await output.writeHeader();
    * ```
    */
-  async writeHeader(options?: any): Promise<void> {
+  async writeHeader(): Promise<void> {
     if (this.closed) {
       throw new Error('MediaOutput is closed');
     }
@@ -406,7 +383,7 @@ export class MediaOutput implements AsyncDisposable {
       throw new Error('Header already written');
     }
 
-    const ret = await this.formatContext.writeHeader(options);
+    const ret = await this.formatContext.writeHeader();
     FFmpegError.throwIfError(ret, 'Failed to write header');
     this.headerWritten = true;
   }

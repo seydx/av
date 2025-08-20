@@ -245,6 +245,9 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    * If the packet has a reference counted buffer, it will be unreferenced first.
    * After calling this, the packet is no longer usable until alloc() is called again.
    *
+   * @note
+   * Calling this multiple times is safe, because we check the freed state
+   *
    * @example
    * ```typescript
    * packet.free();

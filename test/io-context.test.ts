@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 // Test data paths
 const testDataDir = path.join(__dirname, '../testdata');
 const testVideoFile = path.join(testDataDir, 'video.mp4');
-const testAudioFile = path.join(testDataDir, 'audio-s16le.pcm');
+const testAudioFile = path.join(testDataDir, 'audio.pcm');
 const testImageFile = path.join(testDataDir, 'image-rgba.png');
 const tempOutputFile = path.join(__dirname, 'test-output.tmp');
 

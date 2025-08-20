@@ -10,13 +10,23 @@
  * @module api/encoder
  */
 
-import { AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX, AV_ERROR_EAGAIN, AV_ERROR_EOF, AV_MEDIA_TYPE_AUDIO, AV_SAMPLE_FMT_FLTP } from '../lib/constants.js';
-import { avRescaleQ, Codec, CodecContext, Packet, Rational } from '../lib/index.js';
+import {
+  AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX,
+  AV_ERROR_EAGAIN,
+  AV_ERROR_EOF,
+  AV_MEDIA_TYPE_AUDIO,
+  AV_MEDIA_TYPE_VIDEO,
+  Codec,
+  CodecContext,
+  Packet,
+  Rational,
+} from '../lib/index.js';
+import { Stream } from '../lib/stream.js';
+import { parseBitrate } from './utils.js';
 
-import type { AVPixelFormat } from '../lib/constants.js';
-import type { Frame } from '../lib/index.js';
-import type { IRational } from '../lib/types.js';
-import type { EncoderOptions } from './types.js';
+import type { AVPixelFormat, Frame } from '../lib/index.js';
+import type { HardwareContext } from './hardware.js';
+import type { EncoderOptions, StreamInfo } from './types.js';
 
 /**
  * High-level encoder for media streams.
@@ -36,7 +46,7 @@ import type { EncoderOptions } from './types.js';
  *   pixelFormat: 'yuv420p',
  *   bitrate: '5M',
  *   gopSize: 60,
- *   codecOptions: {
+ *   options: {
  *     preset: 'fast',
  *     crf: 23
  *   }
@@ -79,7 +89,8 @@ export class Encoder implements Disposable {
   private isOpen = true;
   private supportedFormats: AVPixelFormat[] = [];
   private preferredFormat?: AVPixelFormat;
-  private sourceTimeBase?: IRational; // For automatic PTS rescaling from source
+  private hardware?: HardwareContext | null; // Store reference to check for late framesContext
+  private isHardwareEncoder = false; // Track if this is a hardware encoder
 
   /**
    * Private constructor - use Encoder.create() instead.
@@ -88,10 +99,12 @@ export class Encoder implements Disposable {
    *
    * @param codecContext - Initialized codec context
    * @param codecName - Name of the codec
+   * @param hardware - Optional hardware context for late framesContext binding
    */
-  private constructor(codecContext: CodecContext, codecName: string) {
+  private constructor(codecContext: CodecContext, codecName: string, hardware?: HardwareContext | null) {
     this.codecContext = codecContext;
     this.codecName = codecName;
+    this.hardware = hardware;
     this.packet = new Packet();
     this.packet.alloc();
   }
@@ -107,6 +120,7 @@ export class Encoder implements Disposable {
    * Handles hardware setup including shared frames context for zero-copy.
    *
    * @param codecName - Name of codec (e.g., 'libx264', 'aac', 'libopus')
+   * @param input - Stream or StreamInfo to copy parameters from
    * @param options - Encoder configuration options
    *
    * @returns Promise resolving to configured Encoder
@@ -115,23 +129,22 @@ export class Encoder implements Disposable {
    *
    * @example
    * ```typescript
-   * // Video encoder
-   * const videoEncoder = await Encoder.create('libx264', {
-   *   width: 1920,
-   *   height: 1080,
-   *   pixelFormat: 'yuv420p',
-   *   bitrate: '5M'
+   * // Video encoder from stream
+   * const videoStream = media.video();
+   * const videoEncoder = await Encoder.create('libx264', videoStream, {
+   *   bitrate: '5M',
+   *   gopSize: 60
    * });
    *
-   * // Audio encoder
-   * const audioEncoder = await Encoder.create('aac', {
-   *   sampleRate: 48000,
-   *   channelLayout: { nbChannels: 2, order: 0, mask: 3n },
+   * // Audio encoder from stream
+   * const audioStream = media.audio();
+   * const audioEncoder = await Encoder.create('aac', audioStream, {
    *   bitrate: '192k'
    * });
+   *
    * ```
    */
-  static async create(codecName: string, options: EncoderOptions = {}): Promise<Encoder> {
+  static async create(codecName: string, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
     const actualCodecName = codecName;
 
     // Find encoder by name
@@ -144,124 +157,140 @@ export class Encoder implements Disposable {
     const codecContext = new CodecContext();
     codecContext.allocContext3(codec);
 
-    // Set default time base (required for most encoders)
-    // Will be overridden if specified in options
-    codecContext.timeBase = new Rational(1, 25);
+    // Apply parameters based on input type
+    if (input instanceof Stream) {
+      // It's a Stream - use parametersToContext like in Decoder
+      const ret = codecContext.parametersToContext(input.codecpar);
+      if (ret < 0) {
+        codecContext.freeContext();
+        throw new Error(`Failed to copy codec parameters: ${ret}`);
+      }
 
-    // Apply video options
-    if (options.width !== undefined) {
-      codecContext.width = options.width;
+      // Set framerate for video (not copied by parametersToContext)
+      if (codec.type === AV_MEDIA_TYPE_VIDEO) {
+        // Set pkt_timebase to input timebase so encoder knows how to interpret frame PTS
+        codecContext.pktTimebase = input.timeBase;
+
+        // Set timeBase to input timeBase - encoder will use this or choose its own
+        codecContext.timeBase = input.timeBase;
+
+        if (input.avgFrameRate && input.avgFrameRate.num > 0 && input.avgFrameRate.den > 0) {
+          codecContext.framerate = new Rational(input.avgFrameRate.num, input.avgFrameRate.den);
+        } else if (input.rFrameRate && input.rFrameRate.num > 0 && input.rFrameRate.den > 0) {
+          codecContext.framerate = new Rational(input.rFrameRate.num, input.rFrameRate.den);
+        }
+      } else {
+        // For audio, set pkt_timebase and use input timeBase
+        codecContext.pktTimebase = input.timeBase;
+        codecContext.timeBase = input.timeBase;
+      }
+    } else {
+      // It's StreamInfo - apply manually
+      if (input.type === 'video' && codec.type === AV_MEDIA_TYPE_VIDEO) {
+        const videoInfo = input;
+        codecContext.width = videoInfo.width;
+        codecContext.height = videoInfo.height;
+        // Only set pixelFormat if provided (might be omitted for hardware encoders)
+        if (videoInfo.pixelFormat !== undefined) {
+          codecContext.pixelFormat = videoInfo.pixelFormat;
+        }
+
+        // Set pkt_timebase and timeBase to input timebase
+        codecContext.pktTimebase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
+        codecContext.timeBase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
+
+        if (videoInfo.frameRate) {
+          codecContext.framerate = new Rational(videoInfo.frameRate.num, videoInfo.frameRate.den);
+        }
+        if (videoInfo.sampleAspectRatio) {
+          codecContext.sampleAspectRatio = new Rational(videoInfo.sampleAspectRatio.num, videoInfo.sampleAspectRatio.den);
+        }
+      } else if (input.type === 'audio' && codec.type === AV_MEDIA_TYPE_AUDIO) {
+        const audioInfo = input;
+        codecContext.sampleRate = audioInfo.sampleRate;
+        codecContext.sampleFormat = audioInfo.sampleFormat;
+        codecContext.channelLayout = audioInfo.channelLayout;
+        // Set both pkt_timebase and timeBase for audio
+        codecContext.pktTimebase = new Rational(audioInfo.timeBase.num, audioInfo.timeBase.den);
+        codecContext.timeBase = new Rational(audioInfo.timeBase.num, audioInfo.timeBase.den);
+
+        if (audioInfo.frameSize) {
+          codecContext.frameSize = audioInfo.frameSize;
+        }
+      } else {
+        throw new Error(`Codec type mismatch: ${input.type} info but ${codec.type === AV_MEDIA_TYPE_VIDEO ? 'video' : 'audio'} codec`);
+      }
     }
-    if (options.height !== undefined) {
-      codecContext.height = options.height;
-    }
-    // Don't set pixel format yet if we have hardware - it will be set based on hardware requirements
-    if (options.pixelFormat !== undefined && !options.hardware) {
-      codecContext.pixelFormat = options.pixelFormat;
-    }
+
+    // Apply encoder-specific options
     if (options.gopSize !== undefined) {
       codecContext.gopSize = options.gopSize;
     }
     if (options.maxBFrames !== undefined) {
       codecContext.maxBFrames = options.maxBFrames;
     }
-    if (options.frameRate) {
-      codecContext.framerate = new Rational(options.frameRate.num, options.frameRate.den);
-    }
-
-    // Apply audio options
-    if (options.sampleRate !== undefined) {
-      codecContext.sampleRate = options.sampleRate;
-    }
-    if (options.channelLayout) {
-      codecContext.channelLayout = options.channelLayout;
-    }
-    if (options.sampleFormat !== undefined) {
-      codecContext.sampleFormat = options.sampleFormat;
-    } else if (codec.type === AV_MEDIA_TYPE_AUDIO) {
-      // Set default sample format for audio encoders
-      codecContext.sampleFormat = AV_SAMPLE_FMT_FLTP; // Most common for modern codecs
-    }
-    if (options.frameSize !== undefined) {
-      codecContext.frameSize = options.frameSize;
-    }
 
     // Apply common options
     if (options.bitrate !== undefined) {
-      const bitrate = typeof options.bitrate === 'string' ? Encoder.parseBitrate(options.bitrate) : BigInt(options.bitrate);
+      const bitrate = typeof options.bitrate === 'string' ? parseBitrate(options.bitrate) : BigInt(options.bitrate);
       codecContext.bitRate = bitrate;
     }
     if (options.threads !== undefined) {
       codecContext.threadCount = options.threads;
     }
+
+    // Override timeBase if explicitly specified in options
     if (options.timeBase) {
       codecContext.timeBase = new Rational(options.timeBase.num, options.timeBase.den);
     }
 
     // Apply codec-specific options via AVOptions
-    if (options.codecOptions) {
-      for (const [key, value] of Object.entries(options.codecOptions)) {
+    if (options.options) {
+      for (const [key, value] of Object.entries(options.options)) {
         codecContext.setOpt(key, value.toString());
       }
     }
 
-    // Apply hardware acceleration if provided
-    // Note: Encoder does NOT take ownership of the HardwareContext
-    // The caller is responsible for disposing it
+    // Check if this encoder supports hardware acceleration
+    let supportsHardware = false;
+    let isHardwareEncoder = false;
 
-    // Check if we should share frames context from decoder for zero-copy
-    if (options.sharedDecoder && options.hardware) {
-      const decoderCtx = options.sharedDecoder.getCodecContext?.();
+    // Check encoder's hardware configurations
+    for (let i = 0; ; i++) {
+      const config = codec.getHwConfig(i);
+      if (!config) break;
 
-      // If decoder has hardware frames context (from initialize), share it
-      if (decoderCtx?.hwFramesCtx) {
-        // Share the decoder's frames context for zero-copy
-        codecContext.hwFramesCtx = decoderCtx.hwFramesCtx;
-        codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
+      // Check if encoder supports HW_FRAMES_CTX method
+      if ((config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) !== 0) {
+        supportsHardware = true;
 
-        // Skip normal hardware setup
-        options.hardware = undefined;
-      }
-    }
-
-    // If we're not sharing from decoder, set up hardware normally
-    if (options.hardware) {
-      // Check if this encoder needs frames context (VideoToolbox, etc.)
-      // by looking at its hardware config
-      let needsFramesContext = false;
-      const codec = Codec.findEncoderByName(actualCodecName);
-      if (codec) {
-        for (let i = 0; ; i++) {
-          const config = codec.getHwConfig(i);
-          if (!config) break;
-
-          // Check if this encoder uses HW_FRAMES_CTX method
-          if ((config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) !== 0 && config.deviceType === options.hardware.deviceType) {
-            needsFramesContext = true;
-            break;
-          }
-        }
-      }
-
-      if (needsFramesContext && options.width && options.height) {
-        // Setup frames context for encoders that need it (e.g., VideoToolbox)
-        // For hardware encoders, we need to set the pixel format to the hardware format
-        const hwPixFmt = options.hardware.getHardwarePixelFormat();
-        codecContext.pixelFormat = hwPixFmt;
-
-        // Software format for frames context (what format we'll upload from)
-        const swPixFmt = options.pixelFormat;
-
-        options.hardware.setupEncoderFramesContext(codecContext, options.width, options.height, swPixFmt);
-      } else {
-        // Just set device context for encoders that only need that
-        codecContext.hwDeviceCtx = options.hardware.deviceContext;
-        // Set pixel format for non-frames-context hardware
-        if (options.pixelFormat !== undefined) {
-          codecContext.pixelFormat = options.pixelFormat;
+        // If hardware context provided, check if it matches this encoder
+        if (options.hardware && config.deviceType === options.hardware.deviceType) {
+          isHardwareEncoder = true;
+          break;
         }
       }
     }
+
+    // Validation: Hardware encoder MUST have HardwareContext
+    if (supportsHardware && !options.hardware) {
+      throw new Error(`Hardware encoder '${actualCodecName}' requires a hardware context. ` + 'Please provide one via options.hardware');
+    }
+
+    // Apply hardware acceleration if provided and encoder supports it
+    if (options.hardware && isHardwareEncoder) {
+      // For hardware encoders, always set the hardware pixel format
+      // (overrides what was copied from stream parameters)
+      codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
+
+      // Check if frames context already available (shared from decoder)
+      if (options.hardware.framesContext) {
+        codecContext.hwFramesCtx = options.hardware.framesContext;
+      }
+      // Else: Will set hwFramesCtx later in encode() when first frame arrives
+      // DO NOT create frames context here - wait for first frame!
+    }
+    // Note: Software encoder silently ignores hardware context
 
     // Open codec
     const openRet = await codecContext.open2(codec, null);
@@ -270,12 +299,8 @@ export class Encoder implements Disposable {
       throw new Error(`Failed to open encoder: ${openRet}`);
     }
 
-    const encoder = new Encoder(codecContext, codecName);
-
-    // Store source timebase for automatic PTS rescaling
-    if (options.sourceTimeBase) {
-      encoder.sourceTimeBase = options.sourceTimeBase;
-    }
+    const encoder = new Encoder(codecContext, codecName, isHardwareEncoder ? options.hardware : undefined);
+    encoder.isHardwareEncoder = isHardwareEncoder;
 
     // Get supported formats from codec (for validation and helpers)
     if (codec.pixelFormats) {
@@ -322,11 +347,21 @@ export class Encoder implements Disposable {
       throw new Error('Encoder is closed');
     }
 
-    // Automatic PTS rescaling if source timebase differs from encoder timebase
-    if (frame && this.sourceTimeBase && frame.pts !== undefined && frame.pts !== null) {
-      // Rescale PTS from source timebase to encoder timebase
-      frame.pts = avRescaleQ(frame.pts, this.sourceTimeBase, this.codecContext.timeBase);
+    // Late binding of hw_frames_ctx ONLY for hardware encoders
+    if (this.hardware && this.isHardwareEncoder && !this.codecContext.hwFramesCtx) {
+      if (this.hardware.framesContext) {
+        // Use shared frames context from decoder
+        this.codecContext.hwFramesCtx = this.hardware.framesContext;
+      } else if (frame?.width && frame.height) {
+        // First frame - create frames context for upload
+        this.hardware.ensureFramesContext(frame.width, frame.height);
+        this.codecContext.hwFramesCtx = this.hardware.framesContext ?? null;
+      }
     }
+    // Software encoder completely ignores hardware context
+
+    // NO MANUAL RESCALING! FFmpeg's avcodec_send_frame() does this internally
+    // The encoder needs pkt_timebase to be set for proper rescaling
 
     // Send frame to encoder
     const sendRet = await this.codecContext.sendFrame(frame);
@@ -343,6 +378,57 @@ export class Encoder implements Disposable {
 
     // Try to receive packet
     return this.receivePacket();
+  }
+
+  /**
+   * Async iterator that encodes frames and yields packets.
+   *
+   * Encodes all provided frames and yields resulting packets.
+   * Automatically handles encoder flushing at the end.
+   * Input frames are automatically freed after encoding.
+   *
+   * Processes frames in sequence, encoding each and yielding packets.
+   * After all frames are processed, flushes the encoder for remaining packets.
+   *
+   * IMPORTANT: The yielded packets MUST be freed by the caller!
+   * Input frames are automatically freed after processing.
+   *
+   * @param frames - Async iterable of frames to encode (will be freed automatically)
+   *
+   * @yields Encoded packets (ownership transferred to caller)
+   *
+   * @example
+   * ```typescript
+   * // Transcode video
+   * for await (const packet of encoder.packets(decoder.frames(media.packets()))) {
+   *   await output.writePacket(packet);
+   *   packet.free(); // Must free output packet
+   * }
+   * ```
+   */
+  async *packets(frames: AsyncIterable<Frame>): AsyncGenerator<Packet> {
+    if (!this.isOpen) {
+      throw new Error('Encoder is closed');
+    }
+
+    // Process frames
+    for await (const frame of frames) {
+      try {
+        const packet = await this.encode(frame);
+        if (packet) {
+          yield packet;
+        }
+      } finally {
+        // Free the input frame after encoding
+        frame.free();
+      }
+    }
+
+    // Flush encoder after all frames
+    let packet;
+    while ((packet = await this.flush()) !== null) {
+      yield packet;
+    }
   }
 
   /**
@@ -378,6 +464,36 @@ export class Encoder implements Disposable {
 
     // Receive packet
     return this.receivePacket();
+  }
+
+  /**
+   * Flush encoder and yield all remaining packets as a generator.
+   *
+   * More convenient than calling flush() in a loop.
+   * Automatically sends flush signal and yields all buffered packets.
+   *
+   * @returns Async generator of remaining packets
+   *
+   * @throws {Error} If encoder is closed
+   *
+   * @example
+   * ```typescript
+   * // Process all remaining packets with generator
+   * for await (const packet of encoder.flushPackets()) {
+   *   await output.writePacket(packet, streamIdx);
+   *   using _ = packet; // Auto cleanup
+   * }
+   * ```
+   */
+  async *flushPackets(): AsyncGenerator<Packet> {
+    if (!this.isOpen) {
+      throw new Error('Encoder is closed');
+    }
+
+    let packet;
+    while ((packet = await this.flush()) !== null) {
+      yield packet;
+    }
   }
 
   /**
@@ -421,48 +537,6 @@ export class Encoder implements Disposable {
    */
   getCodecContext(): CodecContext | null {
     return this.isOpen ? this.codecContext : null;
-  }
-
-  /**
-   * Async iterator that encodes frames and yields packets.
-   *
-   * Encodes all provided frames and yields resulting packets.
-   * Automatically handles encoder flushing at the end.
-   *
-   * Processes frames in sequence, encoding each and yielding packets.
-   * After all frames are processed, flushes the encoder for remaining packets.
-   *
-   * @param frames - Async iterable of frames to encode
-   *
-   * @yields Encoded packets
-   *
-   * @example
-   * ```typescript
-   * // Transcode video
-   * for await (const packet of encoder.packets(decoder.frames(media.packets()))) {
-   *   await output.writePacket(packet);
-   *   packet.free();
-   * }
-   * ```
-   */
-  async *packets(frames: AsyncIterable<Frame>): AsyncGenerator<Packet> {
-    if (!this.isOpen) {
-      throw new Error('Encoder is closed');
-    }
-
-    // Process frames
-    for await (const frame of frames) {
-      const packet = await this.encode(frame);
-      if (packet) {
-        yield packet;
-      }
-    }
-
-    // Flush encoder after all frames
-    let packet;
-    while ((packet = await this.flush()) !== null) {
-      yield packet;
-    }
   }
 
   /**
@@ -527,48 +601,6 @@ export class Encoder implements Disposable {
       // Error
       throw new Error(`Failed to receive packet: ${ret}`);
     }
-  }
-
-  /**
-   * Parse bitrate string to bigint.
-   *
-   * Supports suffixes: K (kilo), M (mega), G (giga).
-   *
-   * Converts human-readable bitrate strings to numeric values.
-   *
-   * @param str - Bitrate string (e.g., '5M', '192k')
-   *
-   * @returns Bitrate as bigint
-   *
-   * @example
-   * ```typescript
-   * parseBitrate('5M')   // 5000000n
-   * parseBitrate('192k') // 192000n
-   * parseBitrate('1.5G') // 1500000000n
-   * ```
-   */
-  private static parseBitrate(str: string): bigint {
-    const match = /^(\d+(?:\.\d+)?)\s*([KMG])?$/i.exec(str);
-    if (!match) {
-      throw new Error(`Invalid bitrate: ${str}`);
-    }
-
-    let value = parseFloat(match[1]);
-    const unit = match[2]?.toUpperCase();
-
-    switch (unit) {
-      case 'K':
-        value *= 1000;
-        break;
-      case 'M':
-        value *= 1000000;
-        break;
-      case 'G':
-        value *= 1000000000;
-        break;
-    }
-
-    return BigInt(Math.floor(value));
   }
 
   /**

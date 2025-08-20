@@ -10,8 +10,7 @@
  * @module api/io-stream
  */
 
-import { AV_SEEK_CUR, AV_SEEK_END, AV_SEEK_SET, AV_SEEK_SIZE } from '../lib/constants.js';
-import { IOContext } from '../lib/index.js';
+import { AV_SEEK_CUR, AV_SEEK_END, AV_SEEK_SET, AV_SEEK_SIZE, IOContext } from '../lib/index.js';
 
 import type { Readable, Transform, Writable } from 'stream';
 import type { IOCallbacks } from './types.js';

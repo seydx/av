@@ -47,6 +47,7 @@ private:
   // Friend classes
   friend class HardwareFramesContext;
   friend class CodecContext;
+  friend class FilterContext;
   
   // Static members
   static Napi::FunctionReference constructor;

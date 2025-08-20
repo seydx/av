@@ -1,4 +1,5 @@
 #include "codec.h"
+#include "common.h"
 
 namespace ffmpeg {
 
@@ -63,7 +64,7 @@ Napi::Object Codec::NewInstance(Napi::Env env, AVCodec* codec) {
   }
   
   Napi::Object codecObj = constructor.New({});
-  Codec* wrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+  Codec* wrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
   wrapper->Set(const_cast<const AVCodec*>(codec));
   
   return codecObj;
@@ -88,7 +89,7 @@ Napi::Value Codec::FindDecoder(const Napi::CallbackInfo& info) {
   
   // Create new Codec object
   Napi::Object codecObj = constructor.New({});
-  Codec* wrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+  Codec* wrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
   wrapper->Set(codec);
   
   return codecObj;
@@ -111,7 +112,7 @@ Napi::Value Codec::FindDecoderByName(const Napi::CallbackInfo& info) {
   
   // Create new Codec object
   Napi::Object codecObj = constructor.New({});
-  Codec* wrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+  Codec* wrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
   wrapper->Set(codec);
   
   return codecObj;
@@ -134,7 +135,7 @@ Napi::Value Codec::FindEncoder(const Napi::CallbackInfo& info) {
   
   // Create new Codec object
   Napi::Object codecObj = constructor.New({});
-  Codec* wrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+  Codec* wrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
   wrapper->Set(codec);
   
   return codecObj;
@@ -157,7 +158,7 @@ Napi::Value Codec::FindEncoderByName(const Napi::CallbackInfo& info) {
   
   // Create new Codec object
   Napi::Object codecObj = constructor.New({});
-  Codec* wrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+  Codec* wrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
   wrapper->Set(codec);
   
   return codecObj;
@@ -173,7 +174,7 @@ Napi::Value Codec::GetCodecList(const Napi::CallbackInfo& info) {
   
   while ((codec = av_codec_iterate(&opaque)) != nullptr) {
     Napi::Object codecObj = constructor.New({});
-    Codec* wrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+    Codec* wrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
     wrapper->Set(codec);
     codecs.Set(index++, codecObj);
   }
@@ -200,7 +201,7 @@ Napi::Value Codec::IterateCodecs(const Napi::CallbackInfo& info) {
   
   // Create codec object
   Napi::Object codecObj = constructor.New({});
-  Codec* wrapper = Napi::ObjectWrap<Codec>::Unwrap(codecObj);
+  Codec* wrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
   wrapper->Set(codec);
   
   // Return iterator result

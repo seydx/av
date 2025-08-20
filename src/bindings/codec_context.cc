@@ -6,6 +6,7 @@
 #include "dictionary.h"
 #include "hardware_device_context.h"
 #include "hardware_frames_context.h"
+#include "common.h"
 
 extern "C" {
 #include <libavutil/pixfmt.h>
@@ -810,7 +811,7 @@ void CodecContext::SetHwDeviceCtx(const Napi::CallbackInfo& info, const Napi::Va
     return;
   }
   
-  HardwareDeviceContext* device = Napi::ObjectWrap<HardwareDeviceContext>::Unwrap(value.As<Napi::Object>());
+  HardwareDeviceContext* device = UnwrapNativeObject<HardwareDeviceContext>(info.Env(), value, "HardwareDeviceContext");
   if (!device || !device->Get()) {
     Napi::Error::New(info.Env(), "Invalid HardwareDeviceContext").ThrowAsJavaScriptException();
     return;
@@ -854,7 +855,7 @@ void CodecContext::SetHwFramesCtx(const Napi::CallbackInfo& info, const Napi::Va
     return;
   }
   
-  HardwareFramesContext* frames = Napi::ObjectWrap<HardwareFramesContext>::Unwrap(value.As<Napi::Object>());
+  HardwareFramesContext* frames = UnwrapNativeObject<HardwareFramesContext>(info.Env(), value, "HardwareFramesContext");
   if (!frames || !frames->Get()) {
     Napi::Error::New(info.Env(), "Invalid HardwareFramesContext").ThrowAsJavaScriptException();
     return;

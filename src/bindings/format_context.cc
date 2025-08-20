@@ -6,6 +6,7 @@
 #include "input_format.h"
 #include "output_format.h"
 #include "io_context.h"
+#include "common.h"
 #include <napi.h>
 #include <memory>
 
@@ -244,7 +245,7 @@ Napi::Value FormatContext::NewStream(const Napi::CallbackInfo& info) {
   
   // Wrap AVStream and return it
   Napi::Object streamObj = Stream::constructor.New({});
-  Stream* streamWrapper = Napi::ObjectWrap<Stream>::Unwrap(streamObj);
+  Stream* streamWrapper = UnwrapNativeObject<Stream>(env, streamObj, "Stream");
   streamWrapper->Set(stream);
   
   return streamObj;
@@ -356,7 +357,7 @@ Napi::Value FormatContext::GetStreams(const Napi::CallbackInfo& info) {
   for (unsigned int i = 0; i < ctx->nb_streams; i++) {
     // Wrap AVStream and add to array
     Napi::Object streamObj = Stream::constructor.New({});
-    Stream* streamWrapper = Napi::ObjectWrap<Stream>::Unwrap(streamObj);
+    Stream* streamWrapper = UnwrapNativeObject<Stream>(env, streamObj, "Stream");
     streamWrapper->Set(ctx->streams[i]);
     streams[i] = streamObj;
   }
@@ -528,7 +529,7 @@ Napi::Value FormatContext::GetMetadata(const Napi::CallbackInfo& info) {
   
   // Create a Dictionary wrapper for the metadata
   Napi::Object dictObj = Dictionary::constructor.New({});
-  Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(dictObj);
+  Dictionary* dict = UnwrapNativeObject<Dictionary>(env, dictObj, "Dictionary");
   
   // Copy the dictionary content (we transfer ownership of the copy)
   AVDictionary* copy = nullptr;
@@ -576,7 +577,7 @@ Napi::Value FormatContext::GetIformat(const Napi::CallbackInfo& info) {
   
   // Create an InputFormat wrapper
   Napi::Object formatObj = InputFormat::constructor.New({});
-  InputFormat* format = Napi::ObjectWrap<InputFormat>::Unwrap(formatObj);
+  InputFormat* format = UnwrapNativeObject<InputFormat>(env, formatObj, "InputFormat");
   format->Set(const_cast<AVInputFormat*>(ctx->iformat));
   
   return formatObj;
@@ -592,7 +593,7 @@ Napi::Value FormatContext::GetOformat(const Napi::CallbackInfo& info) {
   
   // Create an OutputFormat wrapper
   Napi::Object formatObj = OutputFormat::constructor.New({});
-  OutputFormat* format = Napi::ObjectWrap<OutputFormat>::Unwrap(formatObj);
+  OutputFormat* format = UnwrapNativeObject<OutputFormat>(env, formatObj, "OutputFormat");
   format->Set(const_cast<AVOutputFormat*>(ctx->oformat));
   
   return formatObj;

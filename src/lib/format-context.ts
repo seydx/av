@@ -665,7 +665,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * // Header written, ready to write packets
    * ```
    */
-  async writeHeader(options: Dictionary | null): Promise<number> {
+  async writeHeader(options: Dictionary | null = null): Promise<number> {
     return this.native.writeHeader(options?.getNative() ?? null);
   }
 

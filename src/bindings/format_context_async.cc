@@ -3,6 +3,7 @@
 #include "input_format.h"
 #include "output_format.h"
 #include "dictionary.h"
+#include "common.h"
 #include <napi.h>
 
 extern "C" {
@@ -421,14 +422,14 @@ Napi::Value FormatContext::OpenInputAsync(const Napi::CallbackInfo& info) {
   AVDictionary* options = nullptr;
   
   if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
-    InputFormat* inputFormat = Napi::ObjectWrap<InputFormat>::Unwrap(info[1].As<Napi::Object>());
+    InputFormat* inputFormat = UnwrapNativeObject<InputFormat>(env, info[1], "InputFormat");
     if (inputFormat) {
       fmt = const_cast<AVInputFormat*>(inputFormat->Get());
     }
   }
   
   if (info.Length() > 2 && !info[2].IsNull() && !info[2].IsUndefined()) {
-    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[2].As<Napi::Object>());
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[2], "Dictionary");
     if (dict && dict->Get()) {
       av_dict_copy(&options, dict->Get(), 0);
     }
@@ -447,7 +448,7 @@ Napi::Value FormatContext::FindStreamInfoAsync(const Napi::CallbackInfo& info) {
   AVDictionary* options = nullptr;
   
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[0].As<Napi::Object>());
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
     if (dict && dict->Get()) {
       av_dict_copy(&options, dict->Get(), 0);
     }
@@ -468,7 +469,7 @@ Napi::Value FormatContext::ReadFrameAsync(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
   
-  Packet* packet = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
+  Packet* packet = UnwrapNativeObject<Packet>(env, info[0], "Packet");
   if (!packet) {
     Napi::TypeError::New(env, "Invalid packet object").ThrowAsJavaScriptException();
     return env.Undefined();
@@ -529,7 +530,7 @@ Napi::Value FormatContext::WriteHeaderAsync(const Napi::CallbackInfo& info) {
   AVDictionary* options = nullptr;
   
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Dictionary* dict = Napi::ObjectWrap<Dictionary>::Unwrap(info[0].As<Napi::Object>());
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, info[0], "Dictionary");
     if (dict && dict->Get()) {
       av_dict_copy(&options, dict->Get(), 0);
     }
@@ -548,7 +549,7 @@ Napi::Value FormatContext::WriteFrameAsync(const Napi::CallbackInfo& info) {
   Packet* packet = nullptr;
   
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    packet = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
+    packet = UnwrapNativeObject<Packet>(env, info[0], "Packet");
   }
   
   auto* worker = new FCWriteFrameWorker(env, this, packet);
@@ -564,7 +565,7 @@ Napi::Value FormatContext::InterleavedWriteFrameAsync(const Napi::CallbackInfo& 
   Packet* packet = nullptr;
   
   if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    packet = Napi::ObjectWrap<Packet>::Unwrap(info[0].As<Napi::Object>());
+    packet = UnwrapNativeObject<Packet>(env, info[0], "Packet");
   }
   
   auto* worker = new FCInterleavedWriteFrameWorker(env, this, packet);

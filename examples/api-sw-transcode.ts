@@ -43,26 +43,31 @@ async function softwareTranscode(inputFile: string, outputFile: string) {
 
   // Create software decoder (CPU)
   console.log('🔧 Setting up software decoder...');
-  const decoder = await Decoder.create(media, videoStream.index);
+  const decoder = await Decoder.create(videoStream);
   console.log('  ✓ Software decoder created (CPU)');
 
   // Create software encoder (CPU)
   console.log('🔧 Setting up software encoder...');
-  const encoder = await Encoder.create('libx264', {
-    width: videoStream.codecpar.width,
-    height: videoStream.codecpar.height,
-    pixelFormat: AV_PIX_FMT_YUV420P,
-    bitrate: '2M',
-    gopSize: 60,
-    timeBase: videoStream.timeBase, // Use input stream's timebase
-    sourceTimeBase: videoStream.timeBase, // For automatic PTS rescaling
-    codecOptions: {
-      preset: 'medium',
-      crf: 23,
-      profile: 'high',
-      level: '4.1',
+  const encoder = await Encoder.create(
+    'libx264',
+    {
+      type: 'video',
+      width: videoStream.codecpar.width,
+      height: videoStream.codecpar.height,
+      pixelFormat: AV_PIX_FMT_YUV420P,
+      timeBase: videoStream.timeBase, // Use input stream's timebase
     },
-  });
+    {
+      bitrate: '2M',
+      gopSize: 60,
+      options: {
+        preset: 'medium',
+        crf: 23,
+        profile: 'high',
+        level: '4.1',
+      },
+    },
+  );
   console.log('  ✓ Software encoder created (libx264)');
   console.log('');
 

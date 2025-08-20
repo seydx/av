@@ -1,6 +1,7 @@
 #include "filter_context.h"
 #include "frame.h"
 #include "hardware_frames_context.h"
+#include "common.h"
 #include <napi.h>
 
 extern "C" {
@@ -95,7 +96,7 @@ Napi::Value FilterContext::BuffersrcAddFrame(const Napi::CallbackInfo& info) {
   
   Frame* frame = nullptr;
   if (!info[0].IsNull() && !info[0].IsUndefined()) {
-    frame = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+    frame = UnwrapNativeObject<Frame>(env, info[0], "Frame");
   }
   
   auto* worker = new FCBuffersrcAddFrameWorker(env, this, frame);
@@ -111,7 +112,7 @@ Napi::Value FilterContext::BuffersinkGetFrame(const Napi::CallbackInfo& info) {
     return env.Null();
   }
   
-  Frame* frame = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  Frame* frame = UnwrapNativeObject<Frame>(env, info[0], "Frame");
   
   auto* worker = new FCBuffersinkGetFrameWorker(env, this, frame);
   worker->Queue();

@@ -1,5 +1,6 @@
 import { AV_OPT_SEARCH_CHILDREN } from './constants.js';
 import { Filter } from './filter.js';
+import { HardwareDeviceContext } from './hardware-device-context.js';
 import { Rational } from './rational.js';
 
 import type { AVOptionSearchFlags } from './constants.js';
@@ -46,6 +47,7 @@ import type { IRational } from './types.js';
  */
 export class FilterContext implements Disposable, NativeWrapper<NativeFilterContext> {
   private native: NativeFilterContext;
+  private _hwDeviceCtx?: HardwareDeviceContext; // Cache for hardware device context wrapper
 
   /**
    * Constructor is internal - use FilterGraph.createFilter().
@@ -136,6 +138,40 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    */
   get ready(): number {
     return this.native.ready;
+  }
+
+  /**
+   * Get or set the hardware device context.
+   *
+   * Direct mapping to AVFilterContext->hw_device_ctx
+   *
+   * Used for hardware-accelerated filters that need device context.
+   * Must be set before filter initialization for hardware filters.
+   */
+  get hwDeviceCtx(): HardwareDeviceContext | null {
+    const native = this.native.hwDeviceCtx;
+    if (!native) {
+      // Clear cache if native is null
+      this._hwDeviceCtx = undefined;
+      return null;
+    }
+
+    // Return cached wrapper if available and still valid
+    if (this._hwDeviceCtx && (this._hwDeviceCtx as any).native === native) {
+      return this._hwDeviceCtx;
+    }
+
+    // Create and cache new wrapper
+    const device = Object.create(HardwareDeviceContext.prototype) as HardwareDeviceContext;
+    (device as any).native = native;
+    this._hwDeviceCtx = device;
+    return device;
+  }
+
+  set hwDeviceCtx(value: HardwareDeviceContext | null) {
+    this.native.hwDeviceCtx = value?.getNative() ?? null;
+    // Clear cache when setting new value
+    this._hwDeviceCtx = undefined;
   }
 
   /**
@@ -305,7 +341,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    *   height: 1080,
    *   format: AV_PIX_FMT_YUV420P,
    *   timeBase: { num: 1, den: 30 },
-   *   hwFramesCtx: decoder.getCodecContext()?.hwFramesCtx
+   *   hwFramesCtx: hardware.framesContext
    * });
    * FFmpegError.throwIfError(ret, 'buffersrcParametersSet');
    * ```

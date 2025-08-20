@@ -1,7 +1,17 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_S16, Filter, FilterContext, FilterGraph, Frame } from '../src/lib/index.js';
+import {
+  AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+  AV_PIX_FMT_RGB24,
+  AV_PIX_FMT_YUV420P,
+  AV_SAMPLE_FMT_S16,
+  Filter,
+  FilterContext,
+  FilterGraph,
+  Frame,
+  HardwareDeviceContext,
+} from '../src/lib/index.js';
 
 describe('FilterContext', () => {
   describe('Creation and Lifecycle', () => {
@@ -775,6 +785,182 @@ describe('FilterContext', () => {
 
       audioFrame.free();
       outFrame.free();
+      graph.free();
+    });
+  });
+
+  describe('Hardware Device Context', () => {
+    it('should get and set hardware device context', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a hardware device context
+      const hwDevice = new HardwareDeviceContext();
+      // Try to initialize it with VideoToolbox (macOS)
+      const createRet = hwDevice.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, null, null);
+
+      if (createRet !== 0) {
+        // Hardware not available, skip test
+        hwDevice.free();
+        graph.free();
+        assert.ok(true, 'Hardware device not available - test skipped');
+        return;
+      }
+
+      const scaleFilter = Filter.getByName('scale');
+      assert.ok(scaleFilter, 'Should find scale filter');
+
+      const ctx = graph.createFilter(scaleFilter, 'scale', '640:480');
+      assert.ok(ctx, 'Should create filter context');
+
+      // Initially should be null
+      const initialHwCtx = ctx.hwDeviceCtx;
+      assert.equal(initialHwCtx, null, 'Hardware device context should initially be null');
+
+      // Set hardware device context
+      ctx.hwDeviceCtx = hwDevice;
+
+      // Get it back
+      const retrievedHwCtx = ctx.hwDeviceCtx;
+      assert.ok(retrievedHwCtx, 'Should retrieve hardware device context');
+      // Note: The retrieved context is a new wrapper around the same underlying AVBufferRef
+      assert.ok(retrievedHwCtx instanceof HardwareDeviceContext, 'Should be a HardwareDeviceContext instance');
+
+      // Clean up
+      hwDevice.free();
+      graph.free();
+    });
+
+    it('should handle null hardware device context', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const scaleFilter = Filter.getByName('scale');
+      assert.ok(scaleFilter, 'Should find scale filter');
+
+      const ctx = graph.createFilter(scaleFilter, 'scale');
+      assert.ok(ctx, 'Should create filter context');
+
+      // Set to null (should work without error)
+      ctx.hwDeviceCtx = null;
+
+      const hwCtx = ctx.hwDeviceCtx;
+      assert.equal(hwCtx, null, 'Should be null after setting to null');
+
+      graph.free();
+    });
+
+    it('should work with hardware-accelerated filters', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Try to find a hardware filter (scale_vt for VideoToolbox on macOS)
+      const hwScaleFilter = Filter.getByName('scale_vt');
+
+      if (hwScaleFilter) {
+        const ctx = graph.createFilter(hwScaleFilter, 'hw_scale');
+        assert.ok(ctx, 'Should create hardware filter context');
+
+        // Hardware filters typically need a hardware device context
+        const hwCtx = ctx.hwDeviceCtx;
+        assert.equal(hwCtx, null, 'Hardware device context should initially be null');
+
+        // In real use, we would set a hardware device context here
+        // ctx.hwDeviceCtx = someHardwareDevice;
+
+        graph.free();
+      } else {
+        // Hardware filter not available on this platform
+        assert.ok(true, 'Hardware filter not available - test skipped');
+      }
+    });
+
+    it('should preserve hardware device context across operations', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const scaleFilter = Filter.getByName('scale');
+      assert.ok(scaleFilter, 'Should find scale filter');
+
+      const ctx = graph.createFilter(scaleFilter, 'scale', '640:480');
+      assert.ok(ctx, 'Should create filter context');
+
+      // Create a hardware device context
+      const hwDevice = new HardwareDeviceContext();
+      const createRet = hwDevice.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, null, null);
+
+      if (createRet !== 0) {
+        // Hardware not available, skip test
+        hwDevice.free();
+        graph.free();
+        assert.ok(true, 'Hardware device not available - test skipped');
+        return;
+      }
+
+      // Set hardware context after filter is initialized
+      ctx.hwDeviceCtx = hwDevice;
+
+      // Hardware context should still be there after initialization
+      const hwCtxAfterInit = ctx.hwDeviceCtx;
+      assert.ok(hwCtxAfterInit, 'Hardware context should persist after initialization');
+      assert.ok(hwCtxAfterInit instanceof HardwareDeviceContext, 'Should be a HardwareDeviceContext instance');
+
+      // Clean up
+      hwDevice.free();
+      graph.free();
+    });
+
+    it('should handle hardware device context in filter chain', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create multiple filters
+      const bufferFilter = Filter.getByName('buffer');
+      const scaleFilter = Filter.getByName('scale');
+      const sinkFilter = Filter.getByName('buffersink');
+
+      assert.ok(bufferFilter);
+      assert.ok(scaleFilter);
+      assert.ok(sinkFilter);
+
+      const bufferCtx = graph.createFilter(bufferFilter, 'src', 'video_size=1920x1080:pix_fmt=0:time_base=1/30:pixel_aspect=1/1');
+      const scaleCtx = graph.createFilter(scaleFilter, 'scale', '1280:720');
+      const sinkCtx = graph.createFilter(sinkFilter, 'sink');
+
+      assert.ok(bufferCtx);
+      assert.ok(scaleCtx);
+      assert.ok(sinkCtx);
+
+      // Create a hardware device context
+      const hwDevice = new HardwareDeviceContext();
+      const createRet = hwDevice.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, null, null);
+
+      if (createRet !== 0) {
+        // Hardware not available, skip test
+        hwDevice.free();
+        graph.free();
+        assert.ok(true, 'Hardware device not available - test skipped');
+        return;
+      }
+
+      // Set hardware context on the scale filter
+      scaleCtx.hwDeviceCtx = hwDevice;
+
+      // Link filters
+      assert.equal(bufferCtx.link(0, scaleCtx, 0), 0);
+      assert.equal(scaleCtx.link(0, sinkCtx, 0), 0);
+
+      // Verify hardware context is still set
+      const retrievedHwCtx = scaleCtx.hwDeviceCtx;
+      assert.ok(retrievedHwCtx, 'Hardware context should be set on scale filter');
+      assert.ok(retrievedHwCtx instanceof HardwareDeviceContext, 'Should be a HardwareDeviceContext instance');
+
+      // Other filters should not have hardware context
+      assert.equal(bufferCtx.hwDeviceCtx, null, 'Buffer filter should not have hardware context');
+      assert.equal(sinkCtx.hwDeviceCtx, null, 'Sink filter should not have hardware context');
+
+      // Clean up
+      hwDevice.free();
       graph.free();
     });
   });

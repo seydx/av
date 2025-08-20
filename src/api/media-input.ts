@@ -10,14 +10,24 @@
  * @module api/media-input
  */
 
-import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO, AV_SEEK_FLAG_NONE } from '../lib/constants.js';
-import { FFmpegError, FormatContext, Packet } from '../lib/index.js';
+import {
+  AV_MEDIA_TYPE_AUDIO,
+  AV_MEDIA_TYPE_VIDEO,
+  AV_SEEK_FLAG_NONE,
+  avGetPixFmtName,
+  avGetSampleFmtName,
+  Dictionary,
+  FFmpegError,
+  FormatContext,
+  InputFormat,
+  Packet,
+  Rational,
+} from '../lib/index.js';
 import { IOStream } from './io-stream.js';
 
 import type { Readable } from 'stream';
-import type { AVMediaType, AVSeekFlag } from '../lib/constants.js';
-import type { IOContext } from '../lib/index.js';
-import type { Stream } from '../lib/stream.js';
+import type { AVMediaType, AVSeekFlag, IOContext, Stream } from '../lib/index.js';
+import type { MediaInputOptions, RawData } from './types.js';
 
 /**
  * MediaInput - High-level media input handler.
@@ -75,6 +85,7 @@ export class MediaInput implements AsyncDisposable {
    * Uses av_format_open_input() and av_find_stream_info() internally.
    *
    * @param input - File path, URL, Buffer, or Readable stream
+   * @param options - Optional configuration for timestamp handling
    *
    * @returns Promise resolving to MediaInput instance
    *
@@ -97,14 +108,99 @@ export class MediaInput implements AsyncDisposable {
    * const media = await MediaInput.open(stream);
    * ```
    */
-  static async open(input: string | Buffer | Readable): Promise<MediaInput> {
+  static async open(input: string | Buffer | Readable, options?: MediaInputOptions): Promise<MediaInput>;
+
+  /**
+   * Open raw video or audio data.
+   *
+   * @param rawData - Raw video or audio configuration
+   *
+   * @returns Promise resolving to MediaInput instance
+   *
+   * @example
+   * ```typescript
+   * // Raw video
+   * const input = await MediaInput.open({
+   *   type: 'video',
+   *   data: 'input.yuv',
+   *   width: 1280,
+   *   height: 720,
+   *   pixelFormat: 'yuv420p',
+   *   frameRate: 30
+   * });
+   *
+   * // Raw audio
+   * const input = await MediaInput.open({
+   *   type: 'audio',
+   *   data: 'input.pcm',
+   *   sampleRate: 48000,
+   *   channels: 2,
+   *   sampleFormat: 's16le'
+   * });
+   * ```
+   */
+  static async open(rawData: RawData, options?: MediaInputOptions): Promise<MediaInput>;
+
+  static async open(input: string | Buffer | Readable | RawData, options: MediaInputOptions = {}): Promise<MediaInput> {
+    // Check if input is raw data
+    if (typeof input === 'object' && 'type' in input && ('width' in input || 'sampleRate' in input)) {
+      // Build options for raw data
+      const rawOptions: MediaInputOptions = {
+        bufferSize: options.bufferSize,
+        format: options.format ?? (input.type === 'video' ? 'rawvideo' : 's16le'),
+        options: {
+          ...options.options,
+        },
+      };
+
+      if (input.type === 'video') {
+        rawOptions.options = {
+          ...rawOptions.options,
+          video_size: `${input.width}x${input.height}`,
+          pixel_format: avGetPixFmtName(input.pixelFormat) ?? 'yuv420p',
+          framerate: new Rational(input.frameRate.num, input.frameRate.den).toString(),
+        };
+      } else {
+        rawOptions.options = {
+          ...rawOptions.options,
+          sample_rate: input.sampleRate,
+          channels: input.channels,
+          sample_fmt: avGetSampleFmtName(input.sampleFormat) ?? 's16le',
+        };
+      }
+
+      // Open with the raw data source
+      return MediaInput.open(input.input, rawOptions);
+    }
+
+    // Original implementation for non-raw data
     const formatContext = new FormatContext();
     let ioContext: IOContext | undefined;
+    let optionsDict: Dictionary | null = null;
+    let inputFormat: InputFormat | null = null;
 
     try {
+      // Create options dictionary if options are provided
+      if (options.options && Object.keys(options.options).length > 0) {
+        // Convert all values to strings for FFmpeg
+        const stringOptions: Record<string, string> = {};
+        for (const [key, value] of Object.entries(options.options)) {
+          stringOptions[key] = String(value);
+        }
+        optionsDict = Dictionary.fromObject(stringOptions);
+      }
+
+      // Find input format if specified
+      if (options.format) {
+        inputFormat = InputFormat.findInputFormat(options.format);
+        if (!inputFormat) {
+          throw new Error(`Input format '${options.format}' not found`);
+        }
+      }
+
       if (typeof input === 'string') {
         // File path or URL
-        const ret = await formatContext.openInput(input, null, null);
+        const ret = await formatContext.openInput(input, inputFormat, optionsDict);
         FFmpegError.throwIfError(ret, 'Failed to open input');
       } else if (Buffer.isBuffer(input)) {
         // Validate buffer is not empty
@@ -113,16 +209,16 @@ export class MediaInput implements AsyncDisposable {
         }
         // From buffer - allocate context first for custom I/O
         formatContext.allocContext();
-        ioContext = IOStream.fromBuffer(input);
+        ioContext = IOStream.fromBuffer(input, options.bufferSize);
         formatContext.pb = ioContext;
-        const ret = await formatContext.openInput('', null, null);
+        const ret = await formatContext.openInput('', inputFormat, optionsDict);
         FFmpegError.throwIfError(ret, 'Failed to open input from buffer');
       } else {
         // From stream - allocate context first for custom I/O
         formatContext.allocContext();
-        ioContext = await IOStream.fromReadable(input);
+        ioContext = await IOStream.fromReadable(input, options.bufferSize);
         formatContext.pb = ioContext;
-        const ret = await formatContext.openInput('', null, null);
+        const ret = await formatContext.openInput('', inputFormat, optionsDict);
         FFmpegError.throwIfError(ret, 'Failed to open input from stream');
       }
 
@@ -148,6 +244,11 @@ export class MediaInput implements AsyncDisposable {
       // Clean up FormatContext
       await formatContext.closeInput();
       throw error;
+    } finally {
+      // Clean up options dictionary
+      if (optionsDict) {
+        optionsDict.free();
+      }
     }
   }
 
@@ -277,7 +378,7 @@ export class MediaInput implements AsyncDisposable {
    * }
    * ```
    */
-  async *packets(): AsyncGenerator<Packet> {
+  async *packets(index?: number): AsyncGenerator<Packet> {
     const packet = new Packet();
     packet.alloc();
 
@@ -288,7 +389,21 @@ export class MediaInput implements AsyncDisposable {
           // End of file or error
           break;
         }
-        yield packet;
+
+        if (index === undefined || packet.streamIndex === index) {
+          // Clone the packet for the user
+          // This creates a new Packet object that shares the same data buffer
+          // through reference counting. The data won't be freed until both
+          // the original and the clone are unreferenced.
+          const cloned = packet.clone();
+          if (!cloned) {
+            throw new Error('Failed to clone packet (out of memory)');
+          }
+          yield cloned;
+        }
+        // Unreference the original packet's data buffer
+        // This allows us to reuse the packet object for the next readFrame()
+        // The data itself is still alive because the clone has a reference
         packet.unref();
       }
     } finally {

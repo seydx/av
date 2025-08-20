@@ -10,8 +10,8 @@
  * Example: tsx examples/api-encode-decode.ts testdata/video.mp4 examples/.tmp/api-encode-decode.mp4
  */
 
-import { Decoder, Encoder, MediaInput } from '../src/api/index.js';
-import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, AV_PIX_FMT_YUV420P, FormatContext, IOContext } from '../src/lib/index.js';
+import { Decoder, Encoder, MediaInput, MediaOutput } from '../src/api/index.js';
+import { AV_PIX_FMT_YUV420P } from '../src/lib/index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];
@@ -40,50 +40,39 @@ async function main() {
 
     // Create decoder
     console.log('\nCreating decoder...');
-    const decoder = await Decoder.create(media, videoStream.index);
+    const decoder = await Decoder.create(videoStream);
 
     // Create encoder with different settings
     console.log('Creating encoder...');
-    const encoder = await Encoder.create('libx264', {
-      width: Math.floor(videoStream.codecpar.width / 2), // Half resolution
-      height: Math.floor(videoStream.codecpar.height / 2),
-      pixelFormat: AV_PIX_FMT_YUV420P,
-      bitrate: '1M',
-      gopSize: 60,
-      frameRate: videoStream.codecpar.frameRate,
-      timeBase: videoStream.timeBase, // Use input stream's timebase
-      codecOptions: {
-        preset: 'fast',
-        crf: '23',
+    const encoder = await Encoder.create(
+      'libx264',
+      {
+        type: 'video',
+        width: Math.floor(videoStream.codecpar.width / 2), // Half resolution
+        height: Math.floor(videoStream.codecpar.height / 2),
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        frameRate: videoStream.codecpar.frameRate,
+        timeBase: videoStream.timeBase, // Use input stream's timebase
       },
-    });
+      {
+        bitrate: '1M',
+        gopSize: 60,
+        options: {
+          preset: 'fast',
+          crf: '23',
+        },
+      },
+    );
 
-    // Create output format context (using low-level API for now)
-    const output = new FormatContext();
-    output.allocOutputContext2(null, null, outputFile);
+    // Create output using MediaOutput
+    console.log('Creating output:', outputFile);
+    const output = await MediaOutput.open(outputFile);
 
-    // Add video stream
-    const outStream = output.newStream(null);
-    if (!outStream) {
-      throw new Error('Failed to create output stream');
-    }
-
-    // Copy encoder parameters to stream
-    const encoderCtx = encoder.getCodecContext();
-    if (encoderCtx) {
-      outStream.codecpar.fromContext(encoderCtx);
-      outStream.timeBase = encoderCtx.timeBase;
-    }
-
-    // Open output file
-    if (output.oformat && !(output.oformat.flags & AV_FMT_NOFILE)) {
-      const ioContext = new IOContext();
-      await ioContext.open2(outputFile, AV_IO_FLAG_WRITE);
-      output.pb = ioContext;
-    }
+    // Add encoder stream to output
+    const outputStreamIndex = output.addStream(encoder);
 
     // Write header
-    await output.writeHeader(null);
+    await output.writeHeader();
 
     // Process frames
     console.log('\nProcessing frames...');
@@ -100,12 +89,8 @@ async function main() {
           // Re-encode frame
           const encodedPacket = await encoder.encode(frame);
           if (encodedPacket) {
-            // Set stream index and rescale timestamps from encoder timebase to output stream timebase
-            encodedPacket.streamIndex = 0;
-            encodedPacket.rescaleTs(encoderCtx?.timeBase ?? { num: 1, den: 25 }, outStream.timeBase);
-
-            // Write packet
-            await output.interleavedWriteFrame(encodedPacket);
+            // Write packet to output (MediaOutput handles timestamp rescaling)
+            await output.writePacket(encodedPacket, outputStreamIndex);
             encodedPackets++;
             encodedPacket.free();
           }
@@ -127,9 +112,7 @@ async function main() {
     while ((flushFrame = await decoder.flush()) !== null) {
       const encodedPacket = await encoder.encode(flushFrame);
       if (encodedPacket) {
-        encodedPacket.streamIndex = 0;
-        encodedPacket.rescaleTs(encoderCtx?.timeBase ?? { num: 1, den: 25 }, outStream.timeBase);
-        await output.interleavedWriteFrame(encodedPacket);
+        await output.writePacket(encodedPacket, outputStreamIndex);
         encodedPackets++;
         encodedPacket.free();
       }
@@ -140,9 +123,7 @@ async function main() {
     console.log('Flushing encoder...');
     let flushPacket;
     while ((flushPacket = await encoder.flush()) !== null) {
-      flushPacket.streamIndex = 0;
-      flushPacket.rescaleTs(encoderCtx?.timeBase ?? { num: 1, den: 25 }, outStream.timeBase);
-      await output.interleavedWriteFrame(flushPacket);
+      await output.writePacket(flushPacket, outputStreamIndex);
       encodedPackets++;
       flushPacket.free();
     }
@@ -154,10 +135,7 @@ async function main() {
     decoder.close();
     encoder.close();
     await media.close();
-
-    // Don't manually close pb - it will be closed by freeContext
-    // await output.pb?.closep(); // This causes double-free!
-    output.freeContext();
+    await output.close();
 
     console.log('\n✅ Done!');
     console.log(`   Decoded ${decodedFrames} frames`);

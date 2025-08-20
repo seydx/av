@@ -1,4 +1,5 @@
 #include "dictionary.h"
+#include "common.h"
 
 namespace ffmpeg {
 
@@ -86,7 +87,7 @@ Napi::Value Dictionary::Copy(const Napi::CallbackInfo& info) {
   
   // Get destination dictionary
   Napi::Object dstObj = info[0].As<Napi::Object>();
-  Dictionary* dst = Napi::ObjectWrap<Dictionary>::Unwrap(dstObj);
+  Dictionary* dst = UnwrapNativeObject<Dictionary>(env, dstObj, "Dictionary");
   
   if (!dst) {
     Napi::TypeError::New(env, "Invalid dictionary object").ThrowAsJavaScriptException();
