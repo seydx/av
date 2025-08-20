@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { existsSync, unlinkSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { Decoder, Encoder, HardwareContext, MediaInput } from '../src/api/index.js';
+import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput } from '../src/api/index.js';
 import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, type AVPixelFormat } from '../src/lib/constants.js';
 import { FormatContext, IOContext } from '../src/lib/index.js';
 
@@ -99,12 +99,13 @@ describe('Transcode Combinations', () => {
       gopSize: 30,
     };
 
-    // Only use hardware context for encoder if we're doing HW decode + HW encode
-    // For SW decode + HW encode, the encoder accepts CPU frames directly
-    if (useHwEncode && useHwDecode && hw) {
-      // Full GPU pipeline with zero-copy
+    // Hardware encoder always needs hardware context when available
+    if (useHwEncode && hw) {
       encoderOptions.hardware = hw;
-      encoderOptions.sharedDecoder = decoder;
+      // Only share decoder for zero-copy when both use hardware
+      if (useHwDecode) {
+        encoderOptions.sharedDecoder = decoder;
+      }
     }
 
     const encoder = await Encoder.create(encoderName, streamInfo, encoderOptions);
@@ -132,25 +133,51 @@ describe('Transcode Combinations', () => {
 
     await output.writeHeader(null);
 
+    // Create filter if we need to transfer between CPU and GPU
+    let filter: FilterAPI | null = null;
+    try {
+      if (hw && useHwDecode && !useHwEncode) {
+        // HW decode + SW encode: need hwdownload
+        // For VideoToolbox, we need scale_vt before hwdownload
+        const filterChain = hw.deviceTypeName === 'videotoolbox' ? 'scale_vt,hwdownload,format=nv12,format=yuv420p' : 'hwdownload,format=yuv420p';
+        filter = await FilterAPI.create(filterChain, videoStream, { hardware: hw });
+      } else if (hw && !useHwDecode && useHwEncode) {
+        // SW decode + HW encode: need hwupload
+        filter = await FilterAPI.create('hwupload', videoStream, { hardware: hw });
+      }
+    } catch (filterError: any) {
+      console.error(`Filter creation failed: ${filterError.message}`);
+      throw filterError;
+    }
+
     // Process frames (limit to 10 for test speed)
     let frameCount = 0;
     const maxFrames = 10;
 
     for await (const packet of media.packets()) {
       if (packet.streamIndex === videoStream.index) {
-        const frame = await decoder.decode(packet);
-        if (frame) {
+        const decodedFrame = await decoder.decode(packet);
+        if (decodedFrame) {
           frameCount++;
 
-          const encodedPacket = await encoder.encode(frame);
-          if (encodedPacket) {
-            encodedPacket.streamIndex = outputStream.index;
-            encodedPacket.rescaleTs(encoderCtx!.timeBase, outputStream.timeBase);
-            await output.interleavedWriteFrame(encodedPacket);
-            encodedPacket.free();
+          // Apply filter if needed
+          const frameToEncode = filter ? await filter.process(decodedFrame) : decodedFrame;
+          if (frameToEncode) {
+            const encodedPacket = await encoder.encode(frameToEncode);
+            if (encodedPacket) {
+              encodedPacket.streamIndex = outputStream.index;
+              encodedPacket.rescaleTs(encoderCtx!.timeBase, outputStream.timeBase);
+              await output.interleavedWriteFrame(encodedPacket);
+              encodedPacket.free();
+            }
+
+            // Free the filtered frame if it's different from decoded frame
+            if (filter && frameToEncode !== decodedFrame) {
+              frameToEncode.free();
+            }
           }
 
-          frame.free();
+          decodedFrame.free();
           if (frameCount >= maxFrames) break;
         }
       }
@@ -168,6 +195,9 @@ describe('Transcode Combinations', () => {
     await output.writeTrailer();
 
     // Cleanup
+    if (filter) {
+      filter[Symbol.dispose]();
+    }
     decoder.close();
     encoder.close();
     output.freeContext();
@@ -218,8 +248,8 @@ describe('Transcode Combinations', () => {
         assert.ok(existsSync(outputFile), 'Should create output file');
         console.log(`HW Decode + SW Encode: Processed ${frameCount} frames`);
       } catch (error) {
-        console.log('HW decode + SW encode failed:', error);
-        // Don't dispose hw here - it's used by other tests
+        console.error('HW decode + SW encode failed:', error);
+        throw error;
       } finally {
         cleanupOutput(outputFile);
       }
@@ -234,14 +264,6 @@ describe('Transcode Combinations', () => {
         return;
       }
 
-      // VideoToolbox encoder requires hardware frames, but we're providing CPU frames
-      // This would need hwupload filter support which is a separate feature
-      // if (hw.deviceTypeName === 'videotoolbox') {
-      //   console.log('VideoToolbox CPU→GPU upload requires hwupload filter - skipping');
-      //   hw.dispose();
-      //   return;
-      // }
-
       const outputFile = `${testOutputBase}-sw-decode-hw-encode.mp4`;
       cleanupOutput(outputFile);
 
@@ -251,8 +273,8 @@ describe('Transcode Combinations', () => {
         assert.ok(existsSync(outputFile), 'Should create output file');
         console.log(`SW Decode + HW Encode: Processed ${frameCount} frames`);
       } catch (error) {
-        console.log('SW decode + HW encode failed:', error);
-        // Don't dispose hw here - it's used by other tests
+        console.error('SW decode + HW encode failed:', error);
+        throw error;
       } finally {
         cleanupOutput(outputFile);
       }
@@ -272,67 +294,6 @@ describe('Transcode Combinations', () => {
       } finally {
         cleanupOutput(outputFile);
       }
-    });
-  });
-
-  describe('Performance Comparison', () => {
-    it('should compare performance of all transcode methods', async () => {
-      const hw = await HardwareContext.auto();
-      const results: { method: string; time: number; fps: number }[] = [];
-
-      // Test each combination and measure time
-      const combinations = [
-        { name: 'Full GPU', hwDecode: true, hwEncode: true, needsHw: true },
-        { name: 'HW Decode + SW Encode', hwDecode: true, hwEncode: false, needsHw: true },
-        { name: 'SW Decode + HW Encode', hwDecode: false, hwEncode: true, needsHw: true },
-        { name: 'Full CPU', hwDecode: false, hwEncode: false, needsHw: false },
-      ];
-
-      for (const combo of combinations) {
-        if (combo.needsHw && !hw) {
-          console.log(`${combo.name}: Skipped (no hardware)`);
-          continue;
-        }
-
-        // Skip SW decode + HW encode for VideoToolbox (not yet implemented)
-        // if (combo.name === 'SW Decode + HW Encode' && hw?.deviceTypeName === 'videotoolbox') {
-        //   console.log(`${combo.name}: Skipped (VideoToolbox CPU→GPU upload not yet implemented)`);
-        //   continue;
-        // }
-
-        const outputFile = `${testOutputBase}-perf-${combo.name.toLowerCase().replace(/\s+/g, '-')}.mp4`;
-        cleanupOutput(outputFile);
-
-        try {
-          const startTime = Date.now();
-          const frameCount = await transcode(testInput, outputFile, combo.hwDecode, combo.hwEncode, combo.needsHw && hw ? hw : undefined);
-          const elapsed = (Date.now() - startTime) / 1000;
-          const fps = frameCount / elapsed;
-
-          results.push({
-            method: combo.name,
-            time: elapsed,
-            fps,
-          });
-
-          console.log(`${combo.name}: ${elapsed.toFixed(2)}s, ${fps.toFixed(1)} fps`);
-        } catch (error) {
-          console.log(`${combo.name}: Failed - ${error}`);
-        } finally {
-          cleanupOutput(outputFile);
-        }
-      }
-
-      // Print comparison
-      if (results.length > 0) {
-        console.log('\nPerformance Summary:');
-        results.sort((a, b) => b.fps - a.fps);
-        results.forEach((r, i) => {
-          console.log(`  ${i + 1}. ${r.method}: ${r.fps.toFixed(1)} fps`);
-        });
-      }
-
-      hw?.dispose();
     });
   });
 
