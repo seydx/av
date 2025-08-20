@@ -25,41 +25,6 @@ npm install @seydx/ffmpeg
 - FFmpeg 7.1 or later (libavcodec, libavformat, libavfilter, libavutil, libswscale, libswresample)
 - Python 3.x (for node-gyp)
 
-## Imports and Tree Shaking
-
-The library provides multiple entry points for optimal tree shaking:
-
-```typescript
-// High-Level API only - Recommended for most use cases
-import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/ffmpeg/api';
-
-// Low-Level API only - Direct FFmpeg bindings
-import { FormatContext, CodecContext, Frame, Packet } from '@seydx/ffmpeg/lib';
-
-// Constants only - When you just need FFmpeg constants
-import { AV_PIX_FMT_YUV420P, AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
-
-// Channel layouts only - For audio channel configurations
-import { AV_CHANNEL_LAYOUT_STEREO, AV_CHANNEL_LAYOUT_5POINT1 } from '@seydx/ffmpeg/layouts';
-
-// Default export - Includes everything (larger bundle)
-import * as ffmpeg from '@seydx/ffmpeg';
-```
-
-### Recommended Import Strategy
-
-For optimal bundle size, import only what you need:
-
-```typescript
-// ✅ Good - Only imports what's needed
-import { MediaInput, Decoder } from '@seydx/ffmpeg/api';
-import { AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg/constants';
-
-// ❌ Avoid - Imports everything
-import * as ffmpeg from '@seydx/ffmpeg';
-const { MediaInput, Decoder } = ffmpeg;
-```
-
 ## Quick Start
 
 ### High-Level API
@@ -239,6 +204,41 @@ import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from '@seydx/ffmpeg';
 // Use specific hardware type
 const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
 const vaapi = await HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI, '/dev/dri/renderD128');
+```
+
+## Imports and Tree Shaking
+
+The library provides multiple entry points for optimal tree shaking:
+
+```typescript
+// High-Level API only - Recommended for most use cases
+import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/ffmpeg/api';
+
+// Low-Level API only - Direct FFmpeg bindings
+import { FormatContext, CodecContext, Frame, Packet } from '@seydx/ffmpeg/lib';
+
+// Constants only - When you just need FFmpeg constants
+import { AV_PIX_FMT_YUV420P, AV_CODEC_ID_H264 } from '@seydx/ffmpeg/constants';
+
+// Channel layouts only - For audio channel configurations
+import { AV_CHANNEL_LAYOUT_STEREO, AV_CHANNEL_LAYOUT_5POINT1 } from '@seydx/ffmpeg/layouts';
+
+// Default export - Includes everything (larger bundle)
+import * as ffmpeg from '@seydx/ffmpeg';
+```
+
+### Recommended Import Strategy
+
+For optimal bundle size, import only what you need:
+
+```typescript
+// ✅ Good - Only imports what's needed
+import { MediaInput, Decoder } from '@seydx/ffmpeg/api';
+import { AV_PIX_FMT_YUV420P } from '@seydx/ffmpeg/constants';
+
+// ❌ Avoid - Imports everything
+import * as ffmpeg from '@seydx/ffmpeg';
+const { MediaInput, Decoder } = ffmpeg;
 ```
 
 ## Stream Processing
