@@ -237,13 +237,16 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *
    * Creates a custom I/O context with JavaScript callbacks for read, write, and seek operations.
    *
+   * IMPORTANT: Callbacks must be synchronous! They are called from FFmpeg's thread and must
+   * return immediately. If you need async operations, buffer the data in JavaScript first.
+   *
    * Direct mapping to avio_alloc_context() with custom callbacks
    *
    * @param bufferSize - Size of the buffer in bytes
    * @param writeFlag - 0 for read, 1 for write
-   * @param readCallback - Callback for reading data. Returns Buffer, null for EOF, or negative error code
-   * @param writeCallback - Callback for writing data. Returns bytes written or negative error code
-   * @param seekCallback - Callback for seeking. Returns new position or negative error code
+   * @param readCallback - Synchronous callback for reading data. Returns Buffer, null for EOF, or negative error code
+   * @param writeCallback - Synchronous callback for writing data. Returns bytes written or negative error code
+   * @param seekCallback - Synchronous callback for seeking. Returns new position or negative error code
    *
    * @example
    * ```typescript
@@ -257,12 +260,12 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    *   4096,
    *   0,
    *   (size) => {
-   *     // Read up to 'size' bytes
+   *     // Read up to 'size' bytes - MUST BE SYNCHRONOUS
    *     return buffer.slice(position, position + size);
    *   },
    *   null,
    *   (offset, whence) => {
-   *     // Seek to position
+   *     // Seek to position - MUST BE SYNCHRONOUS
    *     if (whence === AV_SEEK_SET) position = Number(offset);
    *     else if (whence === AV_SEEK_CUR) position += Number(offset);
    *     else if (whence === AV_SEEK_END) position = buffer.length + Number(offset);

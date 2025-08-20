@@ -2,7 +2,7 @@
  * MediaInput - Unified Input Handler for FFmpeg
  *
  * Provides a high-level interface for opening and reading media from various sources.
- * Supports files, URLs, Buffers, and Node.js streams with automatic format detection.
+ * Supports files, URLs, and Buffers with automatic format detection.
  *
  * Central entry point for all media input operations.
  * Manages FormatContext lifecycle and provides stream information.
@@ -25,7 +25,6 @@ import {
 } from '../lib/index.js';
 import { IOStream } from './io-stream.js';
 
-import type { Readable } from 'stream';
 import type { AVMediaType, AVSeekFlag, IOContext, Stream } from '../lib/index.js';
 import type { MediaInputOptions, RawData } from './types.js';
 
@@ -84,7 +83,7 @@ export class MediaInput implements AsyncDisposable {
    *
    * Uses av_format_open_input() and av_find_stream_info() internally.
    *
-   * @param input - File path, URL, Buffer, or Readable stream
+   * @param input - File path, URL, or Buffer
    * @param options - Optional configuration for timestamp handling
    *
    * @returns Promise resolving to MediaInput instance
@@ -102,13 +101,9 @@ export class MediaInput implements AsyncDisposable {
    * // From Buffer
    * const buffer = await fs.readFile('video.mp4');
    * const media = await MediaInput.open(buffer);
-   *
-   * // From stream
-   * const stream = fs.createReadStream('video.mp4');
-   * const media = await MediaInput.open(stream);
    * ```
    */
-  static async open(input: string | Buffer | Readable, options?: MediaInputOptions): Promise<MediaInput>;
+  static async open(input: string | Buffer, options?: MediaInputOptions): Promise<MediaInput>;
 
   /**
    * Open raw video or audio data.
@@ -141,7 +136,7 @@ export class MediaInput implements AsyncDisposable {
    */
   static async open(rawData: RawData, options?: MediaInputOptions): Promise<MediaInput>;
 
-  static async open(input: string | Buffer | Readable | RawData, options: MediaInputOptions = {}): Promise<MediaInput> {
+  static async open(input: string | Buffer | RawData, options: MediaInputOptions = {}): Promise<MediaInput> {
     // Check if input is raw data
     if (typeof input === 'object' && 'type' in input && ('width' in input || 'sampleRate' in input)) {
       // Build options for raw data
@@ -209,17 +204,12 @@ export class MediaInput implements AsyncDisposable {
         }
         // From buffer - allocate context first for custom I/O
         formatContext.allocContext();
-        ioContext = IOStream.fromBuffer(input, options.bufferSize);
+        ioContext = IOStream.create(input, { bufferSize: options.bufferSize });
         formatContext.pb = ioContext;
         const ret = await formatContext.openInput('', inputFormat, optionsDict);
         FFmpegError.throwIfError(ret, 'Failed to open input from buffer');
       } else {
-        // From stream - allocate context first for custom I/O
-        formatContext.allocContext();
-        ioContext = await IOStream.fromReadable(input, options.bufferSize);
-        formatContext.pb = ioContext;
-        const ret = await formatContext.openInput('', inputFormat, optionsDict);
-        FFmpegError.throwIfError(ret, 'Failed to open input from stream');
+        throw new TypeError('Invalid input type. Expected file path, URL, or Buffer');
       }
 
       // Find stream information

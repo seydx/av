@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { Decoder, Encoder, MediaInput, MediaOutput } from '../src/api/index.js';
-import type { IOCallbacks } from '../src/api/types.js';
 import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
 import { Packet } from '../src/lib/packet.js';
+
+import type { IOOutputCallbacks } from '../src/api/types.js';
 
 describe('MediaOutput', () => {
   let tempFiles: string[] = [];
@@ -57,7 +58,7 @@ describe('MediaOutput', () => {
     it('should open with custom IO callbacks', async () => {
       const chunks: Buffer[] = [];
 
-      const callbacks: IOCallbacks = {
+      const callbacks: IOOutputCallbacks = {
         write: (buffer: Buffer) => {
           chunks.push(Buffer.from(buffer));
           return buffer.length;
@@ -75,7 +76,7 @@ describe('MediaOutput', () => {
     });
 
     it('should require format for custom IO', async () => {
-      const callbacks: IOCallbacks = {
+      const callbacks: IOOutputCallbacks = {
         write: (buffer: Buffer) => buffer.length,
       };
 
@@ -83,7 +84,7 @@ describe('MediaOutput', () => {
     });
 
     it('should support custom buffer size for custom IO', async () => {
-      const callbacks: IOCallbacks = {
+      const callbacks: IOOutputCallbacks = {
         write: (buffer: Buffer) => buffer.length,
       };
 

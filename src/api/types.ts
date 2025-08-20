@@ -1,4 +1,3 @@
-import type { Readable } from 'stream';
 import type { AVPixelFormat, AVSampleFormat, AVSoftwareScaleFlag, ChannelLayout, IRational } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 
@@ -117,7 +116,7 @@ export interface VideoRawData {
   /**
    * Raw audio input source (file path, Buffer, or stream).
    */
-  input: string | Buffer | Readable;
+  input: string | Buffer;
 
   /**
    * Video dimensions.
@@ -164,7 +163,7 @@ export interface AudioRawData {
   /**
    * Raw audio input source (file path, Buffer, or stream).
    */
-  input: string | Buffer | Readable;
+  input: string | Buffer;
 
   /**
    * Sample rate in Hz (e.g., 44100, 48000).
@@ -408,17 +407,61 @@ export interface HardwareOptions {
 }
 
 /**
- * Custom IO callbacks for creating IOContext.
+ * Custom I/O callbacks for implementing custom input sources.
  *
- * Defines callback functions for custom I/O operations with FFmpeg.
- * Used to implement custom protocols or special data handling.
+ * Defines callback functions for custom read operations with FFmpeg.
+ * Used by IOStream.create() for custom input protocols.
  *
- * @interface IOCallbacks
+ * @interface IOInputCallbacks
  */
-export interface IOCallbacks {
-  read?: (size: number) => Buffer | null | number;
-  write?: (buffer: Buffer) => number | void;
+export interface IOInputCallbacks {
+  /**
+   * Read callback - called when FFmpeg needs to read data.
+   * @param size - Number of bytes to read
+   * @returns Buffer with data, null for EOF, or negative error code
+   */
+  read: (size: number) => Buffer | null | number;
+
+  /**
+   * Seek callback - called when FFmpeg needs to seek in the stream.
+   * @param offset - Offset to seek to
+   * @param whence - Seek origin (SEEK_SET, SEEK_CUR, SEEK_END, or AVSEEK_SIZE)
+   * @returns New position or negative error code
+   */
   seek?: (offset: bigint, whence: number) => bigint | number;
+}
+
+/**
+ * Custom I/O callbacks for implementing custom output targets.
+ *
+ * Defines callback functions for custom write operations with FFmpeg.
+ * Used internally by MediaOutput for custom output protocols.
+ *
+ * @interface IOOutputCallbacks
+ * @internal
+ */
+export interface IOOutputCallbacks {
+  /**
+   * Write callback - called when FFmpeg needs to write data.
+   * @param buffer - Buffer containing data to write
+   * @returns Number of bytes written or void
+   */
+  write: (buffer: Buffer) => number | void;
+
+  /**
+   * Seek callback - called when FFmpeg needs to seek in the output.
+   * @param offset - Offset to seek to
+   * @param whence - Seek origin (SEEK_SET, SEEK_CUR, SEEK_END)
+   * @returns New position or negative error code
+   */
+  seek?: (offset: bigint, whence: number) => bigint | number;
+
+  /**
+   * Read callback - some formats may need to read back data.
+   * @param size - Number of bytes to read
+   * @returns Buffer with data, null for EOF, or negative error code
+   */
+  read?: (size: number) => Buffer | null | number;
 }
 
 /**

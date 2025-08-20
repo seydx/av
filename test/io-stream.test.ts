@@ -1,14 +1,13 @@
 import assert from 'node:assert';
-import { Readable, Transform, Writable } from 'node:stream';
 import { describe, it } from 'node:test';
 import { IOStream } from '../src/api/index.js';
 import { AV_SEEK_SET } from '../src/lib/constants.js';
 
 describe('IOStream', () => {
-  describe('fromBuffer', () => {
+  describe('create with Buffer', () => {
     it('should create IOContext from Buffer', async () => {
       const buffer = Buffer.from('test data');
-      const ioContext = IOStream.fromBuffer(buffer);
+      const ioContext = IOStream.create(buffer);
 
       assert.ok(ioContext, 'Should create IOContext');
 
@@ -24,7 +23,7 @@ describe('IOStream', () => {
 
     it('should handle seek operations on Buffer', async () => {
       const buffer = Buffer.from('0123456789');
-      const ioContext = IOStream.fromBuffer(buffer);
+      const ioContext = IOStream.create(buffer);
 
       // Seek to position 5
       const seekPos = await ioContext.seek(5n, AV_SEEK_SET);
@@ -40,75 +39,7 @@ describe('IOStream', () => {
     });
   });
 
-  describe('fromReadable', () => {
-    it('should create IOContext from Readable stream', async () => {
-      const readable = Readable.from([Buffer.from('hello'), Buffer.from(' '), Buffer.from('world')]);
-      const ioContext = await IOStream.fromReadable(readable);
-
-      assert.ok(ioContext, 'Should create IOContext');
-
-      const result = await ioContext.read(5);
-      assert.ok(Buffer.isBuffer(result), 'Should return a Buffer');
-      assert.equal(result.length, 5);
-      assert.equal(result.toString(), 'hello');
-
-      ioContext.freeContext();
-    });
-  });
-
-  describe('fromWritable', () => {
-    it('should create IOContext from Writable stream', async () => {
-      const chunks: Buffer[] = [];
-      const writable = new Writable({
-        write(chunk, _encoding, callback) {
-          chunks.push(chunk);
-          callback();
-        },
-      });
-
-      const ioContext = IOStream.fromWritable(writable);
-      assert.ok(ioContext, 'Should create IOContext');
-
-      // Write data
-      const data = Buffer.from('test output');
-      await ioContext.write(data);
-      // Write returns void, not bytes written
-
-      // Note: Write to stream happens asynchronously via callbacks
-      // We can't check chunks immediately
-
-      ioContext.freeContext();
-    });
-  });
-
-  describe('fromTransform', () => {
-    it('should create IOContext from Transform stream for writing', async () => {
-      const transformed: Buffer[] = [];
-      const transform = new Transform({
-        transform(chunk, _encoding, callback) {
-          // Convert to uppercase
-          const upper = chunk.toString().toUpperCase();
-          transformed.push(Buffer.from(upper));
-          callback(null, chunk);
-        },
-      });
-
-      const ioContext = await IOStream.fromTransform(transform, 'write');
-      assert.ok(ioContext, 'Should create IOContext');
-
-      // Write data
-      const data = Buffer.from('hello');
-      await ioContext.write(data);
-      // Write returns void, not bytes written
-
-      // Note: Transform happens asynchronously via callbacks
-      // We can't check transformed immediately
-
-      ioContext.freeContext();
-    });
-  });
-
-  describe('create', () => {
+  describe('create with custom callbacks', () => {
     it('should create IOContext with custom callbacks', async () => {
       const data = Buffer.from('custom data source');
       let position = 0;
@@ -149,18 +80,23 @@ describe('IOStream', () => {
     });
 
     it('should validate callbacks', () => {
-      // Should throw for read mode without read callback
-      assert.throws(() => IOStream.create({}, 8192, 0), /Read callback is required/);
+      // Should throw for invalid input type
+      assert.throws(() => IOStream.create(123 as any), /Invalid input type/);
 
-      // Should throw for write mode without write callback
-      assert.throws(() => IOStream.create({}, 8192, 1), /Write callback is required/);
+      // Should throw without read callback (empty object is invalid input)
+      assert.throws(() => IOStream.create({} as any), /Invalid input type/);
+
+      // Should throw when read callback is missing - but this is also treated as invalid input
+      // because we only check for 'read' property to identify IOInputCallbacks
+      const invalidCallbacks = { seek: () => 0n } as any;
+      assert.throws(() => IOStream.create(invalidCallbacks), /Invalid input type/);
     });
   });
 
   describe('Edge cases', () => {
     it('should handle empty Buffer', async () => {
       const buffer = Buffer.alloc(0);
-      const ioContext = IOStream.fromBuffer(buffer);
+      const ioContext = IOStream.create(buffer);
 
       const result = await ioContext.read(10);
       // Empty buffer might return error code or empty buffer
@@ -175,7 +111,7 @@ describe('IOStream', () => {
 
     it('should handle EOF correctly', async () => {
       const buffer = Buffer.from('short');
-      const ioContext = IOStream.fromBuffer(buffer);
+      const ioContext = IOStream.create(buffer);
 
       // Read all data
       const result = await ioContext.read(10);

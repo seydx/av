@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import { readFile } from 'node:fs/promises';
-import { Readable } from 'node:stream';
 import { after, describe, it } from 'node:test';
 import { MediaInput } from '../src/api/index.js';
 import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO } from '../src/index.js';
@@ -44,17 +43,6 @@ describe('MediaInput', () => {
       const media = await MediaInput.open(buffer);
 
       assert.ok(media, 'Should create MediaInput from Buffer');
-      assert.ok(media.streams.length > 0, 'Should have streams');
-
-      await media.close();
-    });
-
-    it('should open from Readable stream', async () => {
-      const buffer = await readFile('testdata/demux.mp4');
-      const readable = Readable.from([buffer]);
-      const media = await MediaInput.open(readable);
-
-      assert.ok(media, 'Should create MediaInput from stream');
       assert.ok(media.streams.length > 0, 'Should have streams');
 
       await media.close();

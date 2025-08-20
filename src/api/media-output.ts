@@ -14,7 +14,7 @@ import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, FFmpegError, FormatContext, IOContext,
 import { Encoder } from './encoder.js';
 
 import type { IRational, Packet, Stream } from '../lib/index.js';
-import type { IOCallbacks, MediaOutputOptions } from './types.js';
+import type { IOOutputCallbacks, MediaOutputOptions } from './types.js';
 
 interface StreamInfo {
   stream: Stream;
@@ -128,7 +128,7 @@ export class MediaOutput implements AsyncDisposable {
    * const output = await MediaOutput.open('rtmp://server/live/streamkey', { format: 'flv' });
    * ```
    */
-  static async open(target: string | IOCallbacks, options?: MediaOutputOptions): Promise<MediaOutput> {
+  static async open(target: string | IOOutputCallbacks, options?: MediaOutputOptions): Promise<MediaOutput> {
     const output = new MediaOutput();
 
     try {
