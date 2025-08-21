@@ -1,3 +1,4 @@
 [submodule "externals/ffmpeg"]
 	path = externals/ffmpeg
 	url = https://github.com/FFmpeg/FFmpeg.git
+	branch = master

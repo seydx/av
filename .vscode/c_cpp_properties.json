@@ -12,6 +12,21 @@
             "cStandard": "c17",
             "cppStandard": "c++14",
             "intelliSenseMode": "macos-clang-arm64"
+        },
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/codespace/.cache/node-gyp/22.17.0/include/node",
+                "/usr/local/share/nvm/versions/node/v22.17.0/include/node",
+                "/usr/include/x86_64-linux-gnu",
+                "${workspaceFolder}/node_modules/node-addon-api"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-x64"
         }
     ],
     "version": 4
