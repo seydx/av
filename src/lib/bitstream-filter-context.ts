@@ -1,10 +1,10 @@
 import { bindings } from './binding.js';
 import { BitStreamFilter } from './bitstream-filter.js';
 import { CodecParameters } from './codec-parameters.js';
-import { Packet } from './packet.js';
 import { Rational } from './rational.js';
 
 import type { NativeBitStreamFilterContext, NativeWrapper } from './native-types.js';
+import type { Packet } from './packet.js';
 
 /**
  * Bitstream filter context for processing packets.
@@ -95,6 +95,151 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
    */
   constructor() {
     this.native = new bindings.BitStreamFilterContext();
+  }
+
+  /**
+   * Check if the context is initialized.
+   *
+   * Returns true if init() has been called successfully.
+   *
+   * @returns True if initialized, false otherwise
+   */
+  get isInitialized(): boolean {
+    return this.native.isInitialized();
+  }
+
+  /**
+   * Input codec parameters (read-only reference, mutable contents).
+   *
+   * Returns a reference to the BSF context's internal codec parameters.
+   * While you cannot replace this object (no setter), you can modify its contents
+   * or use it as a destination for copy operations.
+   *
+   * You must configure these parameters before calling init().
+   *
+   * Maps to AVBSFContext->par_in.
+   *
+   * @example
+   * ```typescript
+   * // Copy parameters from input stream to BSF context
+   * if (ctx.inputCodecParameters) {
+   *   stream.codecpar.copy(ctx.inputCodecParameters);
+   *
+   *   // Or set individual properties
+   *   ctx.inputCodecParameters.codecType = AV_MEDIA_TYPE_VIDEO;
+   *   ctx.inputCodecParameters.codecId = AV_CODEC_ID_H264;
+   * }
+   * ```
+   */
+  get inputCodecParameters(): CodecParameters | null {
+    // The native binding returns a CodecParameters object created with the constructor
+    // It's the native object itself, not a TypeScript wrapper
+    const nativeParams = this.native.inputCodecParameters;
+    if (!nativeParams) {
+      return null;
+    }
+    // Wrap it in our TypeScript class
+    const wrapper = Object.create(CodecParameters.prototype) as CodecParameters;
+    (wrapper as any).native = nativeParams;
+    return wrapper;
+  }
+
+  /**
+   * Output codec parameters (read-only reference, read-only contents).
+   *
+   * Returns a reference to the BSF context's output codec parameters.
+   * These are automatically configured by the filter during init().
+   * You should not modify these parameters.
+   *
+   * Maps to AVBSFContext->par_out.
+   *
+   * @example
+   * ```typescript
+   * // After initialization, read the output parameters
+   * console.log(`Output codec: ${ctx.outputCodecParameters?.codecId}`);
+   *
+   * // Use them to configure downstream components
+   * if (ctx.outputCodecParameters) {
+   *   ctx.outputCodecParameters.copy(nextStream.codecpar);
+   * }
+   * ```
+   */
+  get outputCodecParameters(): CodecParameters | null {
+    // The native binding returns a CodecParameters object created with the constructor
+    // It's the native object itself, not a TypeScript wrapper
+    const nativeParams = this.native.outputCodecParameters;
+    if (!nativeParams) {
+      return null;
+    }
+    // Wrap it in our TypeScript class
+    const wrapper = Object.create(CodecParameters.prototype) as CodecParameters;
+    (wrapper as any).native = nativeParams;
+    return wrapper;
+  }
+
+  /**
+   * Input time base.
+   *
+   * Time base for input packet timestamps.
+   * Must be set before calling init().
+   *
+   * Maps to AVBSFContext->time_base_in.
+   *
+   * @example
+   * ```typescript
+   * ctx.inputTimeBase = new Rational(1, 1000); // 1ms time base
+   * ```
+   */
+  get inputTimeBase(): Rational {
+    const tb = this.native.inputTimeBase;
+    return new Rational(tb.num, tb.den);
+  }
+
+  set inputTimeBase(value: Rational) {
+    this.native.inputTimeBase = { num: value.num, den: value.den };
+  }
+
+  /**
+   * Output time base.
+   *
+   * Time base for output packet timestamps.
+   * Set by the filter during init().
+   *
+   * Maps to AVBSFContext->time_base_out.
+   *
+   * @example
+   * ```typescript
+   * // After initialization
+   * console.log(`Output time base: ${ctx.outputTimeBase.num}/${ctx.outputTimeBase.den}`);
+   * ```
+   */
+  get outputTimeBase(): Rational | null {
+    const tb = this.native.outputTimeBase;
+    if (!tb) return null;
+    return new Rational(tb.num, tb.den);
+  }
+
+  /**
+   * The bitstream filter being used.
+   *
+   * Reference to the filter this context was allocated with.
+   *
+   * Maps to AVBSFContext->filter.
+   *
+   * @example
+   * ```typescript
+   * console.log(`Using filter: ${ctx.filter?.name}`);
+   * ```
+   */
+  get filter(): BitStreamFilter | null {
+    if (!this._filter) {
+      const native = this.native.filter;
+      if (!native) {
+        return null;
+      }
+      this._filter = new BitStreamFilter(native);
+    }
+    return this._filter;
   }
 
   /**
@@ -245,151 +390,6 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
    */
   async receivePacket(packet: Packet): Promise<number> {
     return await this.native.receivePacket(packet.getNative());
-  }
-
-  /**
-   * Check if the context is initialized.
-   *
-   * Returns true if init() has been called successfully.
-   *
-   * @returns True if initialized, false otherwise
-   */
-  get isInitialized(): boolean {
-    return this.native.isInitialized();
-  }
-
-  /**
-   * Input codec parameters (read-only reference, mutable contents).
-   *
-   * Returns a reference to the BSF context's internal codec parameters.
-   * While you cannot replace this object (no setter), you can modify its contents
-   * or use it as a destination for copy operations.
-   *
-   * You must configure these parameters before calling init().
-   *
-   * Maps to AVBSFContext->par_in.
-   *
-   * @example
-   * ```typescript
-   * // Copy parameters from input stream to BSF context
-   * if (ctx.inputCodecParameters) {
-   *   stream.codecpar.copy(ctx.inputCodecParameters);
-   *
-   *   // Or set individual properties
-   *   ctx.inputCodecParameters.codecType = AV_MEDIA_TYPE_VIDEO;
-   *   ctx.inputCodecParameters.codecId = AV_CODEC_ID_H264;
-   * }
-   * ```
-   */
-  get inputCodecParameters(): CodecParameters | null {
-    // The native binding returns a CodecParameters object created with the constructor
-    // It's the native object itself, not a TypeScript wrapper
-    const nativeParams = this.native.inputCodecParameters;
-    if (!nativeParams) {
-      return null;
-    }
-    // Wrap it in our TypeScript class
-    const wrapper = Object.create(CodecParameters.prototype) as CodecParameters;
-    (wrapper as any).native = nativeParams;
-    return wrapper;
-  }
-
-  /**
-   * Output codec parameters (read-only reference, read-only contents).
-   *
-   * Returns a reference to the BSF context's output codec parameters.
-   * These are automatically configured by the filter during init().
-   * You should not modify these parameters.
-   *
-   * Maps to AVBSFContext->par_out.
-   *
-   * @example
-   * ```typescript
-   * // After initialization, read the output parameters
-   * console.log(`Output codec: ${ctx.outputCodecParameters?.codecId}`);
-   *
-   * // Use them to configure downstream components
-   * if (ctx.outputCodecParameters) {
-   *   ctx.outputCodecParameters.copy(nextStream.codecpar);
-   * }
-   * ```
-   */
-  get outputCodecParameters(): CodecParameters | null {
-    // The native binding returns a CodecParameters object created with the constructor
-    // It's the native object itself, not a TypeScript wrapper
-    const nativeParams = this.native.outputCodecParameters;
-    if (!nativeParams) {
-      return null;
-    }
-    // Wrap it in our TypeScript class
-    const wrapper = Object.create(CodecParameters.prototype) as CodecParameters;
-    (wrapper as any).native = nativeParams;
-    return wrapper;
-  }
-
-  /**
-   * Input time base.
-   *
-   * Time base for input packet timestamps.
-   * Must be set before calling init().
-   *
-   * Maps to AVBSFContext->time_base_in.
-   *
-   * @example
-   * ```typescript
-   * ctx.inputTimeBase = new Rational(1, 1000); // 1ms time base
-   * ```
-   */
-  get inputTimeBase(): Rational {
-    const tb = this.native.inputTimeBase;
-    return new Rational(tb.num, tb.den);
-  }
-
-  set inputTimeBase(value: Rational) {
-    this.native.inputTimeBase = { num: value.num, den: value.den };
-  }
-
-  /**
-   * Output time base.
-   *
-   * Time base for output packet timestamps.
-   * Set by the filter during init().
-   *
-   * Maps to AVBSFContext->time_base_out.
-   *
-   * @example
-   * ```typescript
-   * // After initialization
-   * console.log(`Output time base: ${ctx.outputTimeBase.num}/${ctx.outputTimeBase.den}`);
-   * ```
-   */
-  get outputTimeBase(): Rational | null {
-    const tb = this.native.outputTimeBase;
-    if (!tb) return null;
-    return new Rational(tb.num, tb.den);
-  }
-
-  /**
-   * The bitstream filter being used.
-   *
-   * Reference to the filter this context was allocated with.
-   *
-   * Maps to AVBSFContext->filter.
-   *
-   * @example
-   * ```typescript
-   * console.log(`Using filter: ${ctx.filter?.name}`);
-   * ```
-   */
-  get filter(): BitStreamFilter | null {
-    if (!this._filter) {
-      const native = this.native.filter;
-      if (!native) {
-        return null;
-      }
-      this._filter = new BitStreamFilter(native);
-    }
-    return this._filter;
   }
 
   /**

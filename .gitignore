@@ -46,3 +46,6 @@ go-astiav
 ffmpeg_examples
 /script.ts
 /output.txt
+/binding.local.gyp
+/build-darwin.sh
+/CLAUDE.md

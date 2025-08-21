@@ -471,6 +471,30 @@ export class HardwareContext implements Disposable {
   }
 
   /**
+   * Check if this hardware device type supports a specific pixel format.
+   *
+   * @param codecId - Codec ID from AVCodecID enum
+   * @param pixelFormat - Pixel format to check
+   * @param isEncoder - Check for encoder support (default: false for decoder)
+   *
+   * @returns True if pixel format is supported by this hardware
+   */
+  supportsPixelFormat(codecId: AVCodecID, pixelFormat: AVPixelFormat, isEncoder = false): boolean {
+    const codec = isEncoder ? Codec.findEncoder(codecId) : Codec.findDecoder(codecId);
+
+    if (!codec) {
+      return false;
+    }
+
+    const pixelFormats = codec.pixelFormats ?? [];
+    if (pixelFormats.length === 0) {
+      return false;
+    }
+
+    return pixelFormats.some((fmt) => fmt === pixelFormat);
+  }
+
+  /**
    * Find all codecs that support this hardware device.
    *
    * Uses FFmpeg's native codec list to find compatible codecs.

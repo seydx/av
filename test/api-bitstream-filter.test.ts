@@ -117,7 +117,7 @@ describe('BitStreamFilterAPI', () => {
         assert.ok(packet instanceof Packet);
         flushedCount++;
       }
-      
+
       // null filter may or may not have buffered packets
       assert.ok(flushedCount >= 0, 'Should process flush packets');
     });
@@ -182,15 +182,7 @@ describe('BitStreamFilterAPI', () => {
       }
 
       // Try to create h264_mp4toannexb filter
-      let bsf: BitStreamFilterAPI;
-      try {
-        bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', stream);
-      } catch {
-        t.skip(); // Filter might not be available
-        return;
-      }
-
-      using _bsf = bsf;
+      using bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', stream);
 
       // Check output parameters
       assert.ok(bsf.outputCodecParameters, 'Should have output codec parameters');

@@ -269,7 +269,20 @@ public:
 
   void Execute() override {
     if (parent_->ctx_) {
-      result_ = avformat_write_header(parent_->ctx_, options_ ? &options_ : nullptr);
+      AVFormatContext* ctx = parent_->ctx_;
+      
+      // Check if pb is valid for formats that require file I/O
+      // AVFMT_NOFILE formats don't need pb (e.g., image2, rawvideo output to pipe)
+      if (ctx->oformat && !(ctx->oformat->flags & AVFMT_NOFILE)) {
+        if (!ctx->pb) {
+          // File was not opened or open failed
+          // This can happen if avio_open failed but writeHeader was still called
+          result_ = AVERROR(ENOENT);  // File not found/not opened
+          return;
+        }
+      }
+      
+      result_ = avformat_write_header(ctx, options_ ? &options_ : nullptr);
     } else {
       result_ = AVERROR(EINVAL);
     }

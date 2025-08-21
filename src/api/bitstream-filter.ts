@@ -135,6 +135,47 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
+   * Get the filter name.
+   *
+   * @returns The name of the bitstream filter
+   */
+  get name(): string {
+    return this.filter.name ?? 'unknown';
+  }
+
+  /**
+   * Get the associated stream.
+   *
+   * @returns The stream this filter was created for
+   */
+  get streamInfo(): Stream {
+    return this.stream;
+  }
+
+  /**
+   * Get output codec parameters.
+   *
+   * Returns the output codec parameters after filter initialization.
+   * These may differ from input parameters depending on the filter.
+   *
+   * @returns Output codec parameters, or null if not available
+   */
+  get outputCodecParameters() {
+    return this.ctx.outputCodecParameters;
+  }
+
+  /**
+   * Get output time base.
+   *
+   * Returns the output time base after filter initialization.
+   *
+   * @returns Output time base, or null if not available
+   */
+  get outputTimeBase() {
+    return this.ctx.outputTimeBase;
+  }
+
+  /**
    * Process a single packet through the filter.
    *
    * Sends a packet to the filter and retrieves all output packets.
@@ -305,6 +346,14 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
+   * Get the stream this filter was created for.
+   * Used for determining stream configuration in pipeline.
+   */
+  getStream(): Stream {
+    return this.stream;
+  }
+
+  /**
    * Reset the filter state.
    *
    * Clears internal buffers and resets the filter to initial state.
@@ -324,47 +373,6 @@ export class BitStreamFilterAPI implements Disposable {
     }
 
     this.ctx.flush();
-  }
-
-  /**
-   * Get the filter name.
-   *
-   * @returns The name of the bitstream filter
-   */
-  get name(): string {
-    return this.filter.name || 'unknown';
-  }
-
-  /**
-   * Get the associated stream.
-   *
-   * @returns The stream this filter was created for
-   */
-  get streamInfo(): Stream {
-    return this.stream;
-  }
-
-  /**
-   * Get output codec parameters.
-   *
-   * Returns the output codec parameters after filter initialization.
-   * These may differ from input parameters depending on the filter.
-   *
-   * @returns Output codec parameters, or null if not available
-   */
-  get outputCodecParameters() {
-    return this.ctx.outputCodecParameters;
-  }
-
-  /**
-   * Get output time base.
-   *
-   * Returns the output time base after filter initialization.
-   *
-   * @returns Output time base, or null if not available
-   */
-  get outputTimeBase() {
-    return this.ctx.outputTimeBase;
   }
 
   /**

@@ -24,7 +24,7 @@ import {
 import { Stream } from '../lib/stream.js';
 import { parseBitrate } from './utils.js';
 
-import type { AVPixelFormat, Frame } from '../lib/index.js';
+import type { AVPixelFormat, AVSampleFormat, Frame } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 import type { EncoderOptions, StreamInfo } from './types.js';
 
@@ -159,30 +159,46 @@ export class Encoder implements Disposable {
 
     // Apply parameters based on input type
     if (input instanceof Stream) {
-      // It's a Stream - use parametersToContext like in Decoder
-      const ret = codecContext.parametersToContext(input.codecpar);
-      if (ret < 0) {
-        codecContext.freeContext();
-        throw new Error(`Failed to copy codec parameters: ${ret}`);
-      }
+      // It's a Stream - copy ONLY the essential parameters
+      // DO NOT use parametersToContext as it copies everything including decoder-specific settings
 
-      // Set framerate for video (not copied by parametersToContext)
       if (codec.type === AV_MEDIA_TYPE_VIDEO) {
-        // Set pkt_timebase to input timebase so encoder knows how to interpret frame PTS
-        codecContext.pktTimebase = input.timeBase;
+        // Set required video parameters from input stream
+        codecContext.width = input.codecpar.width;
+        codecContext.height = input.codecpar.height;
+        codecContext.pixelFormat = input.codecpar.format as AVPixelFormat;
 
-        // Set timeBase to input timeBase - encoder will use this or choose its own
+        // Set timing information
+        codecContext.pktTimebase = input.timeBase;
         codecContext.timeBase = input.timeBase;
 
+        // Set framerate if available
         if (input.avgFrameRate && input.avgFrameRate.num > 0 && input.avgFrameRate.den > 0) {
           codecContext.framerate = new Rational(input.avgFrameRate.num, input.avgFrameRate.den);
         } else if (input.rFrameRate && input.rFrameRate.num > 0 && input.rFrameRate.den > 0) {
           codecContext.framerate = new Rational(input.rFrameRate.num, input.rFrameRate.den);
         }
-      } else {
-        // For audio, set pkt_timebase and use input timeBase
+
+        // Copy sample aspect ratio if present
+        if (input.sampleAspectRatio && input.sampleAspectRatio.num > 0) {
+          codecContext.sampleAspectRatio = new Rational(input.sampleAspectRatio.num, input.sampleAspectRatio.den);
+        }
+      } else if (codec.type === AV_MEDIA_TYPE_AUDIO) {
+        // Set required audio parameters from input stream
+        codecContext.sampleRate = input.codecpar.sampleRate;
+        codecContext.sampleFormat = input.codecpar.format as AVSampleFormat;
+
+        // Copy channel layout from input
+        // NOTE: This means the encoder will use the same channel configuration as the input
+        // If you need different channels, use an audio filter or pass StreamInfo instead
+        codecContext.channelLayout = input.codecpar.channelLayout;
+
+        // Set timing information
         codecContext.pktTimebase = input.timeBase;
         codecContext.timeBase = input.timeBase;
+      } else {
+        codecContext.freeContext();
+        throw new Error('Unsupported codec type for encoder');
       }
     } else {
       // It's StreamInfo - apply manually
@@ -279,9 +295,13 @@ export class Encoder implements Disposable {
 
     // Apply hardware acceleration if provided and encoder supports it
     if (options.hardware && isHardwareEncoder) {
-      // For hardware encoders, always set the hardware pixel format
-      // (overrides what was copied from stream parameters)
-      codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
+      // Check if hardware encoder support the pixelFormat
+      const pixelFormatIsSupported = options.hardware.supportsPixelFormat(codecContext.codecId, codecContext.pixelFormat, true);
+
+      // If pixel format is not supported, fallback to hardware pixel format
+      if (!pixelFormatIsSupported) {
+        codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
+      }
 
       // Check if frames context already available (shared from decoder)
       if (options.hardware.framesContext) {

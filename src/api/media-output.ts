@@ -143,7 +143,8 @@ export class MediaOutput implements AsyncDisposable {
           // For file-based formats, we need to open the file using avio_open2
           // FFmpeg will manage the AVIOContext internally
           output.ioContext = new IOContext();
-          await output.ioContext.open2(target, AV_IO_FLAG_WRITE);
+          const openRet = await output.ioContext.open2(target, AV_IO_FLAG_WRITE);
+          FFmpegError.throwIfError(openRet, `Failed to open output file: ${target}`);
           output.formatContext.pb = output.ioContext;
           output.isCustomIO = false; // Not custom callbacks, but FFmpeg-managed file IO
         }

@@ -199,6 +199,7 @@ export class FilterAPI implements Disposable {
       .filter(Boolean);
 
     // Check if chain contains hwupload (which creates hw frames context)
+    const hasHwDownload = filterNames.some((name) => name === 'hwdownload');
     const hasHwUpload = filterNames.some((name) => name === 'hwupload');
     // Check each filter in the chain
     let needsHardwareFramesContext = false;
@@ -221,7 +222,7 @@ export class FilterAPI implements Disposable {
     }
 
     // If we have hwupload, we don't need hardware frames context from decoder
-    filter.needsHardware = needsHardwareFramesContext && !hasHwUpload;
+    filter.needsHardware = hasHwDownload || (needsHardwareFramesContext && !hasHwUpload);
 
     // Validation: Hardware filter MUST have HardwareContext
     if (needsHardwareDevice && !options.hardware) {

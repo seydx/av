@@ -146,6 +146,32 @@ public:
       deferred_(Napi::Promise::Deferred::New(env)) {}
 
   void Execute() override {
+    // Basic null checks
+    if (!ctx_ || !ctx_->context_) {
+      ret_ = AVERROR(EINVAL);
+      return;
+    }
+    
+    // Additional validation for audio frames to prevent crashes
+    if (frame_ && frame_->Get() && ctx_->context_->codec_type == AVMEDIA_TYPE_AUDIO) {
+      AVFrame* f = frame_->Get();
+      AVCodecContext* avctx = ctx_->context_;
+      
+      // Check channel count mismatch
+      if (f->ch_layout.nb_channels != avctx->ch_layout.nb_channels) {
+        // This would cause a crash in FFmpeg when it tries to access non-existent channel data
+        ret_ = AVERROR(EINVAL);
+        return;
+      }
+      
+      // Check sample format mismatch (less critical but still important)
+      if (f->format != avctx->sample_fmt) {
+        ret_ = AVERROR(EINVAL);
+        return;
+      }
+    }
+    
+    // Simply pass to FFmpeg and let it handle validation
     ret_ = avcodec_send_frame(ctx_->context_, frame_ ? frame_->Get() : nullptr);
   }
 

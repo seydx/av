@@ -3,7 +3,18 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { AV_CODEC_ID_AAC, AV_CODEC_ID_H264, AV_MEDIA_TYPE_VIDEO, AV_ERROR_EAGAIN, AV_ERROR_EOF, BitStreamFilter, BitStreamFilterContext, FormatContext, Packet, Rational } from '../src/lib/index.js';
+import {
+  AV_CODEC_ID_AAC,
+  AV_CODEC_ID_H264,
+  AV_ERROR_EAGAIN,
+  AV_ERROR_EOF,
+  AV_MEDIA_TYPE_VIDEO,
+  BitStreamFilter,
+  BitStreamFilterContext,
+  FormatContext,
+  Packet,
+  Rational,
+} from '../src/lib/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,7 +54,7 @@ describe('BitStreamFilter', () => {
 
       // Check that all filters have names
       for (const filter of filters) {
-        assert.ok(filter.name, `Filter should have a name`);
+        assert.ok(filter.name, 'Filter should have a name');
       }
 
       // Common filters that should exist
