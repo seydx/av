@@ -172,10 +172,7 @@ export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: N
 /**
  * Partial named pipeline (returns generators for further processing)
  */
-export function pipeline<K extends StreamName, T extends Packet | Frame = Packet | Frame>(
-  inputs: NamedInputs<K>,
-  stages: NamedStages<K>,
-): Record<K, AsyncGenerator<T>>;
+export function pipeline<K extends StreamName, T extends Packet | Frame = Packet | Frame>(inputs: NamedInputs<K>, stages: NamedStages<K>): Record<K, AsyncGenerator<T>>;
 
 // ============================================================================
 // Implementation
