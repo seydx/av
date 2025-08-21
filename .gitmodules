@@ -1,7 +1,7 @@
 [submodule "externals/ffmpeg"]
 	path = externals/ffmpeg
 	url = https://github.com/FFmpeg/FFmpeg.git
-	branch = master
+	branch = release/7.1
 [submodule "externals/openh264"]
 	path = externals/openh264
 	url = https://github.com/cisco/openh264
@@ -9,4 +9,4 @@
 [submodule "externals/opus"]
 	path = externals/opus
 	url = https://github.com/xiph/opus
-	branch = master
+	branch = main
