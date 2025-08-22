@@ -3,6 +3,7 @@
 #include "filter_context.h"
 #include "filter_inout.h"
 #include "common.h"
+#include <cstring>
 
 extern "C" {
 #include <libavutil/mem.h>
@@ -35,6 +36,10 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
     // Execution
     InstanceMethod<&FilterGraph::RequestOldest>("requestOldest"),
     InstanceMethod<&FilterGraph::Dump>("dump"),
+    
+    // Command interface
+    InstanceMethod<&FilterGraph::SendCommand>("sendCommand"),
+    InstanceMethod<&FilterGraph::QueueCommand>("queueCommand"),
     
     // Properties
     InstanceAccessor<&FilterGraph::GetNbFilters>("nbFilters"),
@@ -518,6 +523,110 @@ Napi::Value FilterGraph::Dump(const Napi::CallbackInfo& info) {
   av_free(dump);
   
   return Napi::String::New(env, result);
+}
+
+// Command interface
+
+Napi::Value FilterGraph::SendCommand(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFilterGraph* graph = Get();
+  if (!graph) {
+    Napi::TypeError::New(env, "FilterGraph not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Arguments: target, cmd, arg, flags
+  if (info.Length() < 3) {
+    Napi::TypeError::New(env, "SendCommand requires at least 3 arguments: target, cmd, arg").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!info[0].IsString() || !info[1].IsString() || !info[2].IsString()) {
+    Napi::TypeError::New(env, "Target, cmd, and arg must be strings").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  std::string target = info[0].As<Napi::String>().Utf8Value();
+  std::string cmd = info[1].As<Napi::String>().Utf8Value();
+  std::string arg = info[2].As<Napi::String>().Utf8Value();
+  
+  // Optional flags parameter (default: 0)
+  int flags = 0;
+  if (info.Length() >= 4 && info[3].IsNumber()) {
+    flags = info[3].As<Napi::Number>().Int32Value();
+  }
+  
+  // Response buffer (256 bytes should be enough for most responses)
+  char response[256] = {0};
+  
+  int ret = avfilter_graph_send_command(
+    graph, 
+    target.c_str(), 
+    cmd.c_str(), 
+    arg.c_str(), 
+    response, 
+    sizeof(response) - 1, 
+    flags
+  );
+  
+  // Return error code or response object
+  if (ret < 0) {
+    // Error - return just the error code
+    return Napi::Number::New(env, ret);
+  } else {
+    // Success - return response object
+    Napi::Object result = Napi::Object::New(env);
+    if (strlen(response) > 0) {
+      result.Set("response", Napi::String::New(env, response));
+    } else {
+      result.Set("response", env.Null());
+    }
+    return result;
+  }
+}
+
+Napi::Value FilterGraph::QueueCommand(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFilterGraph* graph = Get();
+  if (!graph) {
+    Napi::TypeError::New(env, "FilterGraph not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Arguments: target, cmd, arg, ts, flags
+  if (info.Length() < 4) {
+    Napi::TypeError::New(env, "QueueCommand requires at least 4 arguments: target, cmd, arg, ts").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (!info[0].IsString() || !info[1].IsString() || !info[2].IsString() || !info[3].IsNumber()) {
+    Napi::TypeError::New(env, "Invalid arguments: expected (string, string, string, number, [number])").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  std::string target = info[0].As<Napi::String>().Utf8Value();
+  std::string cmd = info[1].As<Napi::String>().Utf8Value();
+  std::string arg = info[2].As<Napi::String>().Utf8Value();
+  double ts = info[3].As<Napi::Number>().DoubleValue();
+  
+  // Optional flags parameter (default: 0)
+  int flags = 0;
+  if (info.Length() >= 5 && info[4].IsNumber()) {
+    flags = info[4].As<Napi::Number>().Int32Value();
+  }
+  
+  int ret = avfilter_graph_queue_command(
+    graph, 
+    target.c_str(), 
+    cmd.c_str(), 
+    arg.c_str(), 
+    flags,
+    ts
+  );
+  
+  return Napi::Number::New(env, ret);
 }
 
 Napi::Value FilterGraph::Dispose(const Napi::CallbackInfo& info) {

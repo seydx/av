@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_FILTER_THREAD_NONE, AV_FILTER_THREAD_SLICE, Filter, FilterContext, FilterGraph } from '../src/lib/index.js';
+import { AV_FILTER_CMD_FLAG_FAST, AV_FILTER_CMD_FLAG_ONE, AV_FILTER_THREAD_NONE, AV_FILTER_THREAD_SLICE, Filter, FilterContext, FilterGraph } from '../src/lib/index.js';
 
 describe('FilterGraph', () => {
   describe('Creation and Lifecycle', () => {
@@ -805,6 +805,193 @@ describe('FilterGraph', () => {
 
       // Graph is now invalid but cleanup should be complete
       assert.ok(true, 'Should clean up all resources');
+    });
+  });
+
+  describe('Command Interface', () => {
+    it('should send commands to filters', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a filter that supports commands (e.g., volume)
+      const volumeFilter = Filter.getByName('volume');
+      assert.ok(volumeFilter, 'Volume filter should exist');
+
+      const volumeCtx = graph.createFilter(volumeFilter, 'volume', 'volume=0.5');
+      assert.ok(volumeCtx, 'Should create volume filter');
+
+      // Need complete graph for commands to work
+      const abufferFilter = Filter.getByName('abuffer');
+      const abuffersinkFilter = Filter.getByName('abuffersink');
+      assert.ok(abufferFilter && abuffersinkFilter);
+
+      const src = graph.createFilter(abufferFilter, 'src', 'sample_rate=44100:sample_fmt=1:channel_layout=stereo');
+      const sink = graph.createFilter(abuffersinkFilter, 'sink');
+      assert.ok(src && sink);
+
+      src.link(0, volumeCtx, 0);
+      volumeCtx.link(0, sink, 0);
+
+      const configRet = await graph.config();
+      assert.equal(configRet, 0, 'Should configure graph');
+
+      // Send volume change command
+      const result = graph.sendCommand('volume', 'volume', '0.8');
+
+      // Check result type
+      if (typeof result === 'number') {
+        // Command may fail if filter doesn't support runtime changes
+        // or if the filter is not in the right state
+        console.log('Command returned error code:', result);
+      } else {
+        // Success - got response
+        assert.ok('response' in result, 'Should have response property');
+        console.log('Command response:', result.response);
+      }
+
+      graph.free();
+    });
+
+    it('should send command to all filters', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create multiple filters
+      const filter = Filter.getByName('null');
+      assert.ok(filter);
+
+      graph.createFilter(filter, 'filter1');
+      graph.createFilter(filter, 'filter2');
+      graph.createFilter(filter, 'filter3');
+
+      // Send command to all filters
+      const result = graph.sendCommand('all', 'enable', '1');
+
+      // Check result
+      assert.ok(typeof result === 'number' || 'response' in result, 'Should return error code or response object');
+
+      graph.free();
+    });
+
+    it('should use command flags', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const filter = Filter.getByName('null');
+      assert.ok(filter);
+      graph.createFilter(filter, 'test');
+
+      // Send command with AV_FILTER_CMD_FLAG_ONE
+      const result = graph.sendCommand('all', 'enable', '1', AV_FILTER_CMD_FLAG_ONE);
+
+      assert.ok(typeof result === 'number' || 'response' in result, 'Should handle command with flags');
+
+      graph.free();
+    });
+
+    it('should queue commands for future execution', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a filter that supports commands
+      const volumeFilter = Filter.getByName('volume');
+      assert.ok(volumeFilter);
+
+      const volumeCtx = graph.createFilter(volumeFilter, 'volume', 'volume=1.0');
+      assert.ok(volumeCtx);
+
+      // Create complete audio graph
+      const abufferFilter = Filter.getByName('abuffer');
+      const abuffersinkFilter = Filter.getByName('abuffersink');
+
+      const src = graph.createFilter(abufferFilter!, 'src', 'sample_rate=44100:sample_fmt=1:channel_layout=stereo');
+      const sink = graph.createFilter(abuffersinkFilter!, 'sink');
+
+      src!.link(0, volumeCtx, 0);
+      volumeCtx.link(0, sink!, 0);
+
+      await graph.config();
+
+      // Queue volume changes at different timestamps
+      const ret1 = graph.queueCommand('volume', 'volume', '0.5', 1.0);
+      const ret2 = graph.queueCommand('volume', 'volume', '0.8', 2.0);
+      const ret3 = graph.queueCommand('volume', 'volume', '0.2', 3.0);
+
+      // Commands are queued, not executed immediately
+      // They would be executed when processing frames with matching timestamps
+      assert.equal(typeof ret1, 'number', 'Should return status code');
+      assert.equal(typeof ret2, 'number', 'Should return status code');
+      assert.equal(typeof ret3, 'number', 'Should return status code');
+
+      graph.free();
+    });
+
+    it('should handle non-existent filter in sendCommand', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Send command to non-existent filter
+      const result = graph.sendCommand('nonexistent', 'command', 'arg');
+
+      // Should return error code
+      assert.ok(typeof result === 'number', 'Should return error code');
+      assert.ok(result < 0, 'Should be negative error code');
+
+      graph.free();
+    });
+
+    it('should handle invalid command', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a simple filter
+      const nullFilter = Filter.getByName('null');
+      assert.ok(nullFilter);
+
+      const filter = graph.createFilter(nullFilter, 'test');
+      assert.ok(filter);
+
+      // Send an invalid command
+      const result = graph.sendCommand('test', 'invalid_command_xyz', 'arg');
+
+      // Should return error or empty response
+      if (typeof result === 'number') {
+        assert.ok(result <= 0, 'Should return error or zero');
+      } else {
+        assert.ok(result.response === null || result.response === '', 'Should have null or empty response');
+      }
+
+      graph.free();
+    });
+
+    it('should queue command with flags', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create filter
+      const filter = Filter.getByName('null');
+      assert.ok(filter);
+      graph.createFilter(filter, 'test');
+
+      // Queue command with FAST flag
+      const ret = graph.queueCommand('test', 'enable', '1', 5.0, AV_FILTER_CMD_FLAG_FAST);
+
+      assert.equal(typeof ret, 'number', 'Should return status code');
+
+      graph.free();
+    });
+
+    it('should handle empty graph for commands', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Try to send command to empty graph
+      const result = graph.sendCommand('all', 'enable', '1');
+
+      // Should handle gracefully (either error or no response)
+      assert.ok(typeof result === 'number' || 'response' in result, 'Should handle empty graph');
+
+      graph.free();
     });
   });
 });

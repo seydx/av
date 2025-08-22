@@ -80,6 +80,10 @@ private:
   Napi::Value RequestOldest(const Napi::CallbackInfo& info);
   Napi::Value Dump(const Napi::CallbackInfo& info);
   
+  // Command interface
+  Napi::Value SendCommand(const Napi::CallbackInfo& info);
+  Napi::Value QueueCommand(const Napi::CallbackInfo& info);
+  
   // === Properties ===
   
   // nbFilters

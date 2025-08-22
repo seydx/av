@@ -43,11 +43,15 @@ public:
   Napi::Value GetPos(const Napi::CallbackInfo& info);
   Napi::Value GetBufferSize(const Napi::CallbackInfo& info);
   Napi::Value GetWriteFlag(const Napi::CallbackInfo& info);
+  
+  // Static members  
+  static Napi::FunctionReference constructor;
 
 private:
-  friend class AVOption; // For option unwrapping  // Friend classes
+  friend class AVOption; // For option unwrapping
   friend class FormatContext;
   friend class IOOpen2Worker;
+  friend class InputFormatProbeBufferWorker;
   friend class IOClosepWorker;
   friend class IOReadWorker;
   friend class IOWriteWorker;
@@ -55,9 +59,6 @@ private:
   friend class IOSizeWorker;
   friend class IOFlushWorker;
   friend class IOSkipWorker;
-  
-  // Static members
-  static Napi::FunctionReference constructor;
   
   // Resources
   AVIOContext* ctx_ = nullptr;  // The AVIOContext we manage

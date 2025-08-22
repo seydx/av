@@ -1,4 +1,5 @@
 #include "input_format.h"
+#include <cstring>
 
 namespace ffmpeg {
 
@@ -10,6 +11,8 @@ Napi::Object InputFormat::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "InputFormat", {
     // Static methods
     StaticMethod<&InputFormat::FindInputFormat>("findInputFormat"),
+    StaticMethod<&InputFormat::Probe>("probe"),
+    StaticMethod<&InputFormat::ProbeBuffer>("probeBuffer"),
     
     // Properties
     InstanceAccessor<&InputFormat::GetName>("name"),
@@ -57,6 +60,49 @@ Napi::Value InputFormat::FindInputFormat(const Napi::CallbackInfo& info) {
   
   return formatObj;
 }
+
+Napi::Value InputFormat::Probe(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsBuffer()) {
+    Napi::TypeError::New(env, "Buffer required").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
+  std::string filename;
+  
+  // Optional filename parameter
+  if (info.Length() >= 2 && info[1].IsString()) {
+    filename = info[1].As<Napi::String>().Utf8Value();
+  }
+  
+  // Create AVProbeData structure
+  AVProbeData pd;
+  memset(&pd, 0, sizeof(pd));
+  pd.buf = buffer.Data();
+  pd.buf_size = static_cast<int>(buffer.Length());
+  if (!filename.empty()) {
+    pd.filename = filename.c_str();
+  }
+  
+  // Probe the format with confidence score
+  int score = 0;
+  const AVInputFormat* fmt = av_probe_input_format3(&pd, 1, &score);
+  
+  if (!fmt) {
+    return env.Null();
+  }
+  
+  // Create new InputFormat object
+  Napi::Object formatObj = constructor.New({});
+  InputFormat* wrapper = Napi::ObjectWrap<InputFormat>::Unwrap(formatObj);
+  wrapper->Set(fmt);
+  
+  return formatObj;
+}
+
+// ProbeBuffer is implemented in input_format_async.cc
 
 // === Properties ===
 

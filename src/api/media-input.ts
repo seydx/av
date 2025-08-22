@@ -76,6 +76,88 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
+   * Probe the format of media without fully opening it.
+   *
+   * Detects the container format and basic information without
+   * parsing all stream information. Useful for quick format validation.
+   *
+   * @param input - File path or Buffer to probe
+   *
+   * @returns Format information or null if unrecognized
+   *
+   * @example
+   * ```typescript
+   * // Probe a file
+   * const info = await MediaInput.probeFormat('video.mp4');
+   * if (info) {
+   *   console.log(`Format: ${info.format}`);
+   *   console.log(`Confidence: ${info.confidence}%`);
+   * }
+   *
+   * // Probe a buffer
+   * const buffer = await fs.readFile('video.mp4');
+   * const info = await MediaInput.probeFormat(buffer);
+   * ```
+   */
+  static async probeFormat(input: string | Buffer): Promise<{
+    format: string;
+    longName?: string;
+    extensions?: string;
+    mimeType?: string;
+    confidence: number;
+  } | null> {
+    try {
+      if (Buffer.isBuffer(input)) {
+        // Probe from buffer
+        const format = InputFormat.probe(input);
+        if (!format) {
+          return null;
+        }
+
+        return {
+          format: format.name ?? 'unknown',
+          longName: format.longName ?? undefined,
+          extensions: format.extensions ?? undefined,
+          mimeType: format.mimeType ?? undefined,
+          confidence: 100, // Direct probe always has high confidence
+        };
+      } else {
+        // For files, read first part and probe
+        const { open } = await import('fs/promises');
+        let fileHandle;
+        try {
+          fileHandle = await open(input, 'r');
+          // Read first 64KB for probing
+          const buffer = Buffer.alloc(65536);
+          const { bytesRead } = await fileHandle.read(buffer, 0, 65536, 0);
+
+          const probeBuffer = buffer.subarray(0, bytesRead);
+          const format = InputFormat.probe(probeBuffer, input);
+
+          if (!format) {
+            return null;
+          }
+
+          return {
+            format: format.name ?? 'unknown',
+            longName: format.longName ?? undefined,
+            extensions: format.extensions ?? undefined,
+            mimeType: format.mimeType ?? undefined,
+            confidence: 90, // File-based probe with filename hint
+          };
+        } catch {
+          // If file reading fails, return null
+          return null;
+        } finally {
+          await fileHandle?.close();
+        }
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Open a media input from various sources.
    *
    * Creates a FormatContext and opens the input for reading.

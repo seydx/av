@@ -84,6 +84,8 @@ type NativeStreamConstructor = new () => NativeStream;
 interface NativeInputFormatConstructor {
   new (): NativeInputFormat;
   findInputFormat(shortName: string): NativeInputFormat | null;
+  probe(buffer: Buffer, filename?: string): NativeInputFormat | null;
+  probeBuffer(ioContext: NativeIOContext, maxProbeSize?: number): Promise<NativeInputFormat | null>;
 }
 
 interface NativeOutputFormatConstructor {
@@ -169,7 +171,7 @@ interface NativeOptionStatic {
 
   // Setters
   set(obj: OptionCapableObject, name: string, value: string, searchFlags?: AVOptionSearchFlags): number;
-  setInt(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;
+  setInt(obj: OptionCapableObject, name: string, value: number | bigint, searchFlags?: AVOptionSearchFlags): number;
   setDouble(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;
   setRational(obj: OptionCapableObject, name: string, value: { num: number; den: number }, searchFlags?: AVOptionSearchFlags): number;
   setPixelFormat(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;

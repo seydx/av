@@ -1,7 +1,7 @@
 import { bindings } from './binding.js';
 
 import type { AVFormatFlag } from './constants.js';
-import type { NativeInputFormat, NativeWrapper } from './native-types.js';
+import type { NativeInputFormat, NativeIOContext, NativeWrapper } from './native-types.js';
 
 /**
  * Input format (demuxer) descriptor.
@@ -97,6 +97,81 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    */
   static findInputFormat(shortName: string): InputFormat | null {
     const native = bindings.InputFormat.findInputFormat(shortName);
+    if (!native) {
+      return null;
+    }
+    return new InputFormat(native);
+  }
+
+  /**
+   * Probe input format from buffer data.
+   *
+   * Attempts to detect the input format based on buffer contents.
+   * This is a synchronous operation that analyzes buffer data to identify the format.
+   *
+   * Direct mapping to av_probe_input_format3()
+   *
+   * @param buffer - Buffer containing media data to probe
+   * @param filename - Optional filename hint to aid detection
+   *
+   * @returns InputFormat if detected, null otherwise
+   *
+   * @example
+   * ```typescript
+   * import { InputFormat } from '@seydx/av';
+   * import { readFileSync } from 'fs';
+   *
+   * // Read first few KB of a media file
+   * const buffer = readFileSync('video.mp4', { length: 4096 });
+   * const format = InputFormat.probe(buffer, 'video.mp4');
+   *
+   * if (format) {
+   *   console.log(`Detected format: ${format.longName}`);
+   * }
+   * ```
+   */
+  static probe(buffer: Buffer, filename?: string): InputFormat | null {
+    const native = bindings.InputFormat.probe(buffer, filename);
+    if (!native) {
+      return null;
+    }
+    return new InputFormat(native);
+  }
+
+  /**
+   * Probe input format from IOContext buffer.
+   *
+   * Attempts to detect the input format by reading from an IOContext.
+   * This is an asynchronous operation that reads data from the IOContext to identify the format.
+   * The IOContext position may be changed during probing.
+   *
+   * Direct mapping to av_probe_input_buffer2()
+   *
+   * @param ioContext - IOContext to read data from for probing
+   * @param maxProbeSize - Maximum bytes to read for probing (0 for default)
+   *
+   * @returns Promise resolving to InputFormat if detected, null otherwise
+   *
+   * @example
+   * ```typescript
+   * import { InputFormat, IOContext } from '@seydx/av';
+   *
+   * // Open an IOContext
+   * const io = new IOContext();
+   * await io.open2('video.mp4', AVIO_FLAG_READ);
+   *
+   * // Probe the format
+   * const format = await InputFormat.probeBuffer(io);
+   *
+   * if (format) {
+   *   console.log(`Detected format: ${format.longName}`);
+   * }
+   *
+   * await io.closep();
+   * ```
+   */
+  static async probeBuffer(ioContext: { getNative(): NativeIOContext }, maxProbeSize?: number): Promise<InputFormat | null> {
+    const native = await bindings.InputFormat.probeBuffer(ioContext.getNative(), maxProbeSize);
     if (!native) {
       return null;
     }

@@ -9,6 +9,10 @@ extern "C" {
 
 namespace ffmpeg {
 
+// Forward declarations
+class IOContext;
+class InputFormatProbeBufferWorker;
+
 class InputFormat : public Napi::ObjectWrap<InputFormat> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
@@ -19,12 +23,14 @@ public:
   const AVInputFormat* Get() const { return format_; }
   void Set(const AVInputFormat* fmt) { format_ = fmt; }
 
-private:
   // Friend classes
   friend class FormatContext;
+  friend class InputFormatProbeBufferWorker;
   
   // Static members
   static Napi::FunctionReference constructor;
+
+private:
   
   // Resources
   const AVInputFormat* format_ = nullptr; // NOT owned - these are static definitions
@@ -32,6 +38,8 @@ private:
   // === Static Methods ===
   
   static Napi::Value FindInputFormat(const Napi::CallbackInfo& info);
+  static Napi::Value Probe(const Napi::CallbackInfo& info);
+  static Napi::Value ProbeBuffer(const Napi::CallbackInfo& info);
   
   // === Properties ===
   

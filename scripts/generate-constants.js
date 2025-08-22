@@ -489,7 +489,12 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   output += 'export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2\n';
   output += 'export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags\n';
   output += 'export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags\n';
-  output += 'export const AV_OPT_SEARCH_FLAG_NONE = 0 as AVOptionSearchFlags; // No option search flags\n\n';
+  output += 'export const AV_OPT_SEARCH_FLAG_NONE = 0 as AVOptionSearchFlags; // No option search flags\n';
+  output += 'export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag; // No packet flags\n';
+  output += 'export const AV_DICT_NONE = 0 as AVDictFlag; // No dictionary flags\n';
+  output += 'export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag; // No codec flags\n';
+  output += 'export const AV_SOFTWARE_SCALE_FLAG_NONE = 0 as AVSoftwareScaleFlag; // No software scale flags\n';
+  output += 'export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag; // No frame flags\n\n';
 
   // Generate branded types for each enum
   const processedEnums = new Set();
@@ -916,14 +921,6 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   // Add special time constants
   output += '// Special time constants\n';
   output += 'export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN\n\n';
-
-  // Add default/none constants for flags
-  output += '// Default/None flag values\n';
-  output += '// These are commonly used to indicate "no flags" in FFmpeg\n';
-  output += 'export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag;\n';
-  output += 'export const AV_DICT_NONE = 0 as AVDictFlag;\n';
-  output += 'export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag;\n';
-  output += 'export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag;\n\n';
 
   // Export convenience function for creating branded values
   output += '// Helper function to cast numbers to branded types\n';

@@ -14,7 +14,15 @@ import {
   avGetSampleFmtName,
 } from '../lib/index.js';
 
-import type { AVMediaType, AVPixelFormat, AVSampleFormat, HardwareFramesContext, IRational, FilterContext as LowLevelFilterContext } from '../lib/index.js';
+import type {
+  AVFilterCmdFlag,
+  AVMediaType,
+  AVPixelFormat,
+  AVSampleFormat,
+  HardwareFramesContext,
+  IRational,
+  FilterContext as LowLevelFilterContext,
+} from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 import type { FilterOptions, StreamInfo } from './types.js';
 
@@ -761,6 +769,83 @@ export class FilterAPI implements Disposable {
     // Clean up FilterInOut structures
     inputs.free();
     outputs.free();
+  }
+
+  /**
+   * Send a command to a filter in the graph.
+   *
+   * Allows runtime modification of filter parameters without recreating the graph.
+   * Not all filters support commands - check filter documentation.
+   *
+   * @param target - Filter name or "all" to send to all filters
+   * @param cmd - Command name (e.g., "volume", "hue", "brightness")
+   * @param arg - Command argument value
+   * @param flags - Optional command flags
+   *
+   * @returns Command response
+   *
+   * @example
+   * ```typescript
+   * // Change volume dynamically
+   * const response = filter.sendCommand('volume', 'volume', '0.5');
+   * if (response) {
+   *   console.log('Volume changed successfully');
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Enable/disable all filters at runtime
+   * filter.sendCommand('all', 'enable', 'expr=gte(t,10)');
+   * ```
+   */
+  sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): string {
+    if (!this.initialized) {
+      throw new Error('Filter not initialized');
+    }
+
+    const result = this.graph.sendCommand(target, cmd, arg, flags);
+
+    if (typeof result === 'number') {
+      FFmpegError.throwIfError(result, 'Failed to send filter command');
+    }
+
+    return (result as any).response;
+  }
+
+  /**
+   * Queue a command to be executed at a specific time.
+   *
+   * Commands are executed when processing frames with matching timestamps.
+   * Useful for scripted filter changes synchronized with media playback.
+   *
+   * @param target - Filter name or "all" to send to all filters
+   * @param cmd - Command name (e.g., "volume", "hue", "brightness")
+   * @param arg - Command argument value
+   * @param ts - Timestamp when command should execute (in seconds)
+   * @param flags - Optional command flags
+   *
+   * @example
+   * ```typescript
+   * // Schedule volume changes at specific times
+   * filter.queueCommand('volume', 'volume', '0.5', 5.0);  // At 5 seconds
+   * filter.queueCommand('volume', 'volume', '0.8', 10.0); // At 10 seconds
+   * filter.queueCommand('volume', 'volume', '0.2', 15.0); // At 15 seconds
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Fade effect at specific timestamp
+   * filter.queueCommand('fade', 'alpha', '0.5', 30.0);
+   * ```
+   */
+  queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): void {
+    if (!this.initialized) {
+      throw new Error('Filter not initialized');
+    }
+
+    const ret = this.graph.queueCommand(target, cmd, arg, ts, flags);
+    FFmpegError.throwIfError(ret, 'Failed to queue filter command');
   }
 
   /**

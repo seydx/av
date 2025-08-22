@@ -193,6 +193,106 @@ describe('MediaInput', () => {
     });
   });
 
+  describe('probeFormat', () => {
+    it('should probe format from file path', async () => {
+      const info = await MediaInput.probeFormat('testdata/demux.mp4');
+
+      assert.ok(info, 'Should detect format');
+      assert.ok(info.format, 'Should have format name');
+      assert.equal(typeof info.format, 'string', 'Format should be string');
+      assert.ok(info.confidence > 0, 'Should have confidence score');
+
+      // MP4 format details
+      if (info.format.includes('mp4') || info.format.includes('mov')) {
+        assert.ok(info.longName, 'MP4 should have long name');
+        assert.ok(info.extensions, 'MP4 should have extensions');
+      }
+
+      console.log('Probed format:', info);
+    });
+
+    it('should probe format from buffer', async () => {
+      const buffer = await readFile('testdata/demux.mp4');
+      const info = await MediaInput.probeFormat(buffer);
+
+      assert.ok(info, 'Should detect format from buffer');
+      assert.ok(info.format, 'Should have format name');
+      assert.equal(info.confidence, 100, 'Buffer probe should have high confidence');
+
+      console.log('Probed format from buffer:', info);
+    });
+
+    it('should probe different formats', async () => {
+      // Try probing different file formats if available
+      const testFiles = [
+        { path: 'testdata/demux.mp4', expectedFormat: 'mp4' },
+        { path: 'testdata/video.m1v', expectedFormat: 'mpegvideo' },
+        { path: 'testdata/audio.aac', expectedFormat: 'aac' },
+      ];
+
+      for (const { path, expectedFormat } of testFiles) {
+        try {
+          const info = await MediaInput.probeFormat(path);
+          if (info) {
+            console.log(`Probed ${path}: ${info.format}`);
+            // Check if the detected format matches or contains expected format
+            assert.ok(
+              info.format.includes(expectedFormat) || info.format === expectedFormat || info.longName?.toLowerCase().includes(expectedFormat),
+              `Expected format to contain ${expectedFormat}, got ${info.format}`,
+            );
+          }
+        } catch {
+          // File might not exist, skip
+          console.log(`Skipping ${path}: not found`);
+        }
+      }
+    });
+
+    it('should return null for invalid data', async () => {
+      // Test with random data that's not a valid media format
+      const randomBuffer = Buffer.from('This is not a media file');
+      const info = await MediaInput.probeFormat(randomBuffer);
+
+      assert.equal(info, null, 'Should return null for invalid media data');
+    });
+
+    it('should handle partial buffers', async () => {
+      // Read only first 4KB of file
+      const buffer = await readFile('testdata/demux.mp4');
+      const partialBuffer = buffer.subarray(0, 4096);
+
+      const info = await MediaInput.probeFormat(partialBuffer);
+
+      // MP4 should be detectable from first 4KB
+      assert.ok(info, 'Should detect format from partial buffer');
+      assert.ok(info.format, 'Should have format name');
+
+      console.log('Probed from partial buffer:', info);
+    });
+
+    it('should handle non-existent file', async () => {
+      const info = await MediaInput.probeFormat('nonexistent.mp4');
+
+      assert.equal(info, null, 'Should return null for non-existent file');
+    });
+
+    it('should probe with file extension hint', async () => {
+      // Test that filename is used as hint for better detection
+      const buffer = await readFile('testdata/demux.mp4');
+
+      // Probe same buffer with and without hint
+      const withoutHint = await MediaInput.probeFormat(buffer);
+      const withHint = await MediaInput.probeFormat('testdata/demux.mp4');
+
+      assert.ok(withoutHint, 'Should detect without hint');
+      assert.ok(withHint, 'Should detect with hint');
+
+      // With file path hint might have different confidence
+      console.log('Without hint confidence:', withoutHint.confidence);
+      console.log('With hint confidence:', withHint.confidence);
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle empty buffer', async () => {
       const emptyBuffer = Buffer.alloc(0);

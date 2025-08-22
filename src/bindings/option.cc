@@ -766,7 +766,23 @@ Napi::Value AVOption::SetInt(const Napi::CallbackInfo& info) {
   }
   
   std::string name = info[1].As<Napi::String>().Utf8Value();
-  int64_t value = info[2].As<Napi::Number>().Int64Value();
+  
+  // Support both Number and BigInt for int64 values
+  int64_t value = 0;
+  if (info[2].IsBigInt()) {
+    bool lossless = true;
+    value = info[2].As<Napi::BigInt>().Int64Value(&lossless);
+    if (!lossless) {
+      Napi::RangeError::New(env, "BigInt value out of int64 range").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+  } else if (info[2].IsNumber()) {
+    value = info[2].As<Napi::Number>().Int64Value();
+  } else {
+    Napi::TypeError::New(env, "Value must be a number or bigint").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
   int search_flags = 0;
   
   if (info.Length() >= 4 && info[3].IsNumber()) {
@@ -931,7 +947,23 @@ Napi::Value AVOption::SetChannelLayout(const Napi::CallbackInfo& info) {
   }
   
   std::string name = info[1].As<Napi::String>().Utf8Value();
-  int64_t value = info[2].As<Napi::Number>().Int64Value();
+  
+  // Support both Number and BigInt for channel layout (int64) values
+  int64_t value = 0;
+  if (info[2].IsBigInt()) {
+    bool lossless = true;
+    value = info[2].As<Napi::BigInt>().Int64Value(&lossless);
+    if (!lossless) {
+      Napi::RangeError::New(env, "BigInt value out of int64 range").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+  } else if (info[2].IsNumber()) {
+    value = info[2].As<Napi::Number>().Int64Value();
+  } else {
+    Napi::TypeError::New(env, "Value must be a number or bigint").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
   int search_flags = 0;
   
   if (info.Length() >= 4 && info[3].IsNumber()) {

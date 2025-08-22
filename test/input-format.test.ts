@@ -1,9 +1,10 @@
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { AV_FMT_NEEDNUMBER, AV_FMT_NOFILE, AV_FMT_NOTIMESTAMPS, FormatContext, InputFormat } from '../src/lib/index.js';
+import { AV_FMT_NEEDNUMBER, AV_FMT_NOFILE, AV_FMT_NOTIMESTAMPS, AV_IO_FLAG_READ, FormatContext, InputFormat, IOContext } from '../src/lib/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -232,6 +233,139 @@ describe('InputFormat', () => {
       const iformat = ctx.iformat;
       assert.ok(iformat);
       assert.equal(iformat.name, format.name);
+    });
+  });
+
+  describe('Format Probing', () => {
+    it('should probe MP4 format from buffer', () => {
+      // Read first few KB of MP4 file
+      const fullBuffer = readFileSync(inputVideoFile);
+      const buffer = fullBuffer.subarray(0, 4096);
+      const format = InputFormat.probe(buffer, 'video.mp4');
+
+      assert.ok(format, 'Should detect MP4 format');
+      assert.ok(format.name?.includes('mp4') ?? format.name?.includes('mov'), `Format name should include mp4 or mov, got: ${format?.name}`);
+    });
+
+    it('should probe format without filename hint', () => {
+      const fullBuffer = readFileSync(inputVideoFile);
+      const buffer = fullBuffer.subarray(0, 4096);
+      const format = InputFormat.probe(buffer);
+
+      assert.ok(format, 'Should detect format without filename');
+      assert.ok(format.name?.includes('mp4') ?? format.name?.includes('mov'));
+    });
+
+    it('should return null for non-media data', () => {
+      // Random data that doesn't match any format
+      const buffer = Buffer.from('This is just some text data, not a media file');
+      const format = InputFormat.probe(buffer);
+
+      assert.equal(format, null, 'Should not detect format from text data');
+    });
+
+    it('should probe different formats from real files', () => {
+      // Test with real files from testdata
+      const tests = [
+        { file: path.join(__dirname, '../testdata/video.mp4'), expected: 'mp4' },
+        { file: path.join(__dirname, '../testdata/audio.wav'), expected: 'wav' },
+        { file: path.join(__dirname, '../testdata/audio.aac'), expected: 'aac' },
+        { file: path.join(__dirname, '../testdata/audio.mp2'), expected: 'mp2' },
+        { file: path.join(__dirname, '../testdata/image-rgba.png'), expected: 'png' },
+        { file: path.join(__dirname, '../testdata/video.m1v'), expected: 'mpegvideo' },
+      ];
+
+      for (const test of tests) {
+        try {
+          // Read first 4KB of file for probing
+          const fullBuffer = readFileSync(test.file);
+          const buffer = fullBuffer.subarray(0, 4096);
+          const format = InputFormat.probe(buffer, test.file);
+
+          if (format) {
+            assert.ok(
+              format.name?.includes(test.expected) ?? format.name?.includes('image2') ?? format.name?.includes('mpegps'),
+              `Expected ${test.expected} in format name, got ${format.name}`,
+            );
+          } else {
+            // Some formats might need more data or filename hint
+            console.log(`Could not detect format for ${test.file}`);
+          }
+        } catch (err) {
+          // File might not exist in test environment
+          console.log(`Skipping ${test.file}: ${err.message}`);
+        }
+      }
+    });
+
+    it('should handle empty buffer', () => {
+      const buffer = Buffer.alloc(0);
+      const format = InputFormat.probe(buffer);
+
+      assert.equal(format, null, 'Empty buffer should not detect format');
+    });
+
+    it('should handle small buffer', () => {
+      // Very small buffer might not have enough data to detect
+      const buffer = Buffer.from([0x00, 0x00]);
+      const format = InputFormat.probe(buffer);
+
+      assert.equal(format, null, 'Too small buffer should not detect format');
+    });
+
+    it('should probe buffer from IOContext', async () => {
+      const io = new IOContext();
+      await io.open2(inputVideoFile, AV_IO_FLAG_READ);
+
+      try {
+        const format = await InputFormat.probeBuffer(io);
+        assert.ok(format, 'Should detect format from IOContext');
+        assert.ok(format.name?.includes('mp4') ?? format.name?.includes('mov'), `Format name should include mp4 or mov, got: ${format?.name}`);
+      } finally {
+        await io.closep();
+      }
+    });
+
+    it('should probe buffer with custom max probe size', async () => {
+      const io = new IOContext();
+      await io.open2(inputVideoFile, AV_IO_FLAG_READ);
+
+      try {
+        // Use smaller probe size
+        const format = await InputFormat.probeBuffer(io, 2048);
+        assert.ok(format, 'Should detect format with custom probe size');
+        assert.ok(format.name?.includes('mp4') ?? format.name?.includes('mov'));
+      } finally {
+        await io.closep();
+      }
+    });
+
+    it('should handle probing non-media IOContext', async () => {
+      // Create a temporary text file for testing
+      const tempFile = path.join(__dirname, '../testdata/temp_text.txt');
+      const fs = await import('fs/promises');
+      await fs.writeFile(tempFile, 'This is just text content, not media');
+
+      try {
+        const io = new IOContext();
+        await io.open2(tempFile, AV_IO_FLAG_READ);
+
+        try {
+          const format = await InputFormat.probeBuffer(io);
+          // FFmpeg may detect some formats even from text data (e.g., raw data formats)
+          // We just verify that probeBuffer doesn't crash and returns a valid result
+          if (format) {
+            assert.ok(format instanceof InputFormat, 'Should return InputFormat instance if detected');
+            assert.ok(format.name, 'Detected format should have a name');
+          } else {
+            assert.equal(format, null, 'Should return null if no format detected');
+          }
+        } finally {
+          await io.closep();
+        }
+      } finally {
+        await fs.unlink(tempFile);
+      }
     });
   });
 

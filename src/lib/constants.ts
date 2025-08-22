@@ -33,6 +33,11 @@ export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2
 export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags
 export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags
 export const AV_OPT_SEARCH_FLAG_NONE = 0 as AVOptionSearchFlags; // No option search flags
+export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag; // No packet flags
+export const AV_DICT_NONE = 0 as AVDictFlag; // No dictionary flags
+export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag; // No codec flags
+export const AV_SOFTWARE_SCALE_FLAG_NONE = 0 as AVSoftwareScaleFlag; // No software scale flags
+export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag; // No frame flags
 
 // libavcodec/avcodec.h
 export type AVCodecConfig = number & { readonly [__ffmpeg_brand]: 'AVCodecConfig' };
@@ -2121,13 +2126,6 @@ export const AV_ERROR_ETIMEDOUT = -60 as AVError;
 
 // Special time constants
 export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN
-
-// Default/None flag values
-// These are commonly used to indicate "no flags" in FFmpeg
-export const AV_PKT_FLAG_NONE = 0 as AVPacketFlag;
-export const AV_DICT_NONE = 0 as AVDictFlag;
-export const AV_CODEC_FLAG_NONE = 0 as AVCodecFlag;
-export const AV_FRAME_FLAG_NONE = 0 as AVFrameFlag;
 
 // Helper function to cast numbers to branded types
 export function cast<T>(value: number): T {

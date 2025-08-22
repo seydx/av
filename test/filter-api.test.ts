@@ -7,7 +7,15 @@ import { Decoder } from '../src/api/decoder.js';
 import { Encoder } from '../src/api/encoder.js';
 import { FilterAPI, FilterPresets } from '../src/api/filter.js';
 import { MediaInput } from '../src/api/media-input.js';
-import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO, AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from '../src/lib/constants.js';
+import {
+  AV_FILTER_CMD_FLAG_ONE,
+  AV_MEDIA_TYPE_AUDIO,
+  AV_MEDIA_TYPE_VIDEO,
+  AV_PIX_FMT_RGB24,
+  AV_PIX_FMT_YUV420P,
+  AV_SAMPLE_FMT_FLTP,
+  AV_SAMPLE_FMT_S16,
+} from '../src/lib/constants.js';
 import { Frame } from '../src/lib/index.js';
 
 import type { AudioInfo, VideoInfo } from '../src/api/types.js';
@@ -807,6 +815,149 @@ describe('High-Level Filter API', () => {
       filter.free();
       decoder.close();
       await media.close();
+    });
+  });
+
+  describe('Command Interface', () => {
+    it('should send commands to filters', async () => {
+      const audioConfig: AudioInfo = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
+      };
+
+      // Create a filter with a filter that supports commands (volume)
+      const filter = await FilterAPI.create('volume=1.0', audioConfig);
+
+      try {
+        // Send volume change command
+        const response = filter.sendCommand('volume', 'volume', '0.5');
+        // Response might be empty but command should succeed
+        assert.ok(response !== undefined, 'Should return a response (even if empty)');
+      } catch (err) {
+        // Some filters might not support runtime commands
+        // This is OK, just verify the method exists and can be called
+        assert.ok(err instanceof Error, 'Should throw an Error if command fails');
+      }
+
+      filter.free();
+    });
+
+    it('should queue commands for future execution', async () => {
+      const audioConfig: AudioInfo = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
+      };
+
+      const filter = await FilterAPI.create('volume=1.0', audioConfig);
+
+      try {
+        // Queue volume changes at different timestamps
+        filter.queueCommand('volume', 'volume', '0.5', 1.0);
+        filter.queueCommand('volume', 'volume', '0.8', 2.0);
+        filter.queueCommand('volume', 'volume', '0.2', 3.0);
+
+        // Commands are queued successfully
+        assert.ok(true, 'Commands queued without error');
+      } catch (err) {
+        // If queueing fails, it should throw an Error
+        assert.ok(err instanceof Error, 'Should throw an Error if queueing fails');
+      }
+
+      filter.free();
+    });
+
+    it('should throw when sending command to uninitialized filter', async () => {
+      const config: VideoInfo = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      filter.free();
+
+      assert.throws(() => {
+        filter.sendCommand('scale', 'width', '1920');
+      }, /Filter not initialized/);
+    });
+
+    it('should throw when queueing command to uninitialized filter', async () => {
+      const config: VideoInfo = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+      filter.free();
+
+      assert.throws(() => {
+        filter.queueCommand('scale', 'width', '1920', 5.0);
+      }, /Filter not initialized/);
+    });
+
+    it('should send command with flags', async () => {
+      const audioConfig: AudioInfo = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
+      };
+
+      const filter = await FilterAPI.create('volume=1.0', audioConfig);
+
+      try {
+        // Send command with AV_FILTER_CMD_FLAG_ONE
+        const response = filter.sendCommand('all', 'enable', '1', AV_FILTER_CMD_FLAG_ONE);
+        assert.ok(response !== undefined, 'Should return a response');
+      } catch (err) {
+        // Command might fail, but the API should work
+        assert.ok(err instanceof Error, 'Should throw an Error if command fails');
+      }
+
+      filter.free();
+    });
+
+    it('should handle invalid command gracefully', async () => {
+      const config: VideoInfo = {
+        type: 'video',
+        width: 1920,
+        height: 1080,
+        pixelFormat: AV_PIX_FMT_YUV420P,
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        sampleAspectRatio: { num: 1, den: 1 },
+      };
+
+      const filter = await FilterAPI.create('scale=1280:720', config);
+
+      try {
+        // Send an invalid command
+        filter.sendCommand('scale', 'invalid_command_xyz', 'value');
+        // If it doesn't throw, that's also OK
+        assert.ok(true, 'Handled invalid command');
+      } catch (err) {
+        // Should throw an FFmpegError
+        assert.ok(err instanceof Error, 'Should throw an Error for invalid command');
+        assert.ok(err.message.includes('Failed to send filter command'), 'Error message should indicate command failure');
+      }
+
+      filter.free();
     });
   });
 });

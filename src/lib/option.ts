@@ -37,6 +37,7 @@ import {
   AV_OPT_TYPE_VIDEO_RATE,
 } from './constants.js';
 import { Dictionary } from './dictionary.js';
+import { Rational } from './rational.js';
 
 import type { OptionCapableObject } from './binding.js';
 import type {
@@ -449,12 +450,12 @@ export class Option {
    *
    * @param obj - Native object
    * @param name - Option name
-   * @param value - Integer value to set
+   * @param value - Number or BigInt value to set
    * @param searchFlags - Search flags (default: 0)
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setInt(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setInt(obj: OptionCapableObject, name: string, value: number | bigint, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
     return bindings.Option.setInt(obj, name, value, searchFlags);
   }
 
@@ -714,9 +715,9 @@ export class OptionMember<T extends OptionCapableObject> {
 
   // Integer options
   setOption(name: string, value: number, type: AVOptionTypeInt, searchFlags?: AVOptionSearchFlags): number;
-  setOption(name: string, value: number, type: AVOptionTypeInt64, searchFlags?: AVOptionSearchFlags): number;
+  setOption(name: string, value: bigint, type: AVOptionTypeInt64, searchFlags?: AVOptionSearchFlags): number;
   setOption(name: string, value: number, type: AVOptionTypeUint, searchFlags?: AVOptionSearchFlags): number;
-  setOption(name: string, value: number, type: AVOptionTypeUint64, searchFlags?: AVOptionSearchFlags): number;
+  setOption(name: string, value: bigint, type: AVOptionTypeUint64, searchFlags?: AVOptionSearchFlags): number;
   setOption(name: string, value: number, type: AVOptionTypeFlags, searchFlags?: AVOptionSearchFlags): number;
   setOption(name: string, value: boolean, type: AVOptionTypeBool, searchFlags?: AVOptionSearchFlags): number;
   setOption(name: string, value: number, type: AVOptionTypeDuration, searchFlags?: AVOptionSearchFlags): number;
@@ -772,14 +773,56 @@ export class OptionMember<T extends OptionCapableObject> {
         return Option.set(this.native, name, String(value), searchFlags);
 
       case AV_OPT_TYPE_INT:
-      case AV_OPT_TYPE_INT64:
+        const intVal = Number(value);
+        if (!Number.isInteger(intVal)) {
+          throw new TypeError(`Option '${name}': Expected integer value, got ${value}`);
+        }
+        return Option.setInt(this.native, name, intVal, searchFlags);
+
       case AV_OPT_TYPE_UINT:
-      case AV_OPT_TYPE_UINT64:
+        const uintVal = Number(value);
+        if (!Number.isInteger(uintVal) || uintVal < 0) {
+          throw new RangeError(`Option '${name}': Expected non-negative integer value, got ${value}`);
+        }
+        return Option.setInt(this.native, name, uintVal, searchFlags);
+
       case AV_OPT_TYPE_FLAGS:
-      case AV_OPT_TYPE_BOOL:
       case AV_OPT_TYPE_DURATION:
       case AV_OPT_TYPE_CONST:
         return Option.setInt(this.native, name, Number(value), searchFlags);
+
+      case AV_OPT_TYPE_BOOL:
+        // Convert to 0 or 1 for FFmpeg
+        return Option.setInt(this.native, name, value ? 1 : 0, searchFlags);
+
+      case AV_OPT_TYPE_INT64:
+        // Accept both bigint and number
+        if (typeof value === 'bigint') {
+          return Option.setInt(this.native, name, value, searchFlags);
+        } else if (typeof value === 'number') {
+          if (!Number.isInteger(value)) {
+            throw new TypeError(`Option '${name}': Expected integer value for INT64, got ${value}`);
+          }
+          return Option.setInt(this.native, name, value, searchFlags);
+        } else {
+          throw new TypeError(`Option '${name}': Expected bigint or number for INT64, got ${typeof value}`);
+        }
+
+      case AV_OPT_TYPE_UINT64:
+        // Accept both bigint and number, but must be non-negative
+        if (typeof value === 'bigint') {
+          if (value < 0n) {
+            throw new RangeError(`Option '${name}': Expected non-negative value for UINT64, got ${value}`);
+          }
+          return Option.setInt(this.native, name, value, searchFlags);
+        } else if (typeof value === 'number') {
+          if (!Number.isInteger(value) || value < 0) {
+            throw new RangeError(`Option '${name}': Expected non-negative integer for UINT64, got ${value}`);
+          }
+          return Option.setInt(this.native, name, value, searchFlags);
+        } else {
+          throw new TypeError(`Option '${name}': Expected bigint or number for UINT64, got ${typeof value}`);
+        }
 
       case AV_OPT_TYPE_DOUBLE:
       case AV_OPT_TYPE_FLOAT:
@@ -787,20 +830,42 @@ export class OptionMember<T extends OptionCapableObject> {
 
       case AV_OPT_TYPE_RATIONAL:
       case AV_OPT_TYPE_VIDEO_RATE:
+        if (typeof value !== 'object' || !('num' in value) || !('den' in value)) {
+          throw new TypeError(`Option '${name}': Expected Rational object with {num, den}, got ${JSON.stringify(value)}`);
+        }
+        if (value.den === 0) {
+          throw new RangeError(`Option '${name}': Rational denominator cannot be zero`);
+        }
         return Option.setRational(this.native, name, value as IRational, searchFlags);
 
       case AV_OPT_TYPE_PIXEL_FMT:
-        return Option.setPixelFormat(this.native, name, Number(value) as AVPixelFormat, searchFlags);
+        const pixFmt = Number(value);
+        if (!Number.isInteger(pixFmt)) {
+          throw new TypeError(`Option '${name}': Expected integer pixel format value, got ${value}`);
+        }
+        return Option.setPixelFormat(this.native, name, pixFmt as AVPixelFormat, searchFlags);
 
       case AV_OPT_TYPE_SAMPLE_FMT:
-        return Option.setSampleFormat(this.native, name, Number(value) as AVSampleFormat, searchFlags);
+        const sampleFmt = Number(value);
+        if (!Number.isInteger(sampleFmt)) {
+          throw new TypeError(`Option '${name}': Expected integer sample format value, got ${value}`);
+        }
+        return Option.setSampleFormat(this.native, name, sampleFmt as AVSampleFormat, searchFlags);
 
       case AV_OPT_TYPE_IMAGE_SIZE:
         // Expect value as {width, height}
         if (typeof value === 'object' && 'width' in value && 'height' in value) {
-          return Option.setImageSize(this.native, name, value.width, value.height, searchFlags);
+          const width = Number(value.width);
+          const height = Number(value.height);
+          if (!Number.isInteger(width) || width <= 0) {
+            throw new RangeError(`Option '${name}': Width must be a positive integer, got ${value.width}`);
+          }
+          if (!Number.isInteger(height) || height <= 0) {
+            throw new RangeError(`Option '${name}': Height must be a positive integer, got ${value.height}`);
+          }
+          return Option.setImageSize(this.native, name, width, height, searchFlags);
         }
-        throw new Error('Invalid value for IMAGE_SIZE option: expected {width, height}');
+        throw new TypeError(`Option '${name}': Expected object with {width, height}, got ${JSON.stringify(value)}`);
 
       case AV_OPT_TYPE_CHLAYOUT:
         return Option.setChannelLayout(this.native, name, Number(value), searchFlags);
@@ -840,9 +905,9 @@ export class OptionMember<T extends OptionCapableObject> {
 
   // Integer options
   getOption(name: string, type: AVOptionTypeInt, searchFlags?: AVOptionSearchFlags): number | null;
-  getOption(name: string, type: AVOptionTypeInt64, searchFlags?: AVOptionSearchFlags): number | null;
+  getOption(name: string, type: AVOptionTypeInt64, searchFlags?: AVOptionSearchFlags): bigint | null;
   getOption(name: string, type: AVOptionTypeUint, searchFlags?: AVOptionSearchFlags): number | null;
-  getOption(name: string, type: AVOptionTypeUint64, searchFlags?: AVOptionSearchFlags): number | null;
+  getOption(name: string, type: AVOptionTypeUint64, searchFlags?: AVOptionSearchFlags): bigint | null;
   getOption(name: string, type: AVOptionTypeFlags, searchFlags?: AVOptionSearchFlags): number | null;
   getOption(name: string, type: AVOptionTypeBool, searchFlags?: AVOptionSearchFlags): boolean | null;
   getOption(name: string, type: AVOptionTypeDuration, searchFlags?: AVOptionSearchFlags): number | null;
@@ -892,13 +957,17 @@ export class OptionMember<T extends OptionCapableObject> {
         return Option.get(this.native, name, searchFlags);
 
       case AV_OPT_TYPE_INT:
-      case AV_OPT_TYPE_INT64:
       case AV_OPT_TYPE_UINT:
-      case AV_OPT_TYPE_UINT64:
       case AV_OPT_TYPE_FLAGS:
       case AV_OPT_TYPE_DURATION:
       case AV_OPT_TYPE_CONST:
         return Option.getInt(this.native, name, searchFlags);
+
+      case AV_OPT_TYPE_INT64:
+      case AV_OPT_TYPE_UINT64:
+        // For INT64/UINT64, we should return bigint for proper precision
+        const int64Val = Option.getInt(this.native, name, searchFlags);
+        return int64Val !== null ? BigInt(int64Val) : null;
 
       case AV_OPT_TYPE_BOOL:
         const val = Option.getInt(this.native, name, searchFlags);
@@ -910,7 +979,8 @@ export class OptionMember<T extends OptionCapableObject> {
 
       case AV_OPT_TYPE_RATIONAL:
       case AV_OPT_TYPE_VIDEO_RATE:
-        return Option.getRational(this.native, name, searchFlags);
+        const rational = Option.getRational(this.native, name, searchFlags);
+        return rational ? new Rational(rational.num, rational.den) : null;
 
       case AV_OPT_TYPE_PIXEL_FMT:
         return Option.getPixelFormat(this.native, name, searchFlags);

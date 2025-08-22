@@ -2,7 +2,7 @@ import { bindings } from './binding.js';
 import { FilterContext } from './filter-context.js';
 import { OptionMember } from './option.js';
 
-import type { AVFilterThreadType } from './constants.js';
+import type { AVFilterCmdFlag, AVFilterThreadType } from './constants.js';
 import type { FilterInOut } from './filter-inout.js';
 import type { Filter } from './filter.js';
 import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
@@ -522,6 +522,87 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    */
   dump(): string | null {
     return this.native.dump();
+  }
+
+  /**
+   * Send a command to one or more filters in the graph.
+   *
+   * Direct mapping to avfilter_graph_send_command()
+   *
+   * @param target - Filter name or "all" to send to all filters
+   * @param cmd - Command name (e.g., "volume", "hue", "rate")
+   * @param arg - Command argument (e.g., "0.5", "2.0")
+   * @param flags - Command flags (AVFilterCmdFlag, default: 0)
+   *   - AV_FILTER_CMD_FLAG_ONE: Stop once a filter understood the command
+   *   - AV_FILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
+   *
+   * @returns Error code (negative) or response object { response: string | null }
+   *
+   * @example
+   * ```typescript
+   * import { FilterGraph, FFmpegError, AV_FILTER_CMD_FLAG_ONE } from '@seydx/av';
+   *
+   * // Send volume change command to audio filter
+   * const result = graph.sendCommand('volume', 'volume', '0.5');
+   * if (typeof result === 'number') {
+   *   console.error('Command failed:', FFmpegError.strerror(result));
+   * } else {
+   *   console.log('Response:', result.response);
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Send command to all filters, stop at first one that handles it
+   * const result = graph.sendCommand('all', 'enable', 'expr=gte(t,10)', AV_FILTER_CMD_FLAG_ONE);
+   *
+   * // Send command to specific filter
+   * const result = graph.sendCommand('scale', 'width', '1920');
+   * ```
+   *
+   * @note Not all filters support commands. Check filter documentation.
+   */
+  sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): number | { response: string | null } {
+    return this.native.sendCommand(target, cmd, arg, flags);
+  }
+
+  /**
+   * Queue a command to be executed at a specific time.
+   *
+   * Direct mapping to avfilter_graph_queue_command()
+   *
+   * @param target - Filter name or "all" to send to all filters
+   * @param cmd - Command name (e.g., "volume", "hue", "rate")
+   * @param arg - Command argument (e.g., "0.5", "2.0")
+   * @param ts - Timestamp when the command should be executed
+   * @param flags - Command flags (AVFilterCmdFlag, default: 0)
+   *   - AV_FILTER_CMD_FLAG_ONE: Stop once a filter understood the command
+   *   - AV_FILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
+   *
+   * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * import { FilterGraph, FFmpegError, AV_FILTER_CMD_FLAG_ONE } from '@seydx/av';
+   *
+   * // Queue volume change at 10 seconds
+   * const ret = graph.queueCommand('volume', 'volume', '0.2', 10.0);
+   * FFmpegError.throwIfError(ret, 'queueCommand');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Queue multiple commands at different times
+   * graph.queueCommand('volume', 'volume', '0.5', 5.0);
+   * graph.queueCommand('volume', 'volume', '1.0', 10.0);
+   * graph.queueCommand('volume', 'volume', '0.2', 15.0);
+   * ```
+   *
+   * @note Commands are executed when processing frames with matching timestamps.
+   * @note Not all filters support queued commands.
+   */
+  queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): number {
+    return this.native.queueCommand(target, cmd, arg, ts, flags);
   }
 
   /**

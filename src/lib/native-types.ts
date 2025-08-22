@@ -1,5 +1,6 @@
 import type {
   AVDictFlag,
+  AVFilterCmdFlag,
   AVFilterFlag,
   AVFilterThreadType,
   AVHWDeviceType,
@@ -811,6 +812,10 @@ export interface NativeFilterGraph extends Disposable {
   // ===== Execution =====
   requestOldest(): Promise<number>;
   dump(): string | null;
+
+  // ===== Command Interface =====
+  sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): number | { response: string | null };
+  queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): number;
 
   // ===== Properties =====
   readonly nbFilters: number;
