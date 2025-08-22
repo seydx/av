@@ -10,3 +10,7 @@
 	path = externals/opus
 	url = https://github.com/xiph/opus
 	branch = main
+[submodule "externals/jellyfin-ffmpeg"]
+	path = externals/jellyfin-ffmpeg
+	url = https://github.com/seydx/jellyfin-ffmpeg.git
+	branch = jellyfin
