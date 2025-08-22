@@ -10,7 +10,7 @@
  * @module api/decoder
  */
 
-import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AV_ERROR_EAGAIN, AV_ERROR_EOF, Codec, CodecContext, Frame } from '../lib/index.js';
+import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AV_ERROR_EAGAIN, AV_ERROR_EOF, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
 
 import type { Packet, Stream } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
@@ -129,7 +129,7 @@ export class Decoder implements Disposable {
     const ret = codecContext.parametersToContext(stream.codecpar);
     if (ret < 0) {
       codecContext.freeContext();
-      throw new Error(`Failed to copy codec parameters: ${ret}`);
+      FFmpegError.throwIfError(ret, 'Failed to copy codec parameters');
     }
 
     // Set packet time base
@@ -173,7 +173,7 @@ export class Decoder implements Disposable {
     const openRet = await codecContext.open2(codec, null);
     if (openRet < 0) {
       codecContext.freeContext();
-      throw new Error(`Failed to open codec: ${openRet}`);
+      FFmpegError.throwIfError(openRet, 'Failed to open codec');
     }
 
     const decoder = new Decoder(codecContext, stream, options.hardware);
@@ -226,7 +226,7 @@ export class Decoder implements Disposable {
 
       // If still failing, it's an error
       if (sendRet !== AV_ERROR_EAGAIN) {
-        throw new Error(`Failed to send packet: ${sendRet}`);
+        FFmpegError.throwIfError(sendRet, 'Failed to send packet');
       }
     }
 
@@ -445,7 +445,8 @@ export class Decoder implements Disposable {
       return null;
     } else {
       // Error
-      throw new Error(`Failed to receive frame: ${ret}`);
+      FFmpegError.throwIfError(ret, 'Failed to receive frame');
+      return null;
     }
   }
 

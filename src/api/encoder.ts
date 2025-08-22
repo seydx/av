@@ -18,6 +18,7 @@ import {
   AV_MEDIA_TYPE_VIDEO,
   Codec,
   CodecContext,
+  FFmpegError,
   Packet,
   Rational,
 } from '../lib/index.js';
@@ -312,7 +313,7 @@ export class Encoder implements Disposable {
     const openRet = await codecContext.open2(codec, null);
     if (openRet < 0) {
       codecContext.freeContext();
-      throw new Error(`Failed to open encoder: ${openRet}`);
+      FFmpegError.throwIfError(openRet, 'Failed to open encoder');
     }
 
     const encoder = new Encoder(codecContext, codecName, isHardwareEncoder ? options.hardware : undefined);
@@ -388,7 +389,7 @@ export class Encoder implements Disposable {
 
       // If still failing, it's an error
       if (sendRet !== AV_ERROR_EAGAIN) {
-        throw new Error(`Failed to send frame: ${sendRet}`);
+        FFmpegError.throwIfError(sendRet, 'Failed to send frame');
       }
     }
 
@@ -615,7 +616,8 @@ export class Encoder implements Disposable {
       return null;
     } else {
       // Error
-      throw new Error(`Failed to receive packet: ${ret}`);
+      FFmpegError.throwIfError(ret, 'Failed to receive packet');
+      return null;
     }
   }
 

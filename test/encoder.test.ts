@@ -184,7 +184,7 @@ describe('Encoder', () => {
             },
             {},
           ),
-        /Failed to open encoder: -22/,
+        /Failed to open encoder/,
       );
     });
   });

@@ -795,10 +795,9 @@ describe('Pipeline - Comprehensive Tests', () => {
   describe('Hardware Acceleration', () => {
     it('should support hardware decoder in pipeline', async function (t) {
       // Check if hardware acceleration is available
-      let hw: HardwareContext | null = null;
-      try {
-        hw = await HardwareContext.auto();
-      } catch {
+      const hw = await HardwareContext.auto();
+
+      if (!hw) {
         t.skip(); // No hardware acceleration available
         return;
       }

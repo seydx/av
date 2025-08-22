@@ -510,7 +510,7 @@ function runNamedPartialPipeline<K extends StreamName>(inputs: NamedInputs<K>, s
         stream = null;
         break;
       default:
-        // This should never happen with TypeScript types
+        // This should never happen
         throw new Error(`Invalid stream name: ${streamName}. Must be 'video', 'audio', or 'subtitle'.`);
     }
 
@@ -819,7 +819,7 @@ async function interleaveToOutput(
       }
       streamIndices[name] = output.addStream(stream);
     } else {
-      // This should not happen with the new API
+      // This should not happen
       throw new Error(`Cannot determine stream configuration for ${name}. This is likely a bug in the pipeline.`);
     }
   }
