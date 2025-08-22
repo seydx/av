@@ -1,5 +1,6 @@
 import { bindings } from './binding.js';
 import { AV_IO_FLAG_READ } from './constants.js';
+import { OptionMember } from './option.js';
 
 import type { AVIOFlag, AVSeekWhence } from './constants.js';
 import type { NativeIOContext, NativeWrapper } from './native-types.js';
@@ -63,9 +64,7 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
  *
  * @see {@link FormatContext} For using custom I/O with containers
  */
-export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext> {
-  private native: NativeIOContext;
-
+export class IOContext extends OptionMember<NativeIOContext> implements AsyncDisposable, NativeWrapper<NativeIOContext> {
   /**
    * Create a new I/O context instance.
    *
@@ -85,7 +84,7 @@ export class IOContext implements AsyncDisposable, NativeWrapper<NativeIOContext
    * ```
    */
   constructor() {
-    this.native = new bindings.IOContext();
+    super(new bindings.IOContext());
   }
 
   /**

@@ -21,7 +21,7 @@ public:
   AVBSFContext* Get() { return context_; }
 
 private:
-  // Friend classes for async operations
+  friend class AVOption; // For option unwrapping  // Friend classes for async operations
   friend class BSFSendPacketWorker;
   friend class BSFReceivePacketWorker;
   

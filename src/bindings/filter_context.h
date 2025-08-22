@@ -50,6 +50,7 @@ private:
   friend class FilterInOut;
   friend class FCBuffersrcAddFrameWorker;
   friend class FCBuffersinkGetFrameWorker;
+  friend class AVOption; // For option unwrapping
   
   // Static members
   static Napi::FunctionReference constructor;
@@ -67,8 +68,6 @@ private:
   Napi::Value Link(const Napi::CallbackInfo& info);
   Napi::Value Unlink(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
-  Napi::Value SetOpt(const Napi::CallbackInfo& info);
-  Napi::Value OptSetBin(const Napi::CallbackInfo& info);
   
   // Buffer source/sink operations
   Napi::Value BuffersrcAddFrame(const Napi::CallbackInfo& info);

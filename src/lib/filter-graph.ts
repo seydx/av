@@ -1,5 +1,6 @@
 import { bindings } from './binding.js';
 import { FilterContext } from './filter-context.js';
+import { OptionMember } from './option.js';
 
 import type { AVFilterThreadType } from './constants.js';
 import type { FilterInOut } from './filter-inout.js';
@@ -67,9 +68,7 @@ import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
  * graph.free();
  * ```
  */
-export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph> {
-  private native: NativeFilterGraph;
-
+export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disposable, NativeWrapper<NativeFilterGraph> {
   /**
    * Create a new FilterGraph instance.
    *
@@ -88,7 +87,7 @@ export class FilterGraph implements Disposable, NativeWrapper<NativeFilterGraph>
    * ```
    */
   constructor() {
-    this.native = new bindings.FilterGraph();
+    super(new bindings.FilterGraph());
   }
 
   /**

@@ -21,7 +21,7 @@ public:
   SwsContext* Get() { return ctx_; }
 
 private:
-  // Friend classes
+  friend class AVOption; // For option unwrapping  // Friend classes
   friend class SwsScaleFrameWorker;
   
   // Static members

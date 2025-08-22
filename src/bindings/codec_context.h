@@ -22,7 +22,7 @@ public:
   AVCodecContext* Get() { return context_; }
 
 private:
-  // Friend classes
+  friend class AVOption; // For option unwrapping  // Friend classes
   friend class CCOpen2Worker;
   friend class CCSendPacketWorker;
   friend class CCReceiveFrameWorker;
@@ -60,7 +60,6 @@ private:
   // Utility
   Napi::Value IsOpen(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
-  Napi::Value SetOpt(const Napi::CallbackInfo& info);
   
   // === Properties ===
   

@@ -488,7 +488,8 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   output += 'export const AV_FILTER_THREAD_NONE = 0 as AVFilterThreadType; // Disable threading\n';
   output += 'export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2\n';
   output += 'export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags\n';
-  output += 'export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags\n\n';
+  output += 'export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags\n';
+  output += 'export const AV_OPT_SEARCH_FLAG_NONE = 0 as AVOptionSearchFlags; // No option search flags\n\n';
 
   // Generate branded types for each enum
   const processedEnums = new Set();
@@ -502,19 +503,73 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     if (processedTypes.has(enumName)) continue;
     processedTypes.add(enumName);
 
-    // Create branded type
-    output += `// ${enumData.source}\n`;
-    output += `export type ${enumName} = number & { readonly [__ffmpeg_brand]: '${enumName}' };\n\n`;
+    // Special handling for AVOptionType - create individual branded types for each value
+    if (enumName === 'AVOptionType') {
+      output += `// ${enumData.source}\n`;
+      output += "export type AVOptionType = number & { readonly [__ffmpeg_brand]: 'AVOptionType' };\n";
 
-    // Export constants
-    for (const { name, value } of enumData.values) {
-      // Skip duplicates and platform-specific variations
-      // if (name.includes('_NE') || name === 'NB') {
-      //   continue;
-      // }
-      output += `export const ${name} = ${value} as ${enumName};\n`;
+      // Create individual branded types for each option type
+      const optionTypeMap = {
+        AV_OPT_TYPE_FLAGS: 'AVOptionTypeFlags',
+        AV_OPT_TYPE_INT: 'AVOptionTypeInt',
+        AV_OPT_TYPE_INT64: 'AVOptionTypeInt64',
+        AV_OPT_TYPE_DOUBLE: 'AVOptionTypeDouble',
+        AV_OPT_TYPE_FLOAT: 'AVOptionTypeFloat',
+        AV_OPT_TYPE_STRING: 'AVOptionTypeString',
+        AV_OPT_TYPE_RATIONAL: 'AVOptionTypeRational',
+        AV_OPT_TYPE_BINARY: 'AVOptionTypeBinary',
+        AV_OPT_TYPE_DICT: 'AVOptionTypeDict',
+        AV_OPT_TYPE_UINT64: 'AVOptionTypeUint64',
+        AV_OPT_TYPE_CONST: 'AVOptionTypeConst',
+        AV_OPT_TYPE_IMAGE_SIZE: 'AVOptionTypeImageSize',
+        AV_OPT_TYPE_PIXEL_FMT: 'AVOptionTypePixelFmt',
+        AV_OPT_TYPE_SAMPLE_FMT: 'AVOptionTypeSampleFmt',
+        AV_OPT_TYPE_VIDEO_RATE: 'AVOptionTypeVideoRate',
+        AV_OPT_TYPE_DURATION: 'AVOptionTypeDuration',
+        AV_OPT_TYPE_COLOR: 'AVOptionTypeColor',
+        AV_OPT_TYPE_BOOL: 'AVOptionTypeBool',
+        AV_OPT_TYPE_CHLAYOUT: 'AVOptionTypeChLayout',
+        AV_OPT_TYPE_UINT: 'AVOptionTypeUint',
+      };
+
+      // Generate individual branded types
+      for (const [constName, typeName] of Object.entries(optionTypeMap)) {
+        output += `export type ${typeName} = AVOptionType & { readonly __optType: '${constName}' };\n`;
+      }
+
+      // Special type for binary int arrays (like pix_fmts)
+      output += "export type AVOptionTypeBinaryIntArray = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_BINARY_INT_ARRAY' };\n";
+      output += '\n';
+
+      // Export constants with individual brands
+      for (const { name, value } of enumData.values) {
+        const individualType = optionTypeMap[name];
+        if (individualType) {
+          output += `export const ${name} = ${value} as ${individualType};\n`;
+        } else {
+          // Fallback for any option types we might have missed
+          output += `export const ${name} = ${value} as AVOptionType;\n`;
+        }
+      }
+
+      // Add special constant for binary int arrays (same value as BINARY but different type)
+      output += 'export const AV_OPT_TYPE_BINARY_INT_ARRAY = 25 as AVOptionTypeBinaryIntArray; // For int arrays like pix_fmts\n';
+      output += '\n';
+    } else {
+      // Normal enum handling
+      output += `// ${enumData.source}\n`;
+      output += `export type ${enumName} = number & { readonly [__ffmpeg_brand]: '${enumName}' };\n\n`;
+
+      // Export constants
+      for (const { name, value } of enumData.values) {
+        // Skip duplicates and platform-specific variations
+        // if (name.includes('_NE') || name === 'NB') {
+        //   continue;
+        // }
+        output += `export const ${name} = ${value} as ${enumName};\n`;
+      }
+      output += '\n';
     }
-    output += '\n';
   }
 
   // Group and generate constants

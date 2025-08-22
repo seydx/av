@@ -7,6 +7,7 @@ import {
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MJPEG,
   AV_CODEC_ID_PCM_S16LE,
+  AV_ERROR_OPTION_NOT_FOUND,
   AV_MEDIA_TYPE_AUDIO,
   AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_VIDEOTOOLBOX,
@@ -581,7 +582,7 @@ describe('CodecContext', () => {
     });
   });
 
-  describe('Options (setOpt)', () => {
+  describe('Options (setOption)', () => {
     it('should set options on encoder context', () => {
       // Try to find H264 encoder which supports options
       const codec = Codec.findEncoder(AV_CODEC_ID_H264);
@@ -595,7 +596,7 @@ describe('CodecContext', () => {
       // Set preset option (H264 specific)
       // This should not throw if codec has private data
       try {
-        const ret = ctx.setOpt('preset', 'fast');
+        const ret = ctx.setOption('preset', 'fast');
         assert.ok(ret >= 0);
       } catch (error: any) {
         // Some H264 encoders might not have preset option
@@ -608,8 +609,8 @@ describe('CodecContext', () => {
     it('should fail to set option on unallocated context', () => {
       // Don't allocate context
       assert.throws(() => {
-        ctx.setOpt('preset', 'fast');
-      }, /CodecContext not allocated/);
+        ctx.setOption('preset', 'fast');
+      }, /Invalid native object/);
     });
 
     it('should fail to set option without private data or invalid option', () => {
@@ -619,9 +620,7 @@ describe('CodecContext', () => {
 
       ctx.allocContext3(codec);
 
-      assert.throws(() => {
-        ctx.setOpt('preset', 'fast');
-      }, /Failed to set option|Codec private data not available/);
+      assert.equal(ctx.setOption('preset', 'fast'), AV_ERROR_OPTION_NOT_FOUND);
     });
 
     it('should fail with invalid option name', () => {
@@ -633,9 +632,7 @@ describe('CodecContext', () => {
 
       ctx.allocContext3(codec);
 
-      assert.throws(() => {
-        ctx.setOpt('invalid_option_name_xyz', 'value');
-      }, /Failed to set option/);
+      assert.equal(ctx.setOption('invalid_option_name_xyz', 'value'), AV_ERROR_OPTION_NOT_FOUND);
     });
 
     it('should set multiple options', () => {
@@ -650,10 +647,10 @@ describe('CodecContext', () => {
       // Try to set multiple options
       try {
         // These are common H264 options
-        ctx.setOpt('preset', 'veryfast');
-        ctx.setOpt('tune', 'zerolatency');
+        ctx.setOption('preset', 'veryfast');
+        ctx.setOption('tune', 'zerolatency');
         // CRF is a numeric option but passed as string
-        ctx.setOpt('crf', '23');
+        ctx.setOption('crf', '23');
 
         // If we get here, all options were set successfully
         assert.ok(true);

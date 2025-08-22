@@ -45,7 +45,7 @@ public:
   Napi::Value GetWriteFlag(const Napi::CallbackInfo& info);
 
 private:
-  // Friend classes
+  friend class AVOption; // For option unwrapping  // Friend classes
   friend class FormatContext;
   friend class IOOpen2Worker;
   friend class IOClosepWorker;

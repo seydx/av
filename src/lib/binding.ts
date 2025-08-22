@@ -7,7 +7,7 @@
 
 import { createRequire } from 'node:module';
 
-import type { AVHWDeviceType, AVLogLevel, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type {
   NativeAudioFifo,
   NativeBitStreamFilter,
@@ -29,6 +29,7 @@ import type {
   NativeInputFormat,
   NativeIOContext,
   NativeLog,
+  NativeOption,
   NativeOutputFormat,
   NativePacket,
   NativeSoftwareResampleContext,
@@ -36,6 +37,22 @@ import type {
   NativeStream,
 } from './native-types.js';
 import type { ChannelLayout, IRational } from './types.js';
+
+/**
+ * Union type for all native FFmpeg objects that support AVOptions.
+ *
+ * These objects have an AVClass structure as their first member,
+ * which enables the AVOption API for runtime configuration.
+ */
+export type OptionCapableObject =
+  | NativeCodecContext
+  | NativeFormatContext
+  | NativeFilterContext
+  | NativeFilterGraph
+  | NativeSoftwareScaleContext
+  | NativeSoftwareResampleContext
+  | NativeIOContext
+  | NativeBitStreamFilterContext;
 
 const require = createRequire(import.meta.url);
 
@@ -131,6 +148,46 @@ interface NativeLogConstructor {
   resetCallback(): void;
 }
 
+// Option system - static utility class
+// This is not a constructor but a collection of static methods for the AVOption API
+interface NativeOptionStatic {
+  // Iteration
+  next(obj: OptionCapableObject, prev?: NativeOption): NativeOption | null;
+  find(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): NativeOption | null;
+  find2(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): { option: NativeOption; isDifferentTarget: boolean } | null;
+
+  // Getters
+  get(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): string | null;
+  getInt(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): number | null;
+  getDouble(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): number | null;
+  getRational(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): IRational | null;
+  getPixelFormat(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): AVPixelFormat | null;
+  getSampleFormat(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): AVSampleFormat | null;
+  getImageSize(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): { width: number; height: number } | null;
+  getChannelLayout(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): ChannelLayout | null;
+  getDict(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): NativeDictionary | null;
+
+  // Setters
+  set(obj: OptionCapableObject, name: string, value: string, searchFlags?: AVOptionSearchFlags): number;
+  setInt(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;
+  setDouble(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;
+  setRational(obj: OptionCapableObject, name: string, value: { num: number; den: number }, searchFlags?: AVOptionSearchFlags): number;
+  setPixelFormat(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;
+  setSampleFormat(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;
+  setImageSize(obj: OptionCapableObject, name: string, width: number, height: number, searchFlags?: AVOptionSearchFlags): number;
+  setChannelLayout(obj: OptionCapableObject, name: string, value: number, searchFlags?: AVOptionSearchFlags): number;
+  setDict(obj: OptionCapableObject, name: string, value: NativeDictionary, searchFlags?: AVOptionSearchFlags): number;
+  setBin(obj: OptionCapableObject, name: string, value: Buffer, searchFlags?: AVOptionSearchFlags): number;
+
+  // Utility
+  setDefaults(obj: OptionCapableObject): void;
+  copy(dest: OptionCapableObject, src: OptionCapableObject): number;
+  isSetToDefault(obj: OptionCapableObject, name: string, searchFlags?: AVOptionSearchFlags): boolean | null;
+  serialize(obj: OptionCapableObject, optFlags?: number, flags?: number, keyValSep?: string, pairsSep?: string): string | null;
+  free(obj: OptionCapableObject): void;
+  show(obj: OptionCapableObject, reqFlags?: number, rejFlags?: number): number;
+}
+
 // Load the native addon
 export const bindings = require('../../build/Release/ffmpeg.node') as {
   // Core Types
@@ -175,6 +232,9 @@ export const bindings = require('../../build/Release/ffmpeg.node') as {
 
   // Logging
   Log: NativeLogConstructor;
+
+  // Option system
+  Option: NativeOptionStatic;
 
   // Functions
   getVersion: () => string;

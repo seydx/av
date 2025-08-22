@@ -1,4 +1,5 @@
 import { bindings } from './binding.js';
+import { OptionMember } from './option.js';
 
 import type { AVSampleFormat } from './constants.js';
 import type { Frame } from './frame.js';
@@ -43,9 +44,7 @@ import type { ChannelLayout } from './types.js';
  * swr.free();
  * ```
  */
-export class SoftwareResampleContext implements Disposable, NativeWrapper<NativeSoftwareResampleContext> {
-  private native: NativeSoftwareResampleContext;
-
+export class SoftwareResampleContext extends OptionMember<NativeSoftwareResampleContext> implements Disposable, NativeWrapper<NativeSoftwareResampleContext> {
   /**
    * Create a new software resample context.
    *
@@ -74,7 +73,7 @@ export class SoftwareResampleContext implements Disposable, NativeWrapper<Native
    * ```
    */
   constructor() {
-    this.native = new bindings.SoftwareResampleContext();
+    super(new bindings.SoftwareResampleContext());
   }
 
   /**

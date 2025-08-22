@@ -130,10 +130,10 @@ async function initFilters(filtersDescr: string): Promise<void> {
   }
 
   // Set buffer source options individually
-  buffersrcCtx.setOpt('video_size', `${codecCtx!.width}x${codecCtx!.height}`);
-  buffersrcCtx.setOpt('pix_fmt', codecCtx!.pixelFormat.toString());
-  buffersrcCtx.setOpt('time_base', `${timeBase.num}/${timeBase.den}`);
-  buffersrcCtx.setOpt('pixel_aspect', `${codecCtx!.sampleAspectRatio.num}/${codecCtx!.sampleAspectRatio.den}`);
+  buffersrcCtx.setOption('video_size', `${codecCtx!.width}x${codecCtx!.height}`);
+  buffersrcCtx.setOption('pix_fmt', codecCtx!.pixelFormat.toString());
+  buffersrcCtx.setOption('time_base', `${timeBase.num}/${timeBase.den}`);
+  buffersrcCtx.setOption('pixel_aspect', `${codecCtx!.sampleAspectRatio.num}/${codecCtx!.sampleAspectRatio.den}`);
 
   // Initialize the buffer source with the set options
   let ret = buffersrcCtx.init();

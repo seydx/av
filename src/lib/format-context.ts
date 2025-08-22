@@ -3,6 +3,7 @@ import { Codec } from './codec.js';
 import { AV_SEEK_FLAG_NONE } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { InputFormat } from './input-format.js';
+import { OptionMember } from './option.js';
 import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
@@ -79,8 +80,7 @@ import type { Packet } from './packet.js';
  * @see {@link Stream} For stream management
  * @see {@link Packet} For packet handling
  */
-export class FormatContext implements Disposable, NativeWrapper<NativeFormatContext> {
-  private native: NativeFormatContext;
+export class FormatContext extends OptionMember<NativeFormatContext> implements Disposable, NativeWrapper<NativeFormatContext> {
   private _ioContext: IOContext | null = null;
 
   /**
@@ -103,7 +103,7 @@ export class FormatContext implements Disposable, NativeWrapper<NativeFormatCont
    * ```
    */
   constructor() {
-    this.native = new bindings.FormatContext();
+    super(new bindings.FormatContext());
   }
 
   /**

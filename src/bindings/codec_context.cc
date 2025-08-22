@@ -35,9 +35,6 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&CodecContext::SendFrameAsync>("sendFrame"),
     InstanceMethod<&CodecContext::ReceivePacketAsync>("receivePacket"),
     
-    // Options
-    InstanceMethod<&CodecContext::SetOpt>("setOpt"),
-
     // Properties
     InstanceAccessor<&CodecContext::GetCodecType, &CodecContext::SetCodecType>("codecType"),
     InstanceAccessor<&CodecContext::GetCodecId, &CodecContext::SetCodecId>("codecId"),
@@ -945,47 +942,6 @@ Napi::Value CodecContext::IsOpen(const Napi::CallbackInfo& info) {
 
 Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
   return FreeContext(info);
-}
-
-Napi::Value CodecContext::SetOpt(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (info.Length() < 3) {
-    Napi::TypeError::New(env, "Expected 3 arguments: name, value, searchFlags").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  if (!context_) {
-    Napi::Error::New(env, "CodecContext not allocated").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  if (!context_->priv_data) {
-    Napi::Error::New(env, "Codec private data not available").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  // Get option name
-  std::string name = info[0].As<Napi::String>().Utf8Value();
-  
-  // Get option value as string (av_opt_set will handle conversion)
-  std::string value = info[1].As<Napi::String>().Utf8Value();
-  
-  // Get search flags
-  int search_flags = info[2].As<Napi::Number>().Int32Value();
-  
-  // Set the option
-  int ret = av_opt_set(context_->priv_data, name.c_str(), value.c_str(), search_flags);
-  
-  if (ret < 0) {
-    char errbuf[AV_ERROR_MAX_STRING_SIZE];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    std::string error_msg = "Failed to set option '" + name + "': " + std::string(errbuf);
-    Napi::Error::New(env, error_msg).ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  return Napi::Number::New(env, ret);
 }
 
 } // namespace ffmpeg

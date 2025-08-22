@@ -104,7 +104,8 @@ async function encodeVideo(filename: string, codecName: string): Promise<void> {
 
     // For H264, set preset
     if (codec.id === AV_CODEC_ID_H264) {
-      codecCtx.setOpt('preset', 'slow');
+      const ret = codecCtx.setOption('preset', 'slow');
+      FFmpegError.throwIfError(ret, 'Could not set codec options');
     }
 
     // Open codec

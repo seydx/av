@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+  AV_OPT_TYPE_BINARY_INT_ARRAY,
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_S16,
@@ -508,17 +509,14 @@ describe('FilterContext', () => {
       const ctx = graph.createFilter(buffersinkFilter, 'out');
       assert.ok(ctx, 'Should create buffersink filter context');
 
-      // Test that optSetBin method exists
-      assert.ok(typeof ctx.optSetBin === 'function', 'optSetBin should be a function');
-
       // Set pix_fmts as binary option (array of pixel format values)
-      const ret1 = ctx.optSetBin('pix_fmts', [AV_PIX_FMT_YUV420P]);
+      const ret1 = ctx.setOption('pix_fmts', [AV_PIX_FMT_YUV420P], AV_OPT_TYPE_BINARY_INT_ARRAY);
       assert.equal(ret1, 0, 'Should set pix_fmts successfully on buffersink');
 
       // Also test with multiple pixel formats
       const ctx2 = graph.createFilter(buffersinkFilter, 'out2');
       assert.ok(ctx2, 'Should create second buffersink filter context');
-      const ret2 = ctx2.optSetBin('pix_fmts', [AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24]);
+      const ret2 = ctx2.setOption('pix_fmts', [AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24], AV_OPT_TYPE_BINARY_INT_ARRAY);
       assert.equal(ret2, 0, 'Should set multiple pix_fmts successfully');
 
       graph.free();

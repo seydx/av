@@ -263,7 +263,7 @@ export class Encoder implements Disposable {
     // Apply codec-specific options via AVOptions
     if (options.options) {
       for (const [key, value] of Object.entries(options.options)) {
-        codecContext.setOpt(key, value.toString());
+        codecContext.setOption(key, value.toString());
       }
     }
 
@@ -295,13 +295,9 @@ export class Encoder implements Disposable {
 
     // Apply hardware acceleration if provided and encoder supports it
     if (options.hardware && isHardwareEncoder) {
-      // Check if hardware encoder support the pixelFormat
-      const pixelFormatIsSupported = options.hardware.supportsPixelFormat(codecContext.codecId, codecContext.pixelFormat, true);
-
-      // If pixel format is not supported, fallback to hardware pixel format
-      if (!pixelFormatIsSupported) {
-        codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
-      }
+      // For hardware encoders, always set the hardware pixel format
+      // (overrides what was copied from stream parameters)
+      codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
 
       // Check if frames context already available (shared from decoder)
       if (options.hardware.framesContext) {

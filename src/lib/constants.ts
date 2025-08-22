@@ -32,6 +32,7 @@ export const AV_FILTER_THREAD_NONE = 0 as AVFilterThreadType; // Disable threadi
 export const AV_CODEC_FLAG2_NONE = 0 as AVCodecFlag2; // No codec flags2
 export const AV_FORMAT_FLAG_NONE = 0 as AVFormatFlag; // No format flags
 export const AV_DICT_FLAG_NONE = 0 as AVDictFlag; // No dictionary flags
+export const AV_OPT_SEARCH_FLAG_NONE = 0 as AVOptionSearchFlags; // No option search flags
 
 // libavcodec/avcodec.h
 export type AVCodecConfig = number & { readonly [__ffmpeg_brand]: 'AVCodecConfig' };
@@ -923,27 +924,49 @@ export const AV_ROUND_NEAR_INF = 5 as AVRounding;
 
 // libavutil/opt.h
 export type AVOptionType = number & { readonly [__ffmpeg_brand]: 'AVOptionType' };
+export type AVOptionTypeFlags = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_FLAGS' };
+export type AVOptionTypeInt = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_INT' };
+export type AVOptionTypeInt64 = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_INT64' };
+export type AVOptionTypeDouble = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_DOUBLE' };
+export type AVOptionTypeFloat = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_FLOAT' };
+export type AVOptionTypeString = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_STRING' };
+export type AVOptionTypeRational = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_RATIONAL' };
+export type AVOptionTypeBinary = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_BINARY' };
+export type AVOptionTypeDict = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_DICT' };
+export type AVOptionTypeUint64 = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_UINT64' };
+export type AVOptionTypeConst = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_CONST' };
+export type AVOptionTypeImageSize = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_IMAGE_SIZE' };
+export type AVOptionTypePixelFmt = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_PIXEL_FMT' };
+export type AVOptionTypeSampleFmt = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_SAMPLE_FMT' };
+export type AVOptionTypeVideoRate = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_VIDEO_RATE' };
+export type AVOptionTypeDuration = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_DURATION' };
+export type AVOptionTypeColor = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_COLOR' };
+export type AVOptionTypeBool = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_BOOL' };
+export type AVOptionTypeChLayout = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_CHLAYOUT' };
+export type AVOptionTypeUint = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_UINT' };
+export type AVOptionTypeBinaryIntArray = AVOptionType & { readonly __optType: 'AV_OPT_TYPE_BINARY_INT_ARRAY' };
 
-export const AV_OPT_TYPE_FLAGS = 1 as AVOptionType;
-export const AV_OPT_TYPE_INT = 2 as AVOptionType;
-export const AV_OPT_TYPE_INT64 = 3 as AVOptionType;
-export const AV_OPT_TYPE_DOUBLE = 4 as AVOptionType;
-export const AV_OPT_TYPE_FLOAT = 5 as AVOptionType;
-export const AV_OPT_TYPE_STRING = 6 as AVOptionType;
-export const AV_OPT_TYPE_RATIONAL = 7 as AVOptionType;
-export const AV_OPT_TYPE_BINARY = 8 as AVOptionType;
-export const AV_OPT_TYPE_DICT = 9 as AVOptionType;
-export const AV_OPT_TYPE_UINT64 = 10 as AVOptionType;
-export const AV_OPT_TYPE_CONST = 11 as AVOptionType;
-export const AV_OPT_TYPE_IMAGE_SIZE = 12 as AVOptionType;
-export const AV_OPT_TYPE_PIXEL_FMT = 13 as AVOptionType;
-export const AV_OPT_TYPE_SAMPLE_FMT = 14 as AVOptionType;
-export const AV_OPT_TYPE_VIDEO_RATE = 15 as AVOptionType;
-export const AV_OPT_TYPE_DURATION = 16 as AVOptionType;
-export const AV_OPT_TYPE_COLOR = 17 as AVOptionType;
-export const AV_OPT_TYPE_BOOL = 18 as AVOptionType;
-export const AV_OPT_TYPE_CHLAYOUT = 19 as AVOptionType;
-export const AV_OPT_TYPE_UINT = 20 as AVOptionType;
+export const AV_OPT_TYPE_FLAGS = 1 as AVOptionTypeFlags;
+export const AV_OPT_TYPE_INT = 2 as AVOptionTypeInt;
+export const AV_OPT_TYPE_INT64 = 3 as AVOptionTypeInt64;
+export const AV_OPT_TYPE_DOUBLE = 4 as AVOptionTypeDouble;
+export const AV_OPT_TYPE_FLOAT = 5 as AVOptionTypeFloat;
+export const AV_OPT_TYPE_STRING = 6 as AVOptionTypeString;
+export const AV_OPT_TYPE_RATIONAL = 7 as AVOptionTypeRational;
+export const AV_OPT_TYPE_BINARY = 8 as AVOptionTypeBinary;
+export const AV_OPT_TYPE_DICT = 9 as AVOptionTypeDict;
+export const AV_OPT_TYPE_UINT64 = 10 as AVOptionTypeUint64;
+export const AV_OPT_TYPE_CONST = 11 as AVOptionTypeConst;
+export const AV_OPT_TYPE_IMAGE_SIZE = 12 as AVOptionTypeImageSize;
+export const AV_OPT_TYPE_PIXEL_FMT = 13 as AVOptionTypePixelFmt;
+export const AV_OPT_TYPE_SAMPLE_FMT = 14 as AVOptionTypeSampleFmt;
+export const AV_OPT_TYPE_VIDEO_RATE = 15 as AVOptionTypeVideoRate;
+export const AV_OPT_TYPE_DURATION = 16 as AVOptionTypeDuration;
+export const AV_OPT_TYPE_COLOR = 17 as AVOptionTypeColor;
+export const AV_OPT_TYPE_BOOL = 18 as AVOptionTypeBool;
+export const AV_OPT_TYPE_CHLAYOUT = 19 as AVOptionTypeChLayout;
+export const AV_OPT_TYPE_UINT = 20 as AVOptionTypeUint;
+export const AV_OPT_TYPE_BINARY_INT_ARRAY = 25 as AVOptionTypeBinaryIntArray; // For int arrays like pix_fmts
 
 // libavutil/pixfmt.h
 export type AVPixelFormat = number & { readonly [__ffmpeg_brand]: 'AVPixelFormat' };

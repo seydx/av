@@ -1,5 +1,6 @@
 import { bindings } from './binding.js';
 import { AV_SWS_BILINEAR } from './constants.js';
+import { OptionMember } from './option.js';
 
 import type { AVPixelFormat, AVSoftwareScaleFlag } from './constants.js';
 import type { Frame } from './frame.js';
@@ -41,9 +42,7 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
  * sws.freeContext();
  * ```
  */
-export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {
-  private native: NativeSoftwareScaleContext;
-
+export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContext> implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {
   /**
    * Create a new software scale context.
    *
@@ -66,7 +65,7 @@ export class SoftwareScaleContext implements Disposable, NativeWrapper<NativeSof
    * ```
    */
   constructor() {
-    this.native = new bindings.SoftwareScaleContext();
+    super(new bindings.SoftwareScaleContext());
   }
 
   /**

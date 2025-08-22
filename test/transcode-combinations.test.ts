@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import { existsSync, unlinkSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput } from '../src/api/index.js';
-import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, type AVPixelFormat } from '../src/lib/constants.js';
+import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, type DecoderOptions, type EncoderOptions, type StreamInfo } from '../src/api/index.js';
+import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
 import { FormatContext, IOContext } from '../src/lib/index.js';
 
 /**
@@ -32,29 +32,10 @@ describe('Transcode Combinations', () => {
       throw new Error('No video stream found');
     }
 
-    // Determine target pixel format based on encoder requirements
-    let targetPixelFormat: AVPixelFormat | AVPixelFormat[] | undefined;
-    if (useHwDecode && !useHwEncode) {
-      // Hardware decode + Software encode: need to convert to CPU format
-      // Videotoolbox needs to convert first to NV12 before YUV420P
-      targetPixelFormat = [AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P];
-    } else if (!useHwDecode && useHwEncode && hw) {
-      // Software decode + Hardware encode: convert to encoder's preferred CPU format
-      // VideoToolbox needs NV12 specifically when used as hardware encoder
-      if (hw.deviceTypeName === 'videotoolbox') {
-        targetPixelFormat = AV_PIX_FMT_NV12;
-      } else {
-        targetPixelFormat = AV_PIX_FMT_YUV420P;
-      }
-    }
-
     // Create decoder with automatic format conversion
-    const decoderOptions: any = {};
+    const decoderOptions: DecoderOptions = {};
     if (useHwDecode && hw) {
       decoderOptions.hardware = hw;
-    }
-    if (targetPixelFormat !== undefined) {
-      decoderOptions.targetPixelFormat = targetPixelFormat;
     }
     const decoder = await Decoder.create(videoStream, decoderOptions);
 
@@ -85,7 +66,7 @@ describe('Transcode Combinations', () => {
     }
 
     // Create encoder
-    const streamInfo: any = {
+    const streamInfo: StreamInfo = {
       type: 'video',
       width: videoStream.codecpar.width,
       height: videoStream.codecpar.height,
@@ -95,7 +76,7 @@ describe('Transcode Combinations', () => {
       sampleAspectRatio: { num: 1, den: 1 },
     };
 
-    const encoderOptions: any = {
+    const encoderOptions: EncoderOptions = {
       bitrate: '1M',
       gopSize: 30,
     };
@@ -103,10 +84,6 @@ describe('Transcode Combinations', () => {
     // Hardware encoder always needs hardware context when available
     if (useHwEncode && hw) {
       encoderOptions.hardware = hw;
-      // Only share decoder for zero-copy when both use hardware
-      if (useHwDecode) {
-        encoderOptions.sharedDecoder = decoder;
-      }
     }
 
     const encoder = await Encoder.create(encoderName, streamInfo, encoderOptions);

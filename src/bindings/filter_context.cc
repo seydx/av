@@ -28,8 +28,6 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FilterContext::Link>("link"),
     InstanceMethod<&FilterContext::Unlink>("unlink"),
     InstanceMethod<&FilterContext::Free>("free"),
-    InstanceMethod<&FilterContext::SetOpt>("setOpt"),
-    InstanceMethod<&FilterContext::OptSetBin>("optSetBin"),
     InstanceMethod<&FilterContext::BuffersrcAddFrame>("buffersrcAddFrame"),
     InstanceMethod<&FilterContext::BuffersrcParametersSet>("buffersrcParametersSet"),
     InstanceMethod<&FilterContext::BuffersinkGetFrame>("buffersinkGetFrame"),
@@ -188,115 +186,6 @@ Napi::Value FilterContext::Free(const Napi::CallbackInfo& info) {
   unowned_ctx_ = nullptr;
   
   return env.Undefined();
-}
-
-Napi::Value FilterContext::SetOpt(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  AVFilterContext* ctx = Get();
-  
-  if (!ctx) {
-    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  if (info.Length() < 2) {
-    Napi::TypeError::New(env, "Expected at least 2 arguments (key, value)").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  if (!info[0].IsString() || !info[1].IsString()) {
-    Napi::TypeError::New(env, "Key and value must be strings").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  std::string key = info[0].As<Napi::String>().Utf8Value();
-  std::string value = info[1].As<Napi::String>().Utf8Value();
-  
-  // Optional search_flags parameter (default to AV_OPT_SEARCH_CHILDREN)
-  int search_flags = AV_OPT_SEARCH_CHILDREN;
-  if (info.Length() > 2 && info[2].IsNumber()) {
-    search_flags = info[2].As<Napi::Number>().Int32Value();
-  }
-  
-  // Set the option using av_opt_set
-  int ret = av_opt_set(ctx, key.c_str(), value.c_str(), search_flags);
-  
-  return Napi::Number::New(env, ret);
-}
-
-Napi::Value FilterContext::OptSetBin(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  AVFilterContext* ctx = Get();
-  
-  if (!ctx) {
-    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  if (info.Length() < 2) {
-    Napi::TypeError::New(env, "Expected at least 2 arguments (key, values)").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  if (!info[0].IsString()) {
-    Napi::TypeError::New(env, "Key must be a string").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  std::string key = info[0].As<Napi::String>().Utf8Value();
-  
-  // Handle array of integers
-  if (info[1].IsArray()) {
-    Napi::Array arr = info[1].As<Napi::Array>();
-    uint32_t len = arr.Length();
-    
-    if (len == 0) {
-      Napi::TypeError::New(env, "Values array cannot be empty").ThrowAsJavaScriptException();
-      return Napi::Number::New(env, AVERROR(EINVAL));
-    }
-    
-    // Allocate buffer for values
-    int* values = new int[len];
-    
-    for (uint32_t i = 0; i < len; i++) {
-      Napi::Value val = arr[i];
-      if (!val.IsNumber()) {
-        delete[] values;
-        Napi::TypeError::New(env, "All array elements must be numbers").ThrowAsJavaScriptException();
-        return Napi::Number::New(env, AVERROR(EINVAL));
-      }
-      values[i] = val.As<Napi::Number>().Int32Value();
-    }
-    
-    // Optional search_flags parameter (default to AV_OPT_SEARCH_CHILDREN)
-    int search_flags = AV_OPT_SEARCH_CHILDREN;
-    if (info.Length() > 2 && info[2].IsNumber()) {
-      search_flags = info[2].As<Napi::Number>().Int32Value();
-    }
-    
-    // Set the option using av_opt_set_bin
-    int ret = av_opt_set_bin(ctx, key.c_str(), (uint8_t*)values, len * sizeof(int), search_flags);
-    
-    delete[] values;
-    return Napi::Number::New(env, ret);
-  } else if (info[1].IsNumber()) {
-    // Single integer value
-    int value = info[1].As<Napi::Number>().Int32Value();
-    
-    // Optional search_flags parameter (default to AV_OPT_SEARCH_CHILDREN)
-    int search_flags = AV_OPT_SEARCH_CHILDREN;
-    if (info.Length() > 2 && info[2].IsNumber()) {
-      search_flags = info[2].As<Napi::Number>().Int32Value();
-    }
-    
-    // Set the option using av_opt_set_bin
-    int ret = av_opt_set_bin(ctx, key.c_str(), (uint8_t*)&value, sizeof(int), search_flags);
-    
-    return Napi::Number::New(env, ret);
-  } else {
-    Napi::TypeError::New(env, "Values must be an array of numbers or a single number").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
 }
 
 // Napi::Value FilterContext::BuffersinkSetFrameSize(const Napi::CallbackInfo& info) {

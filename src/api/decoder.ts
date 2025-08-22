@@ -165,7 +165,7 @@ export class Decoder implements Disposable {
     // Apply codec-specific options via AVOptions
     if (options.options) {
       for (const [key, value] of Object.entries(options.options)) {
-        codecContext.setOpt(key, value.toString());
+        codecContext.setOption(key, value.toString());
       }
     }
 

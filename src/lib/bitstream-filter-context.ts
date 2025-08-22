@@ -1,6 +1,7 @@
 import { bindings } from './binding.js';
 import { BitStreamFilter } from './bitstream-filter.js';
 import { CodecParameters } from './codec-parameters.js';
+import { OptionMember } from './option.js';
 import { Rational } from './rational.js';
 
 import type { NativeBitStreamFilterContext, NativeWrapper } from './native-types.js';
@@ -73,8 +74,7 @@ import type { Packet } from './packet.js';
  * ctx.free();
  * ```
  */
-export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeBitStreamFilterContext> {
-  private native: NativeBitStreamFilterContext;
+export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterContext> implements Disposable, NativeWrapper<NativeBitStreamFilterContext> {
   private _filter?: BitStreamFilter; // Cache for filter wrapper
 
   /**
@@ -94,7 +94,7 @@ export class BitStreamFilterContext implements Disposable, NativeWrapper<NativeB
    * ```
    */
   constructor() {
-    this.native = new bindings.BitStreamFilterContext();
+    super(new bindings.BitStreamFilterContext());
   }
 
   /**

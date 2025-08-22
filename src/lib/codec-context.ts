@@ -1,7 +1,7 @@
 import { bindings } from './binding.js';
-import { AV_OPT_SEARCH_CHILDREN } from './constants.js';
 import { HardwareDeviceContext } from './hardware-device-context.js';
 import { HardwareFramesContext } from './hardware-frames-context.js';
+import { OptionMember } from './option.js';
 import { Rational } from './rational.js';
 
 import type { CodecParameters } from './codec-parameters.js';
@@ -16,7 +16,6 @@ import type {
   AVColorSpace,
   AVColorTransferCharacteristic,
   AVMediaType,
-  AVOptionSearchFlags,
   AVPixelFormat,
   AVProfile,
   AVSampleFormat,
@@ -70,8 +69,7 @@ import type { ChannelLayout } from './types.js';
  * ctx.freeContext();
  * ```
  */
-export class CodecContext implements Disposable, NativeWrapper<NativeCodecContext> {
-  private native: NativeCodecContext;
+export class CodecContext extends OptionMember<NativeCodecContext> implements Disposable, NativeWrapper<NativeCodecContext> {
   private _hwDeviceCtx?: HardwareDeviceContext; // Cache for hardware device context wrapper
   private _hwFramesCtx?: HardwareFramesContext; // Cache for hardware frames context wrapper
 
@@ -93,7 +91,7 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    * ```
    */
   constructor() {
-    this.native = new bindings.CodecContext();
+    super(new bindings.CodecContext());
   }
 
   /**
@@ -749,50 +747,6 @@ export class CodecContext implements Disposable, NativeWrapper<NativeCodecContex
    */
   freeContext(): void {
     this.native.freeContext();
-  }
-
-  /**
-   * Set an option on the codec context.
-   *
-   * Configures codec-specific parameters using the AVOptions API.
-   * Options vary by codec and can control quality, speed, and features.
-   *
-   * Direct mapping to av_opt_set()
-   *
-   * @param name - Option name
-   * @param value - Option value
-   * @param searchFlags - Search flags (default: AV_OPT_SEARCH_CHILDREN)
-   *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Option not found
-   *   - AVERROR(ERANGE): Value out of range
-   *   - <0: Other errors
-   *
-   * @example
-   * ```typescript
-   * import { FFmpegError } from '@seydx/av';
-   *
-   * // Set H.264 preset
-   * const ret1 = ctx.setOpt('preset', 'slow');
-   * FFmpegError.throwIfError(ret1, 'setOpt preset');
-   *
-   * // Set CRF value
-   * const ret2 = ctx.setOpt('crf', '23');
-   * FFmpegError.throwIfError(ret2, 'setOpt crf');
-   * ```
-   *
-   * @example
-   * ```typescript
-   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ, FFmpegError } from '@seydx/av';
-   *
-   * // With specific search flags
-   * const ret = ctx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
-   * FFmpegError.throwIfError(ret, 'setOpt');
-   * ```
-   */
-  setOpt(name: string, value: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): number {
-    return this.native.setOpt(name, value, searchFlags);
   }
 
   /**

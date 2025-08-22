@@ -5,6 +5,8 @@ import type {
   AVHWDeviceType,
   AVHWFrameTransferDirection,
   AVIOFlag,
+  AVOptionFlag,
+  AVOptionType,
   AVPixelFormat,
   AVSeekFlag,
   AVSeekWhence,
@@ -42,7 +44,6 @@ import type {
   AVDisposition,
   AVFormatFlag,
   AVMediaType,
-  AVOptionSearchFlags,
   AVPacketFlag,
   AVPictureType,
   AVProfile,
@@ -219,9 +220,6 @@ export interface NativeCodecContext extends Disposable {
   parametersToContext(params: NativeCodecParameters): number;
   parametersFromContext(params: NativeCodecParameters): number;
   flushBuffers(): void;
-
-  // ===== Options =====
-  setOpt(name: string, value: string, searchFlags: AVOptionSearchFlags): number;
 
   // ===== Encoding/Decoding - All Async =====
   sendPacket(packet: NativePacket | null): Promise<number>;
@@ -768,8 +766,6 @@ export interface NativeFilterContext extends Disposable {
   buffersinkGetFrame(frame: NativeFrame): Promise<number>;
   // buffersinkSetFrameSize(frameSize: number): void;
   buffersinkGetTimeBase(): { num: number; den: number };
-  setOpt(key: string, value: string, searchFlags?: AVOptionSearchFlags): number;
-  optSetBin(key: string, values: number[] | number, searchFlags?: AVOptionSearchFlags): number;
   free(): void;
 
   // ===== Properties =====
@@ -979,6 +975,28 @@ export interface NativeBitStreamFilterContext extends Disposable {
  */
 export interface NativeLog {
   readonly __brand: 'NativeLog';
+}
+
+/**
+ * Native AVOption
+ *
+ * Represents a single option metadata from FFmpeg's AVOption system.
+ * Retrieved via Option.next() or Option.find().
+ *
+ * @internal
+ */
+export interface NativeOption {
+  readonly __brand: 'NativeOption';
+
+  // ===== Properties =====
+  readonly name: string | null;
+  readonly help: string | null;
+  readonly type: AVOptionType;
+  readonly defaultValue: unknown;
+  readonly min: number;
+  readonly max: number;
+  readonly flags: AVOptionFlag;
+  readonly unit: string | null;
 }
 
 // ============================================================================

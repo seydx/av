@@ -457,7 +457,7 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should use allocFilter + setOpt + init workflow', () => {
+    it('should use allocFilter + setOption + init workflow', () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -471,10 +471,10 @@ describe('FilterGraph', () => {
       assert.ok(bufferCtx);
 
       // Set options individually
-      bufferCtx.setOpt('video_size', '320x240');
-      bufferCtx.setOpt('pix_fmt', '0'); // AV_PIX_FMT_YUV420P
-      bufferCtx.setOpt('time_base', '1/25');
-      bufferCtx.setOpt('pixel_aspect', '1/1');
+      bufferCtx.setOption('video_size', '320x240');
+      bufferCtx.setOption('pix_fmt', '0'); // AV_PIX_FMT_YUV420P
+      bufferCtx.setOption('time_base', '1/25');
+      bufferCtx.setOption('pixel_aspect', '1/1');
 
       // Initialize the filter
       const initRet = bufferCtx.init();
@@ -503,10 +503,10 @@ describe('FilterGraph', () => {
       assert.ok(abufferCtx);
 
       // Set audio options
-      abufferCtx.setOpt('sample_rate', '44100');
-      abufferCtx.setOpt('sample_fmt', '1'); // AV_SAMPLE_FMT_S16
-      abufferCtx.setOpt('channel_layout', 'stereo');
-      abufferCtx.setOpt('time_base', '1/44100');
+      abufferCtx.setOption('sample_rate', '44100');
+      abufferCtx.setOption('sample_fmt', '1'); // AV_SAMPLE_FMT_S16
+      abufferCtx.setOption('channel_layout', 'stereo');
+      abufferCtx.setOption('time_base', '1/44100');
 
       // Initialize
       const initRet = abufferCtx.init();

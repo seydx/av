@@ -40,7 +40,8 @@
         "src/bindings/audio_fifo_async.cc",
         "src/bindings/bitstream_filter.cc",
         "src/bindings/bitstream_filter_context.cc",
-        "src/bindings/bitstream_filter_context_async.cc"
+        "src/bindings/bitstream_filter_context_async.cc",
+        "src/bindings/option.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

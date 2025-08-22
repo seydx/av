@@ -24,7 +24,7 @@ public:
   bool IsOutput() const { return is_output_; }
 
 private:
-  // Friend classes
+  friend class AVOption; // For option unwrapping  // Friend classes
   friend class FCOpenInputWorker;
   friend class FCFindStreamInfoWorker;
   friend class FCReadFrameWorker;

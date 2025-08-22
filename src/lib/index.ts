@@ -71,3 +71,6 @@ export { FFmpegError } from './error.js';
 
 // Utilities
 export * from './utilities.js';
+
+// Option
+export { Option, OptionInfo } from './option.js';

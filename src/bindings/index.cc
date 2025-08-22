@@ -25,6 +25,7 @@
 #include "hardware_device_context.h"
 #include "hardware_frames_context.h"
 #include "log.h"
+#include "option.h"
 
 namespace ffmpeg {
 
@@ -74,6 +75,9 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   
   // Logging
   Log::Init(env, exports);
+  
+  // Options System
+  AVOption::Init(env, exports);
   
   return exports;
 }

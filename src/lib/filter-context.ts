@@ -1,9 +1,8 @@
-import { AV_OPT_SEARCH_CHILDREN } from './constants.js';
 import { Filter } from './filter.js';
 import { HardwareDeviceContext } from './hardware-device-context.js';
+import { OptionMember } from './option.js';
 import { Rational } from './rational.js';
 
-import type { AVOptionSearchFlags } from './constants.js';
 import type { Frame } from './frame.js';
 import type { HardwareFramesContext } from './hardware-frames-context.js';
 import type { NativeDictionary, NativeFilterContext, NativeFilterGraph, NativeWrapper } from './native-types.js';
@@ -45,8 +44,7 @@ import type { IRational } from './types.js';
  * FFmpegError.throwIfError(configRet, 'config');
  * ```
  */
-export class FilterContext implements Disposable, NativeWrapper<NativeFilterContext> {
-  private native: NativeFilterContext;
+export class FilterContext extends OptionMember<NativeFilterContext> implements Disposable, NativeWrapper<NativeFilterContext> {
   private _hwDeviceCtx?: HardwareDeviceContext; // Cache for hardware device context wrapper
 
   /**
@@ -60,7 +58,7 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    * @param native - Native AVFilterContext to wrap
    */
   constructor(native: NativeFilterContext) {
-    this.native = native;
+    super(native);
   }
 
   /**
@@ -406,89 +404,6 @@ export class FilterContext implements Disposable, NativeWrapper<NativeFilterCont
    */
   async buffersinkGetFrame(frame: Frame): Promise<number> {
     return this.native.buffersinkGetFrame(frame.getNative());
-  }
-
-  /**
-   * Set an option on the filter context.
-   *
-   * Direct mapping to av_opt_set()
-   *
-   * @param key - The option name
-   * @param value - The option value (as string)
-   * @param searchFlags - Optional search flags (default: AV_OPT_SEARCH_CHILDREN)
-   *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Option not found
-   *   - AVERROR(ERANGE): Value out of range
-   *   - <0: Other errors
-   *
-   * @example
-   * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/av';
-   *
-   * // Set pixel format for a buffersink
-   * const ret = buffersinkCtx.setOpt('pixel_formats', 'gray8');
-   * FFmpegError.throwIfError(ret, 'setOpt pixel_formats');
-   * ```
-   *
-   * @example
-   * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/av';
-   *
-   * // Set multiple options
-   * const ret1 = buffersinkCtx.setOpt('sample_rates', '44100');
-   * FFmpegError.throwIfError(ret1, 'setOpt sample_rates');
-   *
-   * const ret2 = buffersinkCtx.setOpt('sample_fmts', 's16');
-   * FFmpegError.throwIfError(ret2, 'setOpt sample_fmts');
-   *
-   * const ret3 = buffersinkCtx.setOpt('channel_layouts', 'stereo');
-   * FFmpegError.throwIfError(ret3, 'setOpt channel_layouts');
-   * ```
-   *
-   * @example
-   * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/av';
-   * import { AV_OPT_SEARCH_CHILDREN, AV_OPT_SEARCH_FAKE_OBJ } from '@seydx/av/constants';
-   *
-   * const ret = buffersinkCtx.setOpt('key', 'value', AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ);
-   * FFmpegError.throwIfError(ret, 'setOpt');
-   * ```
-   */
-  setOpt(key: string, value: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): number {
-    return this.native.setOpt(key, value, searchFlags);
-  }
-
-  /**
-   * Set a binary option on the filter context.
-   *
-   * Direct mapping to av_opt_set_bin()
-   *
-   * Used for setting array values like pixel formats, sample formats etc.
-   *
-   * @param key - Option name
-   * @param values - Array of integer values or single value
-   * @param searchFlags - Flags for searching the option
-   *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Option not found
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other errors
-   *
-   * @example
-   * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P } from '@seydx/av/constants';
-   *
-   * // Set supported pixel formats
-   * const ret = buffersinkCtx.optSetBin('pix_fmts', [AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P]);
-   * FFmpegError.throwIfError(ret, 'optSetBin pix_fmts');
-   * ```
-   */
-  optSetBin(key: string, values: number[] | number, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): number {
-    return this.native.optSetBin(key, values, searchFlags);
   }
 
   /**

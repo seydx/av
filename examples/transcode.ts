@@ -21,6 +21,7 @@ import {
   AV_MEDIA_TYPE_UNKNOWN,
   AV_MEDIA_TYPE_VIDEO,
   AV_NOPTS_VALUE,
+  AV_OPT_TYPE_BINARY_INT_ARRAY,
   AV_PICTURE_TYPE_NONE,
   Codec,
   CodecContext,
@@ -297,7 +298,7 @@ async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ct
       return ret;
     }
 
-    ret = buffersink_ctx.optSetBin('pix_fmts', [enc_ctx.pixelFormat]);
+    ret = buffersink_ctx.setOption('pix_fmts', [enc_ctx.pixelFormat], AV_OPT_TYPE_BINARY_INT_ARRAY);
     if (ret < 0) {
       console.error('Cannot set output pixel format');
       goto_end();
@@ -352,7 +353,7 @@ async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ct
       return ret;
     }
 
-    ret = buffersink_ctx.optSetBin('sample_fmts', [enc_ctx.sampleFormat]);
+    ret = buffersink_ctx.setOption('sample_fmts', [enc_ctx.sampleFormat], AV_OPT_TYPE_BINARY_INT_ARRAY);
     if (ret < 0) {
       console.error('Cannot set output sample format');
       goto_end();
@@ -362,7 +363,7 @@ async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ct
     // Set channel layout using string representation like in FFmpeg
     const encLayoutStr = avChannelLayoutDescribe(enc_ctx.channelLayout);
     if (encLayoutStr) {
-      ret = buffersink_ctx.setOpt('ch_layouts', encLayoutStr);
+      ret = buffersink_ctx.setOption('ch_layouts', encLayoutStr);
       if (ret < 0) {
         console.error('Cannot set output channel layout');
         goto_end();
@@ -370,7 +371,7 @@ async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ct
       }
     }
 
-    ret = buffersink_ctx.optSetBin('sample_rates', [enc_ctx.sampleRate]);
+    ret = buffersink_ctx.setOption('sample_rates', [enc_ctx.sampleRate], AV_OPT_TYPE_BINARY_INT_ARRAY);
     if (ret < 0) {
       console.error('Cannot set output sample rate');
       goto_end();
