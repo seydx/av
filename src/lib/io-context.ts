@@ -17,7 +17,7 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
  * @example
  * ```typescript
  * import { IOContext, FFmpegError } from '@seydx/av';
- * import { AVIO_FLAG_READ, SEEK_SET } from '@seydx/av/constants';
+ * import { AVIO_FLAG_READ, AVSEEK_SET } from '@seydx/av/constants';
  *
  * // Open a file for reading
  * const io = new IOContext();
@@ -28,7 +28,7 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
  * const buffer = await io.read(4096);
  *
  * // Seek to position
- * const seekRet = await io.seek(1024n, SEEK_SET);
+ * const seekRet = await io.seek(1024n, AVSEEK_SET);
  * FFmpegError.throwIfError(seekRet < 0 ? -1 : 0, 'seek');
  *
  * // Get file size
@@ -249,7 +249,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @example
    * ```typescript
-   * import { IOContext, SEEK_SET, SEEK_CUR, SEEK_END } from '@seydx/av';
+   * import { IOContext, AVSEEK_SET, AVSEEK_CUR, AVSEEK_END } from '@seydx/av';
    *
    * const io = new IOContext();
    * let position = 0;
@@ -265,9 +265,9 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *   null,
    *   (offset, whence) => {
    *     // Seek to position - MUST BE SYNCHRONOUS
-   *     if (whence === SEEK_SET) position = Number(offset);
-   *     else if (whence === SEEK_CUR) position += Number(offset);
-   *     else if (whence === SEEK_END) position = buffer.length + Number(offset);
+   *     if (whence === AVSEEK_SET) position = Number(offset);
+   *     else if (whence === AVSEEK_CUR) position += Number(offset);
+   *     else if (whence === AVSEEK_END) position = buffer.length + Number(offset);
    *     return BigInt(position);
    *   }
    * );
@@ -433,7 +433,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_seek()
    *
    * @param offset - Offset to seek to
-   * @param whence - SEEK_SET (0), SEEK_CUR (1), SEEK_END (2), or AVSEEK_SIZE (0x10000)
+   * @param whence - AVSEEK_SET (0), AVSEEK_CUR (1), AVSEEK_END (2), or AVSEEK_SIZE (0x10000)
    *
    * @returns New position or negative AVERROR:
    *   - >=0: New position in bytes
@@ -443,14 +443,14 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @example
    * ```typescript
-   * import { FFmpegError, SEEK_SET, SEEK_END, AVSEEK_SIZE } from '@seydx/av';
+   * import { FFmpegError, AVSEEK_SET, AVSEEK_END, AVSEEK_SIZE } from '@seydx/av';
    *
    * // Seek to beginning
-   * const pos = await io.seek(0n, SEEK_SET);
+   * const pos = await io.seek(0n, AVSEEK_SET);
    * FFmpegError.throwIfError(pos < 0n ? Number(pos) : 0, 'seek');
    *
    * // Seek to end
-   * const endPos = await io.seek(0n, SEEK_END);
+   * const endPos = await io.seek(0n, AVSEEK_END);
    * FFmpegError.throwIfError(endPos < 0n ? Number(endPos) : 0, 'seek');
    *
    * // Get file size without changing position

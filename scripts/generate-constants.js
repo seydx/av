@@ -339,9 +339,9 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
   // Add standard seek constants (from stdio.h and avio.h, used with avio_seek)
   output += '// Standard seek whence constants (from stdio.h)\n';
   output += "export type AVSeekWhence = number & { readonly [__ffmpeg_brand]: 'AVSeekWhence' };\n\n";
-  output += 'export const SEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file\n';
-  output += 'export const SEEK_CUR = 1 as AVSeekWhence; // Seek from current position\n';
-  output += 'export const SEEK_END = 2 as AVSeekWhence; // Seek from end of file\n';
+  output += 'export const AVSEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file\n';
+  output += 'export const AVSEEK_CUR = 1 as AVSeekWhence; // Seek from current position\n';
+  output += 'export const AVSEEK_END = 2 as AVSeekWhence; // Seek from end of file\n';
   output += 'export const AVSEEK_SIZE = 0x10000 as AVSeekWhence; // Get file size without seeking\n';
   output += '\n';
 

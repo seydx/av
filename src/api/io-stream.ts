@@ -10,7 +10,7 @@
  * @module api/io-stream
  */
 
-import { AVSEEK_SIZE, IOContext, SEEK_CUR, SEEK_END, SEEK_SET } from '../lib/index.js';
+import { AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, IOContext } from '../lib/index.js';
 
 import type { IOInputCallbacks, MediaInputOptions } from './types.js';
 
@@ -135,13 +135,13 @@ export class IOStream {
         switch (whence) {
           case AVSEEK_SIZE:
             return BigInt(buffer.length);
-          case SEEK_SET:
+          case AVSEEK_SET:
             position = Number(offset);
             break;
-          case SEEK_CUR:
+          case AVSEEK_CUR:
             position += Number(offset);
             break;
-          case SEEK_END:
+          case AVSEEK_END:
             position = buffer.length + Number(offset);
             break;
         }

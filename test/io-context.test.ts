@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_SIZE, IOContext, SEEK_CUR, SEEK_END, SEEK_SET } from '../src/lib/index.js';
+import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, IOContext } from '../src/lib/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +17,7 @@ const testImageFile = path.join(testDataDir, 'image-rgba.png');
 const tempOutputFile = path.join(__dirname, 'test-output.tmp');
 
 // Legacy constants - kept for reference
-// Now using SEEK_SET, SEEK_CUR, SEEK_END, AVSEEK_SIZE from constants
+// Now using AVSEEK_SET, AVSEEK_CUR, AVSEEK_END, AVSEEK_SIZE from constants
 
 describe('IOContext', () => {
   // Clean up temp file after each test
@@ -141,7 +141,7 @@ describe('IOContext', () => {
 
       // Seek to near end
       const size = await io.size();
-      await io.seek(size - 10n, SEEK_SET);
+      await io.seek(size - 10n, AVSEEK_SET);
 
       // Try to read more than available
       const data = await io.read(1024);
@@ -241,7 +241,7 @@ describe('IOContext', () => {
       await io.read(1024);
 
       // Seek to beginning
-      const pos = await io.seek(0n, SEEK_SET);
+      const pos = await io.seek(0n, AVSEEK_SET);
       assert.equal(pos, 0n, 'Should return new position');
       assert.equal(io.tell(), 0n, 'tell() should match');
 
@@ -255,17 +255,17 @@ describe('IOContext', () => {
       assert.equal(ret, 0, 'Should open file successfully');
 
       const size = await io.size();
-      const pos = await io.seek(0n, SEEK_END);
+      const pos = await io.seek(0n, AVSEEK_END);
 
-      // Note: SEEK_END may not be supported by all I/O contexts
-      // FFmpeg's avio_seek with SEEK_END returns -22 (EINVAL) for some contexts
-      // We should seek using SEEK_SET with the file size instead
+      // Note: AVSEEK_END may not be supported by all I/O contexts
+      // FFmpeg's avio_seek with AVSEEK_END returns -22 (EINVAL) for some contexts
+      // We should seek using AVSEEK_SET with the file size instead
       if (pos < 0n) {
-        // SEEK_END not supported, use SEEK_SET with size
-        const altPos = await io.seek(size, SEEK_SET);
-        assert.equal(altPos, size, 'Should seek to file size using SEEK_SET');
+        // AVSEEK_END not supported, use AVSEEK_SET with size
+        const altPos = await io.seek(size, AVSEEK_SET);
+        assert.equal(altPos, size, 'Should seek to file size using AVSEEK_SET');
       } else {
-        assert.equal(pos, size, 'Should seek to file size using SEEK_END');
+        assert.equal(pos, size, 'Should seek to file size using AVSEEK_END');
       }
 
       const closeret = await io.closep();
@@ -278,14 +278,14 @@ describe('IOContext', () => {
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Seek to position 1000
-      await io.seek(1000n, SEEK_SET);
+      await io.seek(1000n, AVSEEK_SET);
 
       // Seek forward 500 bytes
-      const pos = await io.seek(500n, SEEK_CUR);
+      const pos = await io.seek(500n, AVSEEK_CUR);
       assert.equal(pos, 1500n, 'Should seek relative to current');
 
       // Seek backward 200 bytes
-      const pos2 = await io.seek(-200n, SEEK_CUR);
+      const pos2 = await io.seek(-200n, AVSEEK_CUR);
       assert.equal(pos2, 1300n, 'Should handle negative offsets');
 
       const closeret = await io.closep();
@@ -413,7 +413,7 @@ describe('IOContext', () => {
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Try to seek to negative position
-      const pos = await io.seek(-1000n, SEEK_SET);
+      const pos = await io.seek(-1000n, AVSEEK_SET);
       // Some implementations might clamp to 0, others might error
       assert.ok(pos === 0n || pos < 0n, 'Should handle negative seek');
 
@@ -590,13 +590,13 @@ describe('IOContext', () => {
           }
 
           switch (whence) {
-            case SEEK_SET:
+            case AVSEEK_SET:
               newPos = offsetNum;
               break;
-            case SEEK_CUR:
+            case AVSEEK_CUR:
               newPos = position + offsetNum;
               break;
-            case SEEK_END:
+            case AVSEEK_END:
               newPos = fileBuffer.length + offsetNum;
               break;
             default:

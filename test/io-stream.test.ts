@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { IOStream } from '../src/api/index.js';
-import { SEEK_SET } from '../src/lib/constants.js';
+import { AVSEEK_SET } from '../src/lib/constants.js';
 
 describe('IOStream', () => {
   describe('create with Buffer', () => {
@@ -27,7 +27,7 @@ describe('IOStream', () => {
       const ioContext = IOStream.create(buffer);
 
       // Seek to position 5
-      const seekPos = await ioContext.seek(5n, SEEK_SET);
+      const seekPos = await ioContext.seek(5n, AVSEEK_SET);
       assert.equal(seekPos, 5n);
 
       // Read from new position
@@ -54,10 +54,10 @@ describe('IOStream', () => {
         },
         seek: (offset, whence) => {
           if (whence === 0)
-            position = Number(offset); // SEEK_SET
+            position = Number(offset); // AVSEEK_SET
           else if (whence === 1)
-            position += Number(offset); // SEEK_CUR
-          else if (whence === 2) position = data.length + Number(offset); // SEEK_END
+            position += Number(offset); // AVSEEK_CUR
+          else if (whence === 2) position = data.length + Number(offset); // AVSEEK_END
           return BigInt(position);
         },
       });
@@ -71,7 +71,7 @@ describe('IOStream', () => {
       assert.equal(result.toString(), 'custom');
 
       // Seek and read again
-      await ioContext.seek(7n, SEEK_SET);
+      await ioContext.seek(7n, AVSEEK_SET);
       const result2 = await ioContext.read(4);
       assert.ok(Buffer.isBuffer(result2), 'Should return a Buffer');
       assert.equal(result2.length, 4);

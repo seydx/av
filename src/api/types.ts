@@ -425,7 +425,7 @@ export interface IOInputCallbacks {
   /**
    * Seek callback - called when FFmpeg needs to seek in the stream.
    * @param offset - Offset to seek to
-   * @param whence - Seek origin (SEEK_SET, SEEK_CUR, SEEK_END, or AVSEEK_SIZE)
+   * @param whence - Seek origin (AVSEEK_SET, AVSEEK_CUR, AVSEEK_END, or AVSEEK_SIZE)
    * @returns New position or negative error code
    */
   seek?: (offset: bigint, whence: number) => bigint | number;
@@ -451,7 +451,7 @@ export interface IOOutputCallbacks {
   /**
    * Seek callback - called when FFmpeg needs to seek in the output.
    * @param offset - Offset to seek to
-   * @param whence - Seek origin (SEEK_SET, SEEK_CUR, SEEK_END)
+   * @param whence - Seek origin (AVSEEK_SET, AVSEEK_CUR, AVSEEK_END)
    * @returns New position or negative error code
    */
   seek?: (offset: bigint, whence: number) => bigint | number;

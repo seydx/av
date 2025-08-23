@@ -15,7 +15,7 @@
 
 import fs from 'node:fs';
 
-import { AVERROR_EOF, AVSEEK_SIZE, FFmpegError, FormatContext, IOContext, SEEK_CUR, SEEK_END, SEEK_SET } from '../src/lib/index.js';
+import { AVERROR_EOF, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, FFmpegError, FormatContext, IOContext } from '../src/lib/index.js';
 
 /**
  * Buffer data structure for reading
@@ -57,13 +57,13 @@ class BufferData {
 
     const offsetNum = Number(offset);
     switch (whence) {
-      case SEEK_SET:
+      case AVSEEK_SET:
         newPos = offsetNum;
         break;
-      case SEEK_CUR:
+      case AVSEEK_CUR:
         newPos = this.position + offsetNum;
         break;
-      case SEEK_END:
+      case AVSEEK_END:
         newPos = this.buffer.length + offsetNum;
         break;
       default:
