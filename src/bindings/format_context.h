@@ -37,6 +37,7 @@ private:
   friend class FCOpenOutputWorker;
   friend class FCCloseOutputWorker;
   friend class FCCloseInputWorker;
+  friend class FCDisposeWorker;
 
   // Static members
   static Napi::FunctionReference constructor;
@@ -51,9 +52,9 @@ private:
   Napi::Value AllocContext(const Napi::CallbackInfo& info);
   Napi::Value AllocOutputContext2(const Napi::CallbackInfo& info);
   Napi::Value FreeContext(const Napi::CallbackInfo& info);
-  Napi::Value CloseInput(const Napi::CallbackInfo& info);
-  Napi::Value OpenOutput(const Napi::CallbackInfo& info);
-  Napi::Value CloseOutput(const Napi::CallbackInfo& info);
+  Napi::Value CloseInputAsync(const Napi::CallbackInfo& info);
+  Napi::Value OpenOutputAsync(const Napi::CallbackInfo& info);
+  Napi::Value CloseOutputAsync(const Napi::CallbackInfo& info);
   
   // Input Operations
   Napi::Value OpenInputAsync(const Napi::CallbackInfo& info);
@@ -109,7 +110,7 @@ private:
   void SetPb(const Napi::CallbackInfo& info, const Napi::Value& value);
   
   // Utility
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
+  Napi::Value DisposeAsync(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

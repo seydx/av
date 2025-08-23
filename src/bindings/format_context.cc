@@ -22,9 +22,9 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FormatContext::AllocContext>("allocContext"),
     InstanceMethod<&FormatContext::AllocOutputContext2>("allocOutputContext2"),
     InstanceMethod<&FormatContext::FreeContext>("freeContext"),
-    InstanceMethod<&FormatContext::CloseInput>("closeInput"),
-    InstanceMethod<&FormatContext::OpenOutput>("openOutput"),
-    InstanceMethod<&FormatContext::CloseOutput>("closeOutput"),
+    InstanceMethod<&FormatContext::CloseInputAsync>("closeInput"),
+    InstanceMethod<&FormatContext::OpenOutputAsync>("openOutput"),
+    InstanceMethod<&FormatContext::CloseOutputAsync>("closeOutput"),
 
     // Input Operations
     InstanceMethod<&FormatContext::OpenInputAsync>("openInput"),
@@ -61,7 +61,7 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor("maxStreams", &FormatContext::GetMaxStreams, &FormatContext::SetMaxStreams),
     
     // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FormatContext::Dispose),
+    InstanceMethod(Napi::Symbol::WellKnown(env, "asyncDispose"), &FormatContext::DisposeAsync),
   });
   
   constructor = Napi::Persistent(func);
@@ -694,8 +694,19 @@ void FormatContext::SetMaxStreams(const Napi::CallbackInfo& info, const Napi::Va
   }
 }
 
-Napi::Value FormatContext::Dispose(const Napi::CallbackInfo& info) {
-  return FreeContext(info);
+Napi::Value FormatContext::DisposeAsync(const Napi::CallbackInfo& info) {
+  // Determine if this is an input or output context and call appropriate async close
+  if (is_output_) {
+    return CloseOutputAsync(info);
+  } else if (ctx_) {
+    return CloseInputAsync(info);
+  } else {
+    // Already freed, return resolved promise
+    Napi::Env env = info.Env();
+    auto deferred = Napi::Promise::Deferred::New(env);
+    deferred.Resolve(env.Undefined());
+    return deferred.Promise();
+  }
 }
 
 } // namespace ffmpeg

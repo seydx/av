@@ -100,8 +100,8 @@ describe('FormatContext', () => {
       ctx = null as any; // Clear reference so afterEach doesn't double-free
     });
 
-    it('should support using statement for automatic disposal', () => {
-      using testCtx = new FormatContext();
+    it('should support using statement for automatic disposal', async () => {
+      await using testCtx = new FormatContext();
       testCtx.allocOutputContext2(null, null, testFile);
       assert.ok(testCtx);
       // testCtx will be automatically disposed when leaving scope

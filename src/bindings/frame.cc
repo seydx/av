@@ -48,7 +48,7 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     
     // Hardware Acceleration
     InstanceAccessor<&Frame::GetHwFramesCtx, &Frame::SetHwFramesCtx>("hwFramesCtx"),
-    InstanceMethod<&Frame::HwframeTransferData>("hwframeTransferData"),
+    InstanceMethod<&Frame::HwframeTransferDataAsync>("hwframeTransferData"),
     InstanceMethod<&Frame::IsHwFrame>("isHwFrame"),
     InstanceMethod<&Frame::IsSwFrame>("isSwFrame"),
     
@@ -746,8 +746,6 @@ void Frame::SetHwFramesCtx(const Napi::CallbackInfo& info, const Napi::Value& va
   // Reference the new context
   frame_->hw_frames_ctx = av_buffer_ref(frames->Get());
 }
-
-// HwframeTransferData is now implemented in frame_async.cc
 
 Napi::Value Frame::IsHwFrame(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

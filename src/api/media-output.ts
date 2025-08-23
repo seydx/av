@@ -10,7 +10,7 @@
  * @module api/media-output
  */
 
-import { AVFMT_NOFILE, AVIO_FLAG_WRITE, FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
+import { AVFMT_FLAG_CUSTOM_IO, AVFMT_NOFILE, AVIO_FLAG_WRITE, FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
 import { Encoder } from './encoder.js';
 
 import type { IRational, Packet, Stream } from '../lib/index.js';
@@ -134,12 +134,12 @@ export class MediaOutput implements AsyncDisposable {
     try {
       if (typeof target === 'string') {
         // File or stream URL
-        const ret = output.formatContext.allocOutputContext2(null, options?.format ?? null, target);
+        const ret = output.formatContext.allocOutputContext2(null, options?.format ?? null, target === '' ? null : target);
         FFmpegError.throwIfError(ret, 'Failed to allocate output context');
 
         // Check if we need to open IO
         const oformat = output.formatContext.oformat;
-        if (oformat && !(oformat.flags & AVFMT_NOFILE)) {
+        if (target && oformat && !(oformat.flags & AVFMT_NOFILE)) {
           // For file-based formats, we need to open the file using avio_open2
           // FFmpeg will manage the AVIOContext internally
           output.ioContext = new IOContext();
@@ -160,7 +160,9 @@ export class MediaOutput implements AsyncDisposable {
         // Setup custom IO with callbacks
         output.ioContext = new IOContext();
         output.ioContext.allocContextWithCallbacks(options.bufferSize ?? 4096, 1, target.read, target.write, target.seek);
+        output.ioContext.maxPacketSize = options.bufferSize ?? 4096;
         output.formatContext.pb = output.ioContext;
+        output.formatContext.flags = AVFMT_FLAG_CUSTOM_IO;
         output.isCustomIO = true; // Using custom IO callbacks
       }
 

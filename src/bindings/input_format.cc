@@ -12,7 +12,7 @@ Napi::Object InputFormat::Init(Napi::Env env, Napi::Object exports) {
     // Static methods
     StaticMethod<&InputFormat::FindInputFormat>("findInputFormat"),
     StaticMethod<&InputFormat::Probe>("probe"),
-    StaticMethod<&InputFormat::ProbeBuffer>("probeBuffer"),
+    StaticMethod<&InputFormat::ProbeBufferAsync>("probeBuffer"),
     
     // Properties
     InstanceAccessor<&InputFormat::GetName>("name"),
@@ -102,7 +102,7 @@ Napi::Value InputFormat::Probe(const Napi::CallbackInfo& info) {
   return formatObj;
 }
 
-// ProbeBuffer is implemented in input_format_async.cc
+// ProbeBufferAsync is implemented in input_format_async.cc
 
 // === Properties ===
 

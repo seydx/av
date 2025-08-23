@@ -66,7 +66,7 @@ private:
   Napi::Value Alloc(const Napi::CallbackInfo& info);
   Napi::Value Init(const Napi::CallbackInfo& info);
   Napi::Value GetBuffer(const Napi::CallbackInfo& info);
-  Napi::Value TransferData(const Napi::CallbackInfo& info);
+  Napi::Value TransferDataAsync(const Napi::CallbackInfo& info);
   Napi::Value TransferGetFormats(const Napi::CallbackInfo& info);
   Napi::Value Map(const Napi::CallbackInfo& info);
   Napi::Value CreateDerived(const Napi::CallbackInfo& info);

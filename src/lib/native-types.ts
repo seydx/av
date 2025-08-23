@@ -544,7 +544,7 @@ export interface NativeStream {
  *
  * @internal
  */
-export interface NativeFormatContext extends Disposable {
+export interface NativeFormatContext extends AsyncDisposable {
   readonly __brand: 'NativeFormatContext';
 
   // ===== Lifecycle Methods - Low Level API =====

@@ -746,7 +746,7 @@ private:
 // Additional FormatContext Async Method Implementations
 // ============================================================================
 
-Napi::Value FormatContext::OpenOutput(const Napi::CallbackInfo& info) {
+Napi::Value FormatContext::OpenOutputAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   AVFormatContext* ctx = ctx_;
@@ -771,7 +771,7 @@ Napi::Value FormatContext::OpenOutput(const Napi::CallbackInfo& info) {
   return worker->GetPromise();
 }
 
-Napi::Value FormatContext::CloseOutput(const Napi::CallbackInfo& info) {
+Napi::Value FormatContext::CloseOutputAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   AVFormatContext* ctx = ctx_;
@@ -789,7 +789,7 @@ Napi::Value FormatContext::CloseOutput(const Napi::CallbackInfo& info) {
   return worker->GetPromise();
 }
 
-Napi::Value FormatContext::CloseInput(const Napi::CallbackInfo& info) {
+Napi::Value FormatContext::CloseInputAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (!ctx_) {

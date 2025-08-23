@@ -81,7 +81,7 @@ private:
 // FilterGraph Async Method Implementations
 // ============================================================================
 
-Napi::Value FilterGraph::Config(const Napi::CallbackInfo& info) {
+Napi::Value FilterGraph::ConfigAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (!graph_) {
@@ -94,7 +94,7 @@ Napi::Value FilterGraph::Config(const Napi::CallbackInfo& info) {
   return worker->GetPromise();
 }
 
-Napi::Value FilterGraph::RequestOldest(const Napi::CallbackInfo& info) {
+Napi::Value FilterGraph::RequestOldestAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (!graph_) {

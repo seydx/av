@@ -113,7 +113,7 @@ private:
   // Hardware Acceleration
   Napi::Value GetHwFramesCtx(const Napi::CallbackInfo& info);
   void SetHwFramesCtx(const Napi::CallbackInfo& info, const Napi::Value& value);
-  Napi::Value HwframeTransferData(const Napi::CallbackInfo& info);
+  Napi::Value HwframeTransferDataAsync(const Napi::CallbackInfo& info);
   Napi::Value IsHwFrame(const Napi::CallbackInfo& info);
   Napi::Value IsSwFrame(const Napi::CallbackInfo& info);
   

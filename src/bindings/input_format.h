@@ -39,7 +39,7 @@ private:
   
   static Napi::Value FindInputFormat(const Napi::CallbackInfo& info);
   static Napi::Value Probe(const Napi::CallbackInfo& info);
-  static Napi::Value ProbeBuffer(const Napi::CallbackInfo& info);
+  static Napi::Value ProbeBufferAsync(const Napi::CallbackInfo& info);
   
   // === Properties ===
   

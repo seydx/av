@@ -70,9 +70,9 @@ private:
   Napi::Value Free(const Napi::CallbackInfo& info);
   
   // Buffer source/sink operations
-  Napi::Value BuffersrcAddFrame(const Napi::CallbackInfo& info);
+  Napi::Value BuffersrcAddFrameAsync(const Napi::CallbackInfo& info);
   Napi::Value BuffersrcParametersSet(const Napi::CallbackInfo& info);
-  Napi::Value BuffersinkGetFrame(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetFrameAsync(const Napi::CallbackInfo& info);
   // Napi::Value BuffersinkSetFrameSize(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetTimeBase(const Napi::CallbackInfo& info);
   

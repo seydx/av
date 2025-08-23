@@ -54,7 +54,7 @@ private:
 // HardwareFramesContext Async Method Implementations
 // ============================================================================
 
-Napi::Value HardwareFramesContext::TransferData(const Napi::CallbackInfo& info) {
+Napi::Value HardwareFramesContext::TransferDataAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {

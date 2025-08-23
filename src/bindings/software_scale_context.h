@@ -40,7 +40,7 @@ private:
   Napi::Value FreeContext(const Napi::CallbackInfo& info);
   
   // Operations
-  Napi::Value Scale(const Napi::CallbackInfo& info);
+  Napi::Value ScaleAsync(const Napi::CallbackInfo& info);
   Napi::Value ScaleFrame(const Napi::CallbackInfo& info);
   
   // === Utility ===

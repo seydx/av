@@ -74,8 +74,8 @@ private:
   const AVInputFormat* result_format_;
 };
 
-// Update the ProbeBuffer implementation
-Napi::Value InputFormat::ProbeBuffer(const Napi::CallbackInfo& info) {
+// Update the ProbeBufferAsync implementation
+Napi::Value InputFormat::ProbeBufferAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {

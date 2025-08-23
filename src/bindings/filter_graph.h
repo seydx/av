@@ -70,14 +70,14 @@ private:
   Napi::Value GetFilter(const Napi::CallbackInfo& info);
   
   // Configuration
-  Napi::Value Config(const Napi::CallbackInfo& info);
+  Napi::Value ConfigAsync(const Napi::CallbackInfo& info);
   Napi::Value Parse(const Napi::CallbackInfo& info);
   Napi::Value Parse2(const Napi::CallbackInfo& info);
   Napi::Value ParsePtr(const Napi::CallbackInfo& info);
   Napi::Value Validate(const Napi::CallbackInfo& info);
   
   // Execution
-  Napi::Value RequestOldest(const Napi::CallbackInfo& info);
+  Napi::Value RequestOldestAsync(const Napi::CallbackInfo& info);
   Napi::Value Dump(const Napi::CallbackInfo& info);
   
   // Command interface

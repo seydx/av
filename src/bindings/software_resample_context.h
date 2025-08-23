@@ -42,7 +42,7 @@ private:
   Napi::Value Close(const Napi::CallbackInfo& info);
   
   // Operations
-  Napi::Value Convert(const Napi::CallbackInfo& info);
+  Napi::Value ConvertAsync(const Napi::CallbackInfo& info);
   Napi::Value ConvertFrame(const Napi::CallbackInfo& info);
   Napi::Value ConfigFrame(const Napi::CallbackInfo& info);
   

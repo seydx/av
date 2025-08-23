@@ -54,7 +54,7 @@ private:
 // Frame Async Method Implementations
 // ============================================================================
 
-Napi::Value Frame::HwframeTransferData(const Napi::CallbackInfo& info) {
+Napi::Value Frame::HwframeTransferDataAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (!frame_) {

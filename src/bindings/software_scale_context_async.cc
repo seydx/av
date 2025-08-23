@@ -127,7 +127,7 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-Napi::Value SoftwareScaleContext::Scale(const Napi::CallbackInfo& info) {
+Napi::Value SoftwareScaleContext::ScaleAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   SwsContext* ctx = Get();

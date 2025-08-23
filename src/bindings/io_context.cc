@@ -29,15 +29,15 @@ Napi::Object IOContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&IOContext::Tell>("tell"),
     
     // Properties
-    InstanceAccessor("eof", &IOContext::GetEof, nullptr),
-    InstanceAccessor("error", &IOContext::GetError, nullptr),
-    InstanceAccessor("seekable", &IOContext::GetSeekable, nullptr),
-    InstanceAccessor("maxPacketSize", &IOContext::GetMaxPacketSize, &IOContext::SetMaxPacketSize),
-    InstanceAccessor("direct", &IOContext::GetDirect, &IOContext::SetDirect),
-    InstanceAccessor("pos", &IOContext::GetPos, nullptr),
-    InstanceAccessor("bufferSize", &IOContext::GetBufferSize, nullptr),
-    InstanceAccessor("writeFlag", &IOContext::GetWriteFlag, nullptr),
-    
+    InstanceAccessor<&IOContext::GetEof, nullptr>("eof"),
+    InstanceAccessor<&IOContext::GetError, nullptr>("error"),
+    InstanceAccessor<&IOContext::GetSeekable, nullptr>("seekable"),
+    InstanceAccessor<&IOContext::GetMaxPacketSize, &IOContext::SetMaxPacketSize>("maxPacketSize"),
+    InstanceAccessor<&IOContext::GetDirect, &IOContext::SetDirect>("direct"),
+    InstanceAccessor<&IOContext::GetPos, nullptr>("pos"),
+    InstanceAccessor<&IOContext::GetBufferSize, nullptr>("bufferSize"),
+    InstanceAccessor<&IOContext::GetWriteFlag, nullptr>("writeFlag"),
+
     // Utility
     InstanceMethod(Napi::Symbol::WellKnown(env, "asyncDispose"), &IOContext::AsyncDispose),
   });

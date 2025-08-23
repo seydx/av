@@ -19,7 +19,7 @@ Napi::Object SoftwareResampleContext::Init(Napi::Env env, Napi::Object exports) 
     InstanceMethod<&SoftwareResampleContext::Close>("close"),
 
     // Operations
-    InstanceMethod<&SoftwareResampleContext::Convert>("convert"),
+    InstanceMethod<&SoftwareResampleContext::ConvertAsync>("convert"),
     InstanceMethod<&SoftwareResampleContext::ConvertFrame>("convertFrame"),
     InstanceMethod<&SoftwareResampleContext::ConfigFrame>("configFrame"),
 

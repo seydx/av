@@ -14,19 +14,19 @@ Napi::Object HardwareFramesContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&HardwareFramesContext::Alloc>("alloc"),
     InstanceMethod<&HardwareFramesContext::Init>("init"),
     InstanceMethod<&HardwareFramesContext::GetBuffer>("getBuffer"),
-    InstanceMethod<&HardwareFramesContext::TransferData>("transferData"),
+    InstanceMethod<&HardwareFramesContext::TransferDataAsync>("transferData"),
     InstanceMethod<&HardwareFramesContext::TransferGetFormats>("transferGetFormats"),
     InstanceMethod<&HardwareFramesContext::Map>("map"),
     InstanceMethod<&HardwareFramesContext::CreateDerived>("createDerived"),
     InstanceMethod<&HardwareFramesContext::Free>("free"),
 
     // Properties
-    InstanceAccessor("format", &HardwareFramesContext::GetFormat, &HardwareFramesContext::SetFormat),
-    InstanceAccessor("swFormat", &HardwareFramesContext::GetSwFormat, &HardwareFramesContext::SetSwFormat),
-    InstanceAccessor("width", &HardwareFramesContext::GetWidth, &HardwareFramesContext::SetWidth),
-    InstanceAccessor("height", &HardwareFramesContext::GetHeight, &HardwareFramesContext::SetHeight),
-    InstanceAccessor("initialPoolSize", &HardwareFramesContext::GetInitialPoolSize, &HardwareFramesContext::SetInitialPoolSize),
-    InstanceAccessor("deviceRef", &HardwareFramesContext::GetDeviceRef, nullptr),
+    InstanceAccessor<&HardwareFramesContext::GetFormat, &HardwareFramesContext::SetFormat>("format"),
+    InstanceAccessor<&HardwareFramesContext::GetSwFormat, &HardwareFramesContext::SetSwFormat>("swFormat"),
+    InstanceAccessor<&HardwareFramesContext::GetWidth, &HardwareFramesContext::SetWidth>("width"),
+    InstanceAccessor<&HardwareFramesContext::GetHeight, &HardwareFramesContext::SetHeight>("height"),
+    InstanceAccessor<&HardwareFramesContext::GetInitialPoolSize, &HardwareFramesContext::SetInitialPoolSize>("initialPoolSize"),
+    InstanceAccessor<&HardwareFramesContext::GetDeviceRef, nullptr>("deviceRef"),
     
     // Utility
     InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &HardwareFramesContext::Dispose),
@@ -143,7 +143,7 @@ Napi::Value HardwareFramesContext::GetBuffer(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-// TransferData is now implemented in hardware_frames_context_async.cc
+// TransferDataAsync is now implemented in hardware_frames_context_async.cc
 
 Napi::Value HardwareFramesContext::TransferGetFormats(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

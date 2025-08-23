@@ -80,7 +80,7 @@ import type { Packet } from './packet.js';
  * @see {@link Stream} For stream management
  * @see {@link Packet} For packet handling
  */
-export class FormatContext extends OptionMember<NativeFormatContext> implements Disposable, NativeWrapper<NativeFormatContext> {
+export class FormatContext extends OptionMember<NativeFormatContext> implements AsyncDisposable, NativeWrapper<NativeFormatContext> {
   private _ioContext: IOContext | null = null;
 
   /**
@@ -953,23 +953,23 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
-   * Dispose of the format context.
+   * Dispose of the format context asynchronously.
    *
-   * Implements the Disposable interface for automatic cleanup.
-   * Equivalent to calling freeContext().
+   * Implements the AsyncDisposable interface for automatic cleanup.
+   * Properly handles network connections and I/O operations.
    *
    * @example
    * ```typescript
    * import { FormatContext } from '@seydx/av';
    *
    * {
-   *   using ctx = new FormatContext();
-   *   ctx.allocContext();
+   *   await using ctx = new FormatContext();
+   *   await ctx.openInput('rtsp://camera/stream');
    *   // ... use context
-   * } // Automatically freed when leaving scope
+   * } // Automatically closed when leaving scope
    * ```
    */
-  [Symbol.dispose](): void {
-    this.native[Symbol.dispose]();
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.native[Symbol.asyncDispose]();
   }
 }

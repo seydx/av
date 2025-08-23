@@ -27,14 +27,14 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FilterGraph::GetFilter>("getFilter"),
     
     // Configuration
-    InstanceMethod<&FilterGraph::Config>("config"),
+    InstanceMethod<&FilterGraph::ConfigAsync>("config"),
     InstanceMethod<&FilterGraph::Parse>("parse"),
     InstanceMethod<&FilterGraph::Parse2>("parse2"),
     InstanceMethod<&FilterGraph::ParsePtr>("parsePtr"),
     InstanceMethod<&FilterGraph::Validate>("validate"),
     
     // Execution
-    InstanceMethod<&FilterGraph::RequestOldest>("requestOldest"),
+    InstanceMethod<&FilterGraph::RequestOldestAsync>("requestOldest"),
     InstanceMethod<&FilterGraph::Dump>("dump"),
     
     // Command interface

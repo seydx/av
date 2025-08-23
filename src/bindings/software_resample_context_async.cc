@@ -97,7 +97,7 @@ private:
 // SoftwareResampleContext Async Method Implementations
 // ============================================================================
 
-Napi::Value SoftwareResampleContext::Convert(const Napi::CallbackInfo& info) {
+Napi::Value SoftwareResampleContext::ConvertAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (!ctx_) {

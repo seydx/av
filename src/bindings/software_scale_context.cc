@@ -18,7 +18,7 @@ Napi::Object SoftwareScaleContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&SoftwareScaleContext::FreeContext>("freeContext"),
 
     // Operations
-    InstanceMethod<&SoftwareScaleContext::Scale>("scale"),
+    InstanceMethod<&SoftwareScaleContext::ScaleAsync>("scale"),
     InstanceMethod<&SoftwareScaleContext::ScaleFrame>("scaleFrame"),
 
     // Utility
@@ -124,8 +124,6 @@ Napi::Value SoftwareScaleContext::FreeContext(const Napi::CallbackInfo& info) {
   
   return env.Undefined();
 }
-
-// Scale is now implemented in software_scale_context_async.cc
 
 // === Utility ===
 
