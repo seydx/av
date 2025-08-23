@@ -11,10 +11,7 @@
  */
 
 import {
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
   AV_HWDEVICE_TYPE_NONE,
-  AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_CUDA,
   AV_PIX_FMT_D3D11,
   AV_PIX_FMT_DXVA2_VLD,
@@ -22,6 +19,9 @@ import {
   AV_PIX_FMT_QSV,
   AV_PIX_FMT_VAAPI,
   AV_PIX_FMT_VIDEOTOOLBOX,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVMEDIA_TYPE_VIDEO,
   Codec,
   CodecContext,
   FFmpegError,
@@ -142,7 +142,7 @@ async function openInputFile(filename: string, deviceType: AVHWDeviceType): Prom
   }
 
   // Find video stream with decoder
-  const streamResult = inputCtx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1, true, 0);
+  const streamResult = inputCtx.findBestStream(AVMEDIA_TYPE_VIDEO, -1, -1, true, 0);
   if (streamResult.streamIndex < 0) {
     console.error(`Cannot find video stream: ${new FFmpegError(streamResult.streamIndex).message}`);
     return streamResult.streamIndex;
@@ -272,7 +272,7 @@ async function encodeWrite(packet: Packet, frame: Frame | null): Promise<number>
 
   // Send frame to encoder
   const sendRet = await encoderCtx!.sendFrame(frame);
-  if (sendRet < 0 && sendRet !== AV_ERROR_EAGAIN && sendRet !== AV_ERROR_EOF) {
+  if (sendRet < 0 && sendRet !== AVERROR_EAGAIN && sendRet !== AVERROR_EOF) {
     console.error(`Error sending frame to encoder: ${new FFmpegError(sendRet).message}`);
     return sendRet;
   }
@@ -280,7 +280,7 @@ async function encodeWrite(packet: Packet, frame: Frame | null): Promise<number>
   // Receive packets from encoder
   while (true) {
     const recvRet = await encoderCtx!.receivePacket(packet);
-    if (recvRet === AV_ERROR_EAGAIN || recvRet === AV_ERROR_EOF) {
+    if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
       break;
     }
     if (recvRet < 0) {
@@ -311,7 +311,7 @@ async function encodeWrite(packet: Packet, frame: Frame | null): Promise<number>
 async function decodeEncode(packet: Packet | null, encoderCodec: Codec, outputFile: string, deviceType: AVHWDeviceType): Promise<number> {
   // Send packet to decoder
   const sendRet = await decoderCtx!.sendPacket(packet);
-  if (sendRet < 0 && sendRet !== AV_ERROR_EAGAIN && sendRet !== AV_ERROR_EOF) {
+  if (sendRet < 0 && sendRet !== AVERROR_EAGAIN && sendRet !== AVERROR_EOF) {
     console.error(`Error sending packet to decoder: ${new FFmpegError(sendRet).message}`);
     return sendRet;
   }
@@ -322,7 +322,7 @@ async function decodeEncode(packet: Packet | null, encoderCodec: Codec, outputFi
     frame.alloc();
 
     const recvRet = await decoderCtx!.receiveFrame(frame);
-    if (recvRet === AV_ERROR_EAGAIN || recvRet === AV_ERROR_EOF) {
+    if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
       frame.free();
       return 0;
     }
@@ -451,7 +451,7 @@ async function main(): Promise<number> {
     while (true) {
       const readRet = await inputCtx!.readFrame(packet);
       if (readRet < 0) {
-        if (readRet === AV_ERROR_EOF) {
+        if (readRet === AVERROR_EOF) {
           // Flush decoder
           await decodeEncode(null, encoderCodec, outputFile, deviceType);
 

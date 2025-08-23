@@ -1,5 +1,5 @@
 import { bindings } from './binding.js';
-import { AV_IO_FLAG_READ } from './constants.js';
+import { AVIO_FLAG_READ } from './constants.js';
 import { OptionMember } from './option.js';
 
 import type { AVIOFlag, AVSeekWhence } from './constants.js';
@@ -17,18 +17,18 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
  * @example
  * ```typescript
  * import { IOContext, FFmpegError } from '@seydx/av';
- * import { AV_IO_FLAG_READ, AV_SEEK_SET } from '@seydx/av/constants';
+ * import { AVIO_FLAG_READ, SEEK_SET } from '@seydx/av/constants';
  *
  * // Open a file for reading
  * const io = new IOContext();
- * const ret = await io.open2('input.mp4', AV_IO_FLAG_READ);
+ * const ret = await io.open2('input.mp4', AVIO_FLAG_READ);
  * FFmpegError.throwIfError(ret, 'open2');
  *
  * // Read data
  * const buffer = await io.read(4096);
  *
  * // Seek to position
- * const seekRet = await io.seek(1024n, AV_SEEK_SET);
+ * const seekRet = await io.seek(1024n, SEEK_SET);
  * FFmpegError.throwIfError(seekRet < 0 ? -1 : 0, 'seek');
  *
  * // Get file size
@@ -75,10 +75,10 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @example
    * ```typescript
-   * import { IOContext, FFmpegError, AV_IO_FLAG_READ } from '@seydx/av';
+   * import { IOContext, FFmpegError, AVIO_FLAG_READ } from '@seydx/av';
    *
    * const io = new IOContext();
-   * const ret = await io.open2('file.mp4', AV_IO_FLAG_READ);
+   * const ret = await io.open2('file.mp4', AVIO_FLAG_READ);
    * FFmpegError.throwIfError(ret, 'open2');
    * // I/O context is now ready for use
    * ```
@@ -249,7 +249,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @example
    * ```typescript
-   * import { IOContext, AV_SEEK_SET, AV_SEEK_CUR, AV_SEEK_END } from '@seydx/av';
+   * import { IOContext, SEEK_SET, SEEK_CUR, SEEK_END } from '@seydx/av';
    *
    * const io = new IOContext();
    * let position = 0;
@@ -265,9 +265,9 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *   null,
    *   (offset, whence) => {
    *     // Seek to position - MUST BE SYNCHRONOUS
-   *     if (whence === AV_SEEK_SET) position = Number(offset);
-   *     else if (whence === AV_SEEK_CUR) position += Number(offset);
-   *     else if (whence === AV_SEEK_END) position = buffer.length + Number(offset);
+   *     if (whence === SEEK_SET) position = Number(offset);
+   *     else if (whence === SEEK_CUR) position += Number(offset);
+   *     else if (whence === SEEK_END) position = buffer.length + Number(offset);
    *     return BigInt(position);
    *   }
    * );
@@ -311,7 +311,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_open2()
    *
    * @param url - URL to open (file://, http://, https://, etc.)
-   * @param flags - I/O flags (AV_IO_FLAG_READ, AV_IO_FLAG_WRITE, etc.)
+   * @param flags - I/O flags (AVIO_FLAG_READ, AVIO_FLAG_WRITE, etc.)
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
@@ -324,27 +324,27 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * @example
    * ```typescript
    * import { IOContext, FFmpegError } from '@seydx/av';
-   * import { AV_IO_FLAG_READ, AV_IO_FLAG_WRITE } from '@seydx/av/constants';
+   * import { AVIO_FLAG_READ, AVIO_FLAG_WRITE } from '@seydx/av/constants';
    *
    * // Open file for reading
    * const io = new IOContext();
-   * const ret = await io.open2('input.mp4', AV_IO_FLAG_READ);
+   * const ret = await io.open2('input.mp4', AVIO_FLAG_READ);
    * FFmpegError.throwIfError(ret, 'open2');
    *
    * // Open file for writing
    * const writeIO = new IOContext();
-   * const writeRet = await writeIO.open2('output.mp4', AV_IO_FLAG_WRITE);
+   * const writeRet = await writeIO.open2('output.mp4', AVIO_FLAG_WRITE);
    * FFmpegError.throwIfError(writeRet, 'open2');
    *
    * // Open network stream
    * const streamIO = new IOContext();
-   * const streamRet = await streamIO.open2('http://example.com/stream.m3u8', AV_IO_FLAG_READ);
+   * const streamRet = await streamIO.open2('http://example.com/stream.m3u8', AVIO_FLAG_READ);
    * FFmpegError.throwIfError(streamRet, 'open2');
    * ```
    *
    * @see {@link closep} To close and free resources
    */
-  async open2(url: string, flags: AVIOFlag = AV_IO_FLAG_READ): Promise<number> {
+  async open2(url: string, flags: AVIOFlag = AVIO_FLAG_READ): Promise<number> {
     return this.native.open2(url, flags);
   }
 
@@ -380,17 +380,17 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @returns Buffer with data or error code if negative:
    *   - Buffer: Successfully read data
-   *   - AV_ERROR_EOF: End of file reached
+   *   - AVERROR_EOF: End of file reached
    *   - AVERROR(EIO): I/O error
    *   - <0: Other errors
    *
    * @example
    * ```typescript
-   * import { FFmpegError, AV_ERROR_EOF } from '@seydx/av';
+   * import { FFmpegError, AVERROR_EOF } from '@seydx/av';
    *
    * const data = await io.read(1024);
    * if (typeof data === 'number' && data < 0) {
-   *   if (data === AV_ERROR_EOF) {
+   *   if (data === AVERROR_EOF) {
    *     console.log('End of file');
    *   } else {
    *     FFmpegError.throwIfError(data, 'read');
@@ -443,14 +443,14 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @example
    * ```typescript
-   * import { FFmpegError, AV_SEEK_SET, AV_SEEK_END, AVSEEK_SIZE } from '@seydx/av';
+   * import { FFmpegError, SEEK_SET, SEEK_END, AVSEEK_SIZE } from '@seydx/av';
    *
    * // Seek to beginning
-   * const pos = await io.seek(0n, AV_SEEK_SET);
+   * const pos = await io.seek(0n, SEEK_SET);
    * FFmpegError.throwIfError(pos < 0n ? Number(pos) : 0, 'seek');
    *
    * // Seek to end
-   * const endPos = await io.seek(0n, AV_SEEK_END);
+   * const endPos = await io.seek(0n, SEEK_END);
    * FFmpegError.throwIfError(endPos < 0n ? Number(endPos) : 0, 'seek');
    *
    * // Get file size without changing position
@@ -515,7 +515,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @returns New position or negative AVERROR:
    *   - >=0: New position in bytes
-   *   - AV_ERROR_EOF: End of file reached
+   *   - AVERROR_EOF: End of file reached
    *   - <0: Other errors
    *
    * @example
@@ -569,11 +569,11 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    *
    * @example
    * ```typescript
-   * import { IOContext, AV_IO_FLAG_READ } from '@seydx/av';
+   * import { IOContext, AVIO_FLAG_READ } from '@seydx/av';
    *
    * {
    *   await using io = new IOContext();
-   *   await io.open2('file.mp4', AV_IO_FLAG_READ);
+   *   await io.open2('file.mp4', AVIO_FLAG_READ);
    *   // ... use I/O context
    * } // Automatically closed when leaving scope
    * ```

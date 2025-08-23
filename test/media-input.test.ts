@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { after, describe, it } from 'node:test';
 
 import { MediaInput } from '../src/api/index.js';
-import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO } from '../src/index.js';
+import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../src/index.js';
 
 describe('MediaInput', () => {
   // Track all open MediaInput instances
@@ -60,7 +60,7 @@ describe('MediaInput', () => {
 
       const video = media.video();
       assert.ok(video, 'Should find video stream');
-      assert.equal(video.codecpar.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(video.codecpar.codecType, AVMEDIA_TYPE_VIDEO);
       assert.ok(video.codecpar.width && video.codecpar.width > 0, 'Should have width');
       assert.ok(video.codecpar.height && video.codecpar.height > 0, 'Should have height');
       assert.ok(video.codecpar.codecId, 'Should have codec');
@@ -74,7 +74,7 @@ describe('MediaInput', () => {
 
       const audio = media.audio();
       if (audio) {
-        assert.equal(audio.codecpar.codecType, AV_MEDIA_TYPE_AUDIO);
+        assert.equal(audio.codecpar.codecType, AVMEDIA_TYPE_AUDIO);
         assert.ok(audio.codecpar.sampleRate && audio.codecpar.sampleRate > 0, 'Should have sample rate');
         assert.ok(audio.codecpar.channels && audio.codecpar.channels > 0, 'Should have channels');
         assert.ok(audio.codecpar.codecId, 'Should have codec');

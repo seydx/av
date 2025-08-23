@@ -10,7 +10,7 @@
  * @module api/decoder
  */
 
-import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AV_ERROR_EAGAIN, AV_ERROR_EOF, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
+import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVERROR_EAGAIN, AVERROR_EOF, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
 
 import type { Packet, Stream } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
@@ -217,7 +217,7 @@ export class Decoder implements Disposable {
 
     // Send packet to decoder
     const sendRet = await this.codecContext.sendPacket(packet);
-    if (sendRet < 0 && sendRet !== AV_ERROR_EOF) {
+    if (sendRet < 0 && sendRet !== AVERROR_EOF) {
       // Decoder might be full, try to receive first
       const frame = await this.receiveFrameInternal();
       if (frame) {
@@ -225,7 +225,7 @@ export class Decoder implements Disposable {
       }
 
       // If still failing, it's an error
-      if (sendRet !== AV_ERROR_EAGAIN) {
+      if (sendRet !== AVERROR_EAGAIN) {
         FFmpegError.throwIfError(sendRet, 'Failed to send packet');
       }
     }
@@ -440,7 +440,7 @@ export class Decoder implements Disposable {
 
       // Got a frame, clone it for the user
       return this.frame.clone();
-    } else if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+    } else if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
       // Need more data or end of stream
       return null;
     } else {

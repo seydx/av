@@ -21,9 +21,9 @@ import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 
 import {
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
   AV_CODEC_ID_MP2,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
   AV_INPUT_BUFFER_PADDING_SIZE,
   AV_NOPTS_VALUE,
   AV_SAMPLE_FMT_DBL,
@@ -94,7 +94,7 @@ async function decode(decCtx: CodecContext, pkt: Packet | null, frame: Frame, ou
   // Read all the output frames (in general there may be any number of them)
   while (true) {
     const ret = await decCtx.receiveFrame(frame);
-    if (FFmpegError.is(ret, AV_ERROR_EAGAIN) || FFmpegError.is(ret, AV_ERROR_EOF)) {
+    if (FFmpegError.is(ret, AVERROR_EAGAIN) || FFmpegError.is(ret, AVERROR_EOF)) {
       return;
     }
     FFmpegError.throwIfError(ret, 'Error during decoding');

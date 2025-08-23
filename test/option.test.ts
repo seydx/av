@@ -14,7 +14,7 @@ import {
   AV_OPT_TYPE_STRING,
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_YUV420P,
-  AV_SOFTWARE_SCALE_FLAG_NONE,
+  AVFLAG_NONE,
   BitStreamFilter,
   BitStreamFilterContext,
   Codec,
@@ -223,7 +223,7 @@ describe('Option API', () => {
       const ctx = new SoftwareScaleContext();
 
       // Allocate with basic parameters - getContext returns void
-      ctx.getContext(640, 480, AV_PIX_FMT_YUV420P, 1920, 1080, AV_PIX_FMT_RGB24, AV_SOFTWARE_SCALE_FLAG_NONE);
+      ctx.getContext(640, 480, AV_PIX_FMT_YUV420P, 1920, 1080, AV_PIX_FMT_RGB24, AVFLAG_NONE);
 
       // Set scaling algorithm option
       const ret1 = ctx.setOption('sws_flags', 'bilinear', AV_OPT_TYPE_STRING);
@@ -239,7 +239,7 @@ describe('Option API', () => {
       const ctx = new SoftwareScaleContext();
 
       // getContext returns void, not an error code
-      ctx.getContext(640, 480, AV_PIX_FMT_YUV420P, 1920, 1080, AV_PIX_FMT_RGB24, AV_SOFTWARE_SCALE_FLAG_NONE);
+      ctx.getContext(640, 480, AV_PIX_FMT_YUV420P, 1920, 1080, AV_PIX_FMT_RGB24, AVFLAG_NONE);
 
       const options = ctx.listOptions();
       assert.ok(Array.isArray(options), 'Should return array of options');

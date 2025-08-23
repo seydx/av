@@ -16,7 +16,7 @@
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 
-import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR, FFmpegError, Frame, SoftwareScaleContext } from '../src/lib/index.js';
+import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, FFmpegError, Frame, SoftwareScaleContext, SWS_BILINEAR } from '../src/lib/index.js';
 
 /**
  * Fill a YUV420P image with synthetic data
@@ -156,7 +156,7 @@ async function scaleVideo(outputFile: string, outputSize: string): Promise<void>
 
     // Create scaling context
     swsCtx = new SoftwareScaleContext();
-    swsCtx.getContext(srcW, srcH, srcPixFmt, dstW, dstH, dstPixFmt, AV_SWS_BILINEAR);
+    swsCtx.getContext(srcW, srcH, srcPixFmt, dstW, dstH, dstPixFmt, SWS_BILINEAR);
 
     // Allocate source frame
     srcFrame = new Frame();

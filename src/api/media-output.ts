@@ -10,7 +10,7 @@
  * @module api/media-output
  */
 
-import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
+import { AVFMT_NOFILE, AVIO_FLAG_WRITE, FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
 import { Encoder } from './encoder.js';
 
 import type { IRational, Packet, Stream } from '../lib/index.js';
@@ -139,11 +139,11 @@ export class MediaOutput implements AsyncDisposable {
 
         // Check if we need to open IO
         const oformat = output.formatContext.oformat;
-        if (oformat && !(oformat.flags & AV_FMT_NOFILE)) {
+        if (oformat && !(oformat.flags & AVFMT_NOFILE)) {
           // For file-based formats, we need to open the file using avio_open2
           // FFmpeg will manage the AVIOContext internally
           output.ioContext = new IOContext();
-          const openRet = await output.ioContext.open2(target, AV_IO_FLAG_WRITE);
+          const openRet = await output.ioContext.open2(target, AVIO_FLAG_WRITE);
           FFmpegError.throwIfError(openRet, `Failed to open output file: ${target}`);
           output.formatContext.pb = output.ioContext;
           output.isCustomIO = false; // Not custom callbacks, but FFmpeg-managed file IO

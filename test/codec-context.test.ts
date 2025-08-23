@@ -2,19 +2,19 @@ import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
-  AV_CODEC_FLAG_NONE,
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MJPEG,
   AV_CODEC_ID_PCM_S16LE,
-  AV_ERROR_OPTION_NOT_FOUND,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_YUV420P,
   AV_PROFILE_H264_BASELINE,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16,
+  AVERROR_OPTION_NOT_FOUND,
+  AVFLAG_NONE,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   Codec,
   CodecContext,
   CodecParameters,
@@ -56,7 +56,7 @@ describe('CodecContext', () => {
       // Context should be allocated but not open
       assert.ok(!ctx.isOpen);
       assert.equal(ctx.codecId, AV_CODEC_ID_H264);
-      assert.equal(ctx.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(ctx.codecType, AVMEDIA_TYPE_VIDEO);
     });
 
     it('should allocate context without codec', () => {
@@ -93,14 +93,14 @@ describe('CodecContext', () => {
     });
 
     it('should get and set codec type', () => {
-      assert.equal(ctx.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(ctx.codecType, AVMEDIA_TYPE_VIDEO);
 
       // Can change codec type (though not recommended after alloc)
-      ctx.codecType = AV_MEDIA_TYPE_AUDIO;
-      assert.equal(ctx.codecType, AV_MEDIA_TYPE_AUDIO);
+      ctx.codecType = AVMEDIA_TYPE_AUDIO;
+      assert.equal(ctx.codecType, AVMEDIA_TYPE_AUDIO);
 
       // Restore
-      ctx.codecType = AV_MEDIA_TYPE_VIDEO;
+      ctx.codecType = AVMEDIA_TYPE_VIDEO;
     });
 
     it('should get and set codec ID', () => {
@@ -157,8 +157,8 @@ describe('CodecContext', () => {
     });
 
     it('should get and set flags', () => {
-      ctx.flags = AV_CODEC_FLAG_NONE;
-      assert.equal(ctx.flags, AV_CODEC_FLAG_NONE);
+      ctx.flags = AVFLAG_NONE;
+      assert.equal(ctx.flags, AVFLAG_NONE);
 
       // Set some flags (we'd need actual flag constants)
       // ctx.flags = AV_CODEC_FLAG_LOW_DELAY;
@@ -376,7 +376,7 @@ describe('CodecContext', () => {
 
       const params = new CodecParameters();
       params.alloc(); // Must allocate before use
-      params.codecType = AV_MEDIA_TYPE_VIDEO;
+      params.codecType = AVMEDIA_TYPE_VIDEO;
       params.codecId = AV_CODEC_ID_H264;
       params.width = 1280;
       params.height = 720;
@@ -620,7 +620,7 @@ describe('CodecContext', () => {
 
       ctx.allocContext3(codec);
 
-      assert.equal(ctx.setOption('preset', 'fast'), AV_ERROR_OPTION_NOT_FOUND);
+      assert.equal(ctx.setOption('preset', 'fast'), AVERROR_OPTION_NOT_FOUND);
     });
 
     it('should fail with invalid option name', () => {
@@ -632,7 +632,7 @@ describe('CodecContext', () => {
 
       ctx.allocContext3(codec);
 
-      assert.equal(ctx.setOption('invalid_option_name_xyz', 'value'), AV_ERROR_OPTION_NOT_FOUND);
+      assert.equal(ctx.setOption('invalid_option_name_xyz', 'value'), AVERROR_OPTION_NOT_FOUND);
     });
 
     it('should set multiple options', () => {

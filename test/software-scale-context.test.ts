@@ -6,17 +6,17 @@ import {
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_RGBA,
   AV_PIX_FMT_YUV420P,
-  AV_SWS_ACCURATE_RND,
-  AV_SWS_AREA,
-  AV_SWS_BICUBIC,
-  AV_SWS_BICUBLIN,
-  AV_SWS_BILINEAR,
-  AV_SWS_FAST_BILINEAR,
-  AV_SWS_GAUSS,
-  AV_SWS_LANCZOS,
-  AV_SWS_POINT,
-  AV_SWS_SINC,
-  AV_SWS_SPLINE,
+  SWS_ACCURATE_RND,
+  SWS_AREA,
+  SWS_BICUBIC,
+  SWS_BICUBLIN,
+  SWS_BILINEAR,
+  SWS_FAST_BILINEAR,
+  SWS_GAUSS,
+  SWS_LANCZOS,
+  SWS_POINT,
+  SWS_SINC,
+  SWS_SPLINE,
 } from '../src/lib/constants.js';
 import { Frame, SoftwareScaleContext } from '../src/lib/index.js';
 
@@ -66,7 +66,7 @@ describe('SoftwareScaleContext', () => {
     it('should get context with basic parameters', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_RGB24, SWS_BILINEAR);
 
       assert.ok(sws, 'Should configure context');
       sws.freeContext();
@@ -76,7 +76,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // Scale up from 320x240 to 1920x1080
-      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 1920, 1080, AV_PIX_FMT_YUV420P, AV_SWS_BICUBIC);
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 1920, 1080, AV_PIX_FMT_YUV420P, SWS_BICUBIC);
 
       assert.ok(sws, 'Should configure upscaling');
       sws.freeContext();
@@ -86,7 +86,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // Scale down from 1920x1080 to 640x360
-      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 640, 360, AV_PIX_FMT_YUV420P, AV_SWS_AREA);
+      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 640, 360, AV_PIX_FMT_YUV420P, SWS_AREA);
 
       assert.ok(sws, 'Should configure downscaling');
       sws.freeContext();
@@ -96,7 +96,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // Same resolution, different pixel format
-      sws.getContext(1280, 720, AV_PIX_FMT_YUV420P, 1280, 720, AV_PIX_FMT_RGB24, AV_SWS_FAST_BILINEAR);
+      sws.getContext(1280, 720, AV_PIX_FMT_YUV420P, 1280, 720, AV_PIX_FMT_RGB24, SWS_FAST_BILINEAR);
 
       assert.ok(sws, 'Should configure format conversion');
       sws.freeContext();
@@ -106,7 +106,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // 16:9 to 4:3
-      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, AV_SWS_LANCZOS);
+      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, SWS_LANCZOS);
 
       assert.ok(sws, 'Should handle aspect ratio change');
       sws.freeContext();
@@ -127,16 +127,16 @@ describe('SoftwareScaleContext', () => {
 
   describe('Scaling Algorithms', () => {
     const algorithms = [
-      { name: 'FAST_BILINEAR', flag: AV_SWS_FAST_BILINEAR },
-      { name: 'BILINEAR', flag: AV_SWS_BILINEAR },
-      { name: 'BICUBIC', flag: AV_SWS_BICUBIC },
-      { name: 'POINT', flag: AV_SWS_POINT },
-      { name: 'AREA', flag: AV_SWS_AREA },
-      { name: 'BICUBLIN', flag: AV_SWS_BICUBLIN },
-      { name: 'GAUSS', flag: AV_SWS_GAUSS },
-      { name: 'SINC', flag: AV_SWS_SINC },
-      { name: 'LANCZOS', flag: AV_SWS_LANCZOS },
-      { name: 'SPLINE', flag: AV_SWS_SPLINE },
+      { name: 'FAST_BILINEAR', flag: SWS_FAST_BILINEAR },
+      { name: 'BILINEAR', flag: SWS_BILINEAR },
+      { name: 'BICUBIC', flag: SWS_BICUBIC },
+      { name: 'POINT', flag: SWS_POINT },
+      { name: 'AREA', flag: SWS_AREA },
+      { name: 'BICUBLIN', flag: SWS_BICUBLIN },
+      { name: 'GAUSS', flag: SWS_GAUSS },
+      { name: 'SINC', flag: SWS_SINC },
+      { name: 'LANCZOS', flag: SWS_LANCZOS },
+      { name: 'SPLINE', flag: SWS_SPLINE },
     ];
 
     algorithms.forEach(({ name, flag }) => {
@@ -155,7 +155,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle YUV420P format', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       assert.ok(sws, 'Should handle YUV420P');
       sws.freeContext();
@@ -164,7 +164,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle RGB24 format', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_RGB24, 320, 240, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_RGB24, 320, 240, AV_PIX_FMT_RGB24, SWS_BILINEAR);
 
       assert.ok(sws, 'Should handle RGB24');
       sws.freeContext();
@@ -173,7 +173,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle RGBA format', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_RGBA, 320, 240, AV_PIX_FMT_RGBA, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_RGBA, 320, 240, AV_PIX_FMT_RGBA, SWS_BILINEAR);
 
       assert.ok(sws, 'Should handle RGBA');
       sws.freeContext();
@@ -182,7 +182,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle NV12 format', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_NV12, 320, 240, AV_PIX_FMT_NV12, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_NV12, 320, 240, AV_PIX_FMT_NV12, SWS_BILINEAR);
 
       assert.ok(sws, 'Should handle NV12');
       sws.freeContext();
@@ -191,7 +191,7 @@ describe('SoftwareScaleContext', () => {
     it('should convert between YUV and RGB', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_RGB24, SWS_BILINEAR);
 
       assert.ok(sws, 'Should convert YUV to RGB');
       sws.freeContext();
@@ -200,7 +200,7 @@ describe('SoftwareScaleContext', () => {
     it('should convert between RGB and YUV', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_RGB24, 640, 480, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_RGB24, 640, 480, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       assert.ok(sws, 'Should convert RGB to YUV');
       sws.freeContext();
@@ -211,7 +211,7 @@ describe('SoftwareScaleContext', () => {
     it('should scale with buffer arrays', async () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       // Create dummy data for YUV420P
       const ySize = 320 * 240;
@@ -247,7 +247,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // Use simpler getContext without prior initialization
-      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       // Create source frame
       const srcFrame = new Frame();
@@ -280,7 +280,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle progressive scaling', async () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       const ySize = 640 * 480;
       const uvSize = (640 / 2) * (480 / 2);
@@ -312,7 +312,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle 1x1 resolution', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(1, 1, AV_PIX_FMT_YUV420P, 1, 1, AV_PIX_FMT_RGB24, AV_SWS_POINT);
+      sws.getContext(1, 1, AV_PIX_FMT_YUV420P, 1, 1, AV_PIX_FMT_RGB24, SWS_POINT);
 
       assert.ok(sws, 'Should handle 1x1 resolution');
       sws.freeContext();
@@ -328,7 +328,7 @@ describe('SoftwareScaleContext', () => {
         3840,
         2160,
         AV_PIX_FMT_YUV420P, // 4K
-        AV_SWS_BILINEAR,
+        SWS_BILINEAR,
       );
 
       assert.ok(sws, 'Should handle 8K to 4K scaling');
@@ -338,7 +338,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle odd dimensions', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(641, 481, AV_PIX_FMT_YUV420P, 321, 241, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(641, 481, AV_PIX_FMT_YUV420P, 321, 241, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       assert.ok(sws, 'Should handle odd dimensions');
       sws.freeContext();
@@ -347,7 +347,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle same source and destination', () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, AV_SWS_POINT);
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, SWS_POINT);
 
       assert.ok(sws, 'Should handle same dimensions');
       sws.freeContext();
@@ -357,7 +357,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // Very wide to very tall
-      sws.getContext(1920, 100, AV_PIX_FMT_YUV420P, 100, 1080, AV_PIX_FMT_YUV420P, AV_SWS_LANCZOS);
+      sws.getContext(1920, 100, AV_PIX_FMT_YUV420P, 100, 1080, AV_PIX_FMT_YUV420P, SWS_LANCZOS);
 
       assert.ok(sws, 'Should handle extreme aspect ratio change');
       sws.freeContext();
@@ -366,7 +366,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle zero stride in scale operation', async () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       const srcSlice = [Buffer.alloc(320 * 240), Buffer.alloc(160 * 120), Buffer.alloc(160 * 120)];
 
@@ -385,11 +385,11 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // First allocation
-      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_RGB24, SWS_BILINEAR);
       sws.freeContext();
 
       // Second allocation with different parameters
-      sws.getContext(1920, 1080, AV_PIX_FMT_NV12, 1280, 720, AV_PIX_FMT_RGBA, AV_SWS_LANCZOS);
+      sws.getContext(1920, 1080, AV_PIX_FMT_NV12, 1280, 720, AV_PIX_FMT_RGBA, SWS_LANCZOS);
       sws.freeContext();
 
       assert.ok(true, 'Should handle multiple allocations');
@@ -399,10 +399,10 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // First context
-      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       // Replace with new context (should free old one)
-      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 640, 360, AV_PIX_FMT_YUV420P, AV_SWS_BICUBIC);
+      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 640, 360, AV_PIX_FMT_YUV420P, SWS_BICUBIC);
 
       sws.freeContext();
       assert.ok(true, 'Should replace context cleanly');
@@ -411,7 +411,7 @@ describe('SoftwareScaleContext', () => {
     it('should handle frame scaling with auto-allocated destination', async () => {
       const sws = new SoftwareScaleContext();
 
-      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, AV_SWS_BILINEAR);
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
 
       // Source frame
       const srcFrame = new Frame();
@@ -443,7 +443,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // Fast algorithm for real-time processing
-      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 1280, 720, AV_PIX_FMT_YUV420P, AV_SWS_FAST_BILINEAR);
+      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 1280, 720, AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR);
 
       assert.ok(sws, 'Should configure for real-time scaling');
       sws.freeContext();
@@ -453,7 +453,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // High quality algorithm for offline processing
-      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 3840, 2160, AV_PIX_FMT_YUV420P, ((AV_SWS_LANCZOS as number) | (AV_SWS_ACCURATE_RND as number)) as any);
+      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 3840, 2160, AV_PIX_FMT_YUV420P, ((SWS_LANCZOS as number) | (SWS_ACCURATE_RND as number)) as any);
 
       assert.ok(sws, 'Should configure for high-quality scaling');
       sws.freeContext();
@@ -470,7 +470,7 @@ describe('SoftwareScaleContext', () => {
         160,
         90,
         AV_PIX_FMT_RGB24,
-        AV_SWS_AREA, // Good for downscaling
+        SWS_AREA, // Good for downscaling
       );
 
       assert.ok(sws, 'Should configure for thumbnail generation');

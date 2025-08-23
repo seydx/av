@@ -302,7 +302,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *   - 0: Success
    *   - AVERROR(EAGAIN): The buffer is full, try again later
    *   - AVERROR(EINVAL): Invalid parameters
-   *   - AV_ERROR_EOF: The filter has been closed
+   *   - AVERROR_EOF: The filter has been closed
    *
    * @example
    * ```typescript
@@ -375,13 +375,13 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success, frame contains valid data
    *   - AVERROR(EAGAIN): No frame available, need more input
-   *   - AV_ERROR_EOF: End of stream reached
+   *   - AVERROR_EOF: End of stream reached
    *   - AVERROR(EINVAL): Invalid parameters
    *
    * @example
    * ```typescript
    * import { Frame, FilterContext, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AV_ERROR_EOF } from '@seydx/av/constants';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
    *
    * // Get filtered frames
    * const frame = new Frame();
@@ -397,7 +397,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *   ret = sinkCtx.buffersinkGetFrame(frame);
    * }
    *
-   * if (!FFmpegError.is(ret, AVERROR_EAGAIN) && !FFmpegError.is(ret, AV_ERROR_EOF)) {
+   * if (!FFmpegError.is(ret, AVERROR_EAGAIN) && !FFmpegError.is(ret, AVERROR_EOF)) {
    *   FFmpegError.throwIfError(ret, 'buffersinkGetFrame');
    * }
    * ```

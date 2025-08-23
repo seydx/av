@@ -2,15 +2,15 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
 import {
+  AVMEDIA_TYPE_ATTACHMENT,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_DATA,
+  AVMEDIA_TYPE_SUBTITLE,
+  AVMEDIA_TYPE_VIDEO,
   AV_CHANNEL_LAYOUT_5POINT1_BACK,
   AV_CHANNEL_LAYOUT_7POINT1,
   AV_CHANNEL_LAYOUT_MONO,
   AV_CHANNEL_LAYOUT_STEREO,
-  AV_MEDIA_TYPE_ATTACHMENT,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_DATA,
-  AV_MEDIA_TYPE_SUBTITLE,
-  AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_BGR24,
   AV_PIX_FMT_CUDA,
   AV_PIX_FMT_NONE,
@@ -240,11 +240,11 @@ describe('Utilities', () => {
 
   describe('Media Type Functions', () => {
     it('should get media type string', () => {
-      assert.equal(avGetMediaTypeString(AV_MEDIA_TYPE_VIDEO), 'video');
-      assert.equal(avGetMediaTypeString(AV_MEDIA_TYPE_AUDIO), 'audio');
-      assert.equal(avGetMediaTypeString(AV_MEDIA_TYPE_DATA), 'data');
-      assert.equal(avGetMediaTypeString(AV_MEDIA_TYPE_SUBTITLE), 'subtitle');
-      assert.equal(avGetMediaTypeString(AV_MEDIA_TYPE_ATTACHMENT), 'attachment');
+      assert.equal(avGetMediaTypeString(AVMEDIA_TYPE_VIDEO), 'video');
+      assert.equal(avGetMediaTypeString(AVMEDIA_TYPE_AUDIO), 'audio');
+      assert.equal(avGetMediaTypeString(AVMEDIA_TYPE_DATA), 'data');
+      assert.equal(avGetMediaTypeString(AVMEDIA_TYPE_SUBTITLE), 'subtitle');
+      assert.equal(avGetMediaTypeString(AVMEDIA_TYPE_ATTACHMENT), 'attachment');
     });
 
     it('should handle invalid media type', () => {

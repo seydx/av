@@ -20,11 +20,11 @@ import type { AVMediaType } from '../../lib/constants.js';
  * @example
  * ```typescript
  * import { MediaType } from '@seydx/av';
- * import { AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO } from '@seydx/av/constants';
+ * import { AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO } from '@seydx/av/constants';
  *
- * console.log(MediaType.getString(AV_MEDIA_TYPE_VIDEO));      // "video"
- * console.log(MediaType.getString(AV_MEDIA_TYPE_AUDIO));      // "audio"
- * console.log(MediaType.getString(AV_MEDIA_TYPE_SUBTITLE));   // "subtitle"
+ * console.log(MediaType.getString(AVMEDIA_TYPE_VIDEO));      // "video"
+ * console.log(MediaType.getString(AVMEDIA_TYPE_AUDIO));      // "audio"
+ * console.log(MediaType.getString(AVMEDIA_TYPE_SUBTITLE));   // "subtitle"
  * ```
  */
 export class MediaType {
@@ -44,18 +44,18 @@ export class MediaType {
    * ```typescript
    * import { MediaType } from '@seydx/av';
    * import {
-   *   AV_MEDIA_TYPE_VIDEO,
-   *   AV_MEDIA_TYPE_AUDIO,
-   *   AV_MEDIA_TYPE_DATA,
-   *   AV_MEDIA_TYPE_SUBTITLE,
-   *   AV_MEDIA_TYPE_ATTACHMENT
+   *   AVMEDIA_TYPE_VIDEO,
+   *   AVMEDIA_TYPE_AUDIO,
+   *   AVMEDIA_TYPE_DATA,
+   *   AVMEDIA_TYPE_SUBTITLE,
+   *   AVMEDIA_TYPE_ATTACHMENT
    * } from '@seydx/av/constants';
    *
-   * console.log(MediaType.getString(AV_MEDIA_TYPE_VIDEO));      // "video"
-   * console.log(MediaType.getString(AV_MEDIA_TYPE_AUDIO));      // "audio"
-   * console.log(MediaType.getString(AV_MEDIA_TYPE_DATA));       // "data"
-   * console.log(MediaType.getString(AV_MEDIA_TYPE_SUBTITLE));   // "subtitle"
-   * console.log(MediaType.getString(AV_MEDIA_TYPE_ATTACHMENT)); // "attachment"
+   * console.log(MediaType.getString(AVMEDIA_TYPE_VIDEO));      // "video"
+   * console.log(MediaType.getString(AVMEDIA_TYPE_AUDIO));      // "audio"
+   * console.log(MediaType.getString(AVMEDIA_TYPE_DATA));       // "data"
+   * console.log(MediaType.getString(AVMEDIA_TYPE_SUBTITLE));   // "subtitle"
+   * console.log(MediaType.getString(AVMEDIA_TYPE_ATTACHMENT)); // "attachment"
    * ```
    */
   static getString(type: AVMediaType): string | null {

@@ -2,7 +2,7 @@ import { bindings } from './binding.js';
 import { FilterContext } from './filter-context.js';
 import { OptionMember } from './option.js';
 
-import type { AVFilterCmdFlag, AVFilterThreadType } from './constants.js';
+import type { AVFilterCmdFlag, AVFilterConstants } from './constants.js';
 import type { FilterInOut } from './filter-inout.js';
 import type { Filter } from './filter.js';
 import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
@@ -119,13 +119,13 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * Direct mapping to AVFilterGraph->thread_type
    *
-   * Controls threading behavior of the graph (0 = disabled, AV_FILTER_THREAD_SLICE = slice threading).
+   * Controls threading behavior of the graph (0 = disabled, AVFILTER_THREAD_SLICE = slice threading).
    */
-  get threadType(): AVFilterThreadType {
+  get threadType(): AVFilterConstants {
     return this.native.threadType;
   }
 
-  set threadType(value: AVFilterThreadType) {
+  set threadType(value: AVFilterConstants) {
     this.native.threadType = value;
   }
 
@@ -478,19 +478,19 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
-   *   - AV_ERROR_EOF: No more frames available
+   *   - AVERROR_EOF: No more frames available
    *   - AVERROR(EAGAIN): Need more input data
    *   - <0: Other processing errors
    *
    * @example
    * ```typescript
    * import { FilterGraph, FFmpegError } from '@seydx/av';
-   * import { AV_ERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
    *
    * // Pull frames from the graph
    * while (true) {
    *   const ret = await graph.requestOldest();
-   *   if (FFmpegError.is(ret, AV_ERROR_EOF)) {
+   *   if (FFmpegError.is(ret, AVERROR_EOF)) {
    *     break; // No more frames
    *   }
    *   if (ret < 0 && !FFmpegError.is(ret, AVERROR_EAGAIN)) {
@@ -533,14 +533,14 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * @param cmd - Command name (e.g., "volume", "hue", "rate")
    * @param arg - Command argument (e.g., "0.5", "2.0")
    * @param flags - Command flags (AVFilterCmdFlag, default: 0)
-   *   - AV_FILTER_CMD_FLAG_ONE: Stop once a filter understood the command
-   *   - AV_FILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
+   *   - AVFILTER_CMD_FLAG_ONE: Stop once a filter understood the command
+   *   - AVFILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
    *
    * @returns Error code (negative) or response object { response: string | null }
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError, AV_FILTER_CMD_FLAG_ONE } from '@seydx/av';
+   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from '@seydx/av';
    *
    * // Send volume change command to audio filter
    * const result = graph.sendCommand('volume', 'volume', '0.5');
@@ -554,7 +554,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * @example
    * ```typescript
    * // Send command to all filters, stop at first one that handles it
-   * const result = graph.sendCommand('all', 'enable', 'expr=gte(t,10)', AV_FILTER_CMD_FLAG_ONE);
+   * const result = graph.sendCommand('all', 'enable', 'expr=gte(t,10)', AVFILTER_CMD_FLAG_ONE);
    *
    * // Send command to specific filter
    * const result = graph.sendCommand('scale', 'width', '1920');
@@ -576,14 +576,14 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * @param arg - Command argument (e.g., "0.5", "2.0")
    * @param ts - Timestamp when the command should be executed
    * @param flags - Command flags (AVFilterCmdFlag, default: 0)
-   *   - AV_FILTER_CMD_FLAG_ONE: Stop once a filter understood the command
-   *   - AV_FILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
+   *   - AVFILTER_CMD_FLAG_ONE: Stop once a filter understood the command
+   *   - AVFILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
    *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError, AV_FILTER_CMD_FLAG_ONE } from '@seydx/av';
+   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from '@seydx/av';
    *
    * // Queue volume change at 10 seconds
    * const ret = graph.queueCommand('volume', 'volume', '0.2', 10.0);

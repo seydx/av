@@ -46,9 +46,9 @@ export class FFmpegError extends Error {
    * @example
    * ```typescript
    * import { FFmpegError } from '@seydx/av';
-   * import { AV_ERROR_EOF } from '@seydx/av/constants';
+   * import { AVERROR_EOF } from '@seydx/av/constants';
    *
-   * const error = new FFmpegError(AV_ERROR_EOF);
+   * const error = new FFmpegError(AVERROR_EOF);
    * console.log(error.message); // "End of file"
    * console.log(error.code);    // -541478725
    * ```
@@ -81,12 +81,12 @@ export class FFmpegError extends Error {
    * @example
    * ```typescript
    * import { FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AV_ERROR_EOF } from '@seydx/av/constants';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
    *
    * const message = FFmpegError.strerror(AVERROR_EAGAIN);
    * console.log(message); // "Resource temporarily unavailable"
    *
-   * const message2 = FFmpegError.strerror(AV_ERROR_EOF);
+   * const message2 = FFmpegError.strerror(AVERROR_EOF);
    * console.log(message2); // "End of file"
    * ```
    */
@@ -219,10 +219,10 @@ export class FFmpegError extends Error {
    * @example
    * ```typescript
    * import { FFmpegError } from '@seydx/av';
-   * import { AV_ERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
    *
    * const ret = await codecContext.receiveFrame(frame);
-   * if (FFmpegError.is(ret, AV_ERROR_EOF)) {
+   * if (FFmpegError.is(ret, AVERROR_EOF)) {
    *   console.log('End of stream reached');
    * } else if (FFmpegError.is(ret, AVERROR_EAGAIN)) {
    *   console.log('Need more input');

@@ -1,17 +1,17 @@
 import {
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
-  AV_FILTER_FLAG_HWDEVICE,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVFILTER_FLAG_HWDEVICE,
+  avGetPixFmtName,
+  avGetSampleFmtName,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   FFmpegError,
   Frame,
   Filter as LowLevelFilter,
   FilterGraph as LowLevelFilterGraph,
   FilterInOut as LowLevelFilterInOut,
   Stream,
-  avGetPixFmtName,
-  avGetSampleFmtName,
 } from '../lib/index.js';
 
 import type {
@@ -100,7 +100,7 @@ export class FilterAPI implements Disposable {
   private constructor(config: FilterConfig, hardware?: HardwareContext | null) {
     this.config = config;
     this.hardware = hardware;
-    this.mediaType = config.type === 'video' ? AV_MEDIA_TYPE_VIDEO : AV_MEDIA_TYPE_AUDIO;
+    this.mediaType = config.type === 'video' ? AVMEDIA_TYPE_VIDEO : AVMEDIA_TYPE_AUDIO;
     this.graph = new LowLevelFilterGraph();
   }
 
@@ -149,7 +149,7 @@ export class FilterAPI implements Disposable {
     let config: FilterConfig;
 
     if (input instanceof Stream) {
-      if (input.codecpar.codecType === AV_MEDIA_TYPE_VIDEO) {
+      if (input.codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
         config = {
           type: 'video',
           width: input.codecpar.width,
@@ -159,7 +159,7 @@ export class FilterAPI implements Disposable {
           frameRate: input.rFrameRate,
           sampleAspectRatio: input.codecpar.sampleAspectRatio,
         };
-      } else if (input.codecpar.codecType === AV_MEDIA_TYPE_AUDIO) {
+      } else if (input.codecpar.codecType === AVMEDIA_TYPE_AUDIO) {
         config = {
           type: 'audio',
           sampleRate: input.codecpar.sampleRate,
@@ -219,7 +219,7 @@ export class FilterAPI implements Disposable {
       const lowLevelFilter = LowLevelFilter.getByName(filterName);
       if (lowLevelFilter) {
         // Check if this filter needs hardware
-        if ((lowLevelFilter.flags & AV_FILTER_FLAG_HWDEVICE) !== 0) {
+        if ((lowLevelFilter.flags & AVFILTER_FLAG_HWDEVICE) !== 0) {
           needsHardwareDevice = true;
           // Only non-hwupload filters need frames context from decoder
           if (filterName !== 'hwupload' && filterName !== 'hwdownload') {
@@ -314,7 +314,7 @@ export class FilterAPI implements Disposable {
 
     if (getRet >= 0) {
       return outputFrame;
-    } else if (FFmpegError.is(getRet, AV_ERROR_EAGAIN)) {
+    } else if (FFmpegError.is(getRet, AVERROR_EAGAIN)) {
       // Need more input
       outputFrame.free();
       return null;
@@ -396,7 +396,7 @@ export class FilterAPI implements Disposable {
       return frame;
     } else {
       frame.free();
-      if (FFmpegError.is(ret, AV_ERROR_EAGAIN) || FFmpegError.is(ret, AV_ERROR_EOF)) {
+      if (FFmpegError.is(ret, AVERROR_EAGAIN) || FFmpegError.is(ret, AVERROR_EOF)) {
         return null;
       }
       FFmpegError.throwIfError(ret, 'Failed to receive frame from filter');
@@ -431,7 +431,7 @@ export class FilterAPI implements Disposable {
     }
 
     const ret = await this.buffersrcCtx.buffersrcAddFrame(null);
-    if (ret < 0 && !FFmpegError.is(ret, AV_ERROR_EOF)) {
+    if (ret < 0 && !FFmpegError.is(ret, AVERROR_EOF)) {
       FFmpegError.throwIfError(ret, 'Failed to flush filter');
     }
   }
@@ -629,7 +629,7 @@ export class FilterAPI implements Disposable {
         for (const filterCtx of filters) {
           // Check if this filter needs hardware device context
           const filter = filterCtx.filter;
-          if (filter && (filter.flags & AV_FILTER_FLAG_HWDEVICE) !== 0) {
+          if (filter && (filter.flags & AVFILTER_FLAG_HWDEVICE) !== 0) {
             // Set hardware device context on this filter
             filterCtx.hwDeviceCtx = this.hardware.deviceContext;
           }

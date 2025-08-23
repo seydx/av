@@ -11,11 +11,11 @@
  */
 
 import {
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
-  AV_SEEK_FLAG_NONE,
+  AVFLAG_NONE,
   avGetPixFmtName,
   avGetSampleFmtName,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   Dictionary,
   FFmpegError,
   FormatContext,
@@ -390,7 +390,7 @@ export class MediaInput implements AsyncDisposable {
    * ```
    */
   video(index = 0): Stream | undefined {
-    const streams = this._streams.filter((s) => s.codecpar.codecType === AV_MEDIA_TYPE_VIDEO);
+    const streams = this._streams.filter((s) => s.codecpar.codecType === AVMEDIA_TYPE_VIDEO);
     return streams[index];
   }
 
@@ -410,7 +410,7 @@ export class MediaInput implements AsyncDisposable {
    * ```
    */
   audio(index = 0): Stream | undefined {
-    const streams = this._streams.filter((s) => s.codecpar.codecType === AV_MEDIA_TYPE_AUDIO);
+    const streams = this._streams.filter((s) => s.codecpar.codecType === AVMEDIA_TYPE_AUDIO);
     return streams[index];
   }
 
@@ -496,7 +496,7 @@ export class MediaInput implements AsyncDisposable {
    *
    * @returns 0 on success, negative error code on failure
    */
-  async seek(timestamp: number, streamIndex = -1, flags: AVSeekFlag = AV_SEEK_FLAG_NONE): Promise<number> {
+  async seek(timestamp: number, streamIndex = -1, flags: AVSeekFlag = AVFLAG_NONE): Promise<number> {
     // Convert seconds to AV_TIME_BASE
     const ts = BigInt(Math.floor(timestamp * 1000000));
     return this.formatContext.seekFrame(streamIndex, ts, flags);

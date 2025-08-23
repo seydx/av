@@ -2,11 +2,6 @@ import { strict as assert } from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
-  AV_CHROMA_LOCATION_LEFT,
-  AV_COLOR_PRIMARIES_BT709,
-  AV_COLOR_RANGE_JPEG,
-  AV_COLOR_SPACE_BT709,
-  AV_COLOR_TRC_BT709,
   AV_FRAME_DATA_A53_CC,
   AV_FRAME_DATA_MASTERING_DISPLAY_METADATA,
   AV_FRAME_DATA_MOTION_VECTORS,
@@ -18,6 +13,11 @@ import {
   AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16,
+  AVCHROMA_LOC_LEFT,
+  AVCOL_PRI_BT709,
+  AVCOL_RANGE_JPEG,
+  AVCOL_SPC_BT709,
+  AVCOL_TRC_BT709,
   Frame,
   Rational,
 } from '../src/lib/index.js';
@@ -125,17 +125,17 @@ describe('Frame', () => {
     });
 
     it('should set and get color properties', () => {
-      frame.colorRange = AV_COLOR_RANGE_JPEG;
-      frame.colorPrimaries = AV_COLOR_PRIMARIES_BT709;
-      frame.colorTrc = AV_COLOR_TRC_BT709;
-      frame.colorSpace = AV_COLOR_SPACE_BT709;
-      frame.chromaLocation = AV_CHROMA_LOCATION_LEFT;
+      frame.colorRange = AVCOL_RANGE_JPEG;
+      frame.colorPrimaries = AVCOL_PRI_BT709;
+      frame.colorTrc = AVCOL_TRC_BT709;
+      frame.colorSpace = AVCOL_SPC_BT709;
+      frame.chromaLocation = AVCHROMA_LOC_LEFT;
 
-      assert.equal(frame.colorRange, AV_COLOR_RANGE_JPEG);
-      assert.equal(frame.colorPrimaries, AV_COLOR_PRIMARIES_BT709);
-      assert.equal(frame.colorTrc, AV_COLOR_TRC_BT709);
-      assert.equal(frame.colorSpace, AV_COLOR_SPACE_BT709);
-      assert.equal(frame.chromaLocation, AV_CHROMA_LOCATION_LEFT);
+      assert.equal(frame.colorRange, AVCOL_RANGE_JPEG);
+      assert.equal(frame.colorPrimaries, AVCOL_PRI_BT709);
+      assert.equal(frame.colorTrc, AVCOL_TRC_BT709);
+      assert.equal(frame.colorSpace, AVCOL_SPC_BT709);
+      assert.equal(frame.chromaLocation, AVCHROMA_LOC_LEFT);
     });
 
     it('should set and get picture type', () => {
@@ -365,7 +365,7 @@ describe('Frame', () => {
       srcFrame.pts = 5000n;
       srcFrame.keyFrame = 1;
       srcFrame.pictType = AV_PICTURE_TYPE_I;
-      srcFrame.colorRange = AV_COLOR_RANGE_JPEG;
+      srcFrame.colorRange = AVCOL_RANGE_JPEG;
 
       const ret = frame.copyProps(srcFrame);
       assert.ok(ret >= 0);

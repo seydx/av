@@ -14,11 +14,11 @@ import {
   AV_CODEC_ID_OPUS,
   AV_CODEC_ID_PCM_S16LE,
   AV_CODEC_ID_PNG,
+  AV_CODEC_ID_VORBIS,
   AV_CODEC_ID_VP8,
   AV_CODEC_ID_VP9,
-  AV_CODEC_ID_VORBIS,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   Codec,
 } from '../src/lib/index.js';
 
@@ -29,7 +29,7 @@ describe('Codec', () => {
       assert.ok(decoder);
       assert.ok(decoder.isDecoder());
       assert.equal(decoder.id, AV_CODEC_ID_H264);
-      assert.equal(decoder.type, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(decoder.type, AVMEDIA_TYPE_VIDEO);
       assert.ok(decoder.name);
       assert.ok(decoder.longName);
     });
@@ -39,7 +39,7 @@ describe('Codec', () => {
       assert.ok(decoder);
       assert.ok(decoder.isDecoder());
       assert.equal(decoder.id, AV_CODEC_ID_AAC);
-      assert.equal(decoder.type, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(decoder.type, AVMEDIA_TYPE_AUDIO);
     });
 
     it('should find decoder by name', () => {
@@ -47,7 +47,7 @@ describe('Codec', () => {
       assert.ok(decoder);
       assert.ok(decoder.isDecoder());
       assert.equal(decoder.name, 'h264');
-      assert.equal(decoder.type, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(decoder.type, AVMEDIA_TYPE_VIDEO);
     });
 
     it('should find AAC decoder by name', () => {
@@ -55,7 +55,7 @@ describe('Codec', () => {
       assert.ok(decoder);
       assert.ok(decoder.isDecoder());
       assert.equal(decoder.name, 'aac');
-      assert.equal(decoder.type, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(decoder.type, AVMEDIA_TYPE_AUDIO);
     });
 
     it('should return null for non-existent decoder ID', () => {
@@ -84,7 +84,7 @@ describe('Codec', () => {
         const decoder = Codec.findDecoder(id);
         assert.ok(decoder, `Decoder for codec ID ${id} should exist`);
         assert.ok(decoder.isDecoder());
-        assert.equal(decoder.type, AV_MEDIA_TYPE_VIDEO);
+        assert.equal(decoder.type, AVMEDIA_TYPE_VIDEO);
       }
     });
 
@@ -95,7 +95,7 @@ describe('Codec', () => {
         const decoder = Codec.findDecoder(id);
         assert.ok(decoder, `Decoder for codec ID ${id} should exist`);
         assert.ok(decoder.isDecoder());
-        assert.equal(decoder.type, AV_MEDIA_TYPE_AUDIO);
+        assert.equal(decoder.type, AVMEDIA_TYPE_AUDIO);
       }
     });
   });
@@ -107,7 +107,7 @@ describe('Codec', () => {
       if (encoder) {
         assert.ok(encoder.isEncoder());
         assert.equal(encoder.id, AV_CODEC_ID_H264);
-        assert.equal(encoder.type, AV_MEDIA_TYPE_VIDEO);
+        assert.equal(encoder.type, AVMEDIA_TYPE_VIDEO);
       }
     });
 
@@ -118,7 +118,7 @@ describe('Codec', () => {
       if (encoder) {
         assert.ok(encoder.isEncoder());
         assert.equal(encoder.name, 'libx264');
-        assert.equal(encoder.type, AV_MEDIA_TYPE_VIDEO);
+        assert.equal(encoder.type, AVMEDIA_TYPE_VIDEO);
       } else {
         // Try fallback to any h264 encoder
         const fallback = Codec.findEncoder(AV_CODEC_ID_H264);
@@ -134,7 +134,7 @@ describe('Codec', () => {
       if (encoder) {
         assert.ok(encoder.isEncoder());
         assert.equal(encoder.id, AV_CODEC_ID_AAC);
-        assert.equal(encoder.type, AV_MEDIA_TYPE_AUDIO);
+        assert.equal(encoder.type, AVMEDIA_TYPE_AUDIO);
       }
     });
 
@@ -148,7 +148,7 @@ describe('Codec', () => {
       assert.ok(encoder);
       assert.ok(encoder.isEncoder());
       assert.equal(encoder.id, AV_CODEC_ID_PNG);
-      assert.equal(encoder.type, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(encoder.type, AVMEDIA_TYPE_VIDEO);
     });
 
     it('should find PCM encoder', () => {
@@ -156,7 +156,7 @@ describe('Codec', () => {
       assert.ok(encoder);
       assert.ok(encoder.isEncoder());
       assert.equal(encoder.id, AV_CODEC_ID_PCM_S16LE);
-      assert.equal(encoder.type, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(encoder.type, AVMEDIA_TYPE_AUDIO);
     });
   });
 
@@ -169,7 +169,7 @@ describe('Codec', () => {
       assert.equal(decoder.name, 'h264');
       assert.ok(decoder.longName);
       assert.ok(decoder.longName.includes('H.264') || decoder.longName.includes('AVC'));
-      assert.equal(decoder.type, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(decoder.type, AVMEDIA_TYPE_VIDEO);
       assert.equal(decoder.id, AV_CODEC_ID_H264);
 
       // Capabilities
@@ -186,7 +186,7 @@ describe('Codec', () => {
 
       assert.equal(decoder.name, 'aac');
       assert.ok(decoder.longName);
-      assert.equal(decoder.type, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(decoder.type, AVMEDIA_TYPE_AUDIO);
       assert.equal(decoder.id, AV_CODEC_ID_AAC);
 
       assert.ok(decoder.isDecoder());
@@ -339,8 +339,8 @@ describe('Codec', () => {
       assert.ok(decoders.length > 0);
 
       // Should have both audio and video codecs
-      const videoCodecs = codecs.filter((c) => c.type === AV_MEDIA_TYPE_VIDEO);
-      const audioCodecs = codecs.filter((c) => c.type === AV_MEDIA_TYPE_AUDIO);
+      const videoCodecs = codecs.filter((c) => c.type === AVMEDIA_TYPE_VIDEO);
+      const audioCodecs = codecs.filter((c) => c.type === AVMEDIA_TYPE_AUDIO);
       assert.ok(videoCodecs.length > 0);
       assert.ok(audioCodecs.length > 0);
     });
@@ -449,7 +449,7 @@ describe('Codec', () => {
       // PCM codecs should always be available
       const pcmDecoder = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
       assert.ok(pcmDecoder);
-      assert.equal(pcmDecoder.type, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(pcmDecoder.type, AVMEDIA_TYPE_AUDIO);
 
       // PCM codecs typically don't need complex initialization
       assert.ok(pcmDecoder.isDecoder());

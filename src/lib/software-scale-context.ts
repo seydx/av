@@ -1,8 +1,8 @@
 import { bindings } from './binding.js';
-import { AV_SWS_BILINEAR } from './constants.js';
+import { SWS_BILINEAR } from './constants.js';
 import { OptionMember } from './option.js';
 
-import type { AVPixelFormat, AVSoftwareScaleFlag } from './constants.js';
+import type { AVPixelFormat, SWSFlag } from './constants.js';
 import type { Frame } from './frame.js';
 import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.js';
 
@@ -18,14 +18,14 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
  * @example
  * ```typescript
  * import { SoftwareScaleContext, Frame, FFmpegError } from '@seydx/av';
- * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
+ * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
  *
  * // Create and configure scale context
  * const sws = new SoftwareScaleContext();
  * sws.getContext(
  *   1920, 1080, AV_PIX_FMT_YUV420P,
  *   1280, 720, AV_PIX_FMT_RGB24,
- *   AV_SWS_BILINEAR
+ *   SWS_BILINEAR
  * );
  *
  * // Scale frame data
@@ -54,13 +54,13 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    * @example
    * ```typescript
    * import { SoftwareScaleContext } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
    *
    * const sws = new SoftwareScaleContext();
    * sws.getContext(
    *   1920, 1080, AV_PIX_FMT_YUV420P,
    *   1280, 720, AV_PIX_FMT_RGB24,
-   *   AV_SWS_BILINEAR
+   *   SWS_BILINEAR
    * );
    * ```
    */
@@ -111,45 +111,37 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    * @param dstH - The height of the destination image
    * @param dstFormat - The destination image format
    * @param flags - Specify which algorithm and options to use for rescaling:
-   *   - AV_SWS_FAST_BILINEAR: Fast bilinear
-   *   - AV_SWS_BILINEAR: Bilinear
-   *   - AV_SWS_BICUBIC: Bicubic
-   *   - AV_SWS_X: Experimental
-   *   - AV_SWS_POINT: Nearest neighbor
-   *   - AV_SWS_AREA: Area averaging
-   *   - AV_SWS_BICUBLIN: Luma bicubic, chroma bilinear
-   *   - AV_SWS_GAUSS: Gaussian
-   *   - AV_SWS_SINC: Sinc
-   *   - AV_SWS_LANCZOS: Lanczos
-   *   - AV_SWS_SPLINE: Natural bicubic spline
+   *   - SWS_FAST_BILINEAR: Fast bilinear
+   *   - SWS_BILINEAR: Bilinear
+   *   - SWS_BICUBIC: Bicubic
+   *   - SWS_X: Experimental
+   *   - SWS_POINT: Nearest neighbor
+   *   - SWS_AREA: Area averaging
+   *   - SWS_BICUBLIN: Luma bicubic, chroma bilinear
+   *   - SWS_GAUSS: Gaussian
+   *   - SWS_SINC: Sinc
+   *   - SWS_LANCZOS: Lanczos
+   *   - SWS_SPLINE: Natural bicubic spline
    *
    * @throws {Error} Memory allocation failure (ENOMEM)
    *
    * @example
    * ```typescript
    * import { SoftwareScaleContext } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
    *
    * // Scale from 1080p YUV to 720p RGB
    * sws.getContext(
    *   1920, 1080, AV_PIX_FMT_YUV420P,
    *   1280, 720, AV_PIX_FMT_RGB24,
-   *   AV_SWS_BILINEAR
+   *   SWS_BILINEAR
    * );
    * ```
    *
    * @see {@link scale} To scale image data
    * @see {@link scaleFrame} To scale Frame objects
    */
-  getContext(
-    srcW: number,
-    srcH: number,
-    srcFormat: AVPixelFormat,
-    dstW: number,
-    dstH: number,
-    dstFormat: AVPixelFormat,
-    flags: AVSoftwareScaleFlag = AV_SWS_BILINEAR,
-  ): void {
+  getContext(srcW: number, srcH: number, srcFormat: AVPixelFormat, dstW: number, dstH: number, dstFormat: AVPixelFormat, flags: SWSFlag = SWS_BILINEAR): void {
     this.native.getContext(srcW, srcH, srcFormat, dstW, dstH, dstFormat, flags);
   }
 
@@ -307,14 +299,14 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    * @example
    * ```typescript
    * import { SoftwareScaleContext } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, AV_SWS_BILINEAR } from '@seydx/av/constants';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
    *
    * {
    *   using sws = new SoftwareScaleContext();
    *   sws.getContext(
    *     1920, 1080, AV_PIX_FMT_YUV420P,
    *     1280, 720, AV_PIX_FMT_RGB24,
-   *     AV_SWS_BILINEAR
+   *     SWS_BILINEAR
    *   );
    *   // ... use context
    * } // Automatically freed when leaving scope

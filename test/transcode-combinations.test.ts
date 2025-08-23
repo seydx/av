@@ -3,7 +3,7 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, type DecoderOptions, type EncoderOptions, type StreamInfo } from '../src/api/index.js';
-import { AV_FMT_NOFILE, AV_IO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
+import { AVFMT_NOFILE, AVIO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
 import { FormatContext, IOContext } from '../src/lib/index.js';
 
 /**
@@ -103,9 +103,9 @@ describe('Transcode Combinations', () => {
     }
 
     // Open output file
-    if (output.oformat && !(output.oformat.flags & AV_FMT_NOFILE)) {
+    if (output.oformat && !(output.oformat.flags & AVFMT_NOFILE)) {
       const ioContext = new IOContext();
-      await ioContext.open2(outputFile, AV_IO_FLAG_WRITE);
+      await ioContext.open2(outputFile, AVIO_FLAG_WRITE);
       output.pb = ioContext;
     }
 

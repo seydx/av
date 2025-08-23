@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { IOStream } from '../src/api/index.js';
-import { AV_SEEK_SET } from '../src/lib/constants.js';
+import { SEEK_SET } from '../src/lib/constants.js';
 
 describe('IOStream', () => {
   describe('create with Buffer', () => {
@@ -27,7 +27,7 @@ describe('IOStream', () => {
       const ioContext = IOStream.create(buffer);
 
       // Seek to position 5
-      const seekPos = await ioContext.seek(5n, AV_SEEK_SET);
+      const seekPos = await ioContext.seek(5n, SEEK_SET);
       assert.equal(seekPos, 5n);
 
       // Read from new position
@@ -71,7 +71,7 @@ describe('IOStream', () => {
       assert.equal(result.toString(), 'custom');
 
       // Seek and read again
-      await ioContext.seek(7n, AV_SEEK_SET);
+      await ioContext.seek(7n, SEEK_SET);
       const result2 = await ioContext.read(4);
       assert.ok(Buffer.isBuffer(result2), 'Should return a Buffer');
       assert.equal(result2.length, 4);

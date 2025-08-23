@@ -21,11 +21,12 @@ import { createWriteStream } from 'node:fs';
 import {
   AV_CHANNEL_ORDER_NATIVE,
   AV_CHANNEL_ORDER_UNSPEC,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
   AV_LOG_ERROR,
   AV_LOG_INFO,
-  AV_MEDIA_TYPE_AUDIO,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  avGetSampleFmtName,
+  AVMEDIA_TYPE_AUDIO,
   Codec,
   CodecContext,
   FFmpegError,
@@ -36,7 +37,6 @@ import {
   Frame,
   Log,
   Packet,
-  avGetSampleFmtName,
 } from '../src/lib/index.js';
 
 import type { FilterContext } from '../src/lib/index.js';
@@ -66,7 +66,7 @@ async function openInputFile(filename: string): Promise<void> {
   FFmpegError.throwIfError(ret, `Cannot find stream information: ${filename}`);
 
   // Find the best audio stream
-  const result = formatCtx.findBestStream(AV_MEDIA_TYPE_AUDIO, -1, -1);
+  const result = formatCtx.findBestStream(AVMEDIA_TYPE_AUDIO, -1, -1);
   FFmpegError.throwIfError(result, 'Cannot find best audio stream');
 
   audioStreamIndex = result;
@@ -240,7 +240,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
     while (true) {
       const ret = await formatCtx!.readFrame(packet);
       if (ret < 0) {
-        if (ret === AV_ERROR_EOF) {
+        if (ret === AVERROR_EOF) {
           // Send null packet to flush decoder
           if (codecCtx && audioStreamIndex >= 0) {
             codecCtx.sendPacket(null);
@@ -283,7 +283,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
       if (packet.streamIndex === audioStreamIndex) {
         // Send packet to decoder
         let ret = await codecCtx!.sendPacket(packet);
-        if (ret < 0 && ret !== AV_ERROR_EAGAIN) {
+        if (ret < 0 && ret !== AVERROR_EAGAIN) {
           Log.log(AV_LOG_ERROR, `Error sending packet to decoder: ${new FFmpegError(ret).message}`);
           packet.unref();
           continue;
@@ -292,7 +292,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
         // Receive frames from decoder
         while (ret >= 0) {
           ret = await codecCtx!.receiveFrame(frame);
-          if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+          if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
             break;
           } else if (ret < 0) {
             throw new Error(`Error receiving frame from decoder: ${new FFmpegError(ret).message}`);
@@ -308,7 +308,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
           // Pull filtered frames
           while (true) {
             const sinkRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
-            if (sinkRet === AV_ERROR_EAGAIN || sinkRet === AV_ERROR_EOF) {
+            if (sinkRet === AVERROR_EAGAIN || sinkRet === AVERROR_EOF) {
               break;
             }
             FFmpegError.throwIfError(sinkRet, `Error getting filtered frame: ${new FFmpegError(sinkRet).message}`);

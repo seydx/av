@@ -15,9 +15,9 @@ import {
   AV_CHANNEL_LAYOUT_STEREO,
   AV_CODEC_FLAG_GLOBAL_HEADER,
   AV_CODEC_ID_AAC,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
-  AV_FMT_GLOBALHEADER,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVFMT_GLOBALHEADER,
   avSamplesAlloc,
   Codec,
   CodecContext,
@@ -139,7 +139,7 @@ async function openOutputFile(
 
   // Some container formats (like MP4) require global headers to be present
   // Mark the encoder so that it behaves accordingly
-  if (outputFormat.flags & AV_FMT_GLOBALHEADER) {
+  if (outputFormat.flags & AVFMT_GLOBALHEADER) {
     outputCodecContext.flags = (outputCodecContext.flags | AV_CODEC_FLAG_GLOBAL_HEADER) as AVCodecFlag;
   }
 
@@ -217,7 +217,7 @@ async function decodeAudioFrame(inputFormatContext: FormatContext, inputCodecCon
     const readRet = await inputFormatContext.readFrame(inputPacket);
     if (readRet < 0) {
       // If we are at the end of the file, flush the decoder below
-      if (readRet === AV_ERROR_EOF) {
+      if (readRet === AVERROR_EOF) {
         finished = true;
       } else {
         FFmpegError.throwIfError(readRet, 'readFrame');
@@ -226,17 +226,17 @@ async function decodeAudioFrame(inputFormatContext: FormatContext, inputCodecCon
 
     // Send the audio frame stored in the temporary packet to the decoder
     const sendRet = await inputCodecContext.sendPacket(finished ? null : inputPacket);
-    if (sendRet < 0 && sendRet !== AV_ERROR_EOF) {
+    if (sendRet < 0 && sendRet !== AVERROR_EOF) {
       FFmpegError.throwIfError(sendRet, 'sendPacket');
     }
 
     // Receive one frame from the decoder
     const receiveRet = await inputCodecContext.receiveFrame(frame);
 
-    if (receiveRet === AV_ERROR_EAGAIN) {
+    if (receiveRet === AVERROR_EAGAIN) {
       // Decoder asks for more data
       dataPresent = false;
-    } else if (receiveRet === AV_ERROR_EOF) {
+    } else if (receiveRet === AVERROR_EOF) {
       // End of input file reached
       finished = true;
     } else if (receiveRet < 0) {
@@ -343,17 +343,17 @@ async function encodeAudioFrame(frame: Frame | null, outputFormatContext: Format
 
     // Send the audio frame to the encoder
     const sendRet = await outputCodecContext.sendFrame(frame);
-    if (sendRet < 0 && sendRet !== AV_ERROR_EOF) {
+    if (sendRet < 0 && sendRet !== AVERROR_EOF) {
       FFmpegError.throwIfError(sendRet, 'sendFrame');
     }
 
     // Receive one encoded frame from the encoder
     const receiveRet = await outputCodecContext.receivePacket(outputPacket);
 
-    if (receiveRet === AV_ERROR_EAGAIN) {
+    if (receiveRet === AVERROR_EAGAIN) {
       // Encoder asks for more data
       dataPresent = false;
-    } else if (receiveRet === AV_ERROR_EOF) {
+    } else if (receiveRet === AVERROR_EOF) {
       // Last frame has been encoded
       dataPresent = false;
     } else if (receiveRet < 0) {

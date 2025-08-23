@@ -19,10 +19,10 @@ import path from 'node:path';
 
 import {
   AV_CODEC_ID_MPEG1VIDEO,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
   AV_INPUT_BUFFER_PADDING_SIZE,
   AV_NOPTS_VALUE,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
   Codec,
   CodecContext,
   CodecParser,
@@ -64,7 +64,7 @@ async function decode(decCtx: CodecContext, frame: Frame, pkt: Packet | null, ou
   while (true) {
     const recvRet = await decCtx.receiveFrame(frame);
 
-    if (FFmpegError.is(recvRet, AV_ERROR_EAGAIN) || FFmpegError.is(recvRet, AV_ERROR_EOF)) {
+    if (FFmpegError.is(recvRet, AVERROR_EAGAIN) || FFmpegError.is(recvRet, AVERROR_EOF)) {
       return;
     }
 

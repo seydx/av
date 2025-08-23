@@ -11,7 +11,7 @@
  * Example: tsx examples/remux.ts testdata/video.mp4 examples/.tmp/remux.mkv
  */
 
-import { AV_ERROR_EOF, AV_FMT_NOFILE, AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_SUBTITLE, AV_MEDIA_TYPE_VIDEO, FFmpegError, FormatContext, Packet } from '../src/lib/index.js';
+import { AVERROR_EOF, AVFMT_NOFILE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_SUBTITLE, AVMEDIA_TYPE_VIDEO, FFmpegError, FormatContext, Packet } from '../src/lib/index.js';
 
 /**
  * Log packet information for debugging
@@ -88,7 +88,7 @@ async function remux(inputFile: string, outputFile: string): Promise<void> {
       if (!inCodecpar) continue;
 
       // Only process audio, video, and subtitle streams
-      if (inCodecpar.codecType !== AV_MEDIA_TYPE_AUDIO && inCodecpar.codecType !== AV_MEDIA_TYPE_VIDEO && inCodecpar.codecType !== AV_MEDIA_TYPE_SUBTITLE) {
+      if (inCodecpar.codecType !== AVMEDIA_TYPE_AUDIO && inCodecpar.codecType !== AVMEDIA_TYPE_VIDEO && inCodecpar.codecType !== AVMEDIA_TYPE_SUBTITLE) {
         streamMapping[i] = -1;
         continue;
       }
@@ -116,7 +116,7 @@ async function remux(inputFile: string, outputFile: string): Promise<void> {
     ofmtCtx.dumpFormat(0, outputFile, true);
 
     // Open output file if needed
-    if (!(ofmt.flags & AV_FMT_NOFILE)) {
+    if (!(ofmt.flags & AVFMT_NOFILE)) {
       const openRet = await ofmtCtx.openOutput();
       FFmpegError.throwIfError(openRet, 'openOutput');
     }
@@ -130,7 +130,7 @@ async function remux(inputFile: string, outputFile: string): Promise<void> {
       // Read packet from input
       const readRet = await ifmtCtx.readFrame(pkt);
 
-      if (FFmpegError.is(readRet, AV_ERROR_EOF)) {
+      if (FFmpegError.is(readRet, AVERROR_EOF)) {
         break; // End of file
       }
       FFmpegError.throwIfError(readRet, 'readFrame');
@@ -199,7 +199,7 @@ async function remux(inputFile: string, outputFile: string): Promise<void> {
     if (ofmtCtx) {
       const ofmt = ofmtCtx.oformat;
       // Close output file if it was opened
-      if (ofmt && !(ofmt.flags & AV_FMT_NOFILE)) {
+      if (ofmt && !(ofmt.flags & AVFMT_NOFILE)) {
         await ofmtCtx.closeOutput();
       }
       ofmtCtx.freeContext();

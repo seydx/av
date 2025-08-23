@@ -8,13 +8,13 @@ import { Encoder } from '../src/api/encoder.js';
 import { FilterAPI, FilterPresets } from '../src/api/filter.js';
 import { MediaInput } from '../src/api/media-input.js';
 import {
-  AV_FILTER_CMD_FLAG_ONE,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16,
+  AVFILTER_CMD_FLAG_ONE,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
 } from '../src/lib/constants.js';
 import { Frame } from '../src/lib/index.js';
 
@@ -48,7 +48,7 @@ describe('High-Level Filter API', () => {
       const filter = await FilterAPI.create('scale=1280:720', config);
       assert.ok(filter);
       assert.ok(filter.isReady());
-      assert.equal(filter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
+      assert.equal(filter.getMediaType(), AVMEDIA_TYPE_VIDEO);
       filter.free();
     });
 
@@ -64,7 +64,7 @@ describe('High-Level Filter API', () => {
       const filter = await FilterAPI.create('volume=0.5', config);
       assert.ok(filter);
       assert.ok(filter.isReady());
-      assert.equal(filter.getMediaType(), AV_MEDIA_TYPE_AUDIO);
+      assert.equal(filter.getMediaType(), AVMEDIA_TYPE_AUDIO);
       filter.free();
     });
 
@@ -93,7 +93,7 @@ describe('High-Level Filter API', () => {
       const filter = await FilterAPI.create('scale=640:480', videoStream);
       assert.ok(filter);
       assert.ok(filter.isReady());
-      assert.equal(filter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
+      assert.equal(filter.getMediaType(), AVMEDIA_TYPE_VIDEO);
 
       filter.free();
       await media.close();
@@ -529,7 +529,7 @@ describe('High-Level Filter API', () => {
       };
 
       const videoFilter = await FilterAPI.create('scale=1280:720', videoConfig);
-      assert.equal(videoFilter.getMediaType(), AV_MEDIA_TYPE_VIDEO);
+      assert.equal(videoFilter.getMediaType(), AVMEDIA_TYPE_VIDEO);
       videoFilter.free();
 
       const audioConfig: AudioInfo = {
@@ -541,7 +541,7 @@ describe('High-Level Filter API', () => {
       };
 
       const audioFilter = await FilterAPI.create('volume=0.5', audioConfig);
-      assert.equal(audioFilter.getMediaType(), AV_MEDIA_TYPE_AUDIO);
+      assert.equal(audioFilter.getMediaType(), AVMEDIA_TYPE_AUDIO);
       audioFilter.free();
     });
   });
@@ -922,8 +922,8 @@ describe('High-Level Filter API', () => {
       const filter = await FilterAPI.create('volume=1.0', audioConfig);
 
       try {
-        // Send command with AV_FILTER_CMD_FLAG_ONE
-        const response = filter.sendCommand('all', 'enable', '1', AV_FILTER_CMD_FLAG_ONE);
+        // Send command with AVFILTER_CMD_FLAG_ONE
+        const response = filter.sendCommand('all', 'enable', '1', AVFILTER_CMD_FLAG_ONE);
         assert.ok(response !== undefined, 'Should return a response');
       } catch (err) {
         // Command might fail, but the API should work

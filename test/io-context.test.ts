@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { AV_IO_FLAG_READ, AV_IO_FLAG_WRITE, AV_SEEK_CUR, AV_SEEK_END, AV_SEEK_SET, AV_SEEK_SIZE, IOContext } from '../src/lib/index.js';
+import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_SIZE, IOContext, SEEK_CUR, SEEK_END, SEEK_SET } from '../src/lib/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +17,7 @@ const testImageFile = path.join(testDataDir, 'image-rgba.png');
 const tempOutputFile = path.join(__dirname, 'test-output.tmp');
 
 // Legacy constants - kept for reference
-// Now using AV_SEEK_SET, AV_SEEK_CUR, AV_SEEK_END, AV_SEEK_SIZE from constants
+// Now using SEEK_SET, SEEK_CUR, SEEK_END, AVSEEK_SIZE from constants
 
 describe('IOContext', () => {
   // Clean up temp file after each test
@@ -55,7 +55,7 @@ describe('IOContext', () => {
     it('should support async disposal', async () => {
       // Test async disposal pattern without using statement
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Manually dispose
@@ -66,7 +66,7 @@ describe('IOContext', () => {
   describe('File Opening', () => {
     it('should open file for reading', async () => {
       await using io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should return 0 on success');
 
       // Should be able to read properties
@@ -78,7 +78,7 @@ describe('IOContext', () => {
 
     it('should open file for writing', async () => {
       const io = new IOContext();
-      const ret = await io.open2(tempOutputFile, AV_IO_FLAG_WRITE);
+      const ret = await io.open2(tempOutputFile, AVIO_FLAG_WRITE);
       assert.equal(ret, 0, 'Should return 0 on success');
 
       assert.equal(io.writeFlag, true);
@@ -89,14 +89,14 @@ describe('IOContext', () => {
 
     it('should fail to open non-existent file for reading', async () => {
       await using io = new IOContext();
-      const ret = await io.open2('/non/existent/file.mp4', AV_IO_FLAG_READ);
+      const ret = await io.open2('/non/existent/file.mp4', AVIO_FLAG_READ);
       assert.ok(ret < 0, 'Should return negative error code');
     });
 
     it('should handle file:// URLs', async () => {
       const io = new IOContext();
       const fileUrl = `file://${testVideoFile}`;
-      const ret = await io.open2(fileUrl, AV_IO_FLAG_READ);
+      const ret = await io.open2(fileUrl, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should handle file:// protocol');
       const closret = await io.closep();
       assert.equal(closret, 0, 'Should return 0 on success');
@@ -106,7 +106,7 @@ describe('IOContext', () => {
   describe('Reading', () => {
     it('should read data from file', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const data = await io.read(1024);
@@ -120,7 +120,7 @@ describe('IOContext', () => {
 
     it('should read exact file size', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testImageFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testImageFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const fileStats = await fs.stat(testImageFile);
@@ -136,12 +136,12 @@ describe('IOContext', () => {
 
     it('should handle EOF when reading beyond file', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testAudioFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testAudioFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Seek to near end
       const size = await io.size();
-      await io.seek(size - 10n, AV_SEEK_SET);
+      await io.seek(size - 10n, SEEK_SET);
 
       // Try to read more than available
       const data = await io.read(1024);
@@ -158,7 +158,7 @@ describe('IOContext', () => {
 
     it('should check EOF flag', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testAudioFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testAudioFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       assert.equal(io.eof, false, 'Should not be at EOF initially');
@@ -181,7 +181,7 @@ describe('IOContext', () => {
   describe('Writing', () => {
     it('should write data to file', async () => {
       const io = new IOContext();
-      const ret = await io.open2(tempOutputFile, AV_IO_FLAG_WRITE);
+      const ret = await io.open2(tempOutputFile, AVIO_FLAG_WRITE);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const data = Buffer.from('Hello, FFmpeg!');
@@ -197,7 +197,7 @@ describe('IOContext', () => {
 
     it('should write multiple buffers', async () => {
       const io = new IOContext();
-      const ret = await io.open2(tempOutputFile, AV_IO_FLAG_WRITE);
+      const ret = await io.open2(tempOutputFile, AVIO_FLAG_WRITE);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const data1 = Buffer.from('Hello, ');
@@ -215,7 +215,7 @@ describe('IOContext', () => {
 
     it('should flush buffered data', async () => {
       const io = new IOContext();
-      const ret = await io.open2(tempOutputFile, AV_IO_FLAG_WRITE);
+      const ret = await io.open2(tempOutputFile, AVIO_FLAG_WRITE);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const data = Buffer.from('Buffered data');
@@ -234,14 +234,14 @@ describe('IOContext', () => {
   describe('Seeking', () => {
     it('should seek to beginning', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Read some data first
       await io.read(1024);
 
       // Seek to beginning
-      const pos = await io.seek(0n, AV_SEEK_SET);
+      const pos = await io.seek(0n, SEEK_SET);
       assert.equal(pos, 0n, 'Should return new position');
       assert.equal(io.tell(), 0n, 'tell() should match');
 
@@ -251,18 +251,18 @@ describe('IOContext', () => {
 
     it('should seek to end', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const size = await io.size();
-      const pos = await io.seek(0n, AV_SEEK_END);
+      const pos = await io.seek(0n, SEEK_END);
 
       // Note: SEEK_END may not be supported by all I/O contexts
       // FFmpeg's avio_seek with SEEK_END returns -22 (EINVAL) for some contexts
       // We should seek using SEEK_SET with the file size instead
       if (pos < 0n) {
         // SEEK_END not supported, use SEEK_SET with size
-        const altPos = await io.seek(size, AV_SEEK_SET);
+        const altPos = await io.seek(size, SEEK_SET);
         assert.equal(altPos, size, 'Should seek to file size using SEEK_SET');
       } else {
         assert.equal(pos, size, 'Should seek to file size using SEEK_END');
@@ -274,18 +274,18 @@ describe('IOContext', () => {
 
     it('should seek relative to current position', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Seek to position 1000
-      await io.seek(1000n, AV_SEEK_SET);
+      await io.seek(1000n, SEEK_SET);
 
       // Seek forward 500 bytes
-      const pos = await io.seek(500n, AV_SEEK_CUR);
+      const pos = await io.seek(500n, SEEK_CUR);
       assert.equal(pos, 1500n, 'Should seek relative to current');
 
       // Seek backward 200 bytes
-      const pos2 = await io.seek(-200n, AV_SEEK_CUR);
+      const pos2 = await io.seek(-200n, SEEK_CUR);
       assert.equal(pos2, 1300n, 'Should handle negative offsets');
 
       const closeret = await io.closep();
@@ -294,10 +294,10 @@ describe('IOContext', () => {
 
     it('should get file size using AVSEEK_SIZE', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
-      const size = await io.seek(0n, AV_SEEK_SIZE);
+      const size = await io.seek(0n, AVSEEK_SIZE);
       assert.ok(size > 0n, 'Should return file size');
 
       // Compare with size() method
@@ -310,7 +310,7 @@ describe('IOContext', () => {
 
     it('should skip bytes forward', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const initialPos = io.tell();
@@ -325,7 +325,7 @@ describe('IOContext', () => {
 
     it('should check seekable flag', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       assert.ok(io.seekable !== 0, 'File should be seekable');
@@ -338,7 +338,7 @@ describe('IOContext', () => {
   describe('File Properties', () => {
     it('should get file size', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const size = await io.size();
@@ -354,7 +354,7 @@ describe('IOContext', () => {
 
     it('should get current position', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       assert.equal(io.tell(), 0n, 'Should start at position 0');
@@ -369,7 +369,7 @@ describe('IOContext', () => {
 
     it('should get buffer size', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       assert.ok(io.bufferSize > 0, 'Should have a buffer size');
@@ -380,14 +380,14 @@ describe('IOContext', () => {
 
     it('should check write flag', async () => {
       const ioRead = new IOContext();
-      const ret = await ioRead.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await ioRead.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
       assert.equal(ioRead.writeFlag, false, 'Should be false for read mode');
       const closeret = await ioRead.closep();
       assert.equal(closeret, 0, 'Should return 0 on success');
 
       const ioWrite = new IOContext();
-      const ret2 = await ioWrite.open2(tempOutputFile, AV_IO_FLAG_WRITE);
+      const ret2 = await ioWrite.open2(tempOutputFile, AVIO_FLAG_WRITE);
       assert.equal(ret2, 0, 'Should open file successfully');
       assert.equal(ioWrite.writeFlag, true, 'Should be true for write mode');
       const closeret2 = await ioWrite.closep();
@@ -398,7 +398,7 @@ describe('IOContext', () => {
   describe('Error Handling', () => {
     it('should handle errors property', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       assert.equal(io.error, 0, 'Should have no error initially');
@@ -409,11 +409,11 @@ describe('IOContext', () => {
 
     it('should handle seeking errors', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Try to seek to negative position
-      const pos = await io.seek(-1000n, AV_SEEK_SET);
+      const pos = await io.seek(-1000n, SEEK_SET);
       // Some implementations might clamp to 0, others might error
       assert.ok(pos === 0n || pos < 0n, 'Should handle negative seek');
 
@@ -425,7 +425,7 @@ describe('IOContext', () => {
   describe('Direct Mode', () => {
     it('should get and set direct mode', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const initialDirect = io.direct;
@@ -444,7 +444,7 @@ describe('IOContext', () => {
 
     it('should get and set max packet size', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const initialSize = io.maxPacketSize;
@@ -464,7 +464,7 @@ describe('IOContext', () => {
       await fs.writeFile(tempOutputFile, '');
 
       const io = new IOContext();
-      const ret = await io.open2(tempOutputFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(tempOutputFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       const size = await io.size();
@@ -483,7 +483,7 @@ describe('IOContext', () => {
 
     it('should handle very large read request', async () => {
       const io = new IOContext();
-      const ret = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
       // Request more than file size
@@ -502,7 +502,7 @@ describe('IOContext', () => {
       const io = new IOContext();
 
       // First cycle
-      const ret1 = await io.open2(testVideoFile, AV_IO_FLAG_READ);
+      const ret1 = await io.open2(testVideoFile, AVIO_FLAG_READ);
       assert.equal(ret1, 0, 'Should open file successfully');
       const data1 = await io.read(100);
       assert.ok(Buffer.isBuffer(data1));
@@ -510,7 +510,7 @@ describe('IOContext', () => {
       assert.equal(closeret, 0, 'Should return 0 on success');
 
       // Second cycle with same instance
-      const ret2 = await io.open2(testImageFile, AV_IO_FLAG_READ);
+      const ret2 = await io.open2(testImageFile, AVIO_FLAG_READ);
       assert.equal(ret2, 0, 'Should open file successfully');
       const data2 = await io.read(100);
       assert.ok(Buffer.isBuffer(data2));
@@ -545,7 +545,7 @@ describe('IOContext', () => {
         // Read callback
         (size: number) => {
           if (position >= fileBuffer.length) {
-            return -541478725; // AV_ERROR_EOF
+            return -541478725; // AVERROR_EOF
           }
           const bytesToRead = Math.min(size, fileBuffer.length - position);
           const data = fileBuffer.subarray(position, position + bytesToRead);
@@ -572,7 +572,7 @@ describe('IOContext', () => {
         // Read callback
         (size: number) => {
           if (position >= fileBuffer.length) {
-            return -541478725; // AV_ERROR_EOF
+            return -541478725; // AVERROR_EOF
           }
           const bytesToRead = Math.min(size, fileBuffer.length - position);
           const data = fileBuffer.subarray(position, position + bytesToRead);
@@ -585,18 +585,18 @@ describe('IOContext', () => {
           let newPos: number;
           const offsetNum = Number(offset);
 
-          if (whence === AV_SEEK_SIZE) {
+          if (whence === AVSEEK_SIZE) {
             return BigInt(fileBuffer.length);
           }
 
           switch (whence) {
-            case AV_SEEK_SET:
+            case SEEK_SET:
               newPos = offsetNum;
               break;
-            case AV_SEEK_CUR:
+            case SEEK_CUR:
               newPos = position + offsetNum;
               break;
-            case AV_SEEK_END:
+            case SEEK_END:
               newPos = fileBuffer.length + offsetNum;
               break;
             default:
@@ -629,7 +629,7 @@ describe('IOContext', () => {
         0,
         (size: number) => {
           if (position >= testData.length) {
-            return -541478725; // AV_ERROR_EOF
+            return -541478725; // AVERROR_EOF
           }
           const bytesToRead = Math.min(size, testData.length - position);
           const data = testData.subarray(position, position + bytesToRead);
@@ -651,7 +651,7 @@ describe('IOContext', () => {
       const io = new IOContext();
       io.allocContextWithCallbacks(4096, 0, (size: number) => {
         if (position >= fileBuffer.length) {
-          return null; // Return null instead of AV_ERROR_EOF
+          return null; // Return null instead of AVERROR_EOF
         }
         const bytesToRead = Math.min(size, fileBuffer.length - position);
         const data = fileBuffer.subarray(position, position + bytesToRead);
@@ -694,7 +694,7 @@ describe('IOContext', () => {
       const io = new IOContext();
       io.allocContextWithCallbacks(4096, 0, (size: number) => {
         if (position >= fileBuffer.length) {
-          return -541478725; // AV_ERROR_EOF
+          return -541478725; // AVERROR_EOF
         }
         // Always read less than requested (unless at end)
         const bytesToRead = Math.min(maxReadSize, size, fileBuffer.length - position);
@@ -719,7 +719,7 @@ describe('IOContext', () => {
         const io = new IOContext();
         io.allocContextWithCallbacks(bufferSize, 0, (size: number) => {
           if (position >= fileBuffer.length) {
-            return -541478725; // AV_ERROR_EOF
+            return -541478725; // AVERROR_EOF
           }
           const bytesToRead = Math.min(size, fileBuffer.length - position);
           const data = fileBuffer.subarray(position, position + bytesToRead);

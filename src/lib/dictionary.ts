@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import { AV_DICT_NONE, type AVDictFlag } from './constants.js';
+import { AVFLAG_NONE, type AVDictFlag } from './constants.js';
 import type { NativeDictionary, NativeWrapper } from './native-types.js';
 
 /**
@@ -130,7 +130,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * dict.free();
    * ```
    */
-  static fromObject(obj: Record<string, string>, flags: AVDictFlag = AV_DICT_NONE): Dictionary {
+  static fromObject(obj: Record<string, string>, flags: AVDictFlag = AVFLAG_NONE): Dictionary {
     const dict = new Dictionary();
     for (const [key, value] of Object.entries(obj)) {
       dict.set(key, value, flags);
@@ -200,11 +200,11 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * ```
    *
    * @note Common flags:
-   * - AV_DICT_NONE: Default behavior
+   * - AVFLAG_NONE: Default behavior
    * - AV_DICT_DONT_OVERWRITE: Don't overwrite existing entries
    * - AV_DICT_MULTIKEY: Allow multiple entries with same key
    */
-  copy(dst: Dictionary, flags: AVDictFlag = AV_DICT_NONE): number {
+  copy(dst: Dictionary, flags: AVDictFlag = AVFLAG_NONE): number {
     return this.native.copy(dst.getNative(), flags);
   }
 
@@ -241,13 +241,13 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * ```
    *
    * @note Common flags:
-   * - AV_DICT_NONE: Default behavior (replace existing, copy strings)
+   * - AVFLAG_NONE: Default behavior (replace existing, copy strings)
    * - AV_DICT_DONT_OVERWRITE: Don't overwrite existing entries
    * - AV_DICT_APPEND: Append to existing value (with comma separator)
    * - AV_DICT_MULTIKEY: Allow multiple entries with same key
    * - AV_DICT_MATCH_CASE: Case sensitive key matching
    */
-  set(key: string, value: string, flags: AVDictFlag = AV_DICT_NONE): number {
+  set(key: string, value: string, flags: AVDictFlag = AVFLAG_NONE): number {
     return this.native.set(key, value, flags);
   }
 
@@ -273,11 +273,11 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * ```
    *
    * Common flags:
-   * - AV_DICT_NONE: Default (case insensitive)
+   * - AVFLAG_NONE: Default (case insensitive)
    * - AV_DICT_MATCH_CASE: Case sensitive matching
    * - AV_DICT_IGNORE_SUFFIX: Match entries starting with key
    */
-  get(key: string, flags: AVDictFlag = AV_DICT_NONE): string | null {
+  get(key: string, flags: AVDictFlag = AVFLAG_NONE): string | null {
     return this.native.get(key, flags);
   }
 
@@ -334,7 +334,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * @param str - String to parse (e.g., "key1=value1:key2=value2")
    * @param keyValSep - String separator between key and value (e.g., '=' or ':=')
    * @param pairsSep - String separator between pairs (e.g., ':' or ',' or ';')
-   * @param flags - AV_DICT_* flags (default: AV_DICT_NONE)
+   * @param flags - AV_DICT_* flags (default: AVFLAG_NONE)
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
@@ -356,7 +356,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @see {@link getString} To convert back to string
    */
-  parseString(str: string, keyValSep: string, pairsSep: string, flags: AVDictFlag = AV_DICT_NONE): number {
+  parseString(str: string, keyValSep: string, pairsSep: string, flags: AVDictFlag = AVFLAG_NONE): number {
     return this.native.parseString(str, keyValSep, pairsSep, flags);
   }
 

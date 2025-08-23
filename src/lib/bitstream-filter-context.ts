@@ -19,7 +19,7 @@ import type { Packet } from './packet.js';
  * @example
  * ```typescript
  * import { BitStreamFilter, BitStreamFilterContext, Packet, FFmpegError } from '@seydx/av';
- * import { AV_ERROR_EOF, AVERROR } from '@seydx/av/constants';
+ * import { AVERROR_EOF, AVERROR } from '@seydx/av/constants';
  *
  * // Create and initialize filter context
  * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
@@ -126,7 +126,7 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    *   stream.codecpar.copy(ctx.inputCodecParameters);
    *
    *   // Or set individual properties
-   *   ctx.inputCodecParameters.codecType = AV_MEDIA_TYPE_VIDEO;
+   *   ctx.inputCodecParameters.codecType = AVMEDIA_TYPE_VIDEO;
    *   ctx.inputCodecParameters.codecId = AV_CODEC_ID_H264;
    * }
    * ```
@@ -345,7 +345,7 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    * ```typescript
    * // Send packet
    * const ret = await ctx.sendPacket(inputPacket);
-   * if (ret < 0 && ret !== AV_ERROR_EAGAIN) {
+   * if (ret < 0 && ret !== AVERROR_EAGAIN) {
    *   throw new Error('Failed to send packet');
    * }
    *
@@ -371,14 +371,14 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    *
    * @example
    * ```typescript
-   * import { AV_ERROR_EAGAIN, AV_ERROR_EOF } from '@seydx/av/constants';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
    *
    * const packet = new Packet();
    * const ret = await ctx.receivePacket(packet);
    *
-   * if (ret === AV_ERROR_EAGAIN) {
+   * if (ret === AVERROR_EAGAIN) {
    *   // Need to send more packets
-   * } else if (ret === AV_ERROR_EOF) {
+   * } else if (ret === AVERROR_EOF) {
    *   // No more packets
    * } else if (ret < 0) {
    *   // Error occurred

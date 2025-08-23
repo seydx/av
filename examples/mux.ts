@@ -12,22 +12,21 @@
  */
 
 import {
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVFLAG_NONE,
+  AVFMT_GLOBALHEADER,
+  AVFMT_NOFILE,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   AV_CODEC_CAP_VARIABLE_FRAME_SIZE,
   AV_CODEC_FLAG_GLOBAL_HEADER,
   AV_CODEC_ID_MPEG1VIDEO,
   AV_CODEC_ID_MPEG2VIDEO,
   AV_CODEC_ID_NONE,
-  AV_DICT_NONE,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
-  AV_FMT_GLOBALHEADER,
-  AV_FMT_NOFILE,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16,
-  AV_SWS_BICUBIC,
   Codec,
   CodecContext,
   Dictionary,
@@ -36,6 +35,7 @@ import {
   Frame,
   Packet,
   Rational,
+  SWS_BICUBIC,
   SoftwareResampleContext,
   SoftwareScaleContext,
   avCompareTs,
@@ -102,7 +102,7 @@ async function writeFrame(fmtCtx: FormatContext, c: CodecContext, st: Stream, fr
 
   while (ret >= 0) {
     ret = await c.receivePacket(pkt);
-    if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+    if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
       break;
     } else if (ret < 0) {
       console.error(`Error encoding a frame: ${new FFmpegError(ret).message}`);
@@ -120,7 +120,7 @@ async function writeFrame(fmtCtx: FormatContext, c: CodecContext, st: Stream, fr
     FFmpegError.throwIfError(ret, `Error while writing output packet: ${new FFmpegError(ret).message}`);
   }
 
-  return ret === AV_ERROR_EOF ? 1 : 0;
+  return ret === AVERROR_EOF ? 1 : 0;
 }
 
 /**
@@ -147,7 +147,7 @@ function addStream(ost: OutputStream, oc: FormatContext, codecId: AVCodecID): Co
   ost.enc = c;
 
   switch (codec.type) {
-    case AV_MEDIA_TYPE_AUDIO: {
+    case AVMEDIA_TYPE_AUDIO: {
       const sampleFmts = codec.sampleFormats;
       c.sampleFormat = sampleFmts && sampleFmts.length > 0 ? sampleFmts[0] : AV_SAMPLE_FMT_FLTP;
       c.bitRate = 64000n;
@@ -175,7 +175,7 @@ function addStream(ost: OutputStream, oc: FormatContext, codecId: AVCodecID): Co
       break;
     }
 
-    case AV_MEDIA_TYPE_VIDEO: {
+    case AVMEDIA_TYPE_VIDEO: {
       c.codecId = codecId;
       c.bitRate = 400000n;
 
@@ -212,7 +212,7 @@ function addStream(ost: OutputStream, oc: FormatContext, codecId: AVCodecID): Co
 
   // Some formats want stream headers to be separate
   const oformat = oc.oformat;
-  if (oformat && (oformat.flags & AV_FMT_GLOBALHEADER) !== 0) {
+  if (oformat && (oformat.flags & AVFMT_GLOBALHEADER) !== 0) {
     c.flags = (c.flags | AV_CODEC_FLAG_GLOBAL_HEADER) as AVCodecFlag;
   }
 
@@ -456,7 +456,7 @@ async function getVideoFrame(ost: OutputStream): Promise<Frame | null> {
     // to the codec pixel format if needed
     if (!ost.swsCtx) {
       ost.swsCtx = new SoftwareScaleContext();
-      ost.swsCtx.getContext(c.width, c.height, AV_PIX_FMT_YUV420P, c.width, c.height, c.pixelFormat, AV_SWS_BICUBIC);
+      ost.swsCtx.getContext(c.width, c.height, AV_PIX_FMT_YUV420P, c.width, c.height, c.pixelFormat, SWS_BICUBIC);
     }
     fillYuvImage(ost.tmpFrame!, Number(ost.nextPts), c.width, c.height);
     await ost.swsCtx.scale(ost.tmpFrame!.data!, ost.tmpFrame!.linesize, 0, c.height, ost.frame!.data!, ost.frame!.linesize);
@@ -574,7 +574,7 @@ async function mux(filename: string): Promise<void> {
     oc.dumpFormat(0, filename, true);
 
     // Open the output file, if needed
-    if ((fmt.flags & AV_FMT_NOFILE) === 0) {
+    if ((fmt.flags & AVFMT_NOFILE) === 0) {
       await oc.openOutput();
     }
 
@@ -609,7 +609,7 @@ async function mux(filename: string): Promise<void> {
 
     if (oc) {
       const fmt = oc.oformat;
-      if (fmt && (fmt.flags & AV_FMT_NOFILE) === 0) {
+      if (fmt && (fmt.flags & AVFMT_NOFILE) === 0) {
         // Close the output file
         await oc.closeOutput();
       }
@@ -646,7 +646,7 @@ async function main(): Promise<void> {
   // Parse additional options (like -flags or -fflags)
   for (let i = 1; i + 1 < args.length; i += 2) {
     if (args[i] === '-flags' || args[i] === '-fflags') {
-      options.set(args[i].substring(1), args[i + 1], AV_DICT_NONE);
+      options.set(args[i].substring(1), args[i + 1], AVFLAG_NONE);
     }
   }
 

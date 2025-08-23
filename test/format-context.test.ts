@@ -7,13 +7,12 @@ import { fileURLToPath } from 'node:url';
 import {
   AV_CODEC_ID_H264,
   AV_CODEC_ID_PCM_S16LE,
-  AV_DICT_NONE,
-  AV_FMT_FLAG_GENPTS,
-  AV_IO_FLAG_WRITE,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
   AV_SAMPLE_FMT_S16,
-  AV_SEEK_FLAG_NONE,
+  AVFLAG_NONE,
+  AVFMT_FLAG_GENPTS,
+  AVIO_FLAG_WRITE,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   Codec,
   Dictionary,
   FormatContext,
@@ -147,7 +146,7 @@ describe('FormatContext', () => {
       await ctx.openInput(inputVideoFile, null, null);
       await ctx.findStreamInfo(null);
 
-      const ret = await ctx.seekFrame(-1, 0n, AV_SEEK_FLAG_NONE);
+      const ret = await ctx.seekFrame(-1, 0n, AVFLAG_NONE);
       // Seeking should work for mp4
       assert.equal(ret, 0);
     });
@@ -191,7 +190,7 @@ describe('FormatContext', () => {
     it('should write header', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
@@ -209,7 +208,7 @@ describe('FormatContext', () => {
     it('should write header with options', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
@@ -227,7 +226,7 @@ describe('FormatContext', () => {
     it('should write packet', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
@@ -252,7 +251,7 @@ describe('FormatContext', () => {
     it('should write trailer', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
@@ -268,7 +267,7 @@ describe('FormatContext', () => {
     it('should interleave and write packet', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
@@ -295,11 +294,11 @@ describe('FormatContext', () => {
       // We'll use allocOutputContext2 and add a stream as simulation
       ctx.allocOutputContext2(null, 'mp4', null);
       const stream = ctx.newStream(null);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
 
       // Find best stream without decoder (original API)
-      const streamIndex = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1);
+      const streamIndex = ctx.findBestStream(AVMEDIA_TYPE_VIDEO, -1, -1);
       // With our mock setup, it should find stream 0 or return error
       assert.ok(typeof streamIndex === 'number');
     });
@@ -307,11 +306,11 @@ describe('FormatContext', () => {
     it('should find best stream with decoder', async () => {
       ctx.allocOutputContext2(null, 'mp4', null);
       const stream = ctx.newStream(null);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
 
       // Find best stream with decoder (new API)
-      const result = ctx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1, true, 0);
+      const result = ctx.findBestStream(AVMEDIA_TYPE_VIDEO, -1, -1, true, 0);
       assert.ok(typeof result === 'object');
       assert.ok('streamIndex' in result);
       assert.ok('decoder' in result);
@@ -383,7 +382,7 @@ describe('FormatContext', () => {
       // Create a stream first
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
@@ -426,8 +425,8 @@ describe('FormatContext', () => {
     });
 
     it('should get and set flags', () => {
-      ctx.flags = AV_FMT_FLAG_GENPTS;
-      assert.equal(ctx.flags, AV_FMT_FLAG_GENPTS);
+      ctx.flags = AVFMT_FLAG_GENPTS;
+      assert.equal(ctx.flags, AVFMT_FLAG_GENPTS);
     });
 
     it('should get and set probesize', () => {
@@ -442,15 +441,15 @@ describe('FormatContext', () => {
 
     it('should get and set metadata', () => {
       const metadata = new Dictionary();
-      metadata.set('title', 'Test Video', AV_DICT_NONE);
-      metadata.set('artist', 'Test Artist', AV_DICT_NONE);
+      metadata.set('title', 'Test Video', AVFLAG_NONE);
+      metadata.set('artist', 'Test Artist', AVFLAG_NONE);
 
       ctx.metadata = metadata;
 
       const retrieved = ctx.metadata;
       assert.ok(retrieved);
-      assert.equal(retrieved.get('title', AV_DICT_NONE), 'Test Video');
-      assert.equal(retrieved.get('artist', AV_DICT_NONE), 'Test Artist');
+      assert.equal(retrieved.get('title', AVFLAG_NONE), 'Test Video');
+      assert.equal(retrieved.get('artist', AVFLAG_NONE), 'Test Artist');
 
       metadata.free();
       retrieved.free();
@@ -490,7 +489,7 @@ describe('FormatContext', () => {
       // Create a file first
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
@@ -513,7 +512,7 @@ describe('FormatContext', () => {
   describe('IO Context', () => {
     it('should create custom IO context', () => {
       const ioCtx = new IOContext();
-      ioCtx.allocContext(4096, AV_IO_FLAG_WRITE);
+      ioCtx.allocContext(4096, AVIO_FLAG_WRITE);
 
       ctx.allocOutputContext2(null, 'mp4', null);
       ctx.pb = ioCtx;
@@ -527,14 +526,14 @@ describe('FormatContext', () => {
 
     it('should work with custom IO', async () => {
       const ioCtx = new IOContext();
-      ioCtx.allocContext(4096, AV_IO_FLAG_WRITE);
+      ioCtx.allocContext(4096, AVIO_FLAG_WRITE);
 
       ctx.allocOutputContext2(null, 'mp4', null);
       ctx.pb = ioCtx;
 
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
@@ -555,13 +554,13 @@ describe('FormatContext', () => {
 
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_AUDIO;
       stream.codecpar.codecId = AV_CODEC_ID_PCM_S16LE;
       stream.codecpar.sampleRate = 44100;
       stream.codecpar.channels = 2;
       stream.codecpar.format = AV_SAMPLE_FMT_S16;
 
-      assert.equal(stream.codecpar.codecType, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(stream.codecpar.codecType, AVMEDIA_TYPE_AUDIO);
       assert.equal(stream.codecpar.sampleRate, 44100);
     });
 
@@ -570,7 +569,7 @@ describe('FormatContext', () => {
 
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_AUDIO;
       stream.codecpar.sampleRate = 48000;
 
       const timeBase = new Rational(1, 48000);
@@ -632,7 +631,7 @@ describe('FormatContext', () => {
       ctx.allocOutputContext2(null, null, testFile);
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
@@ -656,7 +655,7 @@ describe('FormatContext', () => {
       ctx.allocOutputContext2(null, null, testFile);
       const stream = ctx.newStream(null);
       assert.ok(stream);
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.codecId = AV_CODEC_ID_H264;
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;

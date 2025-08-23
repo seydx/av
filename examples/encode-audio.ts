@@ -15,7 +15,7 @@
 
 import fs from 'node:fs';
 
-import { AV_CODEC_ID_MP2, AV_ERROR_EAGAIN, AV_ERROR_EOF, AV_SAMPLE_FMT_S16, Codec, CodecContext, FFmpegError, Frame, Packet } from '../src/lib/index.js';
+import { AV_CODEC_ID_MP2, AV_SAMPLE_FMT_S16, AVERROR_EAGAIN, AVERROR_EOF, Codec, CodecContext, FFmpegError, Frame, Packet } from '../src/lib/index.js';
 
 import type { AVSampleFormat, ChannelLayout } from '../src/lib/index.js';
 
@@ -88,7 +88,7 @@ async function encode(ctx: CodecContext, frame: Frame | null, pkt: Packet, outfi
   // Read all the available output packets
   while (true) {
     const ret = await ctx.receivePacket(pkt);
-    if (FFmpegError.is(ret, AV_ERROR_EAGAIN) || FFmpegError.is(ret, AV_ERROR_EOF)) {
+    if (FFmpegError.is(ret, AVERROR_EAGAIN) || FFmpegError.is(ret, AVERROR_EOF)) {
       return;
     }
     FFmpegError.throwIfError(ret, 'Error encoding audio frame');

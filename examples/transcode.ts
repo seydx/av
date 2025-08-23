@@ -11,15 +11,15 @@
  */
 
 import {
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVFMT_GLOBALHEADER,
+  AVFMT_NOFILE,
+  AVIO_FLAG_WRITE,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_UNKNOWN,
+  AVMEDIA_TYPE_VIDEO,
   AV_CODEC_FLAG_GLOBAL_HEADER,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
-  AV_FMT_GLOBALHEADER,
-  AV_FMT_NOFILE,
-  AV_IO_FLAG_WRITE,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_UNKNOWN,
-  AV_MEDIA_TYPE_VIDEO,
   AV_NOPTS_VALUE,
   AV_OPT_TYPE_BINARY_INT_ARRAY,
   AV_PICTURE_TYPE_NONE,
@@ -104,8 +104,8 @@ async function open_input_file(filename: string): Promise<number> {
     codec_ctx.pktTimebase = stream.timeBase;
 
     // Reencode video & audio and remux subtitles etc.
-    if (codec_ctx.codecType === AV_MEDIA_TYPE_VIDEO || codec_ctx.codecType === AV_MEDIA_TYPE_AUDIO) {
-      if (codec_ctx.codecType === AV_MEDIA_TYPE_VIDEO) {
+    if (codec_ctx.codecType === AVMEDIA_TYPE_VIDEO || codec_ctx.codecType === AVMEDIA_TYPE_AUDIO) {
+      if (codec_ctx.codecType === AVMEDIA_TYPE_VIDEO) {
         codec_ctx.framerate = stream.rFrameRate || stream.avgFrameRate || new Rational(25, 1);
       }
 
@@ -152,7 +152,7 @@ async function open_output_file(filename: string): Promise<number> {
     const in_stream = ifmt_ctx!.streams![i];
     const dec_ctx = stream_ctx[i].dec_ctx;
 
-    if (dec_ctx && (dec_ctx.codecType === AV_MEDIA_TYPE_VIDEO || dec_ctx.codecType === AV_MEDIA_TYPE_AUDIO)) {
+    if (dec_ctx && (dec_ctx.codecType === AVMEDIA_TYPE_VIDEO || dec_ctx.codecType === AVMEDIA_TYPE_AUDIO)) {
       // In this example, we choose transcoding to same codec
       const encoder = Codec.findEncoder(dec_ctx.codecId);
       if (!encoder) {
@@ -164,7 +164,7 @@ async function open_output_file(filename: string): Promise<number> {
       enc_ctx.allocContext3(encoder);
 
       // Transcode to same properties
-      if (dec_ctx.codecType === AV_MEDIA_TYPE_VIDEO) {
+      if (dec_ctx.codecType === AVMEDIA_TYPE_VIDEO) {
         enc_ctx.height = dec_ctx.height;
         enc_ctx.width = dec_ctx.width;
         enc_ctx.sampleAspectRatio = dec_ctx.sampleAspectRatio;
@@ -195,7 +195,7 @@ async function open_output_file(filename: string): Promise<number> {
       }
 
       // Global header flag if needed
-      if (ofmt_ctx.oformat && ofmt_ctx.oformat.flags & AV_FMT_GLOBALHEADER) {
+      if (ofmt_ctx.oformat && ofmt_ctx.oformat.flags & AVFMT_GLOBALHEADER) {
         const flags = (enc_ctx.flags as unknown as number) || 0;
         enc_ctx.flags = (flags | AV_CODEC_FLAG_GLOBAL_HEADER) as any;
       }
@@ -215,7 +215,7 @@ async function open_output_file(filename: string): Promise<number> {
 
       out_stream.timeBase = enc_ctx.timeBase;
       stream_ctx[i].enc_ctx = enc_ctx;
-    } else if (dec_ctx && dec_ctx.codecType === AV_MEDIA_TYPE_UNKNOWN) {
+    } else if (dec_ctx && dec_ctx.codecType === AVMEDIA_TYPE_UNKNOWN) {
       console.error(`Elementary stream #${i} is of unknown type, cannot proceed`);
       return -1;
     } else {
@@ -231,9 +231,9 @@ async function open_output_file(filename: string): Promise<number> {
 
   ofmt_ctx.dumpFormat(0, filename, true);
 
-  if (!(ofmt_ctx.oformat!.flags & AV_FMT_NOFILE)) {
+  if (!(ofmt_ctx.oformat!.flags & AVFMT_NOFILE)) {
     const io_ctx = new IOContext();
-    ret = await io_ctx.open2(filename, AV_IO_FLAG_WRITE);
+    ret = await io_ctx.open2(filename, AVIO_FLAG_WRITE);
     if (ret < 0) {
       console.error(`Could not open output file '${filename}'`);
       return ret;
@@ -266,7 +266,7 @@ async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ct
   inputs.alloc();
   filter_graph.alloc();
 
-  if (dec_ctx.codecType === AV_MEDIA_TYPE_VIDEO) {
+  if (dec_ctx.codecType === AVMEDIA_TYPE_VIDEO) {
     buffersrc = Filter.getByName('buffer');
     buffersink = Filter.getByName('buffersink');
 
@@ -311,7 +311,7 @@ async function init_filter(fctx: FilteringContext, dec_ctx: CodecContext, enc_ct
       goto_end();
       return ret;
     }
-  } else if (dec_ctx.codecType === AV_MEDIA_TYPE_AUDIO) {
+  } else if (dec_ctx.codecType === AVMEDIA_TYPE_AUDIO) {
     buffersrc = Filter.getByName('abuffer');
     buffersink = Filter.getByName('abuffersink');
 
@@ -447,11 +447,11 @@ async function init_filters(): Promise<number> {
     };
 
     const codecpar = ifmt_ctx!.streams![i].codecpar;
-    if (!(codecpar.codecType === AV_MEDIA_TYPE_AUDIO || codecpar.codecType === AV_MEDIA_TYPE_VIDEO)) {
+    if (!(codecpar.codecType === AVMEDIA_TYPE_AUDIO || codecpar.codecType === AVMEDIA_TYPE_VIDEO)) {
       continue;
     }
 
-    if (codecpar.codecType === AV_MEDIA_TYPE_VIDEO) {
+    if (codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
       filter_spec[i] = 'null'; // passthrough (dummy) filter for video
     } else {
       filter_spec[i] = 'anull'; // passthrough (dummy) filter for audio
@@ -498,7 +498,7 @@ async function encode_write_frame(stream_index: number, flush: boolean): Promise
   while (ret >= 0) {
     ret = await stream.enc_ctx!.receivePacket(enc_pkt);
 
-    if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+    if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
       return 0;
     }
 
@@ -532,9 +532,9 @@ async function filter_encode_write_frame(frame: Frame | null, stream_index: numb
     ret = await filter.buffersink_ctx!.buffersinkGetFrame(filter.filtered_frame!);
     if (ret < 0) {
       // If no more frames for output - returns AVERROR(EAGAIN)
-      // If flushed and no more frames for output - returns AV_ERROR_EOF
+      // If flushed and no more frames for output - returns AVERROR_EOF
       // Rewrite retcode to 0 to show it as normal procedure completion
-      if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+      if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
         ret = 0;
       }
       break;
@@ -614,7 +614,7 @@ async function main(): Promise<void> {
 
       while (ret >= 0) {
         ret = await stream.dec_ctx!.receiveFrame(stream.dec_frame!);
-        if (ret === AV_ERROR_EOF || ret === AV_ERROR_EAGAIN) {
+        if (ret === AVERROR_EOF || ret === AVERROR_EAGAIN) {
           break;
         } else if (ret < 0) {
           await goto_end();
@@ -661,7 +661,7 @@ async function main(): Promise<void> {
 
     while (ret >= 0) {
       ret = await stream.dec_ctx!.receiveFrame(stream.dec_frame!);
-      if (ret === AV_ERROR_EOF) {
+      if (ret === AVERROR_EOF) {
         break;
       } else if (ret < 0) {
         await goto_end();
@@ -716,12 +716,12 @@ async function main(): Promise<void> {
     ifmt_ctx?.freeContext();
 
     if (ofmt_ctx) {
-      if (!(ofmt_ctx.oformat && ofmt_ctx.oformat?.flags & AV_FMT_NOFILE)) {
+      if (!(ofmt_ctx.oformat && ofmt_ctx.oformat?.flags & AVFMT_NOFILE)) {
         await ofmt_ctx.pb?.closep();
       }
     }
 
-    if (ret < 0 && ret !== AV_ERROR_EOF) {
+    if (ret < 0 && ret !== AVERROR_EOF) {
       console.error(`Error occurred: ${ret}`);
       process.exit(1);
     }

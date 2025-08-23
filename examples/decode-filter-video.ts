@@ -15,11 +15,11 @@
  */
 
 import {
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVMEDIA_TYPE_VIDEO,
   AV_LOG_ERROR,
   AV_LOG_INFO,
-  AV_MEDIA_TYPE_VIDEO,
   AV_NOPTS_VALUE,
   AV_TIME_BASE,
   Codec,
@@ -64,7 +64,7 @@ async function openInputFile(filename: string): Promise<void> {
   FFmpegError.throwIfError(ret, `Cannot find stream information: ${filename}`);
 
   // Find the best video stream
-  const result = formatCtx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1);
+  const result = formatCtx.findBestStream(AVMEDIA_TYPE_VIDEO, -1, -1);
   FFmpegError.throwIfError(result, 'Cannot find a video stream in the input file');
 
   videoStreamIndex = result;
@@ -250,7 +250,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
     while (true) {
       const ret = await formatCtx!.readFrame(packet);
       if (ret < 0) {
-        if (ret === AV_ERROR_EOF) {
+        if (ret === AVERROR_EOF) {
           // Send null packet to flush decoder
           if (codecCtx && videoStreamIndex >= 0) {
             await codecCtx.sendPacket(null);
@@ -299,7 +299,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
       if (packet.streamIndex === videoStreamIndex) {
         // Send packet to decoder
         const sendRet = await codecCtx!.sendPacket(packet);
-        if (sendRet < 0 && sendRet !== AV_ERROR_EAGAIN) {
+        if (sendRet < 0 && sendRet !== AVERROR_EAGAIN) {
           Log.log(AV_LOG_ERROR, `Error sending packet to decoder: ${new FFmpegError(sendRet).message}`);
           packet.unref();
           continue;
@@ -308,7 +308,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
         // Receive frames from decoder
         while (true) {
           const recvRet = await codecCtx!.receiveFrame(frame);
-          if (recvRet === AV_ERROR_EAGAIN || recvRet === AV_ERROR_EOF) {
+          if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
             break;
           } else if (recvRet < 0) {
             throw new Error(`Error receiving frame from decoder: ${new FFmpegError(recvRet).message}`);
@@ -326,7 +326,7 @@ async function decodeFilterVideo(inputFile: string): Promise<void> {
           // Pull filtered frames
           while (true) {
             const sinkRet = await buffersinkCtx!.buffersinkGetFrame(filtFrame);
-            if (sinkRet === AV_ERROR_EAGAIN || sinkRet === AV_ERROR_EOF) {
+            if (sinkRet === AVERROR_EAGAIN || sinkRet === AVERROR_EOF) {
               break;
             }
             FFmpegError.throwIfError(sinkRet, `Error getting filtered frame: ${new FFmpegError(sinkRet).message}`);

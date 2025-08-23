@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_FMT_GLOBALHEADER, AV_FMT_NOFILE, AV_FMT_NOTIMESTAMPS, AV_FMT_VARIABLE_FPS, FormatContext, OutputFormat } from '../src/lib/index.js';
+import { AVFMT_GLOBALHEADER, AVFMT_NOFILE, AVFMT_NOTIMESTAMPS, AVFMT_VARIABLE_FPS, FormatContext, OutputFormat } from '../src/lib/index.js';
 
 describe('OutputFormat', () => {
   describe('Static Methods', () => {
@@ -100,7 +100,7 @@ describe('OutputFormat', () => {
       assert.ok(typeof flags === 'number');
       // Check if specific flags are set
       // MP4 typically doesn't have NOFILE flag
-      assert.ok((flags & AV_FMT_NOFILE) === 0);
+      assert.ok((flags & AVFMT_NOFILE) === 0);
     });
 
     it('should get audio codec', () => {
@@ -195,7 +195,7 @@ describe('OutputFormat', () => {
           const flags = format.flags;
           // RTSP has NOFILE flag, but RTP might not
           if (name === 'rtsp') {
-            assert.ok((flags & AV_FMT_NOFILE) !== 0);
+            assert.ok((flags & AVFMT_NOFILE) !== 0);
           }
         }
       }
@@ -208,7 +208,7 @@ describe('OutputFormat', () => {
       const format = OutputFormat.guessFormat('rtsp', null, null);
       if (format) {
         const flags = format.flags;
-        assert.ok((flags & AV_FMT_NOFILE) !== 0, 'RTSP should have NOFILE flag');
+        assert.ok((flags & AVFMT_NOFILE) !== 0, 'RTSP should have NOFILE flag');
       }
     });
 
@@ -217,7 +217,7 @@ describe('OutputFormat', () => {
       if (format) {
         const flags = format.flags;
         // MP4 typically wants global headers
-        assert.ok((flags & AV_FMT_GLOBALHEADER) !== 0, 'MP4 should want global headers');
+        assert.ok((flags & AVFMT_GLOBALHEADER) !== 0, 'MP4 should want global headers');
       }
     });
 
@@ -230,10 +230,10 @@ describe('OutputFormat', () => {
         assert.ok(typeof flags === 'number', 'Should have numeric flags');
 
         // MP4 has timestamps
-        assert.ok((flags & AV_FMT_NOTIMESTAMPS) === 0, 'MP4 should have timestamps');
+        assert.ok((flags & AVFMT_NOTIMESTAMPS) === 0, 'MP4 should have timestamps');
 
         // MP4 is not a network protocol, should need a file
-        assert.ok((flags & AV_FMT_NOFILE) === 0, 'MP4 should need a file');
+        assert.ok((flags & AVFMT_NOFILE) === 0, 'MP4 should need a file');
       }
     });
 
@@ -243,7 +243,7 @@ describe('OutputFormat', () => {
         const flags = format.flags;
         // MP4 can support variable FPS
         // Just check we can read the flag
-        const hasVariableFps = (flags & AV_FMT_VARIABLE_FPS) !== 0;
+        const hasVariableFps = (flags & AVFMT_VARIABLE_FPS) !== 0;
         assert.ok(typeof hasVariableFps === 'boolean');
       }
     });

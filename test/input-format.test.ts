@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { AV_FMT_NEEDNUMBER, AV_FMT_NOFILE, AV_FMT_NOTIMESTAMPS, AV_IO_FLAG_READ, FormatContext, InputFormat, IOContext } from '../src/lib/index.js';
+import { AVFMT_NEEDNUMBER, AVFMT_NOFILE, AVFMT_NOTIMESTAMPS, AVIO_FLAG_READ, FormatContext, InputFormat, IOContext } from '../src/lib/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,7 +94,7 @@ describe('InputFormat', () => {
       assert.ok(typeof flags === 'number');
       // Check if specific flags are set (these are examples, actual flags depend on format)
       // MP4 typically doesn't have NOFILE flag
-      assert.ok((flags & AV_FMT_NOFILE) === 0);
+      assert.ok((flags & AVFMT_NOFILE) === 0);
     });
 
     it('should handle formats without extensions', () => {
@@ -165,7 +165,7 @@ describe('InputFormat', () => {
           const flags = format.flags;
           // Some network formats have NOFILE flag
           if (name === 'rtsp' || name === 'rtp') {
-            assert.ok((flags & AV_FMT_NOFILE) !== 0);
+            assert.ok((flags & AVFMT_NOFILE) !== 0);
           }
         }
       }
@@ -178,7 +178,7 @@ describe('InputFormat', () => {
       const format = InputFormat.findInputFormat('rtsp');
       if (format) {
         const flags = format.flags;
-        assert.ok((flags & AV_FMT_NOFILE) !== 0, 'RTSP should have NOFILE flag');
+        assert.ok((flags & AVFMT_NOFILE) !== 0, 'RTSP should have NOFILE flag');
       }
     });
 
@@ -188,7 +188,7 @@ describe('InputFormat', () => {
       if (format) {
         const flags = format.flags;
         // image2 format needs numbered sequence
-        assert.ok((flags & AV_FMT_NEEDNUMBER) !== 0 || true, 'May need number for sequences');
+        assert.ok((flags & AVFMT_NEEDNUMBER) !== 0 || true, 'May need number for sequences');
       }
     });
 
@@ -203,10 +203,10 @@ describe('InputFormat', () => {
         assert.ok(typeof flags === 'number', 'Should have numeric flags');
 
         // MP4 has timestamps
-        assert.ok((flags & AV_FMT_NOTIMESTAMPS) === 0, 'MP4 should have timestamps');
+        assert.ok((flags & AVFMT_NOTIMESTAMPS) === 0, 'MP4 should have timestamps');
 
         // MP4 is not a network protocol, should need a file
-        assert.ok((flags & AV_FMT_NOFILE) === 0, 'MP4 should need a file');
+        assert.ok((flags & AVFMT_NOFILE) === 0, 'MP4 should need a file');
       }
     });
   });
@@ -315,7 +315,7 @@ describe('InputFormat', () => {
 
     it('should probe buffer from IOContext', async () => {
       const io = new IOContext();
-      await io.open2(inputVideoFile, AV_IO_FLAG_READ);
+      await io.open2(inputVideoFile, AVIO_FLAG_READ);
 
       try {
         const format = await InputFormat.probeBuffer(io);
@@ -328,7 +328,7 @@ describe('InputFormat', () => {
 
     it('should probe buffer with custom max probe size', async () => {
       const io = new IOContext();
-      await io.open2(inputVideoFile, AV_IO_FLAG_READ);
+      await io.open2(inputVideoFile, AVIO_FLAG_READ);
 
       try {
         // Use smaller probe size
@@ -348,7 +348,7 @@ describe('InputFormat', () => {
 
       try {
         const io = new IOContext();
-        await io.open2(tempFile, AV_IO_FLAG_READ);
+        await io.open2(tempFile, AVIO_FLAG_READ);
 
         try {
           const format = await InputFormat.probeBuffer(io);

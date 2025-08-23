@@ -15,10 +15,10 @@ import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 
 import {
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   AV_SAMPLE_FMT_DBL,
   AV_SAMPLE_FMT_FLT,
   AV_SAMPLE_FMT_S16,
@@ -167,7 +167,7 @@ async function decodePacket(dec: CodecContext, pkt: Packet | null, frame: Frame)
     if (ret < 0) {
       // Those two return values are special and mean there is no output
       // frame available, but there were no errors during decoding
-      if (ret === AV_ERROR_EOF || ret === AV_ERROR_EAGAIN) {
+      if (ret === AVERROR_EOF || ret === AVERROR_EAGAIN) {
         return 0;
       }
 
@@ -176,7 +176,7 @@ async function decodePacket(dec: CodecContext, pkt: Packet | null, frame: Frame)
     }
 
     // Write the frame data to output file
-    if (dec.codecType === AV_MEDIA_TYPE_VIDEO) {
+    if (dec.codecType === AVMEDIA_TYPE_VIDEO) {
       ret = outputVideoFrame(frame);
     } else {
       ret = outputAudioFrame(frame);
@@ -267,7 +267,7 @@ async function demuxDecode(): Promise<void> {
     FFmpegError.throwIfError(ret, `Could not find stream information: ${srcFilename}`);
 
     // Open video codec context
-    const videoResult = await openCodecContext(fmtCtx, AV_MEDIA_TYPE_VIDEO);
+    const videoResult = await openCodecContext(fmtCtx, AVMEDIA_TYPE_VIDEO);
     if (videoResult.streamIdx >= 0) {
       videoStreamIdx = videoResult.streamIdx;
       videoDecCtx = videoResult.decCtx;
@@ -290,7 +290,7 @@ async function demuxDecode(): Promise<void> {
     }
 
     // Open audio codec context
-    const audioResult = await openCodecContext(fmtCtx, AV_MEDIA_TYPE_AUDIO);
+    const audioResult = await openCodecContext(fmtCtx, AVMEDIA_TYPE_AUDIO);
     if (audioResult.streamIdx >= 0) {
       audioStreamIdx = audioResult.streamIdx;
       audioDecCtx = audioResult.decCtx;

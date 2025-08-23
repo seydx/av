@@ -24,9 +24,9 @@
 import crypto from 'node:crypto';
 
 import {
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
   AV_CHANNEL_ORDER_NATIVE,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16,
   FFmpegError,
@@ -238,7 +238,7 @@ async function filterAudio(duration: number): Promise<void> {
         ret = await sink.buffersinkGetFrame(filterFrame);
         if (ret < 0) {
           // No more frames available for now
-          if (ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+          if (ret !== AVERROR_EAGAIN && ret !== AVERROR_EOF) {
             throw new Error(`Error getting filtered frame: ${new FFmpegError(ret).message}`);
           }
           break;

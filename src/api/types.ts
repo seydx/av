@@ -1,4 +1,4 @@
-import type { AVPixelFormat, AVSampleFormat, AVSoftwareScaleFlag, ChannelLayout, IRational } from '../lib/index.js';
+import type { AVPixelFormat, AVSampleFormat, ChannelLayout, IRational, SWSFlag } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 
 /**
@@ -484,7 +484,7 @@ export interface ImageOptions {
   resize?: {
     width: number;
     height: number;
-    algorithm?: AVSoftwareScaleFlag;
+    algorithm?: SWSFlag;
   };
   /** Convert pixel format */
   format?: {

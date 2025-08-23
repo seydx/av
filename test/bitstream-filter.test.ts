@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 import {
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
-  AV_MEDIA_TYPE_VIDEO,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVMEDIA_TYPE_VIDEO,
   BitStreamFilter,
   BitStreamFilterContext,
   FormatContext,
@@ -146,7 +146,7 @@ describe('BitStreamFilter', () => {
 
       // Send packet
       const sendRet = await ctx.sendPacket(inputPacket);
-      assert.ok(sendRet === 0 || sendRet === AV_ERROR_EAGAIN, 'Send should succeed or need drain'); // 0 or EAGAIN
+      assert.ok(sendRet === 0 || sendRet === AVERROR_EAGAIN, 'Send should succeed or need drain'); // 0 or EAGAIN
 
       // Receive filtered packet
       const outputPacket = new Packet();
@@ -157,9 +157,9 @@ describe('BitStreamFilter', () => {
       if (recvRet === 0) {
         assert.ok(outputPacket.size >= 0, 'Output packet should have data');
         outputPacket.unref();
-      } else if (recvRet === AV_ERROR_EAGAIN) {
+      } else if (recvRet === AVERROR_EAGAIN) {
         // Need to send more packets (EAGAIN)
-      } else if (recvRet === AV_ERROR_EOF) {
+      } else if (recvRet === AVERROR_EOF) {
         // No more packets
       } else {
         assert.fail(`Unexpected error: ${recvRet}`);
@@ -187,12 +187,12 @@ describe('BitStreamFilter', () => {
         outputPacket.alloc();
         const recvRet = await ctx.receivePacket(outputPacket);
 
-        if (recvRet === AV_ERROR_EOF) {
+        if (recvRet === AVERROR_EOF) {
           break;
         } else if (recvRet === 0) {
           // Got a packet, continue
           outputPacket.unref();
-        } else if (recvRet === AV_ERROR_EAGAIN) {
+        } else if (recvRet === AVERROR_EAGAIN) {
           // EAGAIN
           // No more packets available right now
           break;
@@ -238,7 +238,7 @@ describe('BitStreamFilter', () => {
       // Find video stream
       const streams = formatCtx.streams;
       assert.ok(streams, 'Should have streams');
-      const videoStream = streams.find((s) => s.codecpar.codecType === AV_MEDIA_TYPE_VIDEO);
+      const videoStream = streams.find((s) => s.codecpar.codecType === AVMEDIA_TYPE_VIDEO);
       assert.ok(videoStream, 'Should find video stream');
 
       // Only proceed if it's H.264
@@ -284,7 +284,7 @@ describe('BitStreamFilter', () => {
         const sendRet = await bsfCtx.sendPacket(packet);
         packet.unref();
 
-        if (sendRet < 0 && sendRet !== AV_ERROR_EAGAIN) {
+        if (sendRet < 0 && sendRet !== AVERROR_EAGAIN) {
           // Not EAGAIN
           assert.fail(`Failed to send packet: ${sendRet}`);
         }
@@ -295,7 +295,7 @@ describe('BitStreamFilter', () => {
           filteredPacket.alloc();
           const recvRet = await bsfCtx.receivePacket(filteredPacket);
 
-          if (recvRet === AV_ERROR_EAGAIN || recvRet === AV_ERROR_EOF) {
+          if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
             // EAGAIN or EOF
             filteredPacket.unref();
             break;

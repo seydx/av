@@ -300,9 +300,9 @@ describe('FFmpegError', () => {
   });
 
   describe('Common FFmpeg Error Codes', () => {
-    it('should handle AV_ERROR_EOF', () => {
+    it('should handle AVERROR_EOF', () => {
       // EOF is typically a special FFmpeg error code
-      const error = new FFmpegError(-541478725); // Common AV_ERROR_EOF value
+      const error = new FFmpegError(-541478725); // Common AVERROR_EOF value
       assert.ok(error instanceof FFmpegError);
       assert.ok(error.message, 'Should have message for EOF');
     });

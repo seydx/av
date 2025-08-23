@@ -10,7 +10,7 @@
  * @module api/bitstream-filter
  */
 
-import { AV_ERROR_EAGAIN, AV_ERROR_EOF, BitStreamFilter, BitStreamFilterContext, FFmpegError, Packet } from '../lib/index.js';
+import { AVERROR_EAGAIN, AVERROR_EOF, BitStreamFilter, BitStreamFilterContext, FFmpegError, Packet } from '../lib/index.js';
 
 import type { Stream } from '../lib/index.js';
 
@@ -205,7 +205,7 @@ export class BitStreamFilterAPI implements Disposable {
 
     // Send packet to filter
     const sendRet = await this.ctx.sendPacket(packet);
-    if (sendRet < 0 && sendRet !== AV_ERROR_EAGAIN) {
+    if (sendRet < 0 && sendRet !== AVERROR_EAGAIN) {
       FFmpegError.throwIfError(sendRet, 'Failed to send packet to bitstream filter');
     }
 
@@ -216,7 +216,7 @@ export class BitStreamFilterAPI implements Disposable {
 
       const recvRet = await this.ctx.receivePacket(outPacket);
 
-      if (recvRet === AV_ERROR_EAGAIN || recvRet === AV_ERROR_EOF) {
+      if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
         outPacket.unref();
         break;
       }

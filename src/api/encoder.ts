@@ -12,10 +12,10 @@
 
 import {
   AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   Codec,
   CodecContext,
   FFmpegError,
@@ -163,7 +163,7 @@ export class Encoder implements Disposable {
       // It's a Stream - copy ONLY the essential parameters
       // DO NOT use parametersToContext as it copies everything including decoder-specific settings
 
-      if (codec.type === AV_MEDIA_TYPE_VIDEO) {
+      if (codec.type === AVMEDIA_TYPE_VIDEO) {
         // Set required video parameters from input stream
         codecContext.width = input.codecpar.width;
         codecContext.height = input.codecpar.height;
@@ -184,7 +184,7 @@ export class Encoder implements Disposable {
         if (input.sampleAspectRatio && input.sampleAspectRatio.num > 0) {
           codecContext.sampleAspectRatio = new Rational(input.sampleAspectRatio.num, input.sampleAspectRatio.den);
         }
-      } else if (codec.type === AV_MEDIA_TYPE_AUDIO) {
+      } else if (codec.type === AVMEDIA_TYPE_AUDIO) {
         // Set required audio parameters from input stream
         codecContext.sampleRate = input.codecpar.sampleRate;
         codecContext.sampleFormat = input.codecpar.format as AVSampleFormat;
@@ -203,7 +203,7 @@ export class Encoder implements Disposable {
       }
     } else {
       // It's StreamInfo - apply manually
-      if (input.type === 'video' && codec.type === AV_MEDIA_TYPE_VIDEO) {
+      if (input.type === 'video' && codec.type === AVMEDIA_TYPE_VIDEO) {
         const videoInfo = input;
         codecContext.width = videoInfo.width;
         codecContext.height = videoInfo.height;
@@ -222,7 +222,7 @@ export class Encoder implements Disposable {
         if (videoInfo.sampleAspectRatio) {
           codecContext.sampleAspectRatio = new Rational(videoInfo.sampleAspectRatio.num, videoInfo.sampleAspectRatio.den);
         }
-      } else if (input.type === 'audio' && codec.type === AV_MEDIA_TYPE_AUDIO) {
+      } else if (input.type === 'audio' && codec.type === AVMEDIA_TYPE_AUDIO) {
         const audioInfo = input;
         codecContext.sampleRate = audioInfo.sampleRate;
         codecContext.sampleFormat = audioInfo.sampleFormat;
@@ -235,7 +235,7 @@ export class Encoder implements Disposable {
           codecContext.frameSize = audioInfo.frameSize;
         }
       } else {
-        throw new Error(`Codec type mismatch: ${input.type} info but ${codec.type === AV_MEDIA_TYPE_VIDEO ? 'video' : 'audio'} codec`);
+        throw new Error(`Codec type mismatch: ${input.type} info but ${codec.type === AVMEDIA_TYPE_VIDEO ? 'video' : 'audio'} codec`);
       }
     }
 
@@ -382,13 +382,13 @@ export class Encoder implements Disposable {
 
     // Send frame to encoder
     const sendRet = await this.codecContext.sendFrame(frame);
-    if (sendRet < 0 && sendRet !== AV_ERROR_EOF) {
+    if (sendRet < 0 && sendRet !== AVERROR_EOF) {
       // Encoder might be full, try to receive first
       const packet = await this.receivePacket();
       if (packet) return packet;
 
       // If still failing, it's an error
-      if (sendRet !== AV_ERROR_EAGAIN) {
+      if (sendRet !== AVERROR_EAGAIN) {
         FFmpegError.throwIfError(sendRet, 'Failed to send frame');
       }
     }
@@ -611,7 +611,7 @@ export class Encoder implements Disposable {
     if (ret === 0) {
       // Got a packet, clone it for the user
       return this.packet.clone();
-    } else if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+    } else if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
       // Need more data or end of stream
       return null;
     } else {

@@ -13,8 +13,8 @@
 import fs from 'node:fs';
 
 import {
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
   AV_HWDEVICE_TYPE_NONE,
   AV_PIX_FMT_CUDA,
   AV_PIX_FMT_D3D11,
@@ -120,14 +120,14 @@ async function encodeWrite(avctx: CodecContext, frame: Frame | null, outputFile:
 
   try {
     const ret = await avctx.sendFrame(frame);
-    if (ret < 0 && ret !== AV_ERROR_EAGAIN && ret !== AV_ERROR_EOF) {
+    if (ret < 0 && ret !== AVERROR_EAGAIN && ret !== AVERROR_EOF) {
       console.error(`Error sending frame: ${new FFmpegError(ret).message}`);
       return ret;
     }
 
     while (true) {
       const recvRet = await avctx.receivePacket(packet);
-      if (recvRet === AV_ERROR_EAGAIN || recvRet === AV_ERROR_EOF) {
+      if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
         break;
       }
       if (recvRet < 0) {

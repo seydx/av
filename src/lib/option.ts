@@ -13,7 +13,6 @@
 import { bindings } from './binding.js';
 import {
   AV_OPT_SEARCH_CHILDREN,
-  AV_OPT_SEARCH_FLAG_NONE,
   AV_OPT_TYPE_BINARY,
   AV_OPT_TYPE_BINARY_INT_ARRAY,
   AV_OPT_TYPE_BOOL,
@@ -35,6 +34,7 @@ import {
   AV_OPT_TYPE_UINT,
   AV_OPT_TYPE_UINT64,
   AV_OPT_TYPE_VIDEO_RATE,
+  AVFLAG_NONE,
 } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { Rational } from './rational.js';
@@ -251,7 +251,7 @@ export class Option {
    * }
    * ```
    */
-  static find(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): OptionInfo | null {
+  static find(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): OptionInfo | null {
     const result = bindings.Option.find(obj, name, searchFlags);
     return result ? new OptionInfo(result) : null;
   }
@@ -267,11 +267,7 @@ export class Option {
    *
    * @returns Object with option and whether target differs, or null
    */
-  static find2(
-    obj: OptionCapableObject,
-    name: string,
-    searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE,
-  ): { option: OptionInfo | null; isDifferentTarget: boolean } | null {
+  static find2(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): { option: OptionInfo | null; isDifferentTarget: boolean } | null {
     const result = bindings.Option.find2(obj, name, searchFlags);
     if (!result) return null;
     return {
@@ -292,7 +288,7 @@ export class Option {
    *
    * @returns Value string on success, null if option not found or on error
    */
-  static get(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): string | null {
+  static get(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): string | null {
     return bindings.Option.get(obj, name, searchFlags);
   }
 
@@ -308,7 +304,7 @@ export class Option {
    *
    * @returns Integer value on success, null if option not found or on error
    */
-  static getInt(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number | null {
+  static getInt(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number | null {
     return bindings.Option.getInt(obj, name, searchFlags);
   }
 
@@ -324,7 +320,7 @@ export class Option {
    *
    * @returns Double value on success, null if option not found or on error
    */
-  static getDouble(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number | null {
+  static getDouble(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number | null {
     return bindings.Option.getDouble(obj, name, searchFlags);
   }
 
@@ -340,7 +336,7 @@ export class Option {
    *
    * @returns Rational object {num, den} on success, null if option not found or on error
    */
-  static getRational(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): IRational | null {
+  static getRational(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): IRational | null {
     return bindings.Option.getRational(obj, name, searchFlags);
   }
 
@@ -356,7 +352,7 @@ export class Option {
    *
    * @returns AVPixelFormat enum value on success, null if option not found or on error
    */
-  static getPixelFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): AVPixelFormat | null {
+  static getPixelFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): AVPixelFormat | null {
     return bindings.Option.getPixelFormat(obj, name, searchFlags);
   }
 
@@ -372,7 +368,7 @@ export class Option {
    *
    * @returns AVSampleFormat enum value on success, null if option not found or on error
    */
-  static getSampleFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): AVSampleFormat | null {
+  static getSampleFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): AVSampleFormat | null {
     return bindings.Option.getSampleFormat(obj, name, searchFlags);
   }
 
@@ -388,7 +384,7 @@ export class Option {
    *
    * @returns Size object {width, height} on success, null if option not found or on error
    */
-  static getImageSize(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): { width: number; height: number } | null {
+  static getImageSize(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): { width: number; height: number } | null {
     return bindings.Option.getImageSize(obj, name, searchFlags);
   }
 
@@ -404,7 +400,7 @@ export class Option {
    *
    * @returns ChannelLayout object on success, null if option not found or on error
    */
-  static getChannelLayout(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): ChannelLayout | null {
+  static getChannelLayout(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): ChannelLayout | null {
     return bindings.Option.getChannelLayout(obj, name, searchFlags);
   }
 
@@ -420,7 +416,7 @@ export class Option {
    *
    * @returns Dictionary object on success, null if option not found or on error
    */
-  static getDict(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): Dictionary | null {
+  static getDict(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): Dictionary | null {
     const native = bindings.Option.getDict(obj, name, searchFlags);
     return native ? Dictionary.fromNative(native) : null;
   }
@@ -438,7 +434,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static set(obj: OptionCapableObject, name: string, value: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static set(obj: OptionCapableObject, name: string, value: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.set(obj, name, value, searchFlags);
   }
 
@@ -455,7 +451,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setInt(obj: OptionCapableObject, name: string, value: number | bigint, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setInt(obj: OptionCapableObject, name: string, value: number | bigint, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setInt(obj, name, value, searchFlags);
   }
 
@@ -472,7 +468,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setDouble(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setDouble(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setDouble(obj, name, value, searchFlags);
   }
 
@@ -489,7 +485,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setRational(obj: OptionCapableObject, name: string, value: IRational, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setRational(obj: OptionCapableObject, name: string, value: IRational, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setRational(obj, name, value, searchFlags);
   }
 
@@ -506,7 +502,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setPixelFormat(obj: OptionCapableObject, name: string, value: AVPixelFormat, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setPixelFormat(obj: OptionCapableObject, name: string, value: AVPixelFormat, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setPixelFormat(obj, name, value, searchFlags);
   }
 
@@ -523,7 +519,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setSampleFormat(obj: OptionCapableObject, name: string, value: AVSampleFormat, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setSampleFormat(obj: OptionCapableObject, name: string, value: AVSampleFormat, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setSampleFormat(obj, name, value, searchFlags);
   }
 
@@ -541,7 +537,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setImageSize(obj: OptionCapableObject, name: string, width: number, height: number, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setImageSize(obj: OptionCapableObject, name: string, width: number, height: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setImageSize(obj, name, width, height, searchFlags);
   }
 
@@ -558,7 +554,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setChannelLayout(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setChannelLayout(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setChannelLayout(obj, name, value, searchFlags);
   }
 
@@ -575,7 +571,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setDict(obj: OptionCapableObject, name: string, value: Dictionary, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setDict(obj: OptionCapableObject, name: string, value: Dictionary, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setDict(obj, name, value.getNative(), searchFlags);
   }
 
@@ -592,7 +588,7 @@ export class Option {
    *
    * @returns 0 on success, negative AVERROR code on failure
    */
-  static setBin(obj: OptionCapableObject, name: string, value: Buffer, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): number {
+  static setBin(obj: OptionCapableObject, name: string, value: Buffer, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setBin(obj, name, value, searchFlags);
   }
 
@@ -633,7 +629,7 @@ export class Option {
    *
    * @returns true if set to default, false if not, null if option not found or on error
    */
-  static isSetToDefault(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_FLAG_NONE): boolean | null {
+  static isSetToDefault(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): boolean | null {
     return bindings.Option.isSetToDefault(obj, name, searchFlags);
   }
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import { AV_DICT_IGNORE_SUFFIX, AV_DICT_MATCH_CASE, AV_DICT_NONE, Dictionary } from '../src/lib/index.js';
+import { AV_DICT_IGNORE_SUFFIX, AV_DICT_MATCH_CASE, AVFLAG_NONE, Dictionary } from '../src/lib/index.js';
 
 describe('Dictionary', () => {
   let dict: Dictionary;
@@ -34,7 +34,7 @@ describe('Dictionary', () => {
 
     it('should support using statement for automatic disposal', () => {
       using testDict = new Dictionary();
-      testDict.set('key', 'value', AV_DICT_NONE);
+      testDict.set('key', 'value', AVFLAG_NONE);
       assert.ok(testDict);
       // testDict will be automatically disposed when leaving scope
     });
@@ -42,53 +42,53 @@ describe('Dictionary', () => {
 
   describe('Basic Operations', () => {
     it('should set and get values', () => {
-      const ret = dict.set('key1', 'value1', AV_DICT_NONE);
+      const ret = dict.set('key1', 'value1', AVFLAG_NONE);
       assert.equal(ret, 0);
 
-      const value = dict.get('key1', AV_DICT_NONE);
+      const value = dict.get('key1', AVFLAG_NONE);
       assert.equal(value, 'value1');
 
       assert.equal(dict.count(), 1);
     });
 
     it('should handle multiple key-value pairs', () => {
-      dict.set('key1', 'value1', AV_DICT_NONE);
-      dict.set('key2', 'value2', AV_DICT_NONE);
-      dict.set('key3', 'value3', AV_DICT_NONE);
+      dict.set('key1', 'value1', AVFLAG_NONE);
+      dict.set('key2', 'value2', AVFLAG_NONE);
+      dict.set('key3', 'value3', AVFLAG_NONE);
 
       assert.equal(dict.count(), 3);
-      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
-      assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
-      assert.equal(dict.get('key3', AV_DICT_NONE), 'value3');
+      assert.equal(dict.get('key1', AVFLAG_NONE), 'value1');
+      assert.equal(dict.get('key2', AVFLAG_NONE), 'value2');
+      assert.equal(dict.get('key3', AVFLAG_NONE), 'value3');
     });
 
     it('should overwrite existing values', () => {
-      dict.set('key1', 'value1', AV_DICT_NONE);
-      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
+      dict.set('key1', 'value1', AVFLAG_NONE);
+      assert.equal(dict.get('key1', AVFLAG_NONE), 'value1');
 
-      dict.set('key1', 'newvalue', AV_DICT_NONE);
-      assert.equal(dict.get('key1', AV_DICT_NONE), 'newvalue');
+      dict.set('key1', 'newvalue', AVFLAG_NONE);
+      assert.equal(dict.get('key1', AVFLAG_NONE), 'newvalue');
       assert.equal(dict.count(), 1); // Should still be 1 entry
     });
 
     it('should return null for non-existent keys', () => {
-      const value = dict.get('nonexistent', AV_DICT_NONE);
+      const value = dict.get('nonexistent', AVFLAG_NONE);
       assert.equal(value, null);
     });
 
     it('should handle empty string values', () => {
-      dict.set('empty', '', AV_DICT_NONE);
-      assert.equal(dict.get('empty', AV_DICT_NONE), '');
+      dict.set('empty', '', AVFLAG_NONE);
+      assert.equal(dict.get('empty', AVFLAG_NONE), '');
       assert.equal(dict.count(), 1);
     });
   });
 
   describe('Case Sensitivity', () => {
     it('should be case-insensitive by default', () => {
-      dict.set('Key1', 'value1', AV_DICT_NONE);
+      dict.set('Key1', 'value1', AVFLAG_NONE);
 
       // Should find with different case
-      const value = dict.get('key1', AV_DICT_NONE);
+      const value = dict.get('key1', AVFLAG_NONE);
       assert.equal(value, 'value1');
     });
 
@@ -107,9 +107,9 @@ describe('Dictionary', () => {
 
   describe('Prefix Matching', () => {
     it('should support prefix matching with AV_DICT_IGNORE_SUFFIX', () => {
-      dict.set('prefix:key1', 'value1', AV_DICT_NONE);
-      dict.set('prefix:key2', 'value2', AV_DICT_NONE);
-      dict.set('other:key3', 'value3', AV_DICT_NONE);
+      dict.set('prefix:key1', 'value1', AVFLAG_NONE);
+      dict.set('prefix:key2', 'value2', AVFLAG_NONE);
+      dict.set('other:key3', 'value3', AVFLAG_NONE);
 
       // Should find with prefix
       const value = dict.get('prefix', AV_DICT_IGNORE_SUFFIX);
@@ -119,9 +119,9 @@ describe('Dictionary', () => {
 
   describe('Get All Entries', () => {
     it('should get all entries as object', () => {
-      dict.set('key1', 'value1', AV_DICT_NONE);
-      dict.set('key2', 'value2', AV_DICT_NONE);
-      dict.set('key3', 'value3', AV_DICT_NONE);
+      dict.set('key1', 'value1', AVFLAG_NONE);
+      dict.set('key2', 'value2', AVFLAG_NONE);
+      dict.set('key3', 'value3', AVFLAG_NONE);
 
       const all = dict.getAll();
       assert.equal(Object.keys(all).length, 3);
@@ -139,17 +139,17 @@ describe('Dictionary', () => {
 
   describe('String Parsing and Serialization', () => {
     it('should parse options from string', () => {
-      const ret = dict.parseString('key1=value1:key2=value2', '=', ':', AV_DICT_NONE);
+      const ret = dict.parseString('key1=value1:key2=value2', '=', ':', AVFLAG_NONE);
       assert.ok(ret >= 0);
 
       assert.equal(dict.count(), 2);
-      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
-      assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
+      assert.equal(dict.get('key1', AVFLAG_NONE), 'value1');
+      assert.equal(dict.get('key2', AVFLAG_NONE), 'value2');
     });
 
     it('should serialize to string', () => {
-      dict.set('key1', 'value1', AV_DICT_NONE);
-      dict.set('key2', 'value2', AV_DICT_NONE);
+      dict.set('key1', 'value1', AVFLAG_NONE);
+      dict.set('key2', 'value2', AVFLAG_NONE);
 
       const str = dict.getString('=', ':');
       assert.ok(str);
@@ -158,12 +158,12 @@ describe('Dictionary', () => {
     });
 
     it('should handle different separators', () => {
-      const ret = dict.parseString('key1|value1,key2|value2', '|', ',', AV_DICT_NONE);
+      const ret = dict.parseString('key1|value1,key2|value2', '|', ',', AVFLAG_NONE);
       assert.ok(ret >= 0);
 
       assert.equal(dict.count(), 2);
-      assert.equal(dict.get('key1', AV_DICT_NONE), 'value1');
-      assert.equal(dict.get('key2', AV_DICT_NONE), 'value2');
+      assert.equal(dict.get('key1', AVFLAG_NONE), 'value1');
+      assert.equal(dict.get('key2', AVFLAG_NONE), 'value2');
 
       const str = dict.getString('|', ',');
       assert.ok(str);
@@ -179,34 +179,34 @@ describe('Dictionary', () => {
 
   describe('Copy Operations', () => {
     it('should copy dictionary to another', () => {
-      dict.set('key1', 'value1', AV_DICT_NONE);
-      dict.set('key2', 'value2', AV_DICT_NONE);
+      dict.set('key1', 'value1', AVFLAG_NONE);
+      dict.set('key2', 'value2', AVFLAG_NONE);
 
       const dst = new Dictionary();
-      const ret = dict.copy(dst, AV_DICT_NONE);
+      const ret = dict.copy(dst, AVFLAG_NONE);
       assert.equal(ret, 0);
 
       assert.equal(dst.count(), 2);
-      assert.equal(dst.get('key1', AV_DICT_NONE), 'value1');
-      assert.equal(dst.get('key2', AV_DICT_NONE), 'value2');
+      assert.equal(dst.get('key1', AVFLAG_NONE), 'value1');
+      assert.equal(dst.get('key2', AVFLAG_NONE), 'value2');
 
       // Clean up
       dst.free();
     });
 
     it('should overwrite existing entries in destination', () => {
-      dict.set('key1', 'value1', AV_DICT_NONE);
+      dict.set('key1', 'value1', AVFLAG_NONE);
 
       const dst = new Dictionary();
-      dst.set('key1', 'oldvalue', AV_DICT_NONE);
-      dst.set('key2', 'keep', AV_DICT_NONE);
+      dst.set('key1', 'oldvalue', AVFLAG_NONE);
+      dst.set('key2', 'keep', AVFLAG_NONE);
 
-      const ret = dict.copy(dst, AV_DICT_NONE);
+      const ret = dict.copy(dst, AVFLAG_NONE);
       assert.equal(ret, 0);
 
       // key1 should be overwritten, key2 should remain
-      assert.equal(dst.get('key1', AV_DICT_NONE), 'value1');
-      assert.equal(dst.get('key2', AV_DICT_NONE), 'keep');
+      assert.equal(dst.get('key1', AVFLAG_NONE), 'value1');
+      assert.equal(dst.get('key2', AVFLAG_NONE), 'keep');
 
       // Clean up
       dst.free();
@@ -215,80 +215,80 @@ describe('Dictionary', () => {
 
   describe('Special Characters', () => {
     it('should handle keys with spaces', () => {
-      dict.set('key with spaces', 'value with spaces', AV_DICT_NONE);
-      assert.equal(dict.get('key with spaces', AV_DICT_NONE), 'value with spaces');
+      dict.set('key with spaces', 'value with spaces', AVFLAG_NONE);
+      assert.equal(dict.get('key with spaces', AVFLAG_NONE), 'value with spaces');
     });
 
     it('should handle special characters in values', () => {
-      dict.set('special', '!@#$%^&*()', AV_DICT_NONE);
-      assert.equal(dict.get('special', AV_DICT_NONE), '!@#$%^&*()');
+      dict.set('special', '!@#$%^&*()', AVFLAG_NONE);
+      assert.equal(dict.get('special', AVFLAG_NONE), '!@#$%^&*()');
     });
 
     it('should handle unicode characters', () => {
-      dict.set('unicode', '你好世界 🌍', AV_DICT_NONE);
-      assert.equal(dict.get('unicode', AV_DICT_NONE), '你好世界 🌍');
+      dict.set('unicode', '你好世界 🌍', AVFLAG_NONE);
+      assert.equal(dict.get('unicode', AVFLAG_NONE), '你好世界 🌍');
     });
   });
 
   describe('Common FFmpeg Options', () => {
     it('should handle codec options', () => {
       // Common codec options
-      dict.set('preset', 'fast', AV_DICT_NONE);
-      dict.set('crf', '23', AV_DICT_NONE);
-      dict.set('profile', 'high', AV_DICT_NONE);
-      dict.set('level', '4.1', AV_DICT_NONE);
+      dict.set('preset', 'fast', AVFLAG_NONE);
+      dict.set('crf', '23', AVFLAG_NONE);
+      dict.set('profile', 'high', AVFLAG_NONE);
+      dict.set('level', '4.1', AVFLAG_NONE);
 
-      assert.equal(dict.get('preset', AV_DICT_NONE), 'fast');
-      assert.equal(dict.get('crf', AV_DICT_NONE), '23');
-      assert.equal(dict.get('profile', AV_DICT_NONE), 'high');
-      assert.equal(dict.get('level', AV_DICT_NONE), '4.1');
+      assert.equal(dict.get('preset', AVFLAG_NONE), 'fast');
+      assert.equal(dict.get('crf', AVFLAG_NONE), '23');
+      assert.equal(dict.get('profile', AVFLAG_NONE), 'high');
+      assert.equal(dict.get('level', AVFLAG_NONE), '4.1');
     });
 
     it('should handle format options', () => {
       // Common format options
-      dict.set('movflags', 'faststart', AV_DICT_NONE);
-      dict.set('fflags', '+genpts', AV_DICT_NONE);
-      dict.set('avoid_negative_ts', 'make_zero', AV_DICT_NONE);
+      dict.set('movflags', 'faststart', AVFLAG_NONE);
+      dict.set('fflags', '+genpts', AVFLAG_NONE);
+      dict.set('avoid_negative_ts', 'make_zero', AVFLAG_NONE);
 
-      assert.equal(dict.get('movflags', AV_DICT_NONE), 'faststart');
-      assert.equal(dict.get('fflags', AV_DICT_NONE), '+genpts');
-      assert.equal(dict.get('avoid_negative_ts', AV_DICT_NONE), 'make_zero');
+      assert.equal(dict.get('movflags', AVFLAG_NONE), 'faststart');
+      assert.equal(dict.get('fflags', AVFLAG_NONE), '+genpts');
+      assert.equal(dict.get('avoid_negative_ts', AVFLAG_NONE), 'make_zero');
     });
 
     it('should handle metadata', () => {
       // Common metadata
-      dict.set('title', 'My Video', AV_DICT_NONE);
-      dict.set('artist', 'John Doe', AV_DICT_NONE);
-      dict.set('album', 'Best Album', AV_DICT_NONE);
-      dict.set('date', '2024', AV_DICT_NONE);
-      dict.set('comment', 'This is a comment', AV_DICT_NONE);
+      dict.set('title', 'My Video', AVFLAG_NONE);
+      dict.set('artist', 'John Doe', AVFLAG_NONE);
+      dict.set('album', 'Best Album', AVFLAG_NONE);
+      dict.set('date', '2024', AVFLAG_NONE);
+      dict.set('comment', 'This is a comment', AVFLAG_NONE);
 
-      assert.equal(dict.get('title', AV_DICT_NONE), 'My Video');
-      assert.equal(dict.get('artist', AV_DICT_NONE), 'John Doe');
-      assert.equal(dict.get('album', AV_DICT_NONE), 'Best Album');
-      assert.equal(dict.get('date', AV_DICT_NONE), '2024');
-      assert.equal(dict.get('comment', AV_DICT_NONE), 'This is a comment');
+      assert.equal(dict.get('title', AVFLAG_NONE), 'My Video');
+      assert.equal(dict.get('artist', AVFLAG_NONE), 'John Doe');
+      assert.equal(dict.get('album', AVFLAG_NONE), 'Best Album');
+      assert.equal(dict.get('date', AVFLAG_NONE), '2024');
+      assert.equal(dict.get('comment', AVFLAG_NONE), 'This is a comment');
     });
   });
 
   describe('Error Handling', () => {
     it('should handle null or undefined keys gracefully', () => {
       // These operations should not crash
-      const value = dict.get('', AV_DICT_NONE);
+      const value = dict.get('', AVFLAG_NONE);
       assert.equal(value, null);
 
       // Empty key might be allowed
-      const ret = dict.set('', 'value', AV_DICT_NONE);
+      const ret = dict.set('', 'value', AVFLAG_NONE);
       // Might succeed or fail depending on FFmpeg version
       assert.ok(typeof ret === 'number');
     });
 
     it('should handle very long values', () => {
       const longValue = 'x'.repeat(10000);
-      const ret = dict.set('longkey', longValue, AV_DICT_NONE);
+      const ret = dict.set('longkey', longValue, AVFLAG_NONE);
       assert.equal(ret, 0);
 
-      const retrieved = dict.get('longkey', AV_DICT_NONE);
+      const retrieved = dict.get('longkey', AVFLAG_NONE);
       assert.equal(retrieved, longValue);
     });
   });

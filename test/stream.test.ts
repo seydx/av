@@ -5,13 +5,13 @@ import type { Stream } from '../src/lib/index.js';
 import {
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
-  AV_DICT_NONE,
-  AV_DISCARD_ALL,
-  AV_DISCARD_DEFAULT,
   AV_DISPOSITION_ATTACHED_PIC,
   AV_DISPOSITION_DEFAULT,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
+  AVDISCARD_ALL,
+  AVDISCARD_DEFAULT,
+  AVFLAG_NONE,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   CodecParameters,
   Dictionary,
   FormatContext,
@@ -94,11 +94,11 @@ describe('Stream', () => {
 
     it('should get and set discard', () => {
       // Default discard
-      assert.equal(stream.discard, AV_DISCARD_DEFAULT);
+      assert.equal(stream.discard, AVDISCARD_DEFAULT);
 
       // Set discard
-      stream.discard = AV_DISCARD_ALL;
-      assert.equal(stream.discard, AV_DISCARD_ALL);
+      stream.discard = AVDISCARD_ALL;
+      assert.equal(stream.discard, AVDISCARD_ALL);
     });
 
     it('should get sample aspect ratio', () => {
@@ -138,14 +138,14 @@ describe('Stream', () => {
 
     it('should set codec parameters for video', () => {
       const codecpar = stream.codecpar;
-      codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       codecpar.codecId = AV_CODEC_ID_H264;
       codecpar.width = 1920;
       codecpar.height = 1080;
       codecpar.bitRate = 4000000n;
 
       // Verify changes
-      assert.equal(stream.codecpar.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(stream.codecpar.codecType, AVMEDIA_TYPE_VIDEO);
       assert.equal(stream.codecpar.codecId, AV_CODEC_ID_H264);
       assert.equal(stream.codecpar.width, 1920);
       assert.equal(stream.codecpar.height, 1080);
@@ -154,14 +154,14 @@ describe('Stream', () => {
 
     it('should set codec parameters for audio', () => {
       const codecpar = stream.codecpar;
-      codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+      codecpar.codecType = AVMEDIA_TYPE_AUDIO;
       codecpar.codecId = AV_CODEC_ID_AAC;
       codecpar.sampleRate = 48000;
       codecpar.channels = 2;
       codecpar.bitRate = 128000n;
 
       // Verify changes
-      assert.equal(stream.codecpar.codecType, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(stream.codecpar.codecType, AVMEDIA_TYPE_AUDIO);
       assert.equal(stream.codecpar.codecId, AV_CODEC_ID_AAC);
       assert.equal(stream.codecpar.sampleRate, 48000);
       assert.equal(stream.codecpar.channels, 2);
@@ -170,14 +170,14 @@ describe('Stream', () => {
 
     it('should replace codec parameters', () => {
       // Set initial parameters
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.width = 640;
       stream.codecpar.height = 480;
 
       // Create new codec parameters
       const newCodecpar = new CodecParameters();
       newCodecpar.alloc();
-      newCodecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+      newCodecpar.codecType = AVMEDIA_TYPE_AUDIO;
       newCodecpar.sampleRate = 44100;
       newCodecpar.channels = 2;
 
@@ -185,7 +185,7 @@ describe('Stream', () => {
       stream.codecpar = newCodecpar;
 
       // Verify replacement
-      assert.equal(stream.codecpar.codecType, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(stream.codecpar.codecType, AVMEDIA_TYPE_AUDIO);
       assert.equal(stream.codecpar.sampleRate, 44100);
       assert.equal(stream.codecpar.channels, 2);
       // Video params should be gone
@@ -199,15 +199,15 @@ describe('Stream', () => {
   describe('Metadata', () => {
     it('should get and set metadata', () => {
       const metadata = new Dictionary();
-      metadata.set('title', 'Test Stream', AV_DICT_NONE);
-      metadata.set('language', 'eng', AV_DICT_NONE);
+      metadata.set('title', 'Test Stream', AVFLAG_NONE);
+      metadata.set('language', 'eng', AVFLAG_NONE);
 
       stream.metadata = metadata;
 
       const retrieved = stream.metadata;
       assert.ok(retrieved);
-      assert.equal(retrieved.get('title', AV_DICT_NONE), 'Test Stream');
-      assert.equal(retrieved.get('language', AV_DICT_NONE), 'eng');
+      assert.equal(retrieved.get('title', AVFLAG_NONE), 'Test Stream');
+      assert.equal(retrieved.get('language', AVFLAG_NONE), 'eng');
 
       metadata.free();
       retrieved.free();
@@ -218,7 +218,7 @@ describe('Stream', () => {
       // For a new stream, metadata might be null
       if (metadata) {
         // Empty metadata should return null for keys
-        assert.equal(metadata.get('nonexistent', AV_DICT_NONE), null);
+        assert.equal(metadata.get('nonexistent', AVFLAG_NONE), null);
         metadata.free();
       } else {
         // It's okay if metadata is null for a new stream
@@ -247,14 +247,14 @@ describe('Stream', () => {
       assert.equal(stream3.index, 2);
 
       // Set different properties for each
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
-      stream2.codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
-      stream3.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
+      stream2.codecpar.codecType = AVMEDIA_TYPE_AUDIO;
+      stream3.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
 
       // Verify independence
-      assert.equal(stream.codecpar.codecType, AV_MEDIA_TYPE_VIDEO);
-      assert.equal(stream2.codecpar.codecType, AV_MEDIA_TYPE_AUDIO);
-      assert.equal(stream3.codecpar.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(stream.codecpar.codecType, AVMEDIA_TYPE_VIDEO);
+      assert.equal(stream2.codecpar.codecType, AVMEDIA_TYPE_AUDIO);
+      assert.equal(stream3.codecpar.codecType, AVMEDIA_TYPE_VIDEO);
     });
 
     it('should maintain stream references', () => {
@@ -281,7 +281,7 @@ describe('Stream', () => {
   describe('Resource Management', () => {
     it('should not crash when context is freed', () => {
       // Set some properties
-      stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
       stream.codecpar.width = 1920;
       stream.codecpar.height = 1080;
       stream.id = 42;

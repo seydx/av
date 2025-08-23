@@ -9,7 +9,7 @@ import {
   AV_PKT_FLAG_CORRUPT,
   AV_PKT_FLAG_DISCARD,
   AV_PKT_FLAG_KEY,
-  AV_PKT_FLAG_NONE,
+  AVFLAG_NONE,
   Packet,
   Rational,
   type AVPacketFlag,
@@ -118,8 +118,8 @@ describe('Packet', () => {
     });
 
     it('should set and get flags', () => {
-      packet.flags = AV_PKT_FLAG_NONE;
-      assert.equal(packet.flags, AV_PKT_FLAG_NONE);
+      packet.flags = AVFLAG_NONE;
+      assert.equal(packet.flags, AVFLAG_NONE);
       assert.equal(packet.isKeyframe, false);
 
       packet.flags = AV_PKT_FLAG_KEY;
@@ -135,7 +135,7 @@ describe('Packet', () => {
     });
 
     it('should detect keyframe flag', () => {
-      packet.flags = AV_PKT_FLAG_NONE;
+      packet.flags = AVFLAG_NONE;
       assert.equal(packet.isKeyframe, false);
 
       packet.flags = AV_PKT_FLAG_KEY;

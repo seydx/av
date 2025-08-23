@@ -15,7 +15,7 @@
 
 import fs from 'node:fs';
 
-import { AV_ERROR_EOF, AV_SEEK_CUR, AV_SEEK_END, AV_SEEK_SET, AV_SEEK_SIZE, FFmpegError, FormatContext, IOContext } from '../src/lib/index.js';
+import { AVERROR_EOF, AVSEEK_SIZE, FFmpegError, FormatContext, IOContext, SEEK_CUR, SEEK_END, SEEK_SET } from '../src/lib/index.js';
 
 /**
  * Buffer data structure for reading
@@ -50,20 +50,20 @@ class BufferData {
   seek(offset: bigint, whence: number): bigint {
     let newPos: number;
 
-    // Handle AV_SEEK_SIZE
-    if (whence === AV_SEEK_SIZE) {
+    // Handle AVSEEK_SIZE
+    if (whence === AVSEEK_SIZE) {
       return BigInt(this.buffer.length);
     }
 
     const offsetNum = Number(offset);
     switch (whence) {
-      case AV_SEEK_SET:
+      case SEEK_SET:
         newPos = offsetNum;
         break;
-      case AV_SEEK_CUR:
+      case SEEK_CUR:
         newPos = this.position + offsetNum;
         break;
-      case AV_SEEK_END:
+      case SEEK_END:
         newPos = this.buffer.length + offsetNum;
         break;
       default:
@@ -112,7 +112,7 @@ async function customIORead(inputFile: string): Promise<void> {
       (size: number) => {
         const data = bufferData.read(size);
         if (data === null) {
-          return AV_ERROR_EOF; // Signal EOF
+          return AVERROR_EOF; // Signal EOF
         }
         return data;
       },

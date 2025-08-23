@@ -13,11 +13,11 @@
 import fs from 'node:fs';
 
 import {
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVMEDIA_TYPE_VIDEO,
   AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
   AV_HWDEVICE_TYPE_NONE,
-  AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_NONE,
   Codec,
   CodecContext,
@@ -72,7 +72,7 @@ async function decodeWrite(avctx: CodecContext, packet: Packet | null): Promise<
 
     try {
       ret = await avctx.receiveFrame(frame);
-      if (ret === AV_ERROR_EAGAIN || ret === AV_ERROR_EOF) {
+      if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
         return 0;
       } else if (ret < 0) {
         console.error('Error while decoding');
@@ -162,7 +162,7 @@ async function main(): Promise<number> {
     }
 
     // Find the video stream
-    const videoStreamIndex = inputCtx.findBestStream(AV_MEDIA_TYPE_VIDEO, -1, -1);
+    const videoStreamIndex = inputCtx.findBestStream(AVMEDIA_TYPE_VIDEO, -1, -1);
     if (videoStreamIndex < 0) {
       console.error('Cannot find a video stream in the input file');
       return -1;

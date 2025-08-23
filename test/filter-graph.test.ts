@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_FILTER_CMD_FLAG_FAST, AV_FILTER_CMD_FLAG_ONE, AV_FILTER_THREAD_NONE, AV_FILTER_THREAD_SLICE, Filter, FilterContext, FilterGraph } from '../src/lib/index.js';
+import { AVFILTER_CMD_FLAG_FAST, AVFILTER_CMD_FLAG_ONE, AVFILTER_THREAD_SLICE, AVFLAG_NONE, Filter, FilterContext, FilterGraph } from '../src/lib/index.js';
 
 describe('FilterGraph', () => {
   describe('Creation and Lifecycle', () => {
@@ -90,11 +90,11 @@ describe('FilterGraph', () => {
       assert.equal(typeof initialThreadType, 'number', 'Should have numeric thread type');
 
       // Set new thread type
-      graph.threadType = AV_FILTER_THREAD_SLICE;
-      assert.equal(graph.threadType, AV_FILTER_THREAD_SLICE, 'Should update thread type');
+      graph.threadType = AVFILTER_THREAD_SLICE;
+      assert.equal(graph.threadType, AVFILTER_THREAD_SLICE, 'Should update thread type');
 
-      graph.threadType = AV_FILTER_THREAD_NONE;
-      assert.equal(graph.threadType, AV_FILTER_THREAD_NONE, 'Should disable threading');
+      graph.threadType = AVFLAG_NONE;
+      assert.equal(graph.threadType, AVFLAG_NONE, 'Should disable threading');
 
       graph.free();
     });
@@ -881,8 +881,8 @@ describe('FilterGraph', () => {
       assert.ok(filter);
       graph.createFilter(filter, 'test');
 
-      // Send command with AV_FILTER_CMD_FLAG_ONE
-      const result = graph.sendCommand('all', 'enable', '1', AV_FILTER_CMD_FLAG_ONE);
+      // Send command with AVFILTER_CMD_FLAG_ONE
+      const result = graph.sendCommand('all', 'enable', '1', AVFILTER_CMD_FLAG_ONE);
 
       assert.ok(typeof result === 'number' || 'response' in result, 'Should handle command with flags');
 
@@ -974,7 +974,7 @@ describe('FilterGraph', () => {
       graph.createFilter(filter, 'test');
 
       // Queue command with FAST flag
-      const ret = graph.queueCommand('test', 'enable', '1', 5.0, AV_FILTER_CMD_FLAG_FAST);
+      const ret = graph.queueCommand('test', 'enable', '1', 5.0, AVFILTER_CMD_FLAG_FAST);
 
       assert.equal(typeof ret, 'number', 'Should return status code');
 

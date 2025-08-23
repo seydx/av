@@ -20,9 +20,9 @@ import {
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MPEG1VIDEO,
   AV_CODEC_ID_MPEG2VIDEO,
-  AV_ERROR_EAGAIN,
-  AV_ERROR_EOF,
   AV_PIX_FMT_YUV420P,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
   Codec,
   CodecContext,
   FFmpegError,
@@ -45,7 +45,7 @@ async function encode(encCtx: CodecContext, frame: Frame | null, pkt: Packet, ou
 
   while (true) {
     const ret = await encCtx.receivePacket(pkt);
-    if (FFmpegError.is(ret, AV_ERROR_EAGAIN) || FFmpegError.is(ret, AV_ERROR_EOF)) {
+    if (FFmpegError.is(ret, AVERROR_EAGAIN) || FFmpegError.is(ret, AVERROR_EOF)) {
       return;
     }
     FFmpegError.throwIfError(ret, 'Error during encoding');

@@ -1,8 +1,8 @@
 import type {
   AVDictFlag,
   AVFilterCmdFlag,
+  AVFilterConstants,
   AVFilterFlag,
-  AVFilterThreadType,
   AVFrameSideDataType,
   AVHWDeviceType,
   AVHWFrameTransferDirection,
@@ -13,7 +13,7 @@ import type {
   AVPixelFormat,
   AVSeekFlag,
   AVSeekWhence,
-  AVSoftwareScaleFlag,
+  SWSFlag,
 } from './constants.js';
 
 /**
@@ -667,7 +667,7 @@ export interface NativeSoftwareScaleContext extends Disposable {
 
   // ===== Lifecycle Methods - Low Level API =====
   allocContext(): void;
-  getContext(srcW: number, srcH: number, srcFormat: AVPixelFormat, dstW: number, dstH: number, dstFormat: AVPixelFormat, flags: AVSoftwareScaleFlag): void;
+  getContext(srcW: number, srcH: number, srcFormat: AVPixelFormat, dstW: number, dstH: number, dstFormat: AVPixelFormat, flags: SWSFlag): void;
   initContext(): number;
   freeContext(): void;
 
@@ -833,7 +833,7 @@ export interface NativeFilterGraph extends Disposable {
   // ===== Properties =====
   readonly nbFilters: number;
   readonly filters: NativeFilterContext[] | null;
-  threadType: AVFilterThreadType;
+  threadType: AVFilterConstants;
   nbThreads: number;
   scaleSwsOpts: string | null;
 

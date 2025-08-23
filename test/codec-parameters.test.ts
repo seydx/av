@@ -2,19 +2,10 @@ import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
-  AV_CHROMA_LOCATION_CENTER,
-  AV_CHROMA_LOCATION_LEFT,
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MJPEG,
   AV_CODEC_ID_PCM_S16LE,
-  AV_COLOR_PRIMARIES_BT709,
-  AV_COLOR_RANGE_JPEG,
-  AV_COLOR_RANGE_MPEG,
-  AV_COLOR_SPACE_BT709,
-  AV_COLOR_TRC_BT709,
-  AV_MEDIA_TYPE_AUDIO,
-  AV_MEDIA_TYPE_VIDEO,
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_YUV420P,
   AV_PROFILE_AAC_LOW,
@@ -22,6 +13,15 @@ import {
   AV_PROFILE_H264_HIGH,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16,
+  AVCHROMA_LOC_CENTER,
+  AVCHROMA_LOC_LEFT,
+  AVCOL_PRI_BT709,
+  AVCOL_RANGE_JPEG,
+  AVCOL_RANGE_MPEG,
+  AVCOL_SPC_BT709,
+  AVCOL_TRC_BT709,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_VIDEO,
   Codec,
   CodecContext,
   CodecParameters,
@@ -77,11 +77,11 @@ describe('CodecParameters', () => {
     });
 
     it('should get and set codec type', () => {
-      params.codecType = AV_MEDIA_TYPE_VIDEO;
-      assert.equal(params.codecType, AV_MEDIA_TYPE_VIDEO);
+      params.codecType = AVMEDIA_TYPE_VIDEO;
+      assert.equal(params.codecType, AVMEDIA_TYPE_VIDEO);
 
-      params.codecType = AV_MEDIA_TYPE_AUDIO;
-      assert.equal(params.codecType, AV_MEDIA_TYPE_AUDIO);
+      params.codecType = AVMEDIA_TYPE_AUDIO;
+      assert.equal(params.codecType, AVMEDIA_TYPE_AUDIO);
     });
 
     it('should get and set codec ID', () => {
@@ -143,7 +143,7 @@ describe('CodecParameters', () => {
   describe('Video Properties', () => {
     beforeEach(() => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_VIDEO;
+      params.codecType = AVMEDIA_TYPE_VIDEO;
     });
 
     it('should get and set width and height', () => {
@@ -207,41 +207,41 @@ describe('CodecParameters', () => {
     });
 
     it('should get and set color range', () => {
-      params.colorRange = AV_COLOR_RANGE_MPEG;
-      assert.equal(params.colorRange, AV_COLOR_RANGE_MPEG);
+      params.colorRange = AVCOL_RANGE_MPEG;
+      assert.equal(params.colorRange, AVCOL_RANGE_MPEG);
 
-      params.colorRange = AV_COLOR_RANGE_JPEG;
-      assert.equal(params.colorRange, AV_COLOR_RANGE_JPEG);
+      params.colorRange = AVCOL_RANGE_JPEG;
+      assert.equal(params.colorRange, AVCOL_RANGE_JPEG);
     });
 
     it('should get and set color primaries', () => {
-      params.colorPrimaries = AV_COLOR_PRIMARIES_BT709;
-      assert.equal(params.colorPrimaries, AV_COLOR_PRIMARIES_BT709);
+      params.colorPrimaries = AVCOL_PRI_BT709;
+      assert.equal(params.colorPrimaries, AVCOL_PRI_BT709);
     });
 
     it('should get and set color transfer characteristic', () => {
-      params.colorTrc = AV_COLOR_TRC_BT709;
-      assert.equal(params.colorTrc, AV_COLOR_TRC_BT709);
+      params.colorTrc = AVCOL_TRC_BT709;
+      assert.equal(params.colorTrc, AVCOL_TRC_BT709);
     });
 
     it('should get and set color space', () => {
-      params.colorSpace = AV_COLOR_SPACE_BT709;
-      assert.equal(params.colorSpace, AV_COLOR_SPACE_BT709);
+      params.colorSpace = AVCOL_SPC_BT709;
+      assert.equal(params.colorSpace, AVCOL_SPC_BT709);
     });
 
     it('should get and set chroma location', () => {
-      params.chromaLocation = AV_CHROMA_LOCATION_LEFT;
-      assert.equal(params.chromaLocation, AV_CHROMA_LOCATION_LEFT);
+      params.chromaLocation = AVCHROMA_LOC_LEFT;
+      assert.equal(params.chromaLocation, AVCHROMA_LOC_LEFT);
 
-      params.chromaLocation = AV_CHROMA_LOCATION_CENTER;
-      assert.equal(params.chromaLocation, AV_CHROMA_LOCATION_CENTER);
+      params.chromaLocation = AVCHROMA_LOC_CENTER;
+      assert.equal(params.chromaLocation, AVCHROMA_LOC_CENTER);
     });
   });
 
   describe('Audio Properties', () => {
     beforeEach(() => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_AUDIO;
+      params.codecType = AVMEDIA_TYPE_AUDIO;
     });
 
     it('should get and set sample rate', () => {
@@ -322,7 +322,7 @@ describe('CodecParameters', () => {
   describe('Copy Operations', () => {
     it('should copy parameters to another instance', () => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_VIDEO;
+      params.codecType = AVMEDIA_TYPE_VIDEO;
       params.codecId = AV_CODEC_ID_H264;
       params.width = 1280;
       params.height = 720;
@@ -336,7 +336,7 @@ describe('CodecParameters', () => {
       assert.equal(ret, 0);
 
       // Verify copy
-      assert.equal(dst.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(dst.codecType, AVMEDIA_TYPE_VIDEO);
       assert.equal(dst.codecId, AV_CODEC_ID_H264);
       assert.equal(dst.width, 1280);
       assert.equal(dst.height, 720);
@@ -348,7 +348,7 @@ describe('CodecParameters', () => {
 
     it('should copy audio parameters', () => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_AUDIO;
+      params.codecType = AVMEDIA_TYPE_AUDIO;
       params.codecId = AV_CODEC_ID_AAC;
       params.sampleRate = 48000;
       params.channels = 2;
@@ -360,7 +360,7 @@ describe('CodecParameters', () => {
       const ret = params.copy(dst);
       assert.equal(ret, 0);
 
-      assert.equal(dst.codecType, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(dst.codecType, AVMEDIA_TYPE_AUDIO);
       assert.equal(dst.codecId, AV_CODEC_ID_AAC);
       assert.equal(dst.sampleRate, 48000);
       assert.equal(dst.channels, 2);
@@ -404,7 +404,7 @@ describe('CodecParameters', () => {
       assert.equal(ret, 0);
 
       // Verify parameters were copied from context
-      assert.equal(params.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(params.codecType, AVMEDIA_TYPE_VIDEO);
       assert.equal(params.codecId, AV_CODEC_ID_H264);
       assert.equal(params.width, 640);
       assert.equal(params.height, 480);
@@ -415,7 +415,7 @@ describe('CodecParameters', () => {
 
     it('should copy to codec context', () => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_VIDEO;
+      params.codecType = AVMEDIA_TYPE_VIDEO;
       params.codecId = AV_CODEC_ID_MJPEG;
       params.width = 800;
       params.height = 600;
@@ -452,7 +452,7 @@ describe('CodecParameters', () => {
       const ret = params.fromContext(ctx);
       assert.equal(ret, 0);
 
-      assert.equal(params.codecType, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(params.codecType, AVMEDIA_TYPE_AUDIO);
       assert.equal(params.codecId, AV_CODEC_ID_PCM_S16LE);
       assert.equal(params.sampleRate, 44100);
       assert.equal(params.format, AV_SAMPLE_FMT_S16);
@@ -464,7 +464,7 @@ describe('CodecParameters', () => {
   describe('Copy Operations', () => {
     it('should copy video parameters', () => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_VIDEO;
+      params.codecType = AVMEDIA_TYPE_VIDEO;
       params.codecId = AV_CODEC_ID_H264;
       params.width = 1920;
       params.height = 1080;
@@ -472,11 +472,11 @@ describe('CodecParameters', () => {
       params.format = AV_PIX_FMT_YUV420P;
       params.profile = AV_PROFILE_H264_HIGH;
       params.level = 41;
-      params.colorRange = AV_COLOR_RANGE_MPEG;
-      params.colorPrimaries = AV_COLOR_PRIMARIES_BT709;
-      params.colorTrc = AV_COLOR_TRC_BT709;
-      params.colorSpace = AV_COLOR_SPACE_BT709;
-      params.chromaLocation = AV_CHROMA_LOCATION_LEFT;
+      params.colorRange = AVCOL_RANGE_MPEG;
+      params.colorPrimaries = AVCOL_PRI_BT709;
+      params.colorTrc = AVCOL_TRC_BT709;
+      params.colorSpace = AVCOL_SPC_BT709;
+      params.chromaLocation = AVCHROMA_LOC_LEFT;
       params.frameRate = new Rational(30, 1);
 
       const dst = new CodecParameters();
@@ -486,7 +486,7 @@ describe('CodecParameters', () => {
       assert.equal(ret, 0);
 
       // Verify all parameters were copied
-      assert.equal(dst.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(dst.codecType, AVMEDIA_TYPE_VIDEO);
       assert.equal(dst.codecId, AV_CODEC_ID_H264);
       assert.equal(dst.width, 1920);
       assert.equal(dst.height, 1080);
@@ -494,11 +494,11 @@ describe('CodecParameters', () => {
       assert.equal(dst.format, AV_PIX_FMT_YUV420P);
       assert.equal(dst.profile, AV_PROFILE_H264_HIGH);
       assert.equal(dst.level, 41);
-      assert.equal(dst.colorRange, AV_COLOR_RANGE_MPEG);
-      assert.equal(dst.colorPrimaries, AV_COLOR_PRIMARIES_BT709);
-      assert.equal(dst.colorTrc, AV_COLOR_TRC_BT709);
-      assert.equal(dst.colorSpace, AV_COLOR_SPACE_BT709);
-      assert.equal(dst.chromaLocation, AV_CHROMA_LOCATION_LEFT);
+      assert.equal(dst.colorRange, AVCOL_RANGE_MPEG);
+      assert.equal(dst.colorPrimaries, AVCOL_PRI_BT709);
+      assert.equal(dst.colorTrc, AVCOL_TRC_BT709);
+      assert.equal(dst.colorSpace, AVCOL_SPC_BT709);
+      assert.equal(dst.chromaLocation, AVCHROMA_LOC_LEFT);
       assert.equal(dst.frameRate.num, 30);
       assert.equal(dst.frameRate.den, 1);
 
@@ -507,7 +507,7 @@ describe('CodecParameters', () => {
 
     it('should copy audio parameters', () => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_AUDIO;
+      params.codecType = AVMEDIA_TYPE_AUDIO;
       params.codecId = AV_CODEC_ID_AAC;
       params.bitRate = 128000n;
       params.sampleRate = 48000;
@@ -522,7 +522,7 @@ describe('CodecParameters', () => {
       assert.equal(ret, 0);
 
       // Verify all parameters were copied
-      assert.equal(dst.codecType, AV_MEDIA_TYPE_AUDIO);
+      assert.equal(dst.codecType, AVMEDIA_TYPE_AUDIO);
       assert.equal(dst.codecId, AV_CODEC_ID_AAC);
       assert.equal(dst.bitRate, 128000n);
       assert.equal(dst.sampleRate, 48000);
@@ -536,7 +536,7 @@ describe('CodecParameters', () => {
 
     it('should overwrite existing parameters on copy', () => {
       params.alloc();
-      params.codecType = AV_MEDIA_TYPE_VIDEO;
+      params.codecType = AVMEDIA_TYPE_VIDEO;
       params.codecId = AV_CODEC_ID_H264;
       params.width = 1920;
       params.height = 1080;
@@ -544,7 +544,7 @@ describe('CodecParameters', () => {
       const dst = new CodecParameters();
       dst.alloc();
       // Set different values in destination
-      dst.codecType = AV_MEDIA_TYPE_AUDIO;
+      dst.codecType = AVMEDIA_TYPE_AUDIO;
       dst.codecId = AV_CODEC_ID_AAC;
       dst.width = 640;
       dst.height = 480;
@@ -553,7 +553,7 @@ describe('CodecParameters', () => {
       assert.equal(ret, 0);
 
       // Verify parameters were overwritten
-      assert.equal(dst.codecType, AV_MEDIA_TYPE_VIDEO);
+      assert.equal(dst.codecType, AVMEDIA_TYPE_VIDEO);
       assert.equal(dst.codecId, AV_CODEC_ID_H264);
       assert.equal(dst.width, 1920);
       assert.equal(dst.height, 1080);

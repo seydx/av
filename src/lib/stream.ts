@@ -19,7 +19,7 @@ import type { Packet } from './packet.js';
  * @example
  * ```typescript
  * import { FormatContext, FFmpegError } from '@seydx/av';
- * import { AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO } from '@seydx/av/constants';
+ * import { AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO } from '@seydx/av/constants';
  *
  * // Streams are obtained from FormatContext
  * const formatContext = new FormatContext();
@@ -37,9 +37,9 @@ import type { Packet } from './packet.js';
  *
  *   // Direct access to codec parameters
  *   const codecpar = stream.codecpar;
- *   if (codecpar.codecType === AV_MEDIA_TYPE_VIDEO) {
+ *   if (codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
  *     console.log(`Video: ${codecpar.width}x${codecpar.height}`);
- *   } else if (codecpar.codecType === AV_MEDIA_TYPE_AUDIO) {
+ *   } else if (codecpar.codecType === AVMEDIA_TYPE_AUDIO) {
  *     console.log(`Audio: ${codecpar.sampleRate}Hz ${codecpar.channels} channels`);
  *   }
  * }
@@ -93,7 +93,7 @@ export class Stream implements NativeWrapper<NativeStream> {
    * ```typescript
    * // Find video stream index
    * const videoStreamIndex = streams.findIndex(
-   *   s => s.codecpar.codecType === AV_MEDIA_TYPE_VIDEO
+   *   s => s.codecpar.codecType === AVMEDIA_TYPE_VIDEO
    * );
    *
    * // Check packet's stream
@@ -139,13 +139,13 @@ export class Stream implements NativeWrapper<NativeStream> {
    * @example
    * ```typescript
    * // For video stream
-   * stream.codecpar.codecType = AV_MEDIA_TYPE_VIDEO;
+   * stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
    * stream.codecpar.codecId = AV_CODEC_ID_H264;
    * stream.codecpar.width = 1920;
    * stream.codecpar.height = 1080;
    *
    * // For audio stream
-   * stream.codecpar.codecType = AV_MEDIA_TYPE_AUDIO;
+   * stream.codecpar.codecType = AVMEDIA_TYPE_AUDIO;
    * stream.codecpar.codecId = AV_CODEC_ID_AAC;
    * stream.codecpar.sampleRate = 48000;
    * stream.codecpar.channels = 2;

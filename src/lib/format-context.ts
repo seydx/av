@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 import { Codec } from './codec.js';
-import { AV_SEEK_FLAG_NONE } from './constants.js';
+import { AVFLAG_NONE } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { InputFormat } from './input-format.js';
 import { OptionMember } from './option.js';
@@ -534,21 +534,21 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @returns 0 on success, negative AVERROR on error:
    *   - 0: Success
-   *   - AV_ERROR_EOF: End of file reached
+   *   - AVERROR_EOF: End of file reached
    *   - AVERROR(EAGAIN): Temporarily unavailable
    *   - AVERROR(EIO): I/O error
    *   - <0: Other errors
    *
    * @example
    * ```typescript
-   * import { Packet, FormatContext, FFmpegError, AV_ERROR_EOF } from '@seydx/av';
+   * import { Packet, FormatContext, FFmpegError, AVERROR_EOF } from '@seydx/av';
    *
    * const packet = new Packet();
    * packet.alloc();
    *
    * while (true) {
    *   const ret = await ctx.readFrame(packet);
-   *   if (ret === AV_ERROR_EOF) break;
+   *   if (ret === AVERROR_EOF) break;
    *   FFmpegError.throwIfError(ret, 'readFrame');
    *
    *   // Process packet
@@ -590,7 +590,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * // Next readFrame will return packet from new position
    * ```
    */
-  async seekFrame(streamIndex: number, timestamp: bigint, flags: AVSeekFlag = AV_SEEK_FLAG_NONE): Promise<number> {
+  async seekFrame(streamIndex: number, timestamp: bigint, flags: AVSeekFlag = AVFLAG_NONE): Promise<number> {
     return this.native.seekFrame(streamIndex, timestamp, flags);
   }
 
@@ -631,7 +631,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * FFmpegError.throwIfError(ret, 'seekFile');
    * ```
    */
-  async seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags: AVSeekFlag = AV_SEEK_FLAG_NONE): Promise<number> {
+  async seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags: AVSeekFlag = AVFLAG_NONE): Promise<number> {
     return this.native.seekFile(streamIndex, minTs, ts, maxTs, flags);
   }
 

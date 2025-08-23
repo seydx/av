@@ -1,5 +1,5 @@
 import { bindings } from './binding.js';
-import { AV_MEDIA_TYPE_AUDIO, AV_MEDIA_TYPE_VIDEO } from './constants.js';
+import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from './constants.js';
 
 import type { NativeFilter, NativeWrapper } from './native-types.js';
 import type { FilterPad } from './types.js';
@@ -242,7 +242,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    * ```
    */
   isVideo(): boolean {
-    return this.inputs.some((i) => i.type === AV_MEDIA_TYPE_VIDEO) || this.outputs.some((o) => o.type === AV_MEDIA_TYPE_VIDEO);
+    return this.inputs.some((i) => i.type === AVMEDIA_TYPE_VIDEO) || this.outputs.some((o) => o.type === AVMEDIA_TYPE_VIDEO);
   }
 
   /**
@@ -261,7 +261,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    * ```
    */
   isAudio(): boolean {
-    return this.inputs.some((i) => i.type === AV_MEDIA_TYPE_AUDIO) || this.outputs.some((o) => o.type === AV_MEDIA_TYPE_AUDIO);
+    return this.inputs.some((i) => i.type === AVMEDIA_TYPE_AUDIO) || this.outputs.some((o) => o.type === AVMEDIA_TYPE_AUDIO);
   }
 
   /**
