@@ -16,26 +16,7 @@ const __dirname = path.dirname(__filename);
 
 // Get FFmpeg include path from pkg-config
 const getFFmpegPath = () => {
-  try {
-    const flags = execSync('pkg-config --cflags libavcodec', { encoding: 'utf8' });
-    const match = flags.match(/-I([^\s]+)/);
-    if (match) {
-      return match[1];
-    }
-  } catch (e) {
-    console.error('FFmpeg not found via pkg-config', e);
-  }
-
-  // Fallback paths
-  const paths = ['/opt/homebrew/Cellar/ffmpeg/7.1.1_1/include', '/usr/local/include', '/usr/include'];
-
-  for (const p of paths) {
-    if (fs.existsSync(path.join(p, 'libavcodec/avcodec.h'))) {
-      return p;
-    }
-  }
-
-  throw new Error('FFmpeg headers not found');
+  return path.join(__dirname, '../externals/ffmpeg');
 };
 
 const FFMPEG_PATH = getFFmpegPath();
