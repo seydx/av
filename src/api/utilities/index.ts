@@ -18,3 +18,6 @@ export { SampleFormat } from './sample-format.js';
 
 // Timestamp
 export { TimestampUtils } from './timestamp.js';
+
+// Streaming
+export { StreamingUtils } from './streaming.js';

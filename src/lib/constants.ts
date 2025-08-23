@@ -21,9 +21,9 @@ export const AVMEDIA_TYPE_NB = 5 as AVMediaType;
 // Standard seek whence constants (from stdio.h)
 export type AVSeekWhence = number & { readonly [__ffmpeg_brand]: 'AVSeekWhence' };
 
-export const SEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file
-export const SEEK_CUR = 1 as AVSeekWhence; // Seek from current position
-export const SEEK_END = 2 as AVSeekWhence; // Seek from end of file
+export const AVSEEK_SET = 0 as AVSeekWhence; // Seek from beginning of file
+export const AVSEEK_CUR = 1 as AVSeekWhence; // Seek from current position
+export const AVSEEK_END = 2 as AVSeekWhence; // Seek from end of file
 export const AVSEEK_SIZE = 0x10000 as AVSeekWhence; // Get file size without seeking
 
 // Common "no flags" constants for APIs that accept 0 as valid flag value

@@ -273,4 +273,5 @@ export const bindings = require('../../build/Release/ffmpeg.node') as {
   avSamplesAlloc: (nbChannels: number, nbSamples: number, sampleFmt: AVSampleFormat, align: number) => { data: Buffer[]; linesize: number; size: number } | number;
   avSamplesGetBufferSize: (nbChannels: number, nbSamples: number, sampleFmt: AVSampleFormat, align: number) => { size: number; linesize: number } | number;
   avChannelLayoutDescribe: (channelLayout: Partial<ChannelLayout>) => string | null;
+  avSdpCreate: (contexts: NativeFormatContext[]) => string | null;
 };

@@ -1,5 +1,8 @@
 #include "utilities.h"
+#include "common.h"
+#include "format_context.h"
 #include <cstring>
+#include <vector>
 
 namespace ffmpeg {
 
@@ -34,6 +37,8 @@ Napi::Object Utilities::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("avSamplesGetBufferSize", Napi::Function::New(env, SamplesGetBufferSize));
   
   exports.Set("avChannelLayoutDescribe", Napi::Function::New(env, ChannelLayoutDescribe));
+  
+  exports.Set("avSdpCreate", Napi::Function::New(env, SdpCreate));
 
   return exports;
 }
@@ -771,6 +776,63 @@ Napi::Value Utilities::ChannelLayoutDescribe(const Napi::CallbackInfo& info) {
   // Describe the channel layout
   char buf[256];
   int ret = av_channel_layout_describe(&ch_layout, buf, sizeof(buf));
+  
+  if (ret < 0) {
+    return env.Null();
+  }
+  
+  return Napi::String::New(env, buf);
+}
+
+// === SDP utilities ===
+
+Napi::Value Utilities::SdpCreate(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsArray()) {
+    Napi::TypeError::New(env, "First argument must be an array of FormatContext objects").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  Napi::Array arr = info[0].As<Napi::Array>();
+  int n_files = arr.Length();
+  
+  if (n_files == 0) {
+    Napi::TypeError::New(env, "Array must contain at least one FormatContext").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  // Collect AVFormatContext pointers
+  std::vector<AVFormatContext*> contexts;
+  contexts.reserve(n_files);
+  
+  for (uint32_t i = 0; i < arr.Length(); i++) {
+    if (!arr.Get(i).IsObject()) {
+      Napi::TypeError::New(env, "Array must contain FormatContext objects").ThrowAsJavaScriptException();
+      return env.Null();
+    }
+    
+    Napi::Object obj = arr.Get(i).As<Napi::Object>();
+
+    // Note: We need to get the FormatContext wrapper first, then access its internal context
+    FormatContext* formatCtx = UnwrapNativeObject<FormatContext>(env, obj, "FormatContext");
+    if (!formatCtx) {
+      Napi::TypeError::New(env, "Invalid FormatContext object").ThrowAsJavaScriptException();
+      return env.Null();
+    }
+    
+    AVFormatContext* ctx = formatCtx->Get();
+    if (!ctx) {
+      Napi::TypeError::New(env, "FormatContext has null AVFormatContext").ThrowAsJavaScriptException();
+      return env.Null();
+    }
+    
+    contexts.push_back(ctx);
+  }
+  
+  // Create SDP with larger buffer (65536 as requested)
+  char buf[65536];
+  int ret = av_sdp_create(contexts.data(), n_files, buf, sizeof(buf));
   
   if (ret < 0) {
     return env.Null();

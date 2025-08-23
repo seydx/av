@@ -25,6 +25,7 @@ import { bindings } from './binding.js';
 import { FFmpegError } from './error.js';
 
 import type { AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { FormatContext } from './format-context.js';
 import type { ChannelLayout, IRational } from './types.js';
 
 /**
@@ -447,4 +448,63 @@ export function avSamplesGetBufferSize(
  */
 export function avChannelLayoutDescribe(channelLayout: Partial<ChannelLayout>): string | null {
   return bindings.avChannelLayoutDescribe(channelLayout);
+}
+
+/**
+ * Create an SDP (Session Description Protocol) string for RTP/RTSP streaming.
+ *
+ * Generates an SDP description from one or more FormatContext objects.
+ * Useful for RTP/RTSP streaming scenarios where you need to describe
+ * the media streams to clients.
+ *
+ * Direct mapping to av_sdp_create()
+ *
+ * @param contexts - Array of FormatContext objects to describe
+ * @returns SDP string on success, or null on failure
+ *
+ * @throws {FFmpegError} On invalid parameters or SDP creation failure
+ *
+ * @example
+ * ```typescript
+ * import { avSdpCreate, FormatContext, FFmpegError } from '@seydx/av';
+ *
+ * // Create format contexts for RTP output
+ * const contexts: FormatContext[] = [];
+ *
+ * const ctx = new FormatContext();
+ * // ... configure context for RTP output ...
+ * contexts.push(ctx);
+ *
+ * // Generate SDP
+ * const sdp = avSdpCreate(contexts);
+ * if (sdp) {
+ *   console.log('SDP:', result);
+ * }
+ *
+ * // Use the SDP string for RTSP server or save to .sdp file
+ * ```
+ */
+export function avSdpCreate(contexts: FormatContext[]): string | null {
+  if (!Array.isArray(contexts) || contexts.length === 0) {
+    return null;
+  }
+
+  // Pass the native objects to the binding
+  const nativeContexts = contexts
+    .map((ctx) => {
+      if (ctx && typeof ctx.getNative === 'function') {
+        const nativeCtx = ctx.getNative();
+        if (nativeCtx) {
+          return nativeCtx;
+        }
+      }
+    })
+    .filter((ctx) => ctx !== undefined);
+
+  // If no valid contexts after filtering, return null
+  if (nativeContexts.length === 0) {
+    return null;
+  }
+
+  return bindings.avSdpCreate(nativeContexts);
 }

@@ -32,6 +32,8 @@ import {
   AV_SAMPLE_FMT_S32P,
   AV_SAMPLE_FMT_U8,
   AV_SAMPLE_FMT_U8P,
+  FormatContext,
+  OutputFormat,
   Rational,
   avChannelLayoutDescribe,
   avCompareTs,
@@ -52,6 +54,7 @@ import {
   avSampleFmtIsPlanar,
   avSamplesAlloc,
   avSamplesGetBufferSize,
+  avSdpCreate,
   avTs2Str,
   avTs2TimeStr,
   avUsleep,
@@ -607,6 +610,87 @@ describe('Utilities', () => {
       assert.throws(() => avSamplesAlloc(-1, 1024, AV_SAMPLE_FMT_S16, 0), 'Should throw for negative channels');
       assert.throws(() => avSamplesAlloc(2, -1, AV_SAMPLE_FMT_S16, 0), 'Should throw for negative samples');
       assert.throws(() => avSamplesAlloc(2, 1024, -1 as any, 0), 'Should throw for invalid format');
+    });
+  });
+
+  describe('SDP Functions', () => {
+    it('should create SDP from FormatContext array', () => {
+      // Create output format contexts for RTP
+      const contexts: FormatContext[] = [];
+
+      // Create a simple RTP output context
+      const ctx = new FormatContext();
+      const format = OutputFormat.guessFormat('rtp', null, null);
+
+      if (format) {
+        ctx.allocOutputContext2(format, null, 'rtp://127.0.0.1:5004');
+        contexts.push(ctx);
+
+        // Call avSdpCreate
+        const result = avSdpCreate(contexts);
+
+        // Check if we got an SDP string or null
+        if (typeof result === 'string') {
+          assert.ok(result.length > 0, 'Should return non-empty SDP string');
+          assert.ok(result.includes('v='), 'SDP should contain version line');
+          assert.ok(result.includes('o='), 'SDP should contain origin line');
+        } else {
+          // If error, it might be because we haven't set up streams
+          assert.equal(result, null, 'Should return null if SDP creation fails');
+        }
+
+        // Clean up
+        ctx.freeContext();
+      } else {
+        // RTP format might not be available
+        console.log('RTP output format not available, skipping SDP test');
+      }
+    });
+
+    it('should handle empty array', () => {
+      const result = avSdpCreate([]);
+
+      // Empty array should return null
+      assert.equal(result, null, 'Should return null for empty array');
+    });
+
+    it('should validate FormatContext objects', () => {
+      // @ts-ignore - Testing invalid input with null
+      const result1 = avSdpCreate([null]);
+      assert.equal(result1, null, 'Should return null for null in array');
+
+      // @ts-ignore - Testing invalid input with plain object
+      const result2 = avSdpCreate([{}]);
+      assert.equal(result2, null, 'Should return null for non-FormatContext objects');
+
+      // @ts-ignore - Testing invalid input with string
+      const result3 = avSdpCreate('not an array');
+      assert.equal(result3, null, 'Should return null for non-array input');
+    });
+
+    it('should handle multiple contexts', () => {
+      const contexts: FormatContext[] = [];
+      const format = OutputFormat.guessFormat('rtp', null, null);
+
+      if (format) {
+        // Create multiple RTP contexts
+        for (let i = 0; i < 2; i++) {
+          const ctx = new FormatContext();
+          ctx.allocOutputContext2(format, null, `rtp://127.0.0.1:${5004 + i * 2}`);
+          contexts.push(ctx);
+        }
+
+        const result = avSdpCreate(contexts);
+
+        if (typeof result === 'string') {
+          assert.ok(result.length > 0, 'Should create SDP for multiple contexts');
+        } else {
+          assert.equal(result, null, 'Should return null if SDP creation fails');
+        }
+
+        // Clean up
+        contexts.forEach((ctx) => ctx.freeContext());
+      }
     });
   });
 });

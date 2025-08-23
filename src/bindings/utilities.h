@@ -11,6 +11,7 @@ extern "C" {
 #include <libavutil/mathematics.h>
 #include <libavutil/time.h>
 #include <libavutil/channel_layout.h>
+#include <libavformat/avformat.h>
 }
 
 namespace ffmpeg {
@@ -54,6 +55,9 @@ public:
   
   // Channel layout utilities
   static Napi::Value ChannelLayoutDescribe(const Napi::CallbackInfo& info);
+  
+  // SDP utilities
+  static Napi::Value SdpCreate(const Napi::CallbackInfo& info);
 
 private:
   explicit Utilities(const Napi::CallbackInfo& info);
