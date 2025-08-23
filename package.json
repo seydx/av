@@ -58,7 +58,7 @@
     "@types/pngjs": "^6.0.5",
     "@typescript-eslint/parser": "^8.40.0",
     "concurrently": "^9.2.0",
-    "eslint": "^9.33.0",
+    "eslint": "^9.34.0",
     "globals": "^16.3.0",
     "node-gyp": "^11.4.1",
     "pngjs": "^7.0.0",
