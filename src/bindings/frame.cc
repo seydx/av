@@ -52,6 +52,11 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Frame::IsHwFrame>("isHwFrame"),
     InstanceMethod<&Frame::IsSwFrame>("isSwFrame"),
     
+    // Side Data
+    InstanceMethod<&Frame::GetSideData>("getSideData"),
+    InstanceMethod<&Frame::NewSideData>("newSideData"),
+    InstanceMethod<&Frame::RemoveSideData>("removeSideData"),
+    
     // Utility
     InstanceMethod<&Frame::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
@@ -767,6 +772,80 @@ Napi::Value Frame::IsSwFrame(const Napi::CallbackInfo& info) {
   // but has actual data in the first plane
   bool isSw = (frame_->hw_frames_ctx == nullptr) && (frame_->data[0] != nullptr);
   return Napi::Boolean::New(env, isSw);
+}
+
+// === Side Data ===
+
+Napi::Value Frame::GetSideData(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!frame_) {
+    Napi::TypeError::New(env, "Invalid frame").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected side data type as number").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVFrameSideDataType type = static_cast<AVFrameSideDataType>(info[0].As<Napi::Number>().Int32Value());
+  
+  AVFrameSideData* sd = av_frame_get_side_data(frame_, type);
+  if (!sd) {
+    return env.Null();
+  }
+  
+  // Return as Buffer
+  return Napi::Buffer<uint8_t>::Copy(env, sd->data, sd->size);
+}
+
+Napi::Value Frame::NewSideData(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!frame_) {
+    Napi::TypeError::New(env, "Invalid frame").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber()) {
+    Napi::TypeError::New(env, "Expected (type: number, size: number)").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVFrameSideDataType type = static_cast<AVFrameSideDataType>(info[0].As<Napi::Number>().Int32Value());
+  size_t size = info[1].As<Napi::Number>().Uint32Value();
+  
+  AVFrameSideData* sd = av_frame_new_side_data(frame_, type, size);
+  if (!sd) {
+    Napi::Error::New(env, "Failed to allocate new side data").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Return as Buffer that references the side data (not a copy)
+  // Note: The buffer lifetime is tied to the frame
+  return Napi::Buffer<uint8_t>::New(env, sd->data, sd->size, [](Napi::Env, uint8_t*) {
+    // No-op finalizer since the data is owned by the frame
+  });
+}
+
+Napi::Value Frame::RemoveSideData(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!frame_) {
+    Napi::TypeError::New(env, "Invalid frame").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected side data type as number").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVFrameSideDataType type = static_cast<AVFrameSideDataType>(info[0].As<Napi::Number>().Int32Value());
+  
+  av_frame_remove_side_data(frame_, type);
+  return env.Undefined();
 }
 
 Napi::Value Frame::Dispose(const Napi::CallbackInfo& info) {

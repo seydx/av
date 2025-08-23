@@ -3,11 +3,13 @@ import type {
   AVFilterCmdFlag,
   AVFilterFlag,
   AVFilterThreadType,
+  AVFrameSideDataType,
   AVHWDeviceType,
   AVHWFrameTransferDirection,
   AVIOFlag,
   AVOptionFlag,
   AVOptionType,
+  AVPacketSideDataType,
   AVPixelFormat,
   AVSeekFlag,
   AVSeekWhence,
@@ -91,6 +93,12 @@ export interface NativePacket extends Disposable {
   // ===== Utility =====
   isKeyframe: boolean;
 
+  // ===== Side Data =====
+  getSideData(type: AVPacketSideDataType): Buffer | null;
+  addSideData(type: AVPacketSideDataType, data: Buffer): number;
+  newSideData(type: AVPacketSideDataType, size: number): Buffer;
+  freeSideData(): void;
+
   // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
@@ -156,6 +164,11 @@ export interface NativeFrame extends Disposable {
 
   // ===== Utility =====
   readonly isWritable: boolean;
+
+  // ===== Side Data =====
+  getSideData(type: AVFrameSideDataType): Buffer | null;
+  newSideData(type: AVFrameSideDataType, size: number): Buffer;
+  removeSideData(type: AVFrameSideDataType): void;
 
   // Symbol.dispose for cleanup
   [Symbol.dispose](): void;

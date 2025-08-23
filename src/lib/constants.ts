@@ -678,6 +678,18 @@ export const AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION = 2 as AVStreamGroupPa
 export const AV_STREAM_GROUP_PARAMS_TILE_GRID = 3 as AVStreamGroupParamsType;
 export const AV_STREAM_GROUP_PARAMS_LCEVC = 4 as AVStreamGroupParamsType;
 
+// libavformat/avlanguage.h
+export type AVLangCodespace = number & { readonly [__ffmpeg_brand]: 'AVLangCodespace' };
+
+export const AV_LANG_ISO639_2_BIBL = 0 as AVLangCodespace;
+export const AV_LANG_ISO639_2_TERM = 1 as AVLangCodespace;
+export const AV_LANG_ISO639_1 = 2 as AVLangCodespace;
+
+// libavformat/mux.h
+export type AVWriteUncodedFrameFlags = number & { readonly [__ffmpeg_brand]: 'AVWriteUncodedFrameFlags' };
+
+export const AV_WRITE_UNCODED_FRAME_QUERY = 1 as AVWriteUncodedFrameFlags;
+
 // libavutil/avstring.h
 export type AVEscapeMode = number & { readonly [__ffmpeg_brand]: 'AVEscapeMode' };
 
@@ -2018,10 +2030,11 @@ export const AV_SWS_CS_SMPTE240M = 7 as AVSoftwareScaleFlag;
 export const AV_SWS_CS_DEFAULT = 5 as AVSoftwareScaleFlag;
 export const AV_SWS_CS_BT2020 = 9 as AVSoftwareScaleFlag;
 
-// AV_SWR constants (from libswresample/swresample.h)
+// AV_SWR constants (from libswresample/swresample.h, libswresample/swresample_internal.h)
 export type AVSoftwareResampleFlag = number & { readonly [__ffmpeg_brand]: 'AVSoftwareResampleFlag' };
 
 export const AV_SWR_FLAG_RESAMPLE = 1 as AVSoftwareResampleFlag;
+export const AV_SWR_CH_MAX = 64 as AVSoftwareResampleFlag;
 
 // AV_FMT constants (from libavformat/avformat.h)
 export type AVFormatFlags = number & { readonly [__ffmpeg_brand]: 'AVFormatFlags' };
@@ -2056,7 +2069,7 @@ export type AVIOConstants = number & { readonly [__ffmpeg_brand]: 'AVIOConstants
 export const AV_IO_SEEKABLE_NORMAL = 0x1 as AVIOConstants;
 export const AV_IO_SEEKABLE_TIME = 0x2 as AVIOConstants;
 
-// Other constants (ungrouped) - 25 constants
+// Other constants (ungrouped) - 49 constants
 // These are miscellaneous constants that don't fit into a specific category
 export const AV_AAC_ADTS_HEADER_SIZE = 7;
 export const AV_LEVEL_UNKNOWN = -99;
@@ -2070,10 +2083,20 @@ export const AV_DOVI_MAX_EXT_BLOCKS = 32;
 export const AV_NUM_DATA_POINTERS = 8;
 export const AV_HASH_MAX_SIZE = 64;
 export const AV_HDR_PLUS_MAX_PAYLOAD_SIZE = 907;
+export const AV_INTEGER_SIZE = 8;
 export const AV_VIDEO_MAX_PLANES = 4;
 export const AV_TIMECODE_STR_SIZE = 23;
 export const AV_TS_MAX_STRING_SIZE = 32;
 export const AV_UUID_LEN = 16;
+export const AV_ME_METHOD_ESA = 1;
+export const AV_ME_METHOD_TSS = 2;
+export const AV_ME_METHOD_TDLS = 3;
+export const AV_ME_METHOD_NTSS = 4;
+export const AV_ME_METHOD_FSS = 5;
+export const AV_ME_METHOD_DS = 6;
+export const AV_ME_METHOD_HEXBS = 7;
+export const AV_ME_METHOD_EPZS = 8;
+export const AV_ME_METHOD_UMH = 9;
 
 // ============================================================================
 // AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods

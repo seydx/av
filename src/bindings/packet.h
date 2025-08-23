@@ -62,6 +62,13 @@ private:
   Napi::Value GetIsKeyframe(const Napi::CallbackInfo& info);
   void SetIsKeyframe(const Napi::CallbackInfo& info, const Napi::Value& value);
   
+  // === Side Data ===
+  
+  Napi::Value GetSideData(const Napi::CallbackInfo& info);
+  Napi::Value AddSideData(const Napi::CallbackInfo& info);
+  Napi::Value NewSideData(const Napi::CallbackInfo& info);
+  Napi::Value FreeSideData(const Napi::CallbackInfo& info);
+  
   // === Utility ===
   
   Napi::Value Dispose(const Napi::CallbackInfo& info);

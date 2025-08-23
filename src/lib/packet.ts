@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVPacketFlag } from './constants.js';
+import type { AVPacketFlag, AVPacketSideDataType } from './constants.js';
 import type { NativePacket, NativeWrapper } from './native-types.js';
 import type { IRational } from './types.js';
 
@@ -458,6 +458,98 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    */
   makeWritable(): number {
     return this.native.makeWritable();
+  }
+
+  /**
+   * Get side data from the packet.
+   *
+   * Direct mapping to av_packet_get_side_data()
+   *
+   * @param type - The type of side data to retrieve
+   * @returns Buffer containing the side data, or null if not found
+   *
+   * @example
+   * ```typescript
+   * import { Packet } from '@seydx/av';
+   * import { AV_PKT_DATA_PALETTE } from '@seydx/av/constants';
+   *
+   * const paletteData = packet.getSideData(AV_PKT_DATA_PALETTE);
+   * if (paletteData) {
+   *   console.log('Palette data size:', paletteData.length);
+   * }
+   * ```
+   */
+  getSideData(type: AVPacketSideDataType): Buffer | null {
+    return this.native.getSideData(type);
+  }
+
+  /**
+   * Add side data to the packet.
+   *
+   * Allocates and adds side data to the packet. The data is copied.
+   * Direct mapping to av_packet_add_side_data()
+   *
+   * @param type - The type of side data to add
+   * @param data - Buffer containing the side data
+   * @returns 0 on success, negative AVERROR on failure
+   *
+   * @example
+   * ```typescript
+   * import { Packet } from '@seydx/av';
+   * import { AV_PKT_DATA_NEW_EXTRADATA } from '@seydx/av/constants';
+   *
+   * const extraData = Buffer.from([0x01, 0x02, 0x03]);
+   * const ret = packet.addSideData(AV_PKT_DATA_NEW_EXTRADATA, extraData);
+   * if (ret < 0) {
+   *   console.error('Failed to add side data');
+   * }
+   * ```
+   */
+  addSideData(type: AVPacketSideDataType, data: Buffer): number {
+    return this.native.addSideData(type, data);
+  }
+
+  /**
+   * Allocate new side data for the packet.
+   *
+   * Allocates a new side data buffer of the specified size.
+   * Returns a Buffer that references the allocated memory.
+   * Direct mapping to av_packet_new_side_data()
+   *
+   * @param type - The type of side data to allocate
+   * @param size - Size of the side data buffer to allocate
+   * @returns Buffer referencing the allocated side data
+   * @throws {Error} If allocation fails
+   *
+   * @example
+   * ```typescript
+   * import { Packet } from '@seydx/av';
+   * import { AV_PKT_DATA_STRINGS_METADATA } from '@seydx/av/constants';
+   *
+   * // Allocate 256 bytes for metadata
+   * const metadataBuffer = packet.newSideData(AV_PKT_DATA_STRINGS_METADATA, 256);
+   * // Write metadata to the buffer
+   * metadataBuffer.write('key=value', 0, 'utf8');
+   * ```
+   */
+  newSideData(type: AVPacketSideDataType, size: number): Buffer {
+    return this.native.newSideData(type, size);
+  }
+
+  /**
+   * Free all side data from the packet.
+   *
+   * Removes and frees all side data attached to the packet.
+   * Direct mapping to av_packet_free_side_data()
+   *
+   * @example
+   * ```typescript
+   * // Remove all side data from the packet
+   * packet.freeSideData();
+   * ```
+   */
+  freeSideData(): void {
+    this.native.freeSideData();
   }
 
   /**

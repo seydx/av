@@ -8,6 +8,7 @@ import type {
   AVColorRange,
   AVColorSpace,
   AVColorTransferCharacteristic,
+  AVFrameSideDataType,
   AVPictureType,
   AVPixelFormat,
   AVSampleFormat,
@@ -901,6 +902,80 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    */
   isSwFrame(): boolean {
     return this.native.isSwFrame();
+  }
+
+  /**
+   * Get side data from the frame.
+   *
+   * Direct mapping to av_frame_get_side_data()
+   *
+   * @param type - The type of side data to retrieve
+   * @returns Buffer containing the side data, or null if not found
+   *
+   * @example
+   * ```typescript
+   * import { Frame } from '@seydx/av';
+   * import { AV_FRAME_DATA_A53_CC } from '@seydx/av/constants';
+   *
+   * // Check for closed captions
+   * const ccData = frame.getSideData(AV_FRAME_DATA_A53_CC);
+   * if (ccData) {
+   *   console.log('Found closed caption data:', ccData.length, 'bytes');
+   * }
+   * ```
+   */
+  getSideData(type: AVFrameSideDataType): Buffer | null {
+    return this.native.getSideData(type);
+  }
+
+  /**
+   * Allocate new side data for the frame.
+   *
+   * Allocates a new side data buffer of the specified size.
+   * Returns a Buffer that references the allocated memory.
+   * Direct mapping to av_frame_new_side_data()
+   *
+   * @param type - The type of side data to allocate
+   * @param size - Size of the side data buffer to allocate
+   * @returns Buffer referencing the allocated side data
+   * @throws {Error} If allocation fails
+   *
+   * @example
+   * ```typescript
+   * import { Frame } from '@seydx/av';
+   * import { AV_FRAME_DATA_MASTERING_DISPLAY_METADATA } from '@seydx/av/constants';
+   *
+   * // Allocate HDR metadata
+   * const hdrBuffer = frame.newSideData(
+   *   AV_FRAME_DATA_MASTERING_DISPLAY_METADATA,
+   *   24 // Size of mastering display metadata structure
+   * );
+   * // Write HDR metadata to the buffer
+   * ```
+   */
+  newSideData(type: AVFrameSideDataType, size: number): Buffer {
+    return this.native.newSideData(type, size);
+  }
+
+  /**
+   * Remove side data from the frame.
+   *
+   * Removes and frees the specified type of side data from the frame.
+   * Direct mapping to av_frame_remove_side_data()
+   *
+   * @param type - The type of side data to remove
+   *
+   * @example
+   * ```typescript
+   * import { Frame } from '@seydx/av';
+   * import { AV_FRAME_DATA_MOTION_VECTORS } from '@seydx/av/constants';
+   *
+   * // Remove motion vectors data
+   * frame.removeSideData(AV_FRAME_DATA_MOTION_VECTORS);
+   * ```
+   */
+  removeSideData(type: AVFrameSideDataType): void {
+    this.native.removeSideData(type);
   }
 
   /**

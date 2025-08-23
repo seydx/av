@@ -117,6 +117,11 @@ private:
   Napi::Value IsHwFrame(const Napi::CallbackInfo& info);
   Napi::Value IsSwFrame(const Napi::CallbackInfo& info);
   
+  // Side Data
+  Napi::Value GetSideData(const Napi::CallbackInfo& info);
+  Napi::Value NewSideData(const Napi::CallbackInfo& info);
+  Napi::Value RemoveSideData(const Napi::CallbackInfo& info);
+  
   // Utility
   Napi::Value Dispose(const Napi::CallbackInfo& info);
 };

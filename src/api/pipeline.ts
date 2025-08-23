@@ -25,7 +25,7 @@ import type { MediaOutput } from './media-output.js';
 // ============================================================================
 
 // Restrict stream names to known types
-type StreamName = 'video' | 'audio' | 'subtitle';
+type StreamName = 'video' | 'audio';
 
 // Better type definitions with proper inference
 type NamedInputs<K extends StreamName = StreamName> = Pick<Record<StreamName, MediaInput>, K>;
@@ -504,14 +504,9 @@ function runNamedPartialPipeline<K extends StreamName>(inputs: NamedInputs<K>, s
       case 'audio':
         stream = input.audio() ?? null;
         break;
-      case 'subtitle':
-        // MediaInput doesn't have subtitle() method yet
-        // TODO: Add subtitle support when available
-        stream = null;
-        break;
       default:
         // This should never happen
-        throw new Error(`Invalid stream name: ${streamName}. Must be 'video', 'audio', or 'subtitle'.`);
+        throw new Error(`Invalid stream name: ${streamName}. Must be 'video' or 'audio'.`);
     }
 
     if (!stream) {
@@ -580,11 +575,6 @@ async function runNamedPipelineAsync<K extends StreamName>(
           stream = input.audio() ?? null;
           metadata.type = 'audio';
           break;
-        case 'subtitle':
-          // TODO: Add subtitle support
-          stream = null;
-          metadata.type = 'subtitle' as any;
-          break;
       }
 
       if (!stream) {
@@ -623,10 +613,6 @@ async function runNamedPipelineAsync<K extends StreamName>(
             break;
           case 'audio':
             stream = input.audio() ?? null;
-            break;
-          case 'subtitle':
-            // TODO: Add subtitle support
-            stream = null;
             break;
         }
 

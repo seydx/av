@@ -7,6 +7,10 @@ import {
   AV_COLOR_RANGE_JPEG,
   AV_COLOR_SPACE_BT709,
   AV_COLOR_TRC_BT709,
+  AV_FRAME_DATA_A53_CC,
+  AV_FRAME_DATA_MASTERING_DISPLAY_METADATA,
+  AV_FRAME_DATA_MOTION_VECTORS,
+  AV_FRAME_DATA_STEREO3D,
   AV_NOPTS_VALUE,
   AV_PICTURE_TYPE_I,
   AV_PICTURE_TYPE_P,
@@ -544,6 +548,95 @@ describe('Frame', () => {
       assert.ok(typeof ret === 'number', 'Should return a number');
 
       srcFrame.free();
+    });
+  });
+
+  describe('Side Data', () => {
+    beforeEach(() => {
+      frame.alloc();
+    });
+
+    it('should get null for non-existent side data', () => {
+      const data = frame.getSideData(AV_FRAME_DATA_A53_CC);
+      assert.equal(data, null);
+    });
+
+    it('should allocate and retrieve side data', () => {
+      const size = 128;
+      const buffer = frame.newSideData(AV_FRAME_DATA_STEREO3D, size);
+
+      assert.ok(buffer, 'Should allocate side data buffer');
+      assert.ok(Buffer.isBuffer(buffer), 'Should be a Buffer');
+      assert.equal(buffer.length, size, 'Should have correct size');
+
+      // Write some data
+      buffer.fill(0x42);
+
+      // Retrieve and verify
+      const retrieved = frame.getSideData(AV_FRAME_DATA_STEREO3D);
+      assert.ok(retrieved, 'Should retrieve side data');
+      assert.equal(retrieved.length, size, 'Should have same size');
+      assert.equal(retrieved[0], 0x42, 'Should contain written data');
+    });
+
+    it('should remove specific side data', () => {
+      // Add side data
+      const buffer = frame.newSideData(AV_FRAME_DATA_MOTION_VECTORS, 64);
+      buffer.fill(0xff);
+
+      // Verify it exists
+      let data = frame.getSideData(AV_FRAME_DATA_MOTION_VECTORS);
+      assert.ok(data, 'Should have side data before removal');
+
+      // Remove it
+      frame.removeSideData(AV_FRAME_DATA_MOTION_VECTORS);
+
+      // Verify it's gone
+      data = frame.getSideData(AV_FRAME_DATA_MOTION_VECTORS);
+      assert.equal(data, null, 'Should have no side data after removal');
+    });
+
+    it('should handle multiple side data types', () => {
+      // Add different types of side data
+      const ccBuffer = frame.newSideData(AV_FRAME_DATA_A53_CC, 32);
+      ccBuffer.fill(0xcc);
+
+      const hdrBuffer = frame.newSideData(AV_FRAME_DATA_MASTERING_DISPLAY_METADATA, 24);
+      hdrBuffer.fill(0xdd);
+
+      // Retrieve both
+      const cc = frame.getSideData(AV_FRAME_DATA_A53_CC);
+      const hdr = frame.getSideData(AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
+
+      assert.ok(cc, 'Should have CC side data');
+      assert.ok(hdr, 'Should have HDR side data');
+      assert.equal(cc.length, 32, 'CC data should have correct size');
+      assert.equal(hdr.length, 24, 'HDR data should have correct size');
+      assert.equal(cc[0], 0xcc, 'CC data should be intact');
+
+      // Remove one type
+      frame.removeSideData(AV_FRAME_DATA_A53_CC);
+
+      // Verify only one was removed
+      assert.equal(frame.getSideData(AV_FRAME_DATA_A53_CC), null, 'CC data should be removed');
+      assert.ok(frame.getSideData(AV_FRAME_DATA_MASTERING_DISPLAY_METADATA), 'HDR data should remain');
+    });
+
+    it('should persist side data through frame operations', () => {
+      // Set up frame with video data
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.width = 640;
+      frame.height = 480;
+      frame.allocBuffer();
+
+      // Add side data
+      const metaBuffer = frame.newSideData(AV_FRAME_DATA_STEREO3D, 16);
+      metaBuffer.writeUInt32LE(0x12345678, 0);
+
+      // Verify it persists
+      const retrieved = frame.getSideData(AV_FRAME_DATA_STEREO3D);
+      assert.ok(retrieved, 'Should have side data after buffer allocation');
+      assert.equal(retrieved.readUInt32LE(0), 0x12345678, 'Data should be intact');
     });
   });
 });

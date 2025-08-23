@@ -1,7 +1,19 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import { AV_NOPTS_VALUE, AV_PKT_FLAG_CORRUPT, AV_PKT_FLAG_DISCARD, AV_PKT_FLAG_KEY, AV_PKT_FLAG_NONE, Packet, Rational, type AVPacketFlag } from '../src/lib/index.js';
+import {
+  AV_NOPTS_VALUE,
+  AV_PKT_DATA_NEW_EXTRADATA,
+  AV_PKT_DATA_PALETTE,
+  AV_PKT_DATA_STRINGS_METADATA,
+  AV_PKT_FLAG_CORRUPT,
+  AV_PKT_FLAG_DISCARD,
+  AV_PKT_FLAG_KEY,
+  AV_PKT_FLAG_NONE,
+  Packet,
+  Rational,
+  type AVPacketFlag,
+} from '../src/lib/index.js';
 
 describe('Packet', () => {
   let packet: Packet;
@@ -365,6 +377,80 @@ describe('Packet', () => {
       assert.equal(packet.duration, AV_NOPTS_VALUE);
       // Regular values should be rescaled
       assert.equal(packet.dts, 90000n);
+    });
+  });
+
+  describe('Side Data', () => {
+    beforeEach(() => {
+      packet.alloc();
+    });
+
+    it('should get null for non-existent side data', () => {
+      const data = packet.getSideData(AV_PKT_DATA_PALETTE);
+      assert.equal(data, null);
+    });
+
+    it('should add and retrieve side data', () => {
+      const testData = Buffer.from([0x01, 0x02, 0x03, 0x04]);
+      const ret = packet.addSideData(AV_PKT_DATA_NEW_EXTRADATA, testData);
+      assert.equal(ret, 0, 'Should successfully add side data');
+
+      const retrieved = packet.getSideData(AV_PKT_DATA_NEW_EXTRADATA);
+      assert.ok(retrieved, 'Should retrieve side data');
+      assert.ok(Buffer.isBuffer(retrieved), 'Should be a Buffer');
+      assert.deepEqual(retrieved, testData, 'Should match original data');
+    });
+
+    it('should allocate new side data', () => {
+      const size = 256;
+      const buffer = packet.newSideData(AV_PKT_DATA_STRINGS_METADATA, size);
+
+      assert.ok(buffer, 'Should allocate side data buffer');
+      assert.ok(Buffer.isBuffer(buffer), 'Should be a Buffer');
+      assert.equal(buffer.length, size, 'Should have correct size');
+
+      // Write some data to the buffer
+      const testString = 'key=value';
+      buffer.write(testString, 0, 'utf8');
+
+      // Retrieve and verify
+      const retrieved = packet.getSideData(AV_PKT_DATA_STRINGS_METADATA);
+      assert.ok(retrieved, 'Should retrieve side data');
+      const readString = retrieved.toString('utf8', 0, testString.length);
+      assert.equal(readString, testString, 'Should contain written data');
+    });
+
+    it('should free all side data', () => {
+      // Add some side data
+      const testData = Buffer.from([0x01, 0x02, 0x03]);
+      packet.addSideData(AV_PKT_DATA_PALETTE, testData);
+
+      // Verify it exists
+      let data = packet.getSideData(AV_PKT_DATA_PALETTE);
+      assert.ok(data, 'Should have side data before freeing');
+
+      // Free all side data
+      packet.freeSideData();
+
+      // Verify it's gone
+      data = packet.getSideData(AV_PKT_DATA_PALETTE);
+      assert.equal(data, null, 'Should have no side data after freeing');
+    });
+
+    it('should handle multiple side data types', () => {
+      const paletteData = Buffer.from([0xff, 0x00, 0x00]);
+      const extraData = Buffer.from([0x00, 0xff, 0x00]);
+
+      packet.addSideData(AV_PKT_DATA_PALETTE, paletteData);
+      packet.addSideData(AV_PKT_DATA_NEW_EXTRADATA, extraData);
+
+      const palette = packet.getSideData(AV_PKT_DATA_PALETTE);
+      const extra = packet.getSideData(AV_PKT_DATA_NEW_EXTRADATA);
+
+      assert.ok(palette, 'Should have palette data');
+      assert.ok(extra, 'Should have extra data');
+      assert.deepEqual(palette, paletteData, 'Palette data should match');
+      assert.deepEqual(extra, extraData, 'Extra data should match');
     });
   });
 });

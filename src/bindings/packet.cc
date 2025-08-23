@@ -29,6 +29,12 @@ Napi::Object Packet::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&Packet::GetData, &Packet::SetData>("data"),
     InstanceAccessor<&Packet::GetIsKeyframe, &Packet::SetIsKeyframe>("isKeyframe"),
     
+    // Side Data
+    InstanceMethod<&Packet::GetSideData>("getSideData"),
+    InstanceMethod<&Packet::AddSideData>("addSideData"),
+    InstanceMethod<&Packet::NewSideData>("newSideData"),
+    InstanceMethod<&Packet::FreeSideData>("freeSideData"),
+    
     // Utility
     InstanceMethod<&Packet::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
@@ -342,6 +348,112 @@ void Packet::SetIsKeyframe(const Napi::CallbackInfo& info, const Napi::Value& va
       packet_->flags &= ~AV_PKT_FLAG_KEY;
     }
   }
+}
+
+// === Side Data ===
+
+Napi::Value Packet::GetSideData(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!packet_) {
+    Napi::TypeError::New(env, "Invalid packet").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected side data type as number").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVPacketSideDataType type = static_cast<AVPacketSideDataType>(info[0].As<Napi::Number>().Int32Value());
+  
+  size_t size = 0;
+  uint8_t* data = av_packet_get_side_data(packet_, type, &size);
+  
+  if (!data) {
+    return env.Null();
+  }
+  
+  // Return as Buffer
+  return Napi::Buffer<uint8_t>::Copy(env, data, size);
+}
+
+Napi::Value Packet::AddSideData(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!packet_) {
+    Napi::TypeError::New(env, "Invalid packet").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsBuffer()) {
+    Napi::TypeError::New(env, "Expected (type: number, data: Buffer)").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVPacketSideDataType type = static_cast<AVPacketSideDataType>(info[0].As<Napi::Number>().Int32Value());
+  Napi::Buffer<uint8_t> buffer = info[1].As<Napi::Buffer<uint8_t>>();
+  
+  // Allocate and copy data
+  uint8_t* data = static_cast<uint8_t*>(av_malloc(buffer.Length()));
+  if (!data) {
+    Napi::Error::New(env, "Failed to allocate side data (ENOMEM)").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  memcpy(data, buffer.Data(), buffer.Length());
+  
+  int ret = av_packet_add_side_data(packet_, type, data, buffer.Length());
+  if (ret < 0) {
+    av_free(data);
+    char errbuf[AV_ERROR_MAX_STRING_SIZE];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    Napi::Error::New(env, std::string("Failed to add side data: ") + errbuf).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  return Napi::Number::New(env, 0);
+}
+
+Napi::Value Packet::NewSideData(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!packet_) {
+    Napi::TypeError::New(env, "Invalid packet").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber()) {
+    Napi::TypeError::New(env, "Expected (type: number, size: number)").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  enum AVPacketSideDataType type = static_cast<AVPacketSideDataType>(info[0].As<Napi::Number>().Int32Value());
+  size_t size = info[1].As<Napi::Number>().Uint32Value();
+  
+  uint8_t* data = av_packet_new_side_data(packet_, type, size);
+  if (!data) {
+    Napi::Error::New(env, "Failed to allocate new side data").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  // Return as Buffer that references the side data (not a copy)
+  // Note: The buffer lifetime is tied to the packet
+  return Napi::Buffer<uint8_t>::New(env, data, size, [](Napi::Env, uint8_t*) {
+    // No-op finalizer since the data is owned by the packet
+  });
+}
+
+Napi::Value Packet::FreeSideData(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!packet_) {
+    Napi::TypeError::New(env, "Invalid packet").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  
+  av_packet_free_side_data(packet_);
+  return env.Undefined();
 }
 
 Napi::Value Packet::Dispose(const Napi::CallbackInfo& info) {
