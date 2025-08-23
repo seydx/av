@@ -22,6 +22,7 @@ export { BitStreamFilterAPI } from './bitstream-filter.js';
 export { pipeline } from './pipeline.js';
 
 // Utilities
+export * from './utilities/index.js';
 export * from './utils.js';
 
 // Types

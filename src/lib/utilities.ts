@@ -22,9 +22,9 @@
  */
 
 import { bindings } from './binding.js';
+import { FFmpegError } from './error.js';
 
 import type { AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
-import { FFmpegError } from './error.js';
 import type { ChannelLayout, IRational } from './types.js';
 
 /**
@@ -110,7 +110,7 @@ export function avGetPixFmtName(pixFmt: AVPixelFormat): string | null {
  * Direct mapping to av_get_pix_fmt()
  */
 export function avGetPixFmtFromName(name: string): AVPixelFormat {
-  return bindings.avGetPixFmtFromName(name) as AVPixelFormat;
+  return bindings.avGetPixFmtFromName(name);
 }
 
 /**

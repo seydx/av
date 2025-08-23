@@ -1,0 +1,64 @@
+/**
+ * Media Type Utilities
+ *
+ * Provides utilities for working with media types in FFmpeg.
+ * All methods are static and map directly to FFmpeg's libavutil functions.
+ *
+ * @module lib/media-type
+ */
+
+import { bindings } from '../../lib/binding.js';
+
+import type { AVMediaType } from '../../lib/constants.js';
+
+/**
+ * Media type utilities.
+ *
+ * Provides static methods for converting media type enum values to
+ * human-readable strings.
+ *
+ * @example
+ * ```typescript
+ * import { MediaType } from '@seydx/av';
+ * import { AV_MEDIA_TYPE_VIDEO, AV_MEDIA_TYPE_AUDIO } from '@seydx/av/constants';
+ *
+ * console.log(MediaType.getString(AV_MEDIA_TYPE_VIDEO));      // "video"
+ * console.log(MediaType.getString(AV_MEDIA_TYPE_AUDIO));      // "audio"
+ * console.log(MediaType.getString(AV_MEDIA_TYPE_SUBTITLE));   // "subtitle"
+ * ```
+ */
+export class MediaType {
+  // Private constructor to prevent instantiation
+  private constructor() {}
+
+  /**
+   * Get string representation of media type.
+   *
+   * Converts a media type enum value to its string representation.
+   * Direct mapping to av_get_media_type_string()
+   *
+   * @param type - Media type enum value
+   * @returns String representation, or null for invalid type
+   *
+   * @example
+   * ```typescript
+   * import { MediaType } from '@seydx/av';
+   * import {
+   *   AV_MEDIA_TYPE_VIDEO,
+   *   AV_MEDIA_TYPE_AUDIO,
+   *   AV_MEDIA_TYPE_DATA,
+   *   AV_MEDIA_TYPE_SUBTITLE,
+   *   AV_MEDIA_TYPE_ATTACHMENT
+   * } from '@seydx/av/constants';
+   *
+   * console.log(MediaType.getString(AV_MEDIA_TYPE_VIDEO));      // "video"
+   * console.log(MediaType.getString(AV_MEDIA_TYPE_AUDIO));      // "audio"
+   * console.log(MediaType.getString(AV_MEDIA_TYPE_DATA));       // "data"
+   * console.log(MediaType.getString(AV_MEDIA_TYPE_SUBTITLE));   // "subtitle"
+   * console.log(MediaType.getString(AV_MEDIA_TYPE_ATTACHMENT)); // "attachment"
+   * ```
+   */
+  static getString(type: AVMediaType): string | null {
+    return bindings.avGetMediaTypeString(type);
+  }
+}
