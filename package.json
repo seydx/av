@@ -1,7 +1,7 @@
 {
   "name": "@seydx/av",
   "version": "0.1.0",
-  "description": "FFmpeg N-API bindings for Node.js",
+  "description": "FFmpeg bindings for Node.js",
   "type": "module",
   "exports": {
     ".": {
@@ -45,13 +45,6 @@
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "prebuildify": "npm run prebuildify:node && npm run prebuildify:electron",
-    "prebuildify:node": "prebuildify --runtime=node --target=22.0.0 --strip --tag-libc",
-    "prebuildify:electron": "npm run prebuildify:electron:35 && npm run prebuildify:electron:36 && npm run prebuildify:electron:37",
-    "prebuildify:electron:35": "prebuildify --runtime=electron --target=35.0.0 --strip --tag-libc",
-    "prebuildify:electron:36": "prebuildify --runtime=electron --target=36.0.0 --strip --tag-libc",
-    "prebuildify:electron:37": "prebuildify --runtime=electron --target=37.0.0 --strip --tag-libc",
-    "prebuildify:all": "npm run prebuildify",
     "test:all": "npm run build:tests && npm run build:tsc && tsx --test test/**/*.test.ts",
     "update": "updates --update ./",
     "postinstall": "node dist/install/install.js"

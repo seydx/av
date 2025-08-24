@@ -42,7 +42,17 @@ jobs:
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
-      - name: Build FFmpeg Libraries & Node.js Bindings
+      - name: Cache FFmpeg Libraries
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: /opt/ffbuild/prefix
+          key: ffmpeg-jellyfin-macos-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
+          restore-keys: |
+            ffmpeg-jellyfin-macos-${{ matrix.arch }}-
+      
+      - name: Build FFmpeg Libraries
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix
           sudo chmod -R 777 /opt/ffbuild
@@ -55,8 +65,38 @@ jobs:
           sudo chmod +x /opt/ffbuild/bin/check-wget
           export PATH="/opt/ffbuild/bin:$PATH"
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          chmod +x scripts/build-with-jellyfin.sh
-          ./scripts/build-with-jellyfin.sh darwin ${{ matrix.target }}
+          # Build FFmpeg libraries only
+          cd externals/jellyfin-ffmpeg/builder
+          ./buildmac.sh ${{ matrix.arch }}
+          cd ../../..
+          
+      - name: Build Node.js Bindings
+        run: |
+          # Use Jellyfin binding configuration
+          cp binding-jellyfin.gyp binding.gyp
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          for target in $NODE_TARGETS; do
+            echo "Building for Node.js v${target}..."
+            npx prebuildify \
+              --runtime=node \
+              --target="${target}" \
+              --arch=${{ matrix.arch }} \
+              --strip \
+              --tag-libc \
+          done
+          
+      - name: Build Electron Bindings
+        run: |
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          for target in $ELECTRON_TARGETS; do
+            echo "Building for Electron v${target}..."
+            npx prebuildify \
+              --runtime=electron \
+              --target="${target}" \
+              --arch=${{ matrix.arch }} \
+              --strip \
+              --tag-libc \
+          done
 
       - name: Get Package Version
         id: version
@@ -121,10 +161,55 @@ jobs:
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
-      - name: Build FFmpeg Libraries & Node.js Bindings
+      - name: Cache FFmpeg Libraries
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: |
+            builder/artifacts
+            /opt/ffbuild
+          key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
+          restore-keys: |
+            ffmpeg-jellyfin-linux-${{ matrix.arch }}-
+      
+      - name: Build FFmpeg Libraries
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          chmod +x scripts/build-with-jellyfin.sh
-          ./scripts/build-with-jellyfin.sh linux ${{ matrix.target }}
+          cd externals/jellyfin-ffmpeg
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            ./build-linux-amd64
+          else
+            ./build-linux-arm64
+          fi
+          cd ../..
+          
+      - name: Build Node.js Bindings
+        run: |
+          # Use Jellyfin binding configuration
+          cp binding-jellyfin.gyp binding.gyp
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          for target in $NODE_TARGETS; do
+            echo "Building for Node.js v${target}..."
+            npx prebuildify \
+              --runtime=node \
+              --target="${target}" \
+              --arch=${{ matrix.arch }} \
+              --strip \
+              --tag-libc \
+          done
+          
+      - name: Build Electron Bindings
+        run: |
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          for target in $ELECTRON_TARGETS; do
+            echo "Building for Electron v${target}..."
+            npx prebuildify \
+              --runtime=electron \
+              --target="${target}" \
+              --arch=${{ matrix.arch }} \
+              --strip \
+              --tag-libc \
+          done
 
       - name: Get Package Version
         id: version
@@ -225,21 +310,34 @@ jobs:
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
+      - name: Cache FFmpeg Libraries
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: |
+            /clang64/ffbuild
+            /clangarm64/ffbuild
+          key: ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
+          restore-keys: |
+            ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-
+      
       - name: Build FFmpeg Libraries
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           cd externals/jellyfin-ffmpeg
           ${{ matrix.os.build_script }}
+          cd ../..
 
       - name: Build Node.js Bindings
         shell: bash
         run: |
+          # Use Jellyfin binding configuration
+          cp binding-jellyfin.gyp binding.gyp
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
           else
             export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
           fi
-          
-          # Build for each Node.js target
           for target in $NODE_TARGETS; do
             echo "Building for Node.js v${target}..."
             npx prebuildify \
@@ -248,10 +346,16 @@ jobs:
               --arch=${{ matrix.os.arch }} \
               --strip \
               --tag-libc \
-              -- --gyp-file=binding-jellyfin.gyp
           done
           
-          # Build for each Electron target
+      - name: Build Electron Bindings
+        shell: bash
+        run: |
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          else
+            export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          fi
           for target in $ELECTRON_TARGETS; do
             echo "Building for Electron v${target}..."
             npx prebuildify \
@@ -260,7 +364,6 @@ jobs:
               --arch=${{ matrix.os.arch }} \
               --strip \
               --tag-libc \
-              -- --gyp-file=binding-jellyfin.gyp
           done
 
       - name: Get Package Version
