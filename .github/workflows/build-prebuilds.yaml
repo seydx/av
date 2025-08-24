@@ -67,7 +67,12 @@ jobs:
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
           # Build FFmpeg libraries only
           cd externals/jellyfin-ffmpeg/builder
-          ./buildmac.sh ${{ matrix.arch }}
+          # Map GitHub arch to Jellyfin arch
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            ./buildmac.sh x86_64
+          else
+            ./buildmac.sh arm64
+          fi
           cd ../../..
           
       - name: Build Node.js Bindings
@@ -166,8 +171,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            builder/artifacts
-            /opt/ffbuild
+            externals/bin
           key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
           restore-keys: |
             ffmpeg-jellyfin-linux-${{ matrix.arch }}-
@@ -182,6 +186,16 @@ jobs:
             ./build-linux-arm64
           fi
           cd ../..
+          
+      - name: Extract FFmpeg Libraries
+        run: |
+          # Extract cached or freshly built FFmpeg
+          if [ -d "externals/bin" ]; then
+            cd externals/bin
+            sudo mkdir -p /opt/ffbuild
+            sudo tar -xf jellyfin-ffmpeg*portable_linux*.tar.xz -C /opt/ffbuild --strip-components=1
+            cd ../..
+          fi
           
       - name: Build Node.js Bindings
         run: |
