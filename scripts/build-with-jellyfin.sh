@@ -33,15 +33,26 @@ fi
 
 echo "Building for $PLATFORM-$NODE_ARCH"
 
-# Step 1: Build Jellyfin FFmpeg libraries only (no binaries)
+# Step 1: Build Jellyfin FFmpeg libraries
 echo "Building Jellyfin FFmpeg libraries..."
 cd "$PROJECT_ROOT/externals/jellyfin-ffmpeg"
 
-# Configure to build only libraries, no programs (no ffmpeg, ffprobe, ffplay)
-export FFMPEG_CONFIGURE_OPTIONS="--disable-programs --disable-doc --disable-ffmpeg --disable-ffprobe --disable-ffplay"
-
 case "$PLATFORM" in
     darwin|mac*)
+        # macOS needs helper scripts in PATH
+        if [ ! -f /opt/ffbuild/bin/git-mini-clone ]; then
+            echo "Setting up helper scripts for macOS build..."
+            sudo mkdir -p /opt/ffbuild/bin
+            sudo cp builder/images/base/git-mini-clone.sh /opt/ffbuild/bin/git-mini-clone
+            sudo chmod +x /opt/ffbuild/bin/git-mini-clone
+            sudo cp builder/images/base/retry-tool.sh /opt/ffbuild/bin/retry-tool
+            sudo chmod +x /opt/ffbuild/bin/retry-tool
+            sudo cp builder/images/base/check-wget.sh /opt/ffbuild/bin/check-wget
+            sudo chmod +x /opt/ffbuild/bin/check-wget
+        fi
+        export PATH="/opt/ffbuild/bin:$PATH"
+        export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+        
         # macOS uses buildmac.sh with architecture parameter
         ./builder/buildmac.sh "$JELLYFIN_ARCH"
         ;;
@@ -57,16 +68,26 @@ case "$PLATFORM" in
         fi
         ;;
     win*)
-        # Windows has different build scripts for x64 and ARM64
-        if [ "$NODE_ARCH" = "x64" ]; then
-            ./build-windows-win64
-        elif [ "$NODE_ARCH" = "arm64" ]; then
-            # Windows ARM64 uses MSYS2 build
+        # Windows builds require MSYS2 environment
+        if [ -z "$MSYSTEM" ]; then
+            echo "Error: Windows builds require MSYS2 environment"
+            echo "This script should be run on Windows with MSYS2 or in GitHub Actions with msys2/setup-msys2"
+            exit 1
+        fi
+        
+        echo "Detected MSYS2 environment: $MSYSTEM"
+        
+        # Use the appropriate build script based on architecture
+        if [ "$MSYSTEM" = "CLANG64" ] || [ "$NODE_ARCH" = "x64" ]; then
+            cd msys2
+            ./build.sh
+            cd ..
+        elif [ "$MSYSTEM" = "CLANGARM64" ] || [ "$NODE_ARCH" = "arm64" ]; then
             cd msys2
             ./buildarm64.sh
             cd ..
         else
-            echo "Unsupported Windows architecture: $NODE_ARCH"
+            echo "Unsupported MSYS2 environment: $MSYSTEM"
             exit 1
         fi
         ;;
@@ -126,5 +147,3 @@ echo "  Location: prebuilds/"
 echo "  Platform: $PLATFORM-$NODE_ARCH"
 echo "  Node targets: $NODE_TARGETS"
 echo "  Electron targets: $ELECTRON_TARGETS"
-echo ""
-echo "Note: Only FFmpeg libraries were built (no ffmpeg/ffprobe binaries)"

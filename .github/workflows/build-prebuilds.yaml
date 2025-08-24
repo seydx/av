@@ -16,7 +16,6 @@ jobs:
   build_mac:
     name: 'macOS ${{ matrix.arch }}'
     runs-on: macos-13
-    timeout-minutes: 60
     strategy:
       matrix:
         include:
@@ -36,14 +35,23 @@ jobs:
           
       - name: Install Dependencies
         run: |
-          brew install nasm yasm pkg-config
+          # Install all dependencies required by Jellyfin's buildmac.sh
+          brew install wget subversion mercurial autoconf automake cmake meson ninja pkg-config coreutils gcc make python-setuptools pcre2 libtool gnu-sed gnu-tar nasm yasm quilt texinfo
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
       - name: Build FFmpeg Libraries & Node.js Bindings
         run: |
-          sudo mkdir -p /opt/ffbuild
+          sudo mkdir -p /opt/ffbuild/bin
           sudo chmod 777 /opt/ffbuild
+          # Copy Jellyfin's helper scripts
+          sudo cp externals/jellyfin-ffmpeg/builder/images/base/git-mini-clone.sh /opt/ffbuild/bin/git-mini-clone
+          sudo chmod +x /opt/ffbuild/bin/git-mini-clone
+          sudo cp externals/jellyfin-ffmpeg/builder/images/base/retry-tool.sh /opt/ffbuild/bin/retry-tool
+          sudo chmod +x /opt/ffbuild/bin/retry-tool
+          sudo cp externals/jellyfin-ffmpeg/builder/images/base/check-wget.sh /opt/ffbuild/bin/check-wget
+          sudo chmod +x /opt/ffbuild/bin/check-wget
+          export PATH="/opt/ffbuild/bin:$PATH"
           chmod +x scripts/build-with-jellyfin.sh
           ./scripts/build-with-jellyfin.sh darwin ${{ matrix.target }}
 
@@ -88,7 +96,6 @@ jobs:
   build_linux:
     name: 'Linux ${{ matrix.arch }}'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     strategy:
       matrix:
         include:
@@ -154,49 +161,113 @@ jobs:
           path: artifacts/*.zip
 
   build_windows:
-    name: 'Windows ${{ matrix.arch }}'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    name: 'Windows ${{ matrix.os.arch }}'
+    runs-on: ${{ matrix.os.runner }}
     strategy:
       matrix:
-        include:
+        os:
           - arch: x64
-            target: win64
+            runner: windows-latest
+            msystem: CLANG64
+            toolchain: mingw-w64-clang-x86_64-toolchain
+            nasm: mingw-w64-clang-x86_64-nasm
+            build_script: ./msys2/build.sh
           - arch: arm64
-            target: winarm64
+            runner: windows-11-arm
+            msystem: CLANGARM64
+            toolchain: mingw-w64-clang-aarch64-toolchain
+            nasm: mingw-w64-clang-aarch64-nasm
+            build_script: ./msys2/buildarm64.sh
+    defaults:
+      run:
+        shell: msys2 {0}
     
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
 
+      - uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: ${{ matrix.os.msystem }}
+          install: >-
+            git
+            curl
+            wget
+            zip
+            make
+            cmake
+            nasm
+            ${{ matrix.os.toolchain }}
+            ${{ matrix.os.nasm }}
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-make
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-cmake
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-gcc
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-pkg-config
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install Dependencies
+      - name: Install Node Dependencies
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mingw-w64 nasm yasm
           npm ci --ignore-scripts
-          npm install --no-save prebuildify node-abi
+          npm install --no-save prebuildify
 
-      - name: Build FFmpeg Libraries & Node.js Bindings
+      - name: Build FFmpeg Libraries
         run: |
-          chmod +x scripts/build-with-jellyfin.sh
-          ./scripts/build-with-jellyfin.sh win ${{ matrix.target }}
+          cd externals/jellyfin-ffmpeg
+          ${{ matrix.os.build_script }}
+
+      - name: Build Node.js Bindings
+        shell: bash
+        run: |
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          else
+            export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          fi
+          
+          # Build for each Node.js target
+          for target in $NODE_TARGETS; do
+            echo "Building for Node.js v${target}..."
+            npx prebuildify \
+              --runtime=node \
+              --target="${target}" \
+              --arch=${{ matrix.os.arch }} \
+              --strip \
+              --tag-libc \
+              -- --gyp-file=binding-jellyfin.gyp
+          done
+          
+          # Build for each Electron target
+          for target in $ELECTRON_TARGETS; do
+            echo "Building for Electron v${target}..."
+            npx prebuildify \
+              --runtime=electron \
+              --target="${target}" \
+              --arch=${{ matrix.os.arch }} \
+              --strip \
+              --tag-libc \
+              -- --gyp-file=binding-jellyfin.gyp
+          done
 
       - name: Get Package Version
+        shell: bash
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Package Artifacts
+        shell: bash
         run: |
           mkdir -p artifacts
           cd prebuilds
           
           # Package each runtime/ABI combination
-          for dir in win32-${{ matrix.arch }}; do
+          for dir in win32-${{ matrix.os.arch }}; do
             if [ -d "$dir" ]; then
               for file in "$dir"/*.node; do
                 if [ -f "$file" ]; then
@@ -205,7 +276,7 @@ jobs:
                   if [[ "$filename" =~ (node|electron)\.abi([0-9]+)\.node ]]; then
                     runtime="${BASH_REMATCH[1]}"
                     abi="${BASH_REMATCH[2]}"
-                    artifact_name="av-win32-${{ matrix.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
+                    artifact_name="av-win32-${{ matrix.os.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
                     (cd "$dir" && zip -j "../../artifacts/${artifact_name}" "$(basename "$file")")
                     # Rename the .node file inside the zip to av.node
                     (cd ../../artifacts && zip -u "${artifact_name}" -j && printf "@ $(basename "$file")\n@=av.node\n" | zipnote -w "${artifact_name}")
@@ -220,7 +291,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: av-${{ matrix.target }}
+          name: av-win${{ matrix.os.arch == 'arm64' && 'arm64' || '64' }}
           path: artifacts/*.zip
 
   release:

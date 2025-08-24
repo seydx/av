@@ -2,14 +2,6 @@
 	path = externals/ffmpeg
 	url = https://github.com/FFmpeg/FFmpeg.git
 	branch = release/7.1
-[submodule "externals/openh264"]
-	path = externals/openh264
-	url = https://github.com/cisco/openh264
-	branch = master
-[submodule "externals/opus"]
-	path = externals/opus
-	url = https://github.com/xiph/opus
-	branch = main
 [submodule "externals/jellyfin-ffmpeg"]
 	path = externals/jellyfin-ffmpeg
 	url = https://github.com/seydx/jellyfin-ffmpeg.git
