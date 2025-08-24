@@ -16,6 +16,7 @@ jobs:
   build_mac:
     name: 'macOS ${{ matrix.arch }}'
     runs-on: macos-13
+    timeout-minutes: 60
     strategy:
       matrix:
         include:
@@ -87,6 +88,7 @@ jobs:
   build_linux:
     name: 'Linux ${{ matrix.arch }}'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       matrix:
         include:
@@ -154,6 +156,7 @@ jobs:
   build_windows:
     name: 'Windows ${{ matrix.arch }}'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       matrix:
         include:
