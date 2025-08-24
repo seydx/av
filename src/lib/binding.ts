@@ -56,6 +56,10 @@ export type OptionCapableObject =
 
 const require = createRequire(import.meta.url);
 
+// Load the native binary directly from binary folder
+// This will be downloaded by postinstall script
+const nativeBinding = require('../../binary/av.node');
+
 // Constructor types for native bindings
 type NativePacketConstructor = new () => NativePacket;
 
@@ -190,8 +194,8 @@ interface NativeOptionStatic {
   show(obj: OptionCapableObject, reqFlags?: number, rejFlags?: number): number;
 }
 
-// Load the native addon
-export const bindings = require('../../build/Release/ffmpeg.node') as {
+// Export the loaded native bindings
+export const bindings = nativeBinding as {
   // Core Types
   Packet: NativePacketConstructor;
   Frame: NativeFrameConstructor;

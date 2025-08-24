@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "target_name": "ffmpeg",
+      "target_name": "av",
       "sources": [
         "src/bindings/index.cc",
         "src/bindings/packet.cc",
