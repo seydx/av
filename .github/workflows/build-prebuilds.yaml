@@ -45,7 +45,7 @@ jobs:
       - name: Build FFmpeg Libraries & Node.js Bindings
         run: |
           sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix
-          sudo chmod 777 /opt/ffbuild
+          sudo chmod -R 777 /opt/ffbuild
           # Copy Jellyfin's helper scripts
           sudo cp externals/jellyfin-ffmpeg/builder/images/base/git-mini-clone.sh /opt/ffbuild/bin/git-mini-clone
           sudo chmod +x /opt/ffbuild/bin/git-mini-clone

@@ -42,7 +42,8 @@ case "$PLATFORM" in
         # macOS needs helper scripts in PATH
         if [ ! -f /opt/ffbuild/bin/git-mini-clone ]; then
             echo "Setting up helper scripts for macOS build..."
-            sudo mkdir -p /opt/ffbuild/bin
+            sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix
+            sudo chmod -R 777 /opt/ffbuild
             sudo cp builder/images/base/git-mini-clone.sh /opt/ffbuild/bin/git-mini-clone
             sudo chmod +x /opt/ffbuild/bin/git-mini-clone
             sudo cp builder/images/base/retry-tool.sh /opt/ffbuild/bin/retry-tool
