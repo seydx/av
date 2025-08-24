@@ -199,6 +199,10 @@ jobs:
             curl
             wget
             zip
+            patch
+            diffutils
+            quilt
+            diffstat
             make
             cmake
             nasm
@@ -209,6 +213,7 @@ jobs:
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-cmake
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-gcc
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-pkg-config
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-autotools
 
       - uses: actions/setup-node@v4
         with:
