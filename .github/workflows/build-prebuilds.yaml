@@ -37,12 +37,14 @@ jobs:
         run: |
           # Install all dependencies required by Jellyfin's buildmac.sh
           brew install wget subversion mercurial autoconf automake cmake meson ninja pkg-config coreutils gcc make python-setuptools pcre2 libtool gnu-sed gnu-tar nasm yasm quilt texinfo
+          # Ensure gsed is available (gnu-sed installs it as gsed)
+          which gsed || brew link --force gnu-sed
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
       - name: Build FFmpeg Libraries & Node.js Bindings
         run: |
-          sudo mkdir -p /opt/ffbuild/bin
+          sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix
           sudo chmod 777 /opt/ffbuild
           # Copy Jellyfin's helper scripts
           sudo cp externals/jellyfin-ffmpeg/builder/images/base/git-mini-clone.sh /opt/ffbuild/bin/git-mini-clone
@@ -52,6 +54,7 @@ jobs:
           sudo cp externals/jellyfin-ffmpeg/builder/images/base/check-wget.sh /opt/ffbuild/bin/check-wget
           sudo chmod +x /opt/ffbuild/bin/check-wget
           export PATH="/opt/ffbuild/bin:$PATH"
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
           chmod +x scripts/build-with-jellyfin.sh
           ./scripts/build-with-jellyfin.sh darwin ${{ matrix.target }}
 

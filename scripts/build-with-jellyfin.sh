@@ -53,8 +53,10 @@ case "$PLATFORM" in
         export PATH="/opt/ffbuild/bin:$PATH"
         export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
         
-        # macOS uses buildmac.sh with architecture parameter
-        ./builder/buildmac.sh "$JELLYFIN_ARCH"
+        # macOS uses buildmac.sh with architecture parameter (must be run from builder directory)
+        cd builder
+        ./buildmac.sh "$JELLYFIN_ARCH"
+        cd ..
         ;;
     linux)
         # Linux has specific build scripts
