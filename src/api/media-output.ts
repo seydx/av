@@ -76,7 +76,6 @@ export class MediaOutput implements AsyncDisposable {
   private formatContext: FormatContext;
   private streams = new Map<number, StreamInfo>();
   private ioContext?: IOContext;
-  private isCustomIO = false; // Track if we're using custom IO
   private headerWritten = false;
   private trailerWritten = false;
   private closed = false;
@@ -146,7 +145,6 @@ export class MediaOutput implements AsyncDisposable {
           const openRet = await output.ioContext.open2(target, AVIO_FLAG_WRITE);
           FFmpegError.throwIfError(openRet, `Failed to open output file: ${target}`);
           output.formatContext.pb = output.ioContext;
-          output.isCustomIO = false; // Not custom callbacks, but FFmpeg-managed file IO
         }
       } else {
         // Custom IO with callbacks - format is required
@@ -163,7 +161,6 @@ export class MediaOutput implements AsyncDisposable {
         output.ioContext.maxPacketSize = options.bufferSize ?? 4096;
         output.formatContext.pb = output.ioContext;
         output.formatContext.flags = AVFMT_FLAG_CUSTOM_IO;
-        output.isCustomIO = true; // Using custom IO callbacks
       }
 
       return output;
@@ -171,7 +168,7 @@ export class MediaOutput implements AsyncDisposable {
       // Cleanup on error
       if (output.ioContext) {
         try {
-          if (output.isCustomIO) {
+          if (output.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) {
             // Clear the pb reference first
             output.formatContext.pb = null;
             // For custom IO with callbacks, free the context
@@ -460,7 +457,7 @@ export class MediaOutput implements AsyncDisposable {
 
     // For file-based IO, close the file handle via closep
     // For custom IO, the context will be freed below
-    if (this.ioContext && !this.isCustomIO) {
+    if (this.ioContext && !(this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO)) {
       try {
         await this.ioContext.closep();
       } catch {
@@ -478,7 +475,7 @@ export class MediaOutput implements AsyncDisposable {
     }
 
     // Now free custom IO context if present
-    if (this.ioContext && this.isCustomIO) {
+    if (this.ioContext && (this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO)) {
       try {
         this.ioContext.freeContext();
       } catch {
