@@ -44,7 +44,7 @@ npm run build:native
 npm run build:tsc
 
 # Run tests
-npm test:all
+npm run test:all
 ```
 
 ## Code Style Guide

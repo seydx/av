@@ -7,6 +7,8 @@
 
 import { createRequire } from 'node:module';
 
+import { avPath } from '../install/index.js';
+
 import type { AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type {
   NativeAudioFifo,
@@ -58,7 +60,7 @@ const require = createRequire(import.meta.url);
 
 // Load the native binary directly from binary folder
 // This will be downloaded by postinstall script
-const nativeBinding = require('../../binary/av.node');
+const nativeBinding = require(avPath());
 
 // Constructor types for native bindings
 type NativePacketConstructor = new () => NativePacket;
