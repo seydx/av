@@ -1,0 +1,129 @@
+name: 🐞 Bug Report
+description: Report a Bug to help us improve NodeAV
+title: 'Bug: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hi. Thanks for taking the time to fill out this bug report!
+
+        Before we start, be sure you are aware of the following points:
+        - Check if your issue is already reported in the existing issues
+        - The NodeAV binaries include all necessary FFmpeg libraries - no separate FFmpeg installation needed
+        - For segmentation faults, please include a full stack trace if possible
+        - If you're building from source, FFmpeg 7.1+ headers are required
+
+  - type: textarea
+    attributes:
+      label: Describe the Bug
+      placeholder: A clear and concise description of what the bug is.
+    validations:
+      required: true
+      
+  - type: textarea
+    attributes:
+      label: To Reproduce
+      placeholder: |
+        Steps to reproduce the behavior:
+        1. Code snippet that triggers the bug
+        2. Input file characteristics (codec, resolution, etc.)
+        3. Expected output vs actual output
+    validations:
+      required: true
+      
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      placeholder: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+      
+  - type: textarea
+    attributes:
+      label: Code Sample
+      placeholder: |
+        Please provide a minimal code example that reproduces the issue.
+        ```typescript
+        // Your code here
+        ```
+      render: typescript
+    validations:
+      required: false
+      
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output / Error Messages
+      placeholder: |
+        Include any error messages, stack traces, or FFmpeg logs.
+        For segmentation faults, run with node --trace-warnings if possible.
+      render: shell
+    validations:
+      required: true
+      
+  - type: markdown
+    attributes:
+      value: |
+        ## Environment
+        
+  - type: input
+    attributes:
+      label: Node.js Version
+      placeholder: v18.0.0
+    validations:
+      required: true
+      
+  - type: input
+    attributes:
+      label: NodeAV Version
+      placeholder: v1.0.0
+    validations:
+      required: true
+      
+  - type: input
+    attributes:
+      label: Operating System
+      placeholder: Ubuntu 22.04 / Windows 11 / macOS 13
+    validations:
+      required: true
+      
+  - type: input
+    attributes:
+      label: Installation Method
+      placeholder: npm install / Built from source / Other
+    validations:
+      required: true
+      
+  - type: dropdown
+    attributes:
+      label: API Used
+      options:
+        - High-Level API
+        - Low-Level API
+        - Both
+    validations:
+      required: true
+      
+  - type: dropdown
+    attributes:
+      label: Hardware Acceleration
+      options:
+        - None (Software only)
+        - CUDA
+        - VAAPI
+        - VideoToolbox
+        - Quick Sync
+        - Other
+    validations:
+      required: false
+      
+  - type: textarea
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context about the problem here.
+        - If building from source: FFmpeg version and build configuration
+        - Specific codecs, file formats, or hardware acceleration issues
+        - Any custom build flags or modifications
+      placeholder: Any additional information that might help diagnose the issue.

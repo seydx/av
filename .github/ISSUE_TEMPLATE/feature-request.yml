@@ -1,0 +1,88 @@
+name: 🚀 Feature Request
+description: Suggest an improvement or a new feature for NodeAV
+title: 'Feature Request: '
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hi. Thanks for taking the time to contribute to NodeAV! Please fill out the following template to help us understand your feature request better.
+
+  - type: textarea
+    id: current-situation
+    attributes:
+      label: Current Situation
+      description: Please describe what you're trying to achieve and what limitations you're facing with the current API.
+      placeholder: |
+        Example: I'm trying to process multiple audio streams simultaneously, but the current API requires...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe how you'd like this to work. Include example code if possible.
+      placeholder: |
+        I'd like to see an API that allows...
+        
+        ```typescript
+        // Example of proposed API
+        ```
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: API Level
+      description: Which API level would this feature affect?
+      options:
+        - High-Level API
+        - Low-Level API
+        - Both
+        - New API
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: Currently I'm working around this by...
+    validations:
+      required: false
+
+  - type: textarea
+    id: ffmpeg-reference
+    attributes:
+      label: FFmpeg Reference
+      description: |
+        If this feature exists in FFmpeg's C API or CLI, please provide references.
+        This helps us understand the underlying FFmpeg capabilities needed.
+      placeholder: |
+        This feature is similar to FFmpeg's -filter_complex option...
+        Or: The av_filter_graph_* functions in libavfilter...
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Describe specific use cases where this feature would be beneficial.
+      placeholder: |
+        - Real-time streaming applications that need...
+        - Batch processing workflows where...
+        - Interactive video editing tools that require...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context, mockups, or examples about the feature request here.
+        You may attach code samples, diagrams, or links to similar implementations.
+      placeholder: Any additional context that might be relevant for your request.
