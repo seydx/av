@@ -45,7 +45,8 @@
         "src/bindings/option.cc"
       ],
       "include_dirs": [
-        "<!@(node -p \"require('node-addon-api').include\")"
+        "<!@(node -p \"require('node-addon-api').include\")",
+        "/opt/ffbuild/prefix/include"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"
@@ -61,9 +62,6 @@
       ],
       "conditions": [
         ["OS=='mac'", {
-          "include_dirs": [
-            "/opt/ffbuild/prefix/include"
-          ],
           "library_dirs": [
             "/opt/ffbuild/prefix/lib"
           ],
@@ -129,9 +127,6 @@
           }
         }],
         ["OS=='linux'", {
-          "include_dirs": [
-            "/opt/ffbuild/prefix/include"
-          ],
           "library_dirs": [
             "/opt/ffbuild/prefix/lib"
           ],
@@ -192,29 +187,30 @@
         }],
         ["OS=='win'", {
           "include_dirs": [
-            "C:/ffbuild/prefix/include"
+            "/clang64/ffbuild/include",
+            "/clangarm64/ffbuild/include"
           ],
           "library_dirs": [
-            "C:/ffbuild/prefix/lib"
+            "/clang64/ffbuild/lib",
+            "/clangarm64/ffbuild/lib"
           ],
           "libraries": [
-            "C:/ffbuild/prefix/lib/avformat.lib",
-            "C:/ffbuild/prefix/lib/avcodec.lib",
-            "C:/ffbuild/prefix/lib/avfilter.lib",
-            "C:/ffbuild/prefix/lib/avutil.lib",
-            "C:/ffbuild/prefix/lib/swscale.lib",
-            "C:/ffbuild/prefix/lib/swresample.lib",
-            "C:/ffbuild/prefix/lib/avdevice.lib",
-            "C:/ffbuild/prefix/lib/postproc.lib",
-            "C:/ffbuild/prefix/lib/x264.lib",
-            "C:/ffbuild/prefix/lib/x265.lib",
-            "C:/ffbuild/prefix/lib/vpx.lib",
-            "C:/ffbuild/prefix/lib/opus.lib",
-            "C:/ffbuild/prefix/lib/mp3lame.lib",
-            "C:/ffbuild/prefix/lib/fdk-aac.lib",
-            "C:/ffbuild/prefix/lib/dav1d.lib",
-            "C:/ffbuild/prefix/lib/SvtAv1Enc.lib",
-            "C:/ffbuild/prefix/lib/SvtAv1Dec.lib",
+            "-lavformat",
+            "-lavcodec",
+            "-lavfilter",
+            "-lavutil",
+            "-lswscale",
+            "-lswresample",
+            "-lavdevice",
+            "-lpostproc",
+            "-lx264",
+            "-lx265",
+            "-lvpx",
+            "-lopus",
+            "-lmp3lame",
+            "-lfdk-aac",
+            "-ldav1d",
+            "-lSvtAv1Enc",
             "ws2_32.lib",
             "secur32.lib",
             "bcrypt.lib",

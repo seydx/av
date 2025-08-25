@@ -85,6 +85,9 @@ jobs:
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          export CFLAGS="-I/opt/ffbuild/prefix/include"
+          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
+          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           for target in $NODE_TARGETS; do
             echo "Building for Node.js v${target}..."
             npx prebuildify \
@@ -98,6 +101,9 @@ jobs:
       - name: Build Electron Bindings
         run: |
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          export CFLAGS="-I/opt/ffbuild/prefix/include"
+          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
+          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           for target in $ELECTRON_TARGETS; do
             echo "Building for Electron v${target}..."
             npx prebuildify \
@@ -207,6 +213,9 @@ jobs:
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          export CFLAGS="-I/opt/ffbuild/prefix/include"
+          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
+          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           for target in $NODE_TARGETS; do
             echo "Building for Node.js v${target}..."
             npx prebuildify \
@@ -220,6 +229,9 @@ jobs:
       - name: Build Electron Bindings
         run: |
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          export CFLAGS="-I/opt/ffbuild/prefix/include"
+          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
+          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           for target in $ELECTRON_TARGETS; do
             echo "Building for Electron v${target}..."
             npx prebuildify \
@@ -343,6 +355,8 @@ jobs:
       - name: Build FFmpeg Libraries
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          # Update pacman database and retry on failures
+          pacman -Syy --noconfirm || pacman -Syy --noconfirm
           cd externals/jellyfin-ffmpeg
           ${{ matrix.os.build_script }}
           cd ../..
