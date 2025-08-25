@@ -42,18 +42,18 @@ jobs:
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
-      - name: Cache FFmpeg Libraries
-        id: cache-ffmpeg
-        uses: actions/cache@v4
+      - name: Restore FFmpeg Libraries Cache
+        id: cache-ffmpeg-restore
+        uses: actions/cache/restore@v4
         with:
           path: /opt/ffbuild/prefix
           key: ffmpeg-jellyfin-macos-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v2
           restore-keys: |
             ffmpeg-jellyfin-macos-${{ matrix.arch }}-
-          save-always: true
       
       - name: Build FFmpeg Libraries
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        id: build-ffmpeg
+        if: steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         run: |
           # Setup build environment
           sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix
@@ -80,6 +80,13 @@ jobs:
           fi
           cd ..
           cd ../..
+      
+      - name: Save FFmpeg Libraries Cache
+        if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /opt/ffbuild/prefix
+          key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
           
       - name: Build Node.js Bindings
         run: |
@@ -178,19 +185,18 @@ jobs:
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
-      - name: Cache FFmpeg Libraries
-        id: cache-ffmpeg
-        uses: actions/cache@v4
+      - name: Restore FFmpeg Libraries Cache
+        id: cache-ffmpeg-restore
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            /opt/ffbuild/prefix
+          path: /opt/ffbuild/prefix
           key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v3
           restore-keys: |
             ffmpeg-jellyfin-linux-${{ matrix.arch }}-
-          save-always: true
       
       - name: Build FFmpeg Libraries
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        id: build-ffmpeg
+        if: steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         run: |
           cd externals/jellyfin-ffmpeg
           
@@ -232,6 +238,13 @@ jobs:
           fi
           
           cd ../..
+      
+      - name: Save FFmpeg Libraries Cache
+        if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /opt/ffbuild/prefix
+          key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
           
       - name: Verify FFmpeg Libraries
         run: |
@@ -373,9 +386,9 @@ jobs:
           npm ci --ignore-scripts
           npm install --no-save prebuildify
 
-      - name: Cache FFmpeg Libraries
-        id: cache-ffmpeg
-        uses: actions/cache@v4
+      - name: Restore FFmpeg Libraries Cache
+        id: cache-ffmpeg-restore
+        uses: actions/cache/restore@v4
         with:
           path: |
             /clang64/ffbuild
@@ -383,16 +396,25 @@ jobs:
           key: ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
           restore-keys: |
             ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-
-          save-always: true
       
       - name: Build FFmpeg Libraries
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        id: build-ffmpeg
+        if: steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         run: |
           # Update pacman database and retry on failures
           pacman -Syy --noconfirm || pacman -Syy --noconfirm
           cd externals/jellyfin-ffmpeg
           ${{ matrix.os.build_script }}
           cd ../..
+      
+      - name: Save FFmpeg Libraries Cache
+        if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            /clang64/ffbuild
+            /clangarm64/ffbuild
+          key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
 
       - name: Build Node.js Bindings
         shell: bash
