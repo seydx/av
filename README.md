@@ -10,11 +10,11 @@ npm install node-av
 
 ## Requirements
 
-### For Users
+**For Users**
 - Node.js v20 or higher
 - No FFmpeg installation required - all necessary libraries are bundled
 
-### For Development
+**For Development**
 - Node.js v20 or higher
 - FFmpeg 7.1+ development headers
 - TypeScript 5.0+ (for TypeScript development)
