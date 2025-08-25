@@ -193,10 +193,15 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           cd externals/jellyfin-ffmpeg
+          # Pull the prebuilt Docker image instead of building it
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            ./build-linux-amd64
+            docker pull ghcr.io/jellyfin/jellyfin-ffmpeg/linux64-gpl:latest
+            ./builder/build.sh linux64 gpl
+            mv builder/artifacts/jellyfin-ffmpeg*portable_linux64-gpl*.tar.xz ../bin/
           else
-            ./build-linux-arm64
+            docker pull ghcr.io/jellyfin/jellyfin-ffmpeg/linuxarm64-gpl:latest
+            ./builder/build.sh linuxarm64 gpl
+            mv builder/artifacts/jellyfin-ffmpeg*portable_linuxarm64-gpl*.tar.xz ../bin/
           fi
           cd ../..
           
