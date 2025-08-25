@@ -186,13 +186,23 @@
           ]
         }],
         ["OS=='win'", {
-          "include_dirs": [
-            "/clang64/ffbuild/include",
-            "/clangarm64/ffbuild/include"
-          ],
-          "library_dirs": [
-            "/clang64/ffbuild/lib",
-            "/clangarm64/ffbuild/lib"
+          "conditions": [
+            ["target_arch=='x64'", {
+              "include_dirs": [
+                "/clang64/ffbuild/include"
+              ],
+              "library_dirs": [
+                "/clang64/ffbuild/lib"
+              ]
+            }],
+            ["target_arch=='arm64'", {
+              "include_dirs": [
+                "/clangarm64/ffbuild/include"
+              ],
+              "library_dirs": [
+                "/clangarm64/ffbuild/lib"
+              ]
+            }]
           ],
           "libraries": [
             "-lavformat",

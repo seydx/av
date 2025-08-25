@@ -183,8 +183,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            externals/bin
-          key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
+            /opt/ffbuild/prefix
+          key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v3
           restore-keys: |
             ffmpeg-jellyfin-linux-${{ matrix.arch }}-
           save-always: true
@@ -193,27 +193,52 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           cd externals/jellyfin-ffmpeg
-          # Pull the prebuilt Docker image instead of building it
+          
+          # Build and extract development files from the Docker container
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            docker pull ghcr.io/jellyfin/jellyfin-ffmpeg/linux64-gpl:latest
-            ./builder/build.sh linux64 gpl
-            mv builder/artifacts/jellyfin-ffmpeg*portable_linux64-gpl*.tar.xz ../bin/
+            TARGET="linux64"
+            IMAGE="ghcr.io/${{ github.repository }}-ffmpeg:linux64-gpl"
           else
-            docker pull ghcr.io/jellyfin/jellyfin-ffmpeg/linuxarm64-gpl:latest
-            ./builder/build.sh linuxarm64 gpl
-            mv builder/artifacts/jellyfin-ffmpeg*portable_linuxarm64-gpl*.tar.xz ../bin/
+            TARGET="linuxarm64"
+            IMAGE="ghcr.io/${{ github.repository }}-ffmpeg:linuxarm64-gpl"
           fi
+          
+          # Try to use prebuilt image first
+          if docker pull "$IMAGE" 2>/dev/null; then
+            echo "Using prebuilt Docker image"
+            docker tag "$IMAGE" "ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
+          else
+            echo "Building Docker image from scratch"
+            if [ "${{ matrix.arch }}" = "x64" ]; then
+              ./build-linux-amd64 ../bin
+            else
+              ./build-linux-arm64 ../bin
+            fi
+          fi
+          
+          # Extract development files from the Docker image
+          IMAGE_TAG="ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
+          
+          # Create a container and copy the prefix directory
+          CONTAINER_ID=$(docker create "$IMAGE_TAG")
+          sudo mkdir -p /opt/ffbuild/prefix
+          docker cp "$CONTAINER_ID:/ffbuild/prefix/" /opt/ffbuild/
+          docker rm "$CONTAINER_ID"
+          
+          # Also build the portable archive if using prebuilt image
+          if docker images -q "$IMAGE" 2>/dev/null; then
+            ./builder/build.sh "$TARGET" gpl
+            mv builder/artifacts/jellyfin-ffmpeg*portable_${TARGET}-gpl*.tar.xz ../bin/ || true
+          fi
+          
           cd ../..
           
-      - name: Extract FFmpeg Libraries
+      - name: Verify FFmpeg Libraries
         run: |
-          # Extract cached or freshly built FFmpeg
-          if [ -d "externals/bin" ]; then
-            cd externals/bin
-            sudo mkdir -p /opt/ffbuild
-            sudo tar -xf jellyfin-ffmpeg*portable_linux*.tar.xz -C /opt/ffbuild --strip-components=1
-            cd ../..
-          fi
+          # Verify that the development files are available
+          ls -la /opt/ffbuild/prefix/include/ | head -20
+          ls -la /opt/ffbuild/prefix/lib/ | head -20
+          pkg-config --exists libavcodec || echo "Warning: pkg-config files may not be properly configured"
           
       - name: Build Node.js Bindings
         run: |
@@ -376,8 +401,14 @@ jobs:
           cp binding-jellyfin.gyp binding.gyp
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+            export CFLAGS="-I/clang64/ffbuild/include"
+            export CXXFLAGS="-I/clang64/ffbuild/include"
+            export LDFLAGS="-L/clang64/ffbuild/lib"
           else
             export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+            export CFLAGS="-I/clangarm64/ffbuild/include"
+            export CXXFLAGS="-I/clangarm64/ffbuild/include"
+            export LDFLAGS="-L/clangarm64/ffbuild/lib"
           fi
           for target in $NODE_TARGETS; do
             echo "Building for Node.js v${target}..."
@@ -394,8 +425,14 @@ jobs:
         run: |
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+            export CFLAGS="-I/clang64/ffbuild/include"
+            export CXXFLAGS="-I/clang64/ffbuild/include"
+            export LDFLAGS="-L/clang64/ffbuild/lib"
           else
             export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+            export CFLAGS="-I/clangarm64/ffbuild/include"
+            export CXXFLAGS="-I/clangarm64/ffbuild/include"
+            export LDFLAGS="-L/clangarm64/ffbuild/lib"
           fi
           for target in $ELECTRON_TARGETS; do
             echo "Building for Electron v${target}..."
