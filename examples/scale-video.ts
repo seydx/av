@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Scale Video Example - Low Level API
  *
@@ -14,7 +12,7 @@
  */
 
 import { Buffer } from 'node:buffer';
-import fs from 'node:fs';
+import { closeSync, openSync, writeSync } from 'node:fs';
 
 import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, FFmpegError, Frame, SoftwareScaleContext, SWS_BILINEAR } from '../src/lib/index.js';
 
@@ -152,7 +150,7 @@ async function scaleVideo(outputFile: string, outputSize: string): Promise<void>
     console.log(`Scaling from ${srcW}x${srcH} (YUV420P) to ${dstW}x${dstH} (RGB24)`);
 
     // Open output file
-    outfile = fs.openSync(outputFile, 'w');
+    outfile = openSync(outputFile, 'w');
 
     // Create scaling context
     swsCtx = new SoftwareScaleContext();
@@ -193,7 +191,7 @@ async function scaleVideo(outputFile: string, outputSize: string): Promise<void>
       if (dstData?.[0]) {
         // RGB24 is packed, so all data is in plane 0
         const rgbData = Buffer.from(dstData[0].buffer, dstData[0].byteOffset, dstBufSize);
-        fs.writeSync(outfile, rgbData);
+        writeSync(outfile, rgbData);
       }
 
       // Progress indicator
@@ -211,7 +209,7 @@ async function scaleVideo(outputFile: string, outputSize: string): Promise<void>
   } finally {
     // Cleanup
     if (outfile !== null) {
-      fs.closeSync(outfile);
+      closeSync(outfile);
     }
     if (srcFrame) {
       srcFrame.free();

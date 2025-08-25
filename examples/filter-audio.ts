@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Audio Filtering Example - Low Level API
  *
@@ -21,7 +19,7 @@
  * Example: tsx examples/filter-audio.ts 1.0
  */
 
-import crypto from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 import {
   AVERROR_EAGAIN,
@@ -156,7 +154,7 @@ function processOutput(frame: Frame): void {
     if (!data) continue;
 
     // Create MD5 hash of the plane data
-    const hash = crypto.createHash('md5');
+    const hash = createHash('md5');
     const planeData = Buffer.from(data.buffer, data.byteOffset, planeSize);
     hash.update(planeData);
     const checksum = hash.digest('hex');

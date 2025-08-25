@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * High-Level API Example: Pipeline API with Hardware-Accelerated RTSP
  *

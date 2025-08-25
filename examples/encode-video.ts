@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Encode Video Example - Low Level API
  *
@@ -14,7 +12,7 @@
  * ffplay -i output.m1v (for mpeg1video)
  */
 
-import fs from 'node:fs';
+import { closeSync, openSync, writeSync } from 'node:fs';
 
 import {
   AV_CODEC_ID_H264,
@@ -53,7 +51,7 @@ async function encode(encCtx: CodecContext, frame: Frame | null, pkt: Packet, ou
     const data = pkt.data;
     if (data) {
       console.log(`Write packet ${pkt.pts} (size=${pkt.size})`);
-      fs.writeSync(outfile, data);
+      writeSync(outfile, data);
     }
     pkt.unref();
   }
@@ -113,7 +111,7 @@ async function encodeVideo(filename: string, codecName: string): Promise<void> {
     FFmpegError.throwIfError(openRet, 'Could not open codec');
 
     // Open output file
-    outfile = fs.openSync(filename, 'w');
+    outfile = openSync(filename, 'w');
 
     // Allocate frame
     frame = new Frame();
@@ -187,7 +185,7 @@ async function encodeVideo(filename: string, codecName: string): Promise<void> {
     // into a proper file format or protocol; see mux.c.
     if (codec.id === AV_CODEC_ID_MPEG1VIDEO || codec.id === AV_CODEC_ID_MPEG2VIDEO) {
       const endcode = Buffer.from([0x00, 0x00, 0x01, 0xb7]);
-      fs.writeSync(outfile, endcode);
+      writeSync(outfile, endcode);
     }
 
     console.log('Video encoding completed successfully!');
@@ -208,7 +206,7 @@ async function encodeVideo(filename: string, codecName: string): Promise<void> {
   } finally {
     // Cleanup
     if (outfile !== null) {
-      fs.closeSync(outfile);
+      closeSync(outfile);
     }
     if (codecCtx) {
       codecCtx.freeContext();

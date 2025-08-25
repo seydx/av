@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Hardware-accelerated decoding Example
  *
@@ -10,7 +8,7 @@
  * Example: tsx examples/hw-decode.ts videotoolbox testdata/video.mp4 examples/.tmp/hw_decoded.yuv
  */
 
-import fs from 'node:fs';
+import { closeSync, openSync, writeSync } from 'node:fs';
 
 import {
   AVERROR_EAGAIN,
@@ -103,7 +101,7 @@ async function decodeWrite(avctx: CodecContext, packet: Packet | null): Promise<
       }
 
       // Write to output file
-      fs.writeSync(outputFile!, buffer);
+      writeSync(outputFile!, buffer);
     } finally {
       frame.free();
       swFrame.free();
@@ -225,7 +223,7 @@ async function main(): Promise<number> {
     }
 
     // Open output file
-    outputFile = fs.openSync(outputFilePath, 'w');
+    outputFile = openSync(outputFilePath, 'w');
 
     // Decode and dump raw data
     while (true) {
@@ -255,7 +253,7 @@ async function main(): Promise<number> {
   } finally {
     // Cleanup
     if (outputFile !== null) {
-      fs.closeSync(outputFile);
+      closeSync(outputFile);
     }
 
     packet.free();

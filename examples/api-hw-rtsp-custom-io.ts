@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * High-Level API Example: Hardware-Accelerated RTSP Streaming with Custom IO
  *

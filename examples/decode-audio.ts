@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Decode Audio Example - Low Level API
  *
@@ -18,7 +16,7 @@
  */
 
 import { Buffer } from 'node:buffer';
-import fs from 'node:fs';
+import { closeSync, existsSync, openSync, readSync, writeSync } from 'node:fs';
 
 import {
   AVERROR_EAGAIN,
@@ -122,7 +120,7 @@ async function decode(decCtx: CodecContext, pkt: Packet | null, frame: Frame, ou
         if (frameData[ch]) {
           const offset = dataSize * i;
           const sample = frameData[ch].subarray(offset, offset + dataSize);
-          fs.writeSync(outfile, sample);
+          writeSync(outfile, sample);
         }
       }
     }
@@ -165,10 +163,10 @@ async function decodeAudio(inputFile: string, outputFile: string): Promise<void>
     FFmpegError.throwIfError(openRet, 'Could not open codec');
 
     // Open input file
-    infile = fs.openSync(inputFile, 'r');
+    infile = openSync(inputFile, 'r');
 
     // Open output file
-    outfile = fs.openSync(outputFile, 'w');
+    outfile = openSync(outputFile, 'w');
 
     // Allocate frame
     decodedFrame = new Frame();
@@ -179,7 +177,7 @@ async function decodeAudio(inputFile: string, outputFile: string): Promise<void>
 
     // Read initial data
     let dataOffset = 0;
-    let dataSize = fs.readSync(infile, inbuf, 0, AUDIO_INBUF_SIZE, null);
+    let dataSize = readSync(infile, inbuf, 0, AUDIO_INBUF_SIZE, null);
 
     while (dataSize > 0) {
       // Parse audio data
@@ -204,7 +202,7 @@ async function decodeAudio(inputFile: string, outputFile: string): Promise<void>
         dataOffset = 0;
 
         // Read more data
-        const len = fs.readSync(infile, inbuf, dataSize, AUDIO_INBUF_SIZE - dataSize, null);
+        const len = readSync(infile, inbuf, dataSize, AUDIO_INBUF_SIZE - dataSize, null);
         if (len > 0) {
           dataSize += len;
         } else {
@@ -244,10 +242,10 @@ async function decodeAudio(inputFile: string, outputFile: string): Promise<void>
   } finally {
     // Cleanup
     if (infile !== null) {
-      fs.closeSync(infile);
+      closeSync(infile);
     }
     if (outfile !== null) {
-      fs.closeSync(outfile);
+      closeSync(outfile);
     }
     if (parser) {
       parser.close();
@@ -283,7 +281,7 @@ async function main(): Promise<void> {
   const [inputFile, outputFile] = args;
 
   // Check if input file exists
-  if (!fs.existsSync(inputFile)) {
+  if (!existsSync(inputFile)) {
     console.error(`Error: Input file not found: ${inputFile}`);
     process.exit(1);
   }

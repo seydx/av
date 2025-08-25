@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Muxing Example - Low Level API
  *

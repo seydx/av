@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * AVIO Read Callback Example - Low Level API
  *
@@ -13,7 +11,7 @@
  * Example: tsx examples/avio-read-callback.ts testdata/video.mp4
  */
 
-import fs from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { AVERROR_EOF, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, FFmpegError, FormatContext, IOContext } from '../src/lib/index.js';
 
@@ -97,7 +95,7 @@ async function customIORead(inputFile: string): Promise<void> {
   try {
     // Read entire file into memory
     console.log(`Reading file: ${inputFile}`);
-    const fileBuffer = fs.readFileSync(inputFile);
+    const fileBuffer = readFileSync(inputFile);
     console.log(`File size: ${fileBuffer.length} bytes`);
 
     // Create buffer data structure
@@ -209,7 +207,7 @@ async function main(): Promise<void> {
   const [inputFile] = args;
 
   // Check if file exists
-  if (!fs.existsSync(inputFile)) {
+  if (!existsSync(inputFile)) {
     console.error(`Error: File not found: ${inputFile}`);
     process.exit(1);
   }

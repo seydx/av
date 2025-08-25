@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * Hardware Decode + Software Encode Example
  *

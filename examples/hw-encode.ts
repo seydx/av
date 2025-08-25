@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Hardware-accelerated encoding Example
  *
@@ -10,7 +8,7 @@
  * Example: tsx examples/hw-encode.ts videotoolbox h264 1920 1080 testdata/input.yuv examples/.tmp/hw_encode.h264
  */
 
-import fs from 'node:fs';
+import { closeSync, openSync, readSync, writeSync } from 'node:fs';
 
 import {
   AVERROR_EAGAIN,
@@ -137,7 +135,7 @@ async function encodeWrite(avctx: CodecContext, frame: Frame | null, outputFile:
 
       // Write packet data to file
       if (packet.data) {
-        fs.writeSync(outputFile, packet.data);
+        writeSync(outputFile, packet.data);
       }
 
       packet.unref();
@@ -188,10 +186,10 @@ async function main(): Promise<number> {
 
   try {
     // Open input file
-    inputFd = fs.openSync(inputFile, 'r');
+    inputFd = openSync(inputFile, 'r');
 
     // Open output file
-    outputFile = fs.openSync(outputFilePath, 'w');
+    outputFile = openSync(outputFilePath, 'w');
 
     // Create hardware device context
     hwDeviceCtx = new HardwareDeviceContext();
@@ -266,7 +264,7 @@ async function main(): Promise<number> {
 
       // Read Y plane
       const yBuffer = Buffer.alloc(ySize);
-      const yRead = fs.readSync(inputFd, yBuffer, 0, ySize, null);
+      const yRead = readSync(inputFd, yBuffer, 0, ySize, null);
       if (yRead !== ySize) {
         swFrame.free();
         break; // End of file
@@ -274,7 +272,7 @@ async function main(): Promise<number> {
 
       // Read U plane
       const uBuffer = Buffer.alloc(uvSize);
-      const uRead = fs.readSync(inputFd, uBuffer, 0, uvSize, null);
+      const uRead = readSync(inputFd, uBuffer, 0, uvSize, null);
       if (uRead !== uvSize) {
         swFrame.free();
         break;
@@ -282,7 +280,7 @@ async function main(): Promise<number> {
 
       // Read V plane
       const vBuffer = Buffer.alloc(uvSize);
-      const vRead = fs.readSync(inputFd, vBuffer, 0, uvSize, null);
+      const vRead = readSync(inputFd, vBuffer, 0, uvSize, null);
       if (vRead !== uvSize) {
         swFrame.free();
         break;
@@ -350,11 +348,11 @@ async function main(): Promise<number> {
   } finally {
     // Cleanup
     if (inputFd !== null) {
-      fs.closeSync(inputFd);
+      closeSync(inputFd);
     }
 
     if (outputFile !== null) {
-      fs.closeSync(outputFile);
+      closeSync(outputFile);
     }
 
     if (avctx) {

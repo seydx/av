@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Encode Audio Example - Low Level API
  *
@@ -13,7 +11,7 @@
  * ffplay output.mp2
  */
 
-import fs from 'node:fs';
+import { closeSync, openSync, writeSync } from 'node:fs';
 
 import { AV_CODEC_ID_MP2, AV_SAMPLE_FMT_S16, AVERROR_EAGAIN, AVERROR_EOF, Codec, CodecContext, FFmpegError, Frame, Packet } from '../src/lib/index.js';
 
@@ -95,7 +93,7 @@ async function encode(ctx: CodecContext, frame: Frame | null, pkt: Packet, outfi
 
     const data = pkt.data;
     if (data) {
-      fs.writeSync(outfile, data);
+      writeSync(outfile, data);
     }
     pkt.unref();
   }
@@ -140,7 +138,7 @@ async function encodeAudio(filename: string): Promise<void> {
     FFmpegError.throwIfError(openRet, 'Could not open codec');
 
     // Open output file
-    outfile = fs.openSync(filename, 'w');
+    outfile = openSync(filename, 'w');
 
     // Allocate packet for holding encoded output
     packet = new Packet();
@@ -216,7 +214,7 @@ async function encodeAudio(filename: string): Promise<void> {
   } finally {
     // Cleanup
     if (outfile !== null) {
-      fs.closeSync(outfile);
+      closeSync(outfile);
     }
     if (frame) {
       frame.free();

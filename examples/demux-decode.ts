@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Demux and Decode Example - Low Level API
  *
@@ -12,7 +10,7 @@
  */
 
 import { Buffer } from 'node:buffer';
-import fs from 'node:fs';
+import { closeSync, openSync, writeSync } from 'node:fs';
 
 import {
   AVERROR_EAGAIN,
@@ -117,7 +115,7 @@ function outputVideoFrame(frame: Frame): number {
 
   // Write to rawvideo file
   if (videoDstFile !== null) {
-    fs.writeSync(videoDstFile, videoDstData[0]);
+    writeSync(videoDstFile, videoDstData[0]);
   }
   return 0;
 }
@@ -142,7 +140,7 @@ function outputAudioFrame(frame: Frame): number {
   // to packed data.
   if (audioDstFile !== null && frame.extendedData?.[0]) {
     const audioData = Buffer.from(frame.extendedData[0].buffer, frame.extendedData[0].byteOffset, unpadded_linesize);
-    fs.writeSync(audioDstFile, audioData);
+    writeSync(audioDstFile, audioData);
   }
 
   return 0;
@@ -273,7 +271,7 @@ async function demuxDecode(): Promise<void> {
       videoDecCtx = videoResult.decCtx;
       videoStream = videoResult.stream;
 
-      videoDstFile = fs.openSync(videoDstFilename, 'w');
+      videoDstFile = openSync(videoDstFilename, 'w');
 
       // Allocate image where the decoded image will be put
       width = videoDecCtx!.width;
@@ -296,7 +294,7 @@ async function demuxDecode(): Promise<void> {
       audioDecCtx = audioResult.decCtx;
       audioStream = audioResult.stream;
 
-      audioDstFile = fs.openSync(audioDstFilename, 'w');
+      audioDstFile = openSync(audioDstFilename, 'w');
     }
 
     // Dump input information to console
@@ -375,10 +373,10 @@ async function demuxDecode(): Promise<void> {
       await fmtCtx.closeInput();
     }
     if (videoDstFile !== null) {
-      fs.closeSync(videoDstFile);
+      closeSync(videoDstFile);
     }
     if (audioDstFile !== null) {
-      fs.closeSync(audioDstFile);
+      closeSync(audioDstFile);
     }
     if (pkt) {
       pkt.free();

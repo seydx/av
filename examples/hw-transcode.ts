@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Hardware-accelerated transcoding Example
  *

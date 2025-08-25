@@ -10,6 +10,8 @@
  * @module api/media-input
  */
 
+import { open } from 'fs/promises';
+
 import {
   AVFLAG_NONE,
   avGetPixFmtName,
@@ -123,7 +125,6 @@ export class MediaInput implements AsyncDisposable {
         };
       } else {
         // For files, read first part and probe
-        const { open } = await import('fs/promises');
         let fileHandle;
         try {
           fileHandle = await open(input, 'r');

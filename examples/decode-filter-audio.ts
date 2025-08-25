@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Audio Decoding and Filtering Example - Low Level API
  *
@@ -330,7 +328,7 @@ async function decodeFilterAudio(inputFile: string, outputFile?: string): Promis
     filtFrame.free();
 
     if (outputFile) {
-      (outputStream as any).end();
+      outputStream.end();
       console.log(`Filtered audio written to: ${outputFile}`);
       console.log('To play: ffplay -f s16le -ar 8000 -ac 1 ' + outputFile);
     }

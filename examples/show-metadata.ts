@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Show Metadata Example - Low Level API
  *

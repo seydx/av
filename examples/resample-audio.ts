@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Resample Audio Example - Low Level API
  *
@@ -15,7 +13,7 @@
  */
 
 import { Buffer } from 'node:buffer';
-import fs from 'node:fs';
+import { closeSync, openSync, writeSync } from 'node:fs';
 
 import {
   AV_ROUND_UP,
@@ -105,7 +103,7 @@ async function resampleAudio(outputFile: string): Promise<void> {
     console.log(`  Dest:   ${dstRate} Hz, ${dstNbChannels} channels, format: S16`);
 
     // Open output file
-    outfile = fs.openSync(outputFile, 'w');
+    outfile = openSync(outputFile, 'w');
 
     // Create resampler context
     swrCtx = new SoftwareResampleContext();
@@ -196,7 +194,7 @@ async function resampleAudio(outputFile: string): Promise<void> {
       const dstData = dstFrame.data;
       if (dstData?.[0] && dstBufSize > 0) {
         const outputBuffer = Buffer.from(dstData[0].buffer, dstData[0].byteOffset, dstBufSize);
-        fs.writeSync(outfile, outputBuffer);
+        writeSync(outfile, outputBuffer);
       }
 
       // Progress output
@@ -238,7 +236,7 @@ async function resampleAudio(outputFile: string): Promise<void> {
           const dstData = dstFrame.data;
           if (dstData?.[0] && dstBufSize > 0) {
             const outputBuffer = Buffer.from(dstData[0].buffer, dstData[0].byteOffset, dstBufSize);
-            fs.writeSync(outfile, outputBuffer);
+            writeSync(outfile, outputBuffer);
           }
         }
       }
@@ -257,7 +255,7 @@ async function resampleAudio(outputFile: string): Promise<void> {
   } finally {
     // Cleanup
     if (outfile !== null) {
-      fs.closeSync(outfile);
+      closeSync(outfile);
     }
     if (srcFrame) {
       srcFrame.free();

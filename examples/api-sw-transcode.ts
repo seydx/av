@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * Full Software Transcode Example
  *

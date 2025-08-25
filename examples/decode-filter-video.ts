@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Video Decoding and Filtering Example - Low Level API
  *

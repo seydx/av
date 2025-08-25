@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Audio transcoding to AAC in MP4 container Example - Low Level API
  *

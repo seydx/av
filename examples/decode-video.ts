@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Decode Video Example - Low Level API
  *
@@ -14,8 +12,8 @@
  * ffmpeg -i input.mp4 -c:v mpeg1video -f mpeg1video test.m1v
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+import { closeSync, existsSync, mkdirSync, openSync, readSync, writeSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import {
   AV_CODEC_ID_MPEG1VIDEO,
@@ -37,19 +35,19 @@ const INBUF_SIZE = 4096;
  * Save a frame as PGM image
  */
 function pgmSave(data: Buffer, linesize: number, width: number, height: number, filename: string): void {
-  const fd = fs.openSync(filename, 'w');
+  const fd = openSync(filename, 'w');
 
   // Write PGM header
-  fs.writeSync(fd, `P5\n${width} ${height}\n255\n`);
+  writeSync(fd, `P5\n${width} ${height}\n255\n`);
 
   // Write pixel data row by row
   for (let y = 0; y < height; y++) {
     const start = y * linesize;
     const row = data.subarray(start, start + width);
-    fs.writeSync(fd, row);
+    writeSync(fd, row);
   }
 
-  fs.closeSync(fd);
+  closeSync(fd);
 }
 
 /**
@@ -120,7 +118,7 @@ async function decodeVideo(inputFile: string, outputPrefix: string): Promise<voi
     FFmpegError.throwIfError(openRet, 'Could not open codec');
 
     // Open input file
-    fileHandle = fs.openSync(inputFile, 'r');
+    fileHandle = openSync(inputFile, 'r');
 
     // Allocate frame
     frame = new Frame();
@@ -132,7 +130,7 @@ async function decodeVideo(inputFile: string, outputPrefix: string): Promise<voi
     let eof = false;
     do {
       // Read raw data from input file
-      const bytesRead = fs.readSync(fileHandle, inbuf, 0, INBUF_SIZE, null);
+      const bytesRead = readSync(fileHandle, inbuf, 0, INBUF_SIZE, null);
       if (bytesRead === 0) {
         eof = true;
       }
@@ -169,7 +167,7 @@ async function decodeVideo(inputFile: string, outputPrefix: string): Promise<voi
   } finally {
     // Cleanup
     if (fileHandle !== null) {
-      fs.closeSync(fileHandle);
+      closeSync(fileHandle);
     }
     if (parser) {
       parser.close();
@@ -205,15 +203,15 @@ async function main(): Promise<void> {
   const [inputFile, outputPrefix] = args;
 
   // Check if input file exists
-  if (!fs.existsSync(inputFile)) {
+  if (!existsSync(inputFile)) {
     console.error(`Error: Input file not found: ${inputFile}`);
     process.exit(1);
   }
 
   // Create output directory if needed
-  const outputDir = path.dirname(outputPrefix);
-  if (outputDir && outputDir !== '.' && !fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+  const outputDir = dirname(outputPrefix);
+  if (outputDir && outputDir !== '.' && !existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
   }
 
   try {

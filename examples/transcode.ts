@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * Transcode Example - Low Level API
  *
@@ -37,7 +35,7 @@ import {
   avRescaleQ,
 } from '../src/lib/index.js';
 
-import type { FilterContext } from '../src/lib/index.js';
+import type { AVCodecFlag, FilterContext } from '../src/lib/index.js';
 
 // Global contexts - matching C structure
 let ifmt_ctx: FormatContext | null = null;
@@ -197,7 +195,7 @@ async function open_output_file(filename: string): Promise<number> {
       // Global header flag if needed
       if (ofmt_ctx.oformat && ofmt_ctx.oformat.flags & AVFMT_GLOBALHEADER) {
         const flags = (enc_ctx.flags as unknown as number) || 0;
-        enc_ctx.flags = (flags | AV_CODEC_FLAG_GLOBAL_HEADER) as any;
+        enc_ctx.flags = (flags | AV_CODEC_FLAG_GLOBAL_HEADER) as AVCodecFlag;
       }
 
       // Third parameter can be used to pass settings to encoder

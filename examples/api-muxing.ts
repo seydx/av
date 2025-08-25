@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 /**
  * High-Level API Example: Muxing (Combining Video and Audio)
  *
