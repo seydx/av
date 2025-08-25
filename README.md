@@ -1,6 +1,6 @@
 # NodeAV
 
-Native Node.js bindings for FFmpeg libraries, providing both low-level and high-level APIs for audio/video processing.
+Node.js bindings for FFmpeg libraries, providing both low-level and high-level APIs for audio/video processing. Built from the ground up with TypeScript, NodeAV offers complete type safety and IntelliSense support throughout your media processing workflows. The library seamlessly bridges the gap between FFmpeg's powerful C APIs and modern JavaScript development, enabling developers to leverage the full capabilities of FFmpeg directly within Node.js applications without sacrificing performance or functionality. Whether you need direct control over codecs, formats, and filters through low-level bindings, or prefer the convenience of high-level abstractions with automatic resource management and async/await support, NodeAV provides a unified, type-safe interface for all your audio and video processing needs.
 
 ## Installation
 
@@ -286,6 +286,14 @@ try {
 }
 ```
 
+## Performance
+
+NodeAV executes all computationally intensive operations directly through FFmpeg's native C libraries, ensuring performance characteristics virtually identical to FFmpeg's command-line tools. The Node.js bindings introduce minimal overhead, primarily affecting only the JavaScript-to-C boundary crossings. When performing typical media operations like transcoding, muxing, or filtering, the vast majority of processing time is spent within FFmpeg's optimized C code paths. This means you get the same hardware acceleration support, SIMD optimizations, and multi-threading capabilities that make FFmpeg the industry standard for media processing. The thin binding layer ensures that whether you're processing 4K video streams or handling real-time audio, the performance bottleneck remains where it should be - in the actual media processing algorithms, not in the language bindings.
+
+## Memory Safety Considerations
+
+NodeAV provides direct bindings to FFmpeg's low-level C APIs, which inherently operate with raw memory pointers and minimal safety checks. While the high-level API adds protective abstractions and automatic resource management, incorrect usage can still lead to crashes. For instance, mismatched video dimensions, incompatible pixel formats, or improper frame buffer handling may cause segmentation faults. The library implements safety measures where feasible, including type checking, parameter validation, and resource tracking, but achieving complete memory safety while maintaining FFmpeg's full power and performance would require compromising functionality. Users working with the low-level API should be particularly mindful of parameter consistency, proper resource cleanup, and format compatibility. When used correctly with validated parameters and following the documented patterns, NodeAV provides stable and reliable media processing without memory-related issues.
+
 ## Examples
 
 | Example | FFmpeg | Low-Level API | High-Level API |
@@ -328,14 +336,6 @@ try {
 | `transcode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓](examples/transcode.ts) | |
 
 ## API Reference
-
-TODO
-
-## Building from Source
-
-TODO
-
-## Testing
 
 TODO
 
