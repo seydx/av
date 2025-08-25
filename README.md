@@ -359,3 +359,4 @@ For issues and questions, please use the GitHub issue tracker.
 - [FFmpeg Doxygen](https://ffmpeg.org/doxygen/trunk/)
 - [Jellyfin FFmpeg](https://github.com/jellyfin/jellyfin-ffmpeg)
 - [go-astiav](https://github.com/asticode/go-astiav) - Similar Go bindings that inspired this project
+- [Werift](https://github.com/werift/werift) - A WebRTC Implementation for TypeScript (Node.js)
