@@ -12,8 +12,9 @@ import {
   AV_LOG_VERBOSE,
   AV_LOG_WARNING,
   Log,
-  type AVLogLevel,
 } from '../src/lib/index.js';
+
+import type { AVLogLevel } from '../src/lib/index.js';
 
 describe('Log', () => {
   // Store original log level to restore after tests

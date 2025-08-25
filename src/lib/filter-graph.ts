@@ -18,7 +18,7 @@ import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { FilterGraph, Filter, FilterContext, FFmpegError } from '@seydx/av';
+ * import { FilterGraph, Filter, FilterContext, FFmpegError } from 'node-av';
  *
  * // Create and configure a simple filter graph
  * const graph = new FilterGraph();
@@ -79,7 +79,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph } from '@seydx/av';
+   * import { FilterGraph } from 'node-av';
    *
    * const graph = new FilterGraph();
    * graph.alloc();
@@ -171,7 +171,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph } from '@seydx/av';
+   * import { FilterGraph } from 'node-av';
    *
    * const graph = new FilterGraph();
    * graph.alloc();
@@ -252,7 +252,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, Filter, FFmpegError } from '@seydx/av';
+   * import { FilterGraph, Filter, FFmpegError } from 'node-av';
    *
    * // Allocate a filter without initializing
    * const scaleFilter = Filter.getByName('scale');
@@ -314,7 +314,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/av';
+   * import { FilterGraph, FFmpegError } from 'node-av';
    *
    * // After creating and linking all filters
    * const ret = graph.config();
@@ -345,7 +345,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/av';
+   * import { FilterGraph, FilterInOut, FFmpegError } from 'node-av';
    *
    * const inputs = new FilterInOut();
    * inputs.alloc();
@@ -382,7 +382,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/av';
+   * import { FilterGraph, FFmpegError } from 'node-av';
    *
    * // Parse a simple filter chain
    * const ret = graph.parse2('scale=1280:720,format=yuv420p');
@@ -412,7 +412,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/av';
+   * import { FilterGraph, FFmpegError } from 'node-av';
    *
    * // Parse a complex filter graph
    * const ret = graph.parsePtr(
@@ -423,7 +423,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FilterInOut, FFmpegError } from '@seydx/av';
+   * import { FilterGraph, FilterInOut, FFmpegError } from 'node-av';
    *
    * // Parse with explicit inputs/outputs
    * const inputs = new FilterInOut();
@@ -484,8 +484,8 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
+   * import { FilterGraph, FFmpegError } from 'node-av';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from 'node-av/constants';
    *
    * // Pull frames from the graph
    * while (true) {
@@ -540,7 +540,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from '@seydx/av';
+   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from 'node-av';
    *
    * // Send volume change command to audio filter
    * const result = graph.sendCommand('volume', 'volume', '0.5');
@@ -583,7 +583,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from '@seydx/av';
+   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from 'node-av';
    *
    * // Queue volume change at 10 seconds
    * const ret = graph.queueCommand('volume', 'volume', '0.2', 10.0);

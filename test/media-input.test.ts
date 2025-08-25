@@ -4,6 +4,11 @@ import { after, describe, it } from 'node:test';
 
 import { MediaInput } from '../src/api/index.js';
 import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../src/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
+
+prepareTestEnvironment();
+
+const inputFile = getInputFile('demux.mp4');
 
 describe('MediaInput', () => {
   // Track all open MediaInput instances
@@ -30,7 +35,7 @@ describe('MediaInput', () => {
   });
   describe('open', () => {
     it('should open from file path', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       assert.ok(media, 'Should create MediaInput');
       assert.ok(media.streams.length > 0, 'Should have streams');
@@ -40,7 +45,7 @@ describe('MediaInput', () => {
     });
 
     it('should open from Buffer', async () => {
-      const buffer = await readFile('testdata/demux.mp4');
+      const buffer = await readFile(inputFile);
       const media = await MediaInput.open(buffer);
 
       assert.ok(media, 'Should create MediaInput from Buffer');
@@ -56,7 +61,7 @@ describe('MediaInput', () => {
 
   describe('stream info', () => {
     it('should parse video stream info', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       const video = media.video();
       assert.ok(video, 'Should find video stream');
@@ -70,7 +75,7 @@ describe('MediaInput', () => {
     });
 
     it('should parse audio stream info', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       const audio = media.audio();
       if (audio) {
@@ -84,7 +89,7 @@ describe('MediaInput', () => {
     });
 
     it('should get all streams', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       assert.ok(Array.isArray(media.streams), 'Streams should be array');
       assert.ok(media.streams.length > 0, 'Should have at least one stream');
@@ -102,7 +107,7 @@ describe('MediaInput', () => {
 
   describe('metadata', () => {
     it('should get container metadata', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       const metadata = media.metadata;
       assert.ok(typeof metadata === 'object', 'Metadata should be object');
@@ -114,7 +119,7 @@ describe('MediaInput', () => {
     });
 
     it('should get format info', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       const formatName = media.formatName;
       assert.ok(formatName, 'Should have format name');
@@ -132,7 +137,7 @@ describe('MediaInput', () => {
 
   describe('packets', () => {
     it('should iterate packets', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       let packetCount = 0;
       const maxPackets = 10; // Only read first 10 packets for test
@@ -154,7 +159,7 @@ describe('MediaInput', () => {
 
   describe('seek', () => {
     it('should seek to timestamp', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       // Try to seek to 1 second
       const ret = await media.seek(1.0);
@@ -170,7 +175,7 @@ describe('MediaInput', () => {
     it('should support multiple open/close cycles', async () => {
       // Open and close multiple times
       for (let i = 0; i < 3; i++) {
-        const media = await MediaInput.open('testdata/demux.mp4');
+        const media = await MediaInput.open(inputFile);
         assert.ok(media.streams.length > 0, `Cycle ${i}: Should have streams`);
         await media.close();
       }
@@ -180,14 +185,14 @@ describe('MediaInput', () => {
       let streamCount = 0;
 
       {
-        await using media = await MediaInput.open('testdata/demux.mp4');
+        await using media = await MediaInput.open(inputFile);
         streamCount = media.streams.length;
         assert.ok(streamCount > 0, 'Should have streams');
         // Should auto-close when leaving scope
       }
 
       // Open again to verify previous was properly closed
-      const media2 = await MediaInput.open('testdata/demux.mp4');
+      const media2 = await MediaInput.open(inputFile);
       assert.equal(media2.streams.length, streamCount, 'Should have same streams');
       await media2.close();
     });
@@ -195,7 +200,7 @@ describe('MediaInput', () => {
 
   describe('probeFormat', () => {
     it('should probe format from file path', async () => {
-      const info = await MediaInput.probeFormat('testdata/demux.mp4');
+      const info = await MediaInput.probeFormat(inputFile);
 
       assert.ok(info, 'Should detect format');
       assert.ok(info.format, 'Should have format name');
@@ -212,7 +217,7 @@ describe('MediaInput', () => {
     });
 
     it('should probe format from buffer', async () => {
-      const buffer = await readFile('testdata/demux.mp4');
+      const buffer = await readFile(inputFile);
       const info = await MediaInput.probeFormat(buffer);
 
       assert.ok(info, 'Should detect format from buffer');
@@ -225,9 +230,9 @@ describe('MediaInput', () => {
     it('should probe different formats', async () => {
       // Try probing different file formats if available
       const testFiles = [
-        { path: 'testdata/demux.mp4', expectedFormat: 'mp4' },
-        { path: 'testdata/video.m1v', expectedFormat: 'mpegvideo' },
-        { path: 'testdata/audio.aac', expectedFormat: 'aac' },
+        { path: getInputFile('demux.mp4'), expectedFormat: 'mp4' },
+        { path: getInputFile('video.m1v'), expectedFormat: 'mpegvideo' },
+        { path: getInputFile('audio.aac'), expectedFormat: 'aac' },
       ];
 
       for (const { path, expectedFormat } of testFiles) {
@@ -258,7 +263,7 @@ describe('MediaInput', () => {
 
     it('should handle partial buffers', async () => {
       // Read only first 4KB of file
-      const buffer = await readFile('testdata/demux.mp4');
+      const buffer = await readFile(inputFile);
       const partialBuffer = buffer.subarray(0, 4096);
 
       const info = await MediaInput.probeFormat(partialBuffer);
@@ -278,11 +283,11 @@ describe('MediaInput', () => {
 
     it('should probe with file extension hint', async () => {
       // Test that filename is used as hint for better detection
-      const buffer = await readFile('testdata/demux.mp4');
+      const buffer = await readFile(inputFile);
 
       // Probe same buffer with and without hint
       const withoutHint = await MediaInput.probeFormat(buffer);
-      const withHint = await MediaInput.probeFormat('testdata/demux.mp4');
+      const withHint = await MediaInput.probeFormat(inputFile);
 
       assert.ok(withoutHint, 'Should detect without hint');
       assert.ok(withHint, 'Should detect with hint');
@@ -302,7 +307,7 @@ describe('MediaInput', () => {
     it('should handle small video files', async () => {
       // Test with a small video file if available
       try {
-        const media = await MediaInput.open('testdata/video.m1v');
+        const media = await MediaInput.open(inputFile);
         assert.ok(media, 'Should open small video');
         assert.ok(media.streams.length > 0, 'Should have streams');
         await media.close();

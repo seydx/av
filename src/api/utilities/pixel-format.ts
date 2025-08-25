@@ -19,8 +19,8 @@ import type { AVPixelFormat } from '../../lib/constants.js';
  *
  * @example
  * ```typescript
- * import { PixelFormat } from '@seydx/av';
- * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_CUDA } from '@seydx/av/constants';
+ * import { PixelFormat } from 'node-av';
+ * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_CUDA } from 'node-av/constants';
  *
  * // Get format information
  * console.log(PixelFormat.getName(AV_PIX_FMT_YUV420P));    // "yuv420p"
@@ -46,8 +46,8 @@ export class PixelFormat {
    *
    * @example
    * ```typescript
-   * import { PixelFormat } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24 } from '@seydx/av/constants';
+   * import { PixelFormat } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24 } from 'node-av/constants';
    *
    * console.log(PixelFormat.getName(AV_PIX_FMT_YUV420P)); // "yuv420p"
    * console.log(PixelFormat.getName(AV_PIX_FMT_RGB24));   // "rgb24"
@@ -68,8 +68,8 @@ export class PixelFormat {
    *
    * @example
    * ```typescript
-   * import { PixelFormat } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
+   * import { PixelFormat } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
    *
    * const format = PixelFormat.fromName("yuv420p");
    * console.log(format === AV_PIX_FMT_YUV420P); // true
@@ -94,8 +94,8 @@ export class PixelFormat {
    *
    * @example
    * ```typescript
-   * import { PixelFormat } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_CUDA, AV_PIX_FMT_VAAPI } from '@seydx/av/constants';
+   * import { PixelFormat } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_CUDA, AV_PIX_FMT_VAAPI } from 'node-av/constants';
    *
    * console.log(PixelFormat.isHardware(AV_PIX_FMT_YUV420P)); // false
    * console.log(PixelFormat.isHardware(AV_PIX_FMT_CUDA));    // true

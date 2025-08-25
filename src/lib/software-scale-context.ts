@@ -17,8 +17,8 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
  *
  * @example
  * ```typescript
- * import { SoftwareScaleContext, Frame, FFmpegError } from '@seydx/av';
- * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
+ * import { SoftwareScaleContext, Frame, FFmpegError } from 'node-av';
+ * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
  *
  * // Create and configure scale context
  * const sws = new SoftwareScaleContext();
@@ -53,8 +53,8 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
+   * import { SoftwareScaleContext } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
    *
    * const sws = new SoftwareScaleContext();
    * sws.getContext(
@@ -80,7 +80,7 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext, FFmpegError } from '@seydx/av';
+   * import { SoftwareScaleContext, FFmpegError } from 'node-av';
    *
    * const sws = new SoftwareScaleContext();
    * sws.allocContext();
@@ -127,8 +127,8 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
+   * import { SoftwareScaleContext } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
    *
    * // Scale from 1080p YUV to 720p RGB
    * sws.getContext(
@@ -161,7 +161,7 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * const ret = sws.initContext();
    * FFmpegError.throwIfError(ret, 'initContext');
@@ -250,8 +250,8 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
-   * import { AV_PIX_FMT_RGB24 } from '@seydx/av/constants';
+   * import { Frame, FFmpegError } from 'node-av';
+   * import { AV_PIX_FMT_RGB24 } from 'node-av/constants';
    *
    * const srcFrame = new Frame();
    * srcFrame.alloc();
@@ -298,8 +298,8 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from '@seydx/av/constants';
+   * import { SoftwareScaleContext } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
    *
    * {
    *   using sws = new SoftwareScaleContext();

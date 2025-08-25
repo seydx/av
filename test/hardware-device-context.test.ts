@@ -1,7 +1,14 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { HardwareDeviceContext } from '../src/lib/index.js';
+import {
+  AV_HWDEVICE_TYPE_CUDA,
+  AV_HWDEVICE_TYPE_QSV,
+  AV_HWDEVICE_TYPE_VAAPI,
+  AV_HWDEVICE_TYPE_VDPAU,
+  AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+  HardwareDeviceContext,
+} from '../src/lib/index.js';
 
 describe('HardwareDeviceContext', () => {
   describe('Static Methods', () => {
@@ -21,15 +28,15 @@ describe('HardwareDeviceContext', () => {
     it('should get type name for known types', () => {
       // Common hardware types (may not all be available on all systems)
       const commonTypes = [
-        { type: 2, expectedName: 'cuda' }, // AV_HWDEVICE_TYPE_CUDA
-        { type: 3, expectedName: 'vaapi' }, // AV_HWDEVICE_TYPE_VAAPI
-        { type: 1, expectedName: 'vdpau' }, // AV_HWDEVICE_TYPE_VDPAU
-        { type: 6, expectedName: 'videotoolbox' }, // AV_HWDEVICE_TYPE_VIDEOTOOLBOX
-        { type: 5, expectedName: 'qsv' }, // AV_HWDEVICE_TYPE_QSV
+        { type: AV_HWDEVICE_TYPE_CUDA, expectedName: 'cuda' },
+        { type: AV_HWDEVICE_TYPE_VAAPI, expectedName: 'vaapi' },
+        { type: AV_HWDEVICE_TYPE_VDPAU, expectedName: 'vdpau' },
+        { type: AV_HWDEVICE_TYPE_VIDEOTOOLBOX, expectedName: 'videotoolbox' },
+        { type: AV_HWDEVICE_TYPE_QSV, expectedName: 'qsv' },
       ];
 
       for (const { type, expectedName } of commonTypes) {
-        const name = HardwareDeviceContext.getTypeName(type as any);
+        const name = HardwareDeviceContext.getTypeName(type);
         if (name !== null) {
           assert.equal(name, expectedName, `Type ${type} should be ${expectedName}`);
         }

@@ -27,8 +27,8 @@ import type { ChannelLayout } from './types.js';
  *
  * @example
  * ```typescript
- * import { Frame, FFmpegError } from '@seydx/av';
- * import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
+ * import { Frame, FFmpegError } from 'node-av';
+ * import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
  *
  * // Create and allocate frame - full control
  * const frame = new Frame();
@@ -78,7 +78,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * const frame = new Frame();
    * frame.alloc();
@@ -513,7 +513,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * const frame = new Frame();
    * frame.alloc();
@@ -541,7 +541,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * frame.free();
    * // frame is now invalid and should not be used
@@ -572,7 +572,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { Frame, FFmpegError } from 'node-av';
    *
    * const ret = frame.ref(sourceFrame);
    * FFmpegError.throwIfError(ret, 'frame.ref');
@@ -596,7 +596,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * frame.unref();
    * // Frame is now empty but still allocated
@@ -623,7 +623,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * const clonedFrame = frame.clone();
    * if (!clonedFrame) {
@@ -666,7 +666,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError, AV_PIX_FMT_YUV420P } from '@seydx/av';
+   * import { Frame, FFmpegError, AV_PIX_FMT_YUV420P } from 'node-av';
    *
    * // Video frame
    * frame.format = AV_PIX_FMT_YUV420P;
@@ -705,7 +705,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { Frame, FFmpegError } from 'node-av';
    *
    * const ret = frame.allocBuffer();
    * FFmpegError.throwIfError(ret, 'allocBuffer');
@@ -734,7 +734,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { Frame, FFmpegError } from 'node-av';
    *
    * if (!frame.isWritable) {
    *   const ret = frame.makeWritable();
@@ -766,7 +766,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { Frame, FFmpegError } from 'node-av';
    *
    * const ret = dstFrame.copyProps(srcFrame);
    * FFmpegError.throwIfError(ret, 'copyProps');
@@ -796,7 +796,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { Frame, FFmpegError } from 'node-av';
    *
    * // Destination must be allocated with same parameters
    * dstFrame.format = srcFrame.format;
@@ -836,7 +836,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
+   * import { Frame, FFmpegError } from 'node-av';
    *
    * // Transfer from hardware to software frame
    * const swFrame = new Frame();
@@ -863,7 +863,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * if (frame.isHwFrame()) {
    *   console.log('Frame is in GPU memory');
@@ -890,7 +890,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * if (frame.isSwFrame()) {
    *   console.log('Frame is in CPU memory');
@@ -914,8 +914,8 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
-   * import { AV_FRAME_DATA_A53_CC } from '@seydx/av/constants';
+   * import { Frame } from 'node-av';
+   * import { AV_FRAME_DATA_A53_CC } from 'node-av/constants';
    *
    * // Check for closed captions
    * const ccData = frame.getSideData(AV_FRAME_DATA_A53_CC);
@@ -942,8 +942,8 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
-   * import { AV_FRAME_DATA_MASTERING_DISPLAY_METADATA } from '@seydx/av/constants';
+   * import { Frame } from 'node-av';
+   * import { AV_FRAME_DATA_MASTERING_DISPLAY_METADATA } from 'node-av/constants';
    *
    * // Allocate HDR metadata
    * const hdrBuffer = frame.newSideData(
@@ -967,8 +967,8 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
-   * import { AV_FRAME_DATA_MOTION_VECTORS } from '@seydx/av/constants';
+   * import { Frame } from 'node-av';
+   * import { AV_FRAME_DATA_MOTION_VECTORS } from 'node-av/constants';
    *
    * // Remove motion vectors data
    * frame.removeSideData(AV_FRAME_DATA_MOTION_VECTORS);
@@ -996,7 +996,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    *
    * @example
    * ```typescript
-   * import { Frame } from '@seydx/av';
+   * import { Frame } from 'node-av';
    *
    * {
    *   using frame = new Frame();

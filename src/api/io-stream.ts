@@ -23,7 +23,7 @@ import type { IOInputCallbacks, MediaInputOptions } from './types.js';
  *
  * @example
  * ```typescript
- * import { IOStream } from '@seydx/av/api';
+ * import { IOStream } from 'node-av/api';
  * import { readFile } from 'fs/promises';
  *
  * // From Buffer

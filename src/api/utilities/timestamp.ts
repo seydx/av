@@ -21,8 +21,8 @@ import type { IRational } from '../../lib/types.js';
  *
  * @example
  * ```typescript
- * import { TimestampUtils } from '@seydx/av';
- * import { AV_ROUND_NEAR_INF } from '@seydx/av/constants';
+ * import { TimestampUtils } from 'node-av';
+ * import { AV_ROUND_NEAR_INF } from 'node-av/constants';
  *
  * // Convert timestamp to string representations
  * const pts = 450000n;
@@ -54,8 +54,8 @@ export class TimestampUtils {
    *
    * @example
    * ```typescript
-   * import { TimestampUtils } from '@seydx/av';
-   * import { AV_NOPTS_VALUE } from '@seydx/av/constants';
+   * import { TimestampUtils } from 'node-av';
+   * import { AV_NOPTS_VALUE } from 'node-av/constants';
    *
    * console.log(TimestampUtils.toString(12345n));        // "12345"
    * console.log(TimestampUtils.toString(AV_NOPTS_VALUE)); // "NOPTS"
@@ -78,7 +78,7 @@ export class TimestampUtils {
    *
    * @example
    * ```typescript
-   * import { TimestampUtils } from '@seydx/av';
+   * import { TimestampUtils } from 'node-av';
    *
    * const pts = 450000n;
    * const timebase = { num: 1, den: 90000 }; // 90kHz
@@ -105,7 +105,7 @@ export class TimestampUtils {
    *
    * @example
    * ```typescript
-   * import { TimestampUtils } from '@seydx/av';
+   * import { TimestampUtils } from 'node-av';
    *
    * // Compare timestamps from different time bases
    * const pts1 = 90000n;
@@ -136,7 +136,7 @@ export class TimestampUtils {
    *
    * @example
    * ```typescript
-   * import { TimestampUtils } from '@seydx/av';
+   * import { TimestampUtils } from 'node-av';
    *
    * // Convert from 90kHz to milliseconds
    * const pts = 450000n;
@@ -166,8 +166,8 @@ export class TimestampUtils {
    *
    * @example
    * ```typescript
-   * import { TimestampUtils } from '@seydx/av';
-   * import { AV_ROUND_UP, AV_ROUND_DOWN } from '@seydx/av/constants';
+   * import { TimestampUtils } from 'node-av';
+   * import { AV_ROUND_UP, AV_ROUND_DOWN } from 'node-av/constants';
    *
    * // Scale with different rounding modes
    * const value = 100n;
@@ -195,7 +195,7 @@ export class TimestampUtils {
    *
    * @example
    * ```typescript
-   * import { TimestampUtils } from '@seydx/av';
+   * import { TimestampUtils } from 'node-av';
    *
    * // Sleep for 100 milliseconds
    * TimestampUtils.sleep(100000);

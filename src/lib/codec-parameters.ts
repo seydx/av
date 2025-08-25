@@ -28,8 +28,8 @@ import type { ChannelLayout } from './types.js';
  *
  * @example
  * ```typescript
- * import { CodecParameters, FFmpegError } from '@seydx/av';
- * import { AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
+ * import { CodecParameters, FFmpegError } from 'node-av';
+ * import { AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from 'node-av/constants';
  *
  * // Create and allocate codec parameters
  * const params = new CodecParameters();
@@ -74,7 +74,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
-   * import { CodecParameters } from '@seydx/av';
+   * import { CodecParameters } from 'node-av';
    *
    * const params = new CodecParameters();
    * params.alloc();
@@ -368,7 +368,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
-   * import { CodecParameters } from '@seydx/av';
+   * import { CodecParameters } from 'node-av';
    *
    * const params = new CodecParameters();
    * params.alloc();
@@ -415,7 +415,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
-   * import { CodecParameters, FFmpegError } from '@seydx/av';
+   * import { CodecParameters, FFmpegError } from 'node-av';
    *
    * const src = new CodecParameters();
    * src.alloc();
@@ -451,7 +451,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * // Copy encoder parameters to stream
    * const ret = outputStream.codecpar.fromContext(encoderContext);
@@ -481,7 +481,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * // Copy stream parameters to decoder
    * const ret = inputStream.codecpar.toContext(decoderContext);

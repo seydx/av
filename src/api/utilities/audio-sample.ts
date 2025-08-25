@@ -43,8 +43,8 @@ export interface AudioSampleBufferSize {
  *
  * @example
  * ```typescript
- * import { AudioSampleUtils } from '@seydx/av';
- * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from '@seydx/av/constants';
+ * import { AudioSampleUtils } from 'node-av';
+ * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from 'node-av/constants';
  *
  * // Allocate audio buffers for stereo float planar
  * const audio = AudioSampleUtils.alloc(2, 1024, AV_SAMPLE_FMT_FLTP, 0);
@@ -77,8 +77,8 @@ export class AudioSampleUtils {
    *
    * @example
    * ```typescript
-   * import { AudioSampleUtils } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from '@seydx/av/constants';
+   * import { AudioSampleUtils } from 'node-av';
+   * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from 'node-av/constants';
    *
    * // Allocate for planar format (separate buffer per channel)
    * const planar = AudioSampleUtils.alloc(2, 1024, AV_SAMPLE_FMT_FLTP, 0);
@@ -113,8 +113,8 @@ export class AudioSampleUtils {
    *
    * @example
    * ```typescript
-   * import { AudioSampleUtils } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_FLT, AV_SAMPLE_FMT_S16P } from '@seydx/av/constants';
+   * import { AudioSampleUtils } from 'node-av';
+   * import { AV_SAMPLE_FMT_FLT, AV_SAMPLE_FMT_S16P } from 'node-av/constants';
    *
    * // Calculate size for packed float (32-bit) stereo
    * const floatSize = AudioSampleUtils.getBufferSize(2, 1024, AV_SAMPLE_FMT_FLT, 0);

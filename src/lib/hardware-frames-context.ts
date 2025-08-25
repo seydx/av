@@ -16,8 +16,8 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
  *
  * @example
  * ```typescript
- * import { HardwareDeviceContext, HardwareFramesContext, Frame, FFmpegError } from '@seydx/av';
- * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from '@seydx/av/constants';
+ * import { HardwareDeviceContext, HardwareFramesContext, Frame, FFmpegError } from 'node-av';
+ * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from 'node-av/constants';
  *
  * // Create hardware frames context
  * const device = new HardwareDeviceContext();
@@ -85,7 +85,7 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareFramesContext, FFmpegError } from '@seydx/av';
+   * import { HardwareFramesContext, FFmpegError } from 'node-av';
    *
    * const frames = new HardwareFramesContext();
    * frames.alloc(device);
@@ -439,7 +439,7 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareFramesContext, FFmpegError } from '@seydx/av';
+   * import { HardwareFramesContext, FFmpegError } from 'node-av';
    *
    * {
    *   using frames = new HardwareFramesContext();

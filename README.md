@@ -1,37 +1,20 @@
-# @seydx/av - Node.js FFmpeg Bindings
+# NodeAV
 
 Native Node.js bindings for FFmpeg libraries, providing both low-level and high-level APIs for audio/video processing.
-
-## Features
-
-- **High-Level API** - Simplified interfaces for common media processing tasks
-- **Low-Level API** - Direct access to FFmpeg's full capabilities  
-- **Hardware Acceleration** - Automatic detection and configuration of all hardware types supported by FFmpeg
-- **Async/Await** - Modern asynchronous API with async generators
-- **Memory Safety** - Automatic resource management with Disposable pattern
-- **Type Safety** - Full TypeScript support with detailed type definitions
-- **Stream Support** - Process media from Node.js streams and buffers
-- **Pipeline API** - Streamlined media processing with automatic flow control
 
 ## Installation
 
 ```bash
-npm install @seydx/av
+npm install node-av
 ```
-
-## Requirements
-
-- Node.js 22.18.0 or later (LTS version)
-- FFmpeg 7.1 or later (libavcodec, libavformat, libavfilter, libavutil, libswscale, libswresample)
-- Python 3.x (for node-gyp)
 
 ## Quick Start
 
 ### High-Level API
 
 ```typescript
-import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/av/api';
-import { AV_PIX_FMT_YUV420P } from '@seydx/av';
+import { MediaInput, MediaOutput, Decoder, Encoder } from 'node-av/api';
+import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
 
 // Open media
 const input = await MediaInput.open('input.mp4');
@@ -42,15 +25,7 @@ const videoStream = input.video();
 
 // Create decoder/encoder
 const decoder = await Decoder.create(videoStream);
-const encoder = await Encoder.create('libx264', {
-  type: 'video',
-  width: 1920,
-  height: 1080,
-  pixelFormat: AV_PIX_FMT_YUV420P,
-  timeBase: { num: 1, den: 30 },
-  frameRate: { num: 30, den: 1 },
-  sampleAspectRatio: { num: 1, den: 1 }
-}, {
+const encoder = await Encoder.create('libx264', videoStream, {
   bitrate: '2M',
   gopSize: 60
 });
@@ -72,6 +47,7 @@ for await (const packet of input.packets()) {
       frame.free();
     }
   }
+  packet.free();
 }
 
 // Cleanup
@@ -87,7 +63,7 @@ The Pipeline API provides streamlined media processing with automatic flow contr
 #### Simple Pipeline (single stream)
 
 ```typescript
-import { pipeline, MediaInput, MediaOutput, Decoder, Encoder, FilterAPI } from '@seydx/av/api';
+import { pipeline, MediaInput, MediaOutput, Decoder, Encoder, FilterAPI } from 'node-av/api';
 
 // Full transcode pipeline: input → decoder → encoder → output
 const input = await MediaInput.open('input.mp4');
@@ -177,7 +153,7 @@ The library supports all hardware acceleration methods available in FFmpeg. The 
 ### Auto-Detection
 
 ```typescript
-import { HardwareContext } from '@seydx/av/api';
+import { HardwareContext } from 'node-av/api';
 
 // Automatically detect best available hardware
 const hw = await HardwareContext.auto();
@@ -199,7 +175,7 @@ if (hw) {
 ### Specific Hardware
 
 ```typescript
-import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from '@seydx/av';
+import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from 'node-av/constants';
 
 // Use specific hardware type
 const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
@@ -212,33 +188,19 @@ The library provides multiple entry points for optimal tree shaking:
 
 ```typescript
 // High-Level API only - Recommended for most use cases
-import { MediaInput, MediaOutput, Decoder, Encoder } from '@seydx/av/api';
+import { MediaInput, MediaOutput, Decoder, Encoder } from 'node-av/api';
 
 // Low-Level API only - Direct FFmpeg bindings
-import { FormatContext, CodecContext, Frame, Packet } from '@seydx/av/lib';
+import { FormatContext, CodecContext, Frame, Packet } from 'node-av/lib';
 
 // Constants only - When you just need FFmpeg constants
-import { AV_PIX_FMT_YUV420P, AV_CODEC_ID_H264 } from '@seydx/av/constants';
+import { AV_PIX_FMT_YUV420P, AV_CODEC_ID_H264 } from 'node-av/constants';
 
 // Channel layouts only - For audio channel configurations
-import { AV_CHANNEL_LAYOUT_STEREO, AV_CHANNEL_LAYOUT_5POINT1 } from '@seydx/av/layouts';
+import { AV_CHANNEL_LAYOUT_STEREO, AV_CHANNEL_LAYOUT_5POINT1 } from 'node-av/layouts';
 
-// Default export - Includes everything (larger bundle)
-import * as ffmpeg from '@seydx/av';
-```
-
-### Recommended Import Strategy
-
-For optimal bundle size, import only what you need:
-
-```typescript
-// ✅ Good - Only imports what's needed
-import { MediaInput, Decoder } from '@seydx/av/api';
-import { AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
-
-// ❌ Avoid - Imports everything
-import * as ffmpeg from '@seydx/av';
-const { MediaInput, Decoder } = ffmpeg;
+// Default export - Includes everything
+import * as ffmpeg from 'node-av';
 ```
 
 ## Stream Processing
@@ -292,7 +254,7 @@ const rawAudio = await MediaInput.open({
 ## Error Handling
 
 ```typescript
-import { FFmpegError } from '@seydx/av';
+import { FFmpegError } from 'node-av';
 
 try {
   const media = await MediaInput.open('input.mp4');
@@ -332,6 +294,7 @@ try {
 | `api-frame-extract` | | | [✓](examples/api-frame-extract.ts) |
 | `api-hw-decode-sw-encode` | | | [✓](examples/api-hw-decode-sw-encode.ts) |
 | `api-hw-raw` | | | [✓](examples/api-hw-raw.ts) |
+| `api-hw-rtsp-custom-io` | | | [✓](examples/api-hw-rtsp-custom-io.ts) |
 | `api-hw-rtsp` | | | [✓](examples/api-hw-rtsp.ts) |
 | `api-hw-transcode` | | | [✓](examples/api-hw-transcode.ts) |
 | `api-muxing` | | | [✓](examples/api-muxing.ts) |
@@ -393,5 +356,6 @@ For issues and questions, please use the GitHub issue tracker.
 ## See Also
 
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
-- [FFmpeg API Documentation](https://ffmpeg.org/doxygen/trunk/)
+- [FFmpeg Doxygen](https://ffmpeg.org/doxygen/trunk/)
+- [Jellyfin FFmpeg](https://github.com/jellyfin/jellyfin-ffmpeg)
 - [go-astiav](https://github.com/asticode/go-astiav) - Similar Go bindings that inspired this project

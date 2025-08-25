@@ -1,8 +1,6 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
-import path from 'node:path';
+import { closeSync, openSync, readSync } from 'node:fs';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import {
   AV_CODEC_ID_AAC,
@@ -21,6 +19,11 @@ import {
   Frame,
   Packet,
 } from '../src/lib/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
+
+prepareTestEnvironment();
+
+const inputFile = getInputFile('video.m1v');
 
 describe('CodecParser', () => {
   let parser: CodecParser;
@@ -146,16 +149,7 @@ describe('CodecParser', () => {
   });
 
   describe('Integration with CodecContext', () => {
-    it('should work with real MPEG1 video stream', async (t) => {
-      // Create a small test MPEG1 video if it doesn't exist
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const testFile = path.join(__dirname, '../testdata/video.m1v');
-      if (!fs.existsSync(testFile)) {
-        t.skip('Test file not found');
-        return;
-      }
-
+    it('should work with real MPEG1 video stream', async () => {
       const codec = Codec.findDecoder(AV_CODEC_ID_MPEG1VIDEO);
       assert.ok(codec);
 
@@ -172,10 +166,10 @@ describe('CodecParser', () => {
       frame.alloc();
 
       // Read some data from file
-      const fd = fs.openSync(testFile, 'r');
+      const fd = openSync(inputFile, 'r');
       const inbuf = Buffer.alloc(4096 + AV_INPUT_BUFFER_PADDING_SIZE);
-      const bytesRead = fs.readSync(fd, inbuf, 0, 4096, null);
-      fs.closeSync(fd);
+      const bytesRead = readSync(fd, inbuf, 0, 4096, null);
+      closeSync(fd);
 
       if (bytesRead > 0) {
         let offset = 0;

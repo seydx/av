@@ -19,8 +19,8 @@ import type { AVMediaType } from '../../lib/constants.js';
  *
  * @example
  * ```typescript
- * import { MediaType } from '@seydx/av';
- * import { AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO } from '@seydx/av/constants';
+ * import { MediaType } from 'node-av';
+ * import { AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO } from 'node-av/constants';
  *
  * console.log(MediaType.getString(AVMEDIA_TYPE_VIDEO));      // "video"
  * console.log(MediaType.getString(AVMEDIA_TYPE_AUDIO));      // "audio"
@@ -42,14 +42,14 @@ export class MediaType {
    *
    * @example
    * ```typescript
-   * import { MediaType } from '@seydx/av';
+   * import { MediaType } from 'node-av';
    * import {
    *   AVMEDIA_TYPE_VIDEO,
    *   AVMEDIA_TYPE_AUDIO,
    *   AVMEDIA_TYPE_DATA,
    *   AVMEDIA_TYPE_SUBTITLE,
    *   AVMEDIA_TYPE_ATTACHMENT
-   * } from '@seydx/av/constants';
+   * } from 'node-av/constants';
    *
    * console.log(MediaType.getString(AVMEDIA_TYPE_VIDEO));      // "video"
    * console.log(MediaType.getString(AVMEDIA_TYPE_AUDIO));      // "audio"

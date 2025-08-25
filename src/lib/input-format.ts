@@ -14,7 +14,7 @@ import type { NativeInputFormat, NativeIOContext, NativeWrapper } from './native
  *
  * @example
  * ```typescript
- * import { InputFormat, FormatContext, FFmpegError } from '@seydx/av';
+ * import { InputFormat, FormatContext, FFmpegError } from 'node-av';
  *
  * // Find a specific input format
  * const mp4Format = InputFormat.findInputFormat('mp4');
@@ -51,7 +51,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @example
    * ```typescript
-   * import { InputFormat } from '@seydx/av';
+   * import { InputFormat } from 'node-av';
    *
    * // Don't use constructor directly
    * // const format = new InputFormat(); // Wrong
@@ -78,7 +78,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @example
    * ```typescript
-   * import { InputFormat, FormatContext, FFmpegError } from '@seydx/av';
+   * import { InputFormat, FormatContext, FFmpegError } from 'node-av';
    *
    * const format = InputFormat.findInputFormat('mp4');
    * if (format) {
@@ -118,7 +118,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @example
    * ```typescript
-   * import { InputFormat } from '@seydx/av';
+   * import { InputFormat } from 'node-av';
    * import { readFileSync } from 'fs';
    *
    * // Read first few KB of a media file
@@ -154,7 +154,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @example
    * ```typescript
-   * import { InputFormat, IOContext } from '@seydx/av';
+   * import { InputFormat, IOContext } from 'node-av';
    *
    * // Open an IOContext
    * const io = new IOContext();

@@ -6,7 +6,7 @@ export const avPath = (): string => {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const binaryPath = resolve(__dirname, '../../binary');
-  const avExtractedFilePath = resolve(binaryPath, 'av.node');
+  const avExtractedFilePath = resolve(binaryPath, 'node-av.node');
   return avExtractedFilePath;
 };
 

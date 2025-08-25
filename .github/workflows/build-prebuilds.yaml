@@ -156,7 +156,7 @@ jobs:
                   if [[ "$filename" =~ (node|electron)\.abi([0-9]+)\.node ]]; then
                     runtime="${BASH_REMATCH[1]}"
                     abi="${BASH_REMATCH[2]}"
-                    artifact_name="av-darwin-${{ matrix.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
+                    artifact_name="node-av-darwin-${{ matrix.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
                     (cd "$dir" && zip -j "../../artifacts/${artifact_name}" "$(basename "$file")")
                     # Rename the .node file inside the zip to av.node
                     (cd ../../artifacts && zip -u "${artifact_name}" -j && printf "@ $(basename "$file")\n@=av.node\n" | zipnote -w "${artifact_name}")
@@ -171,7 +171,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: av-${{ matrix.target }}
+          name: node-av-${{ matrix.target }}
           path: artifacts/*.zip
 
   build_linux:
@@ -320,7 +320,7 @@ jobs:
                   if [[ "$filename" =~ (node|electron)\.abi([0-9]+)\.node ]]; then
                     runtime="${BASH_REMATCH[1]}"
                     abi="${BASH_REMATCH[2]}"
-                    artifact_name="av-linux-${{ matrix.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
+                    artifact_name="node-av-linux-${{ matrix.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
                     (cd "$dir" && zip -j "../../artifacts/${artifact_name}" "$(basename "$file")")
                     # Rename the .node file inside the zip to av.node
                     (cd ../../artifacts && zip -u "${artifact_name}" -j && printf "@ $(basename "$file")\n@=av.node\n" | zipnote -w "${artifact_name}")
@@ -335,7 +335,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: av-${{ matrix.target }}
+          name: node-av-${{ matrix.target }}
           path: artifacts/*.zip
 
   build_windows:
@@ -501,7 +501,7 @@ jobs:
                   if [[ "$filename" =~ (node|electron)\.abi([0-9]+)\.node ]]; then
                     runtime="${BASH_REMATCH[1]}"
                     abi="${BASH_REMATCH[2]}"
-                    artifact_name="av-win32-${{ matrix.os.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
+                    artifact_name="node-av-win32-${{ matrix.os.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
                     (cd "$dir" && zip -j "../../artifacts/${artifact_name}" "$(basename "$file")")
                     # Rename the .node file inside the zip to av.node
                     (cd ../../artifacts && zip -u "${artifact_name}" -j && printf "@ $(basename "$file")\n@=av.node\n" | zipnote -w "${artifact_name}")
@@ -516,7 +516,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: av-win${{ matrix.os.arch == 'arm64' && 'arm64' || '64' }}
+          name: node-av-win${{ matrix.os.arch == 'arm64' && 'arm64' || '64' }}
           path: artifacts/*.zip
 
   release:
@@ -535,7 +535,7 @@ jobs:
         with:
           files: '**/*.zip'
           body: |
-            ## @seydx/av Prebuilds
+            ## node-av Prebuilds
             
             Statically linked with Jellyfin FFmpeg libraries
             
@@ -549,6 +549,6 @@ jobs:
             - Electron v37+
             
             ### Binary Naming Convention
-            `av-{platform}-{arch}-{version}-{runtime}-{abi}.zip`
-            
-            Example: `av-darwin-arm64-0.1.0-electron-134.zip`
+            `node-av-{platform}-{arch}-{version}-{runtime}-{abi}.zip`
+
+            Example: `node-av-darwin-arm64-0.1.0-electron-134.zip`

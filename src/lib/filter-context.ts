@@ -19,7 +19,7 @@ import type { IRational } from './types.js';
  *
  * @example
  * ```typescript
- * import { FilterGraph, Filter, FFmpegError } from '@seydx/av';
+ * import { FilterGraph, Filter, FFmpegError } from 'node-av';
  *
  * // Create filter context through FilterGraph
  * const filterGraph = new FilterGraph();
@@ -187,7 +187,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *
    * @example
    * ```typescript
-   * import { Dictionary, FilterContext, FFmpegError } from '@seydx/av';
+   * import { Dictionary, FilterContext, FFmpegError } from 'node-av';
    *
    * const options = new Dictionary();
    * const ret1 = options.set('width', '1280', 0);
@@ -221,7 +221,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/av';
+   * import { FilterContext, FFmpegError } from 'node-av';
    *
    * // Initialize scale filter
    * const scaleRet = scaleCtx.initStr('1280:720');
@@ -255,7 +255,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from '@seydx/av';
+   * import { FilterContext, FFmpegError } from 'node-av';
    *
    * // Link buffer source to scale filter
    * const linkRet1 = bufferCtx.link(0, scaleCtx, 0);
@@ -306,7 +306,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *
    * @example
    * ```typescript
-   * import { Frame, FilterContext, FFmpegError } from '@seydx/av';
+   * import { Frame, FilterContext, FFmpegError } from 'node-av';
    *
    * // Feed a frame to the buffer source
    * const addRet = srcCtx.buffersrcAddFrame(frame);
@@ -380,8 +380,8 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *
    * @example
    * ```typescript
-   * import { Frame, FilterContext, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
+   * import { Frame, FilterContext, FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
    *
    * // Get filtered frames
    * const frame = new Frame();

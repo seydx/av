@@ -1,6 +1,6 @@
-# Contributing to @seydx/av
+# Contributing to node-av
 
-Thank you for your interest in contributing to @seydx/av! This guide will help you understand our development practices and code standards.
+Thank you for your interest in contributing to node-av! This guide will help you understand our development practices and code standards.
 
 ## Table of Contents
 
@@ -329,7 +329,7 @@ describe('MediaInput', () => {
 
 ```bash
 # Run all tests
-npm test:all
+npm run test:all
 ```
 
 ## Pull Request Process
@@ -380,4 +380,4 @@ If you have questions about contributing, please:
 - Open a new issue for clarification
 - Join our community discussions
 
-Thank you for contributing to @seydx/av!
+Thank you for contributing to node-av!

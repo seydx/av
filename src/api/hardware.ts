@@ -59,7 +59,7 @@ import type { HardwareOptions } from './types.js';
  *
  * @example
  * ```typescript
- * import { HardwareContext } from '@seydx/av/api';
+ * import { HardwareContext } from 'node-av/api';
  *
  * // Auto-detect best available hardware
  * const hw = await HardwareContext.auto();

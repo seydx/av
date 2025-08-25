@@ -1,7 +1,8 @@
 {
-  "name": "@seydx/av",
-  "version": "0.1.0",
+  "name": "node-av",
+  "version": "0.0.1",
   "description": "FFmpeg bindings for Node.js",
+  "author": "seydx (https://github.com/seydx/av)",
   "type": "module",
   "exports": {
     ".": {
@@ -28,13 +29,18 @@
       "types": "./dist/lib/channel-layouts.d.ts",
       "require": "./dist/lib/channel-layouts.js",
       "default": "./dist/lib/channel-layouts.js"
+    },
+    "./install": {
+      "types": "./dist/install/index.d.ts",
+      "require": "./dist/install/index.js",
+      "default": "./dist/install/index.js"
     }
   },
   "scripts": {
     "build": "npm run build:native && npm run build:tsc",
     "build:all": "npm run build:native && npm run build:tests && npm run build:examples && npm run build:tsc",
     "build:examples": "tsc -p tsconfig.examples.json",
-    "build:native": "node-gyp rebuild && cpy --flat build/Release/av.node binary/",
+    "build:native": "node-gyp rebuild && cpy --flat build/Release/node-av.node binary/",
     "build:tests": "tsc -p tsconfig.tests.json",
     "build:tsc": "rimraf dist && npm run generate:constants && npm run generate:layouts && tsc -p tsconfig.build.json",
     "clean": "node-gyp clean && rimraf dist",
@@ -51,7 +57,7 @@
   },
   "dependencies": {
     "node-abi": "^4.12.0",
-    "unzipper": "^0.10.14"
+    "unzipper": "^0.12.3"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.2.3",
@@ -75,5 +81,20 @@
     "typescript-eslint": "^8.40.0",
     "updates": "^16.6.2"
   },
-  "gypfile": true
+  "bugs": {
+    "url": "https://github.com/seydx/av/issues"
+  },
+  "homepage": "https://github.com/seydx/av#readme",
+  "keywords": [
+    "node",
+    "ffmpeg",
+    "av",
+    "libav",
+    "bindings"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seydx/av.git"
+  }
 }

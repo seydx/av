@@ -1,28 +1,30 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
-import path from 'node:path';
+import { existsSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { BitStreamFilterAPI, Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/api/index.js';
 import { AV_CHANNEL_LAYOUT_MONO } from '../src/lib/channel-layouts.js';
 import { AV_CODEC_ID_H264, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
 import { Frame, Packet } from '../src/lib/index.js';
+import { getInputFile, getOutputFile, getTmpDir, prepareTestEnvironment } from './index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+prepareTestEnvironment();
+
+const inputFile = getInputFile('demux.mp4');
+const inputFile2 = getInputFile('demux_perfect.mp4');
 
 // Helper to create unique output filenames
 let testFileCounter = 0;
 function getTestOutputPath(name: string): string {
-  return path.join(__dirname, '..', 'examples', '.tmp', `test-pipeline-${testFileCounter++}-${name}`);
+  return getOutputFile(`test-pipeline-${testFileCounter++}-${name}`);
 }
 
 // Cleanup function for test outputs
 function cleanupTestFile(filepath: string): void {
-  if (fs.existsSync(filepath)) {
+  if (existsSync(filepath)) {
     try {
-      fs.unlinkSync(filepath);
+      unlinkSync(filepath);
     } catch {
       // Ignore errors
     }
@@ -30,9 +32,26 @@ function cleanupTestFile(filepath: string): void {
 }
 
 describe('Pipeline - Comprehensive Tests', () => {
+  // Cleanup all test files after all tests
+  after(() => {
+    // Clean up any remaining test files
+    const tmpDir = getTmpDir();
+    if (existsSync(tmpDir)) {
+      const files = readdirSync(tmpDir);
+      files.forEach((file: string) => {
+        if (file.startsWith('test-pipeline-')) {
+          try {
+            unlinkSync(join(tmpDir, file));
+          } catch {
+            // Ignore errors
+          }
+        }
+      });
+    }
+  });
+
   describe('Simple Pipeline - Stream Copy', () => {
     it('should copy all streams from input to output', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('copy.mp4');
 
       try {
@@ -46,7 +65,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         await control.completion;
 
         // Verify output file exists
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
 
         // Verify output has same streams as input
         await using verifyInput = await MediaInput.open(outputFile);
@@ -58,7 +77,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should support stopping the pipeline', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('copy-stopped.mp4');
 
       try {
@@ -83,7 +101,6 @@ describe('Pipeline - Comprehensive Tests', () => {
 
   describe('Simple Pipeline - Transcode', () => {
     it('should transcode with decoder and encoder', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('transcode.mp4');
 
       try {
@@ -117,7 +134,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         await control.completion;
 
         // Verify output
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
 
         await using verifyInput = await MediaInput.open(outputFile);
         const verifyStream = verifyInput.video();
@@ -130,7 +147,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should transcode with filter', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('transcode-filter.mp4');
 
       try {
@@ -166,7 +182,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         await control.completion;
 
         // Verify output
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
 
         await using verifyInput = await MediaInput.open(outputFile);
         const verifyStream = verifyInput.video();
@@ -181,7 +197,6 @@ describe('Pipeline - Comprehensive Tests', () => {
 
   describe('Simple Pipeline - BitStreamFilter', () => {
     it('should apply bitstream filter during stream copy', async function (t) {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('copy-bsf.mp4');
 
       try {
@@ -202,14 +217,13 @@ describe('Pipeline - Comprehensive Tests', () => {
         await control.completion;
 
         // Verify output exists
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
       } finally {
         cleanupTestFile(outputFile);
       }
     });
 
     it('should apply bitstream filter after encoding', async function (t) {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('transcode-bsf.mp4');
 
       try {
@@ -245,7 +259,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         const control = pipeline(input, decoder, encoder, bsf, output);
         await control.completion;
 
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
       } finally {
         cleanupTestFile(outputFile);
       }
@@ -254,7 +268,6 @@ describe('Pipeline - Comprehensive Tests', () => {
 
   describe('Named Pipeline', () => {
     it('should process multiple named streams', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('named-multi.mp4');
 
       try {
@@ -316,7 +329,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         await control.completion;
 
         // Verify output
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
 
         await using verifyInput = await MediaInput.open(outputFile);
         assert.ok(verifyInput.video(), 'Output should have video stream');
@@ -327,7 +340,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should support passthrough for specific streams', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('named-passthrough.mp4');
 
       try {
@@ -370,7 +382,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         await control.completion;
 
         // Verify output
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
 
         await using verifyInput = await MediaInput.open(outputFile);
         const verifyVideo = verifyInput.video();
@@ -391,7 +403,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should handle filters in named pipeline', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('named-filter.mp4');
 
       try {
@@ -424,7 +435,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         await control.completion;
 
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
       } finally {
         cleanupTestFile(outputFile);
       }
@@ -433,8 +444,6 @@ describe('Pipeline - Comprehensive Tests', () => {
 
   describe('Partial Pipelines', () => {
     it('should return generator for decoder only', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
       await using input = await MediaInput.open(inputFile);
       const videoStream = input.video();
 
@@ -462,8 +471,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should return generator for decoder + filter', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
       await using input = await MediaInput.open(inputFile);
       const videoStream = input.video();
 
@@ -491,8 +498,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should return packets for decoder + encoder partial pipeline', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
       await using input = await MediaInput.open(inputFile);
       const videoStream = input.video();
 
@@ -532,8 +537,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should return generator for named partial pipeline', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
       await using input = await MediaInput.open(inputFile);
       const videoStream = input.video();
 
@@ -578,7 +581,6 @@ describe('Pipeline - Comprehensive Tests', () => {
 
   describe('Complex Scenarios', () => {
     it('should handle multiple filters in chain', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('multi-filter.mp4');
 
       try {
@@ -614,14 +616,13 @@ describe('Pipeline - Comprehensive Tests', () => {
         const control = pipeline(input, decoder, scaleFilter, rotateFilter, encoder, output);
         await control.completion;
 
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
       } finally {
         cleanupTestFile(outputFile);
       }
     });
 
     it('should handle filter array in simple pipeline', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = getTestOutputPath('filter-array.mp4');
 
       try {
@@ -663,7 +664,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           f[Symbol.dispose]();
         }
 
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
       } finally {
         cleanupTestFile(outputFile);
       }
@@ -716,7 +717,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         const control = pipeline(generateFrames(), encoder, output);
         await control.completion;
 
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
       } finally {
         cleanupTestFile(outputFile);
       }
@@ -725,8 +726,6 @@ describe('Pipeline - Comprehensive Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle invalid decoder', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
       await using input = await MediaInput.open(inputFile);
       const videoStream = input.video();
 
@@ -755,8 +754,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should handle filter creation error', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
       await using input = await MediaInput.open(inputFile);
       const videoStream = input.video();
 
@@ -775,7 +772,6 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     it('should handle output write errors gracefully', async () => {
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
       const outputFile = '/invalid/path/that/does/not/exist/output.mp4';
 
       await using input = await MediaInput.open(inputFile);
@@ -803,11 +799,10 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       // Use demux_perfect.mp4 which has yuv420p - compatible with hardware acceleration
-      const inputFile = path.join(__dirname, '..', 'testdata', 'demux_perfect.mp4');
       const outputFile = getTestOutputPath('hw-decode.mp4');
 
       try {
-        await using input = await MediaInput.open(inputFile);
+        await using input = await MediaInput.open(inputFile2);
         await using output = await MediaOutput.open(outputFile);
 
         const videoStream = input.video();
@@ -837,7 +832,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         const control = pipeline(input, decoder, filter, encoder, output);
         await control.completion;
 
-        assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+        assert.ok(existsSync(outputFile), 'Output file should exist');
       } finally {
         cleanupTestFile(outputFile);
         hw?.dispose();
@@ -845,28 +840,9 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
   });
 
-  // Cleanup all test files after all tests
-  after(() => {
-    // Clean up any remaining test files
-    const tmpDir = path.join(__dirname, '..', 'examples', '.tmp');
-    if (fs.existsSync(tmpDir)) {
-      const files = fs.readdirSync(tmpDir);
-      files.forEach((file: string) => {
-        if (file.startsWith('test-pipeline-')) {
-          try {
-            fs.unlinkSync(path.join(tmpDir, file));
-          } catch {
-            // Ignore errors
-          }
-        }
-      });
-    }
-  });
-
   describe('Additional Coverage', () => {
     describe('Untested Overloads', () => {
       it('should handle stream copy with bitstream filter', async () => {
-        const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
         const outputFile = getTestOutputPath('stream-copy-bsf.mp4');
 
         try {
@@ -885,7 +861,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           const control = pipeline(input, bsf, output);
           await control.completion;
 
-          assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+          assert.ok(existsSync(outputFile), 'Output file should exist');
         } finally {
           cleanupTestFile(outputFile);
         }
@@ -946,7 +922,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           const control = pipeline(generateFrames(), filter, encoder, output);
           await control.completion;
 
-          assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+          assert.ok(existsSync(outputFile), 'Output file should exist');
         } finally {
           cleanupTestFile(outputFile);
         }
@@ -1108,7 +1084,6 @@ describe('Pipeline - Comprehensive Tests', () => {
 
     describe('Edge Cases', () => {
       it('should handle pipeline with multiple outputs in named pipeline', async () => {
-        const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
         const videoOutputFile = getTestOutputPath('multi-out-video.mp4');
         const audioOutputFile = getTestOutputPath('multi-out-audio.aac');
 
@@ -1169,8 +1144,8 @@ describe('Pipeline - Comprehensive Tests', () => {
 
           await control.completion;
 
-          assert.ok(fs.existsSync(videoOutputFile), 'Video output file should exist');
-          assert.ok(fs.existsSync(audioOutputFile), 'Audio output file should exist');
+          assert.ok(existsSync(videoOutputFile), 'Video output file should exist');
+          assert.ok(existsSync(audioOutputFile), 'Audio output file should exist');
 
           // Close outputs manually since they're not in using statements
           await videoOutput.close();
@@ -1186,7 +1161,6 @@ describe('Pipeline - Comprehensive Tests', () => {
       });
 
       it('should handle stop() during processing', async () => {
-        const inputFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
         const outputFile = getTestOutputPath('stopped-early.mp4');
 
         try {
@@ -1224,8 +1198,8 @@ describe('Pipeline - Comprehensive Tests', () => {
           assert.ok(control.isStopped(), 'Pipeline should be stopped');
 
           // Check that output file exists but is smaller than expected
-          assert.ok(fs.existsSync(outputFile), 'Output file should exist');
-          const stats = fs.statSync(outputFile);
+          assert.ok(existsSync(outputFile), 'Output file should exist');
+          const stats = statSync(outputFile);
           // File should be small since we stopped immediately
           assert.ok(stats.size < 50000, 'Output file should be small due to early stop');
         } finally {
@@ -1313,10 +1287,10 @@ describe('Pipeline - Comprehensive Tests', () => {
           const control = pipeline(generateManyFrames(), encoder, output);
           await control.completion;
 
-          assert.ok(fs.existsSync(outputFile), 'Output file should exist');
+          assert.ok(existsSync(outputFile), 'Output file should exist');
 
           // Check file has reasonable size (should have encoded frames)
-          const stats = fs.statSync(outputFile);
+          const stats = statSync(outputFile);
           assert.ok(stats.size > 1000, 'Output file should have content');
         } finally {
           cleanupTestFile(outputFile);

@@ -10,7 +10,13 @@ import {
   AV_PIX_FMT_NV12,
   AV_PIX_FMT_YUV420P,
 } from '../src/lib/constants.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
+
 import type { Frame } from '../src/lib/index.js';
+
+prepareTestEnvironment();
+
+const inputFile = getInputFile('demux.mp4');
 
 describe('HardwareContext', () => {
   describe('static methods', () => {
@@ -127,7 +133,7 @@ describe('HardwareContext', () => {
         return;
       }
 
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video(0);
       assert.ok(videoStream, 'Should have video stream');
 
@@ -194,8 +200,8 @@ describe('HardwareContext', () => {
         return;
       }
 
-      const media1 = await MediaInput.open('testdata/demux.mp4');
-      const media2 = await MediaInput.open('testdata/demux.mp4');
+      const media1 = await MediaInput.open(inputFile);
+      const media2 = await MediaInput.open(inputFile);
       const videoStream1 = media1.video(0);
       const videoStream2 = media2.video(0);
 
@@ -239,7 +245,7 @@ describe('HardwareContext', () => {
 
       try {
         // Open a test video
-        const media = await MediaInput.open('testdata/demux.mp4');
+        const media = await MediaInput.open(inputFile);
         const videoStream = media.video(0);
         assert.ok(videoStream, 'Should have video stream');
 
@@ -273,7 +279,7 @@ describe('HardwareContext', () => {
     });
 
     it('should work with Decoder using auto hardware detection', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video(0);
       assert.ok(videoStream, 'Should have video stream');
 
@@ -389,7 +395,7 @@ describe('HardwareContext', () => {
 
       try {
         // Open test video
-        const media = await MediaInput.open('testdata/demux.mp4');
+        const media = await MediaInput.open(inputFile);
         const videoStream = media.video(0);
         assert.ok(videoStream, 'Should have video stream');
 
@@ -491,8 +497,8 @@ describe('HardwareContext', () => {
 
       try {
         // Open two input videos
-        const media1 = await MediaInput.open('testdata/demux.mp4');
-        const media2 = await MediaInput.open('testdata/demux.mp4');
+        const media1 = await MediaInput.open(inputFile);
+        const media2 = await MediaInput.open(inputFile);
 
         const videoStream1 = media1.video(0);
         const videoStream2 = media2.video(0);

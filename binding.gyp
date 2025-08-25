@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "target_name": "av",
+      "target_name": "node-av",
       "sources": [
         "src/bindings/index.cc",
         "src/bindings/packet.cc",

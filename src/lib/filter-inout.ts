@@ -14,7 +14,7 @@ import type { NativeFilterInOut, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { FilterInOut, FilterGraph, FFmpegError } from '@seydx/av';
+ * import { FilterInOut, FilterGraph, FFmpegError } from 'node-av';
  *
  * // Create input/output points for filter graph
  * const inputs = new FilterInOut();
@@ -55,7 +55,7 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    *
    * @example
    * ```typescript
-   * import { FilterInOut } from '@seydx/av';
+   * import { FilterInOut } from 'node-av';
    *
    * const inout = new FilterInOut();
    * inout.alloc();
@@ -78,7 +78,7 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    *
    * @example
    * ```typescript
-   * import { FilterInOut, FilterGraph, FFmpegError } from '@seydx/av';
+   * import { FilterInOut, FilterGraph, FFmpegError } from 'node-av';
    *
    * // Create multiple inputs
    * const inputs = FilterInOut.createList([
@@ -205,7 +205,7 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    *
    * @example
    * ```typescript
-   * import { FilterInOut } from '@seydx/av';
+   * import { FilterInOut } from 'node-av';
    *
    * const inout = new FilterInOut();
    * inout.alloc();

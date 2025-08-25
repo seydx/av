@@ -9,7 +9,7 @@
  *
  * @example
  * ```typescript
- * import { Rational } from '@seydx/av';
+ * import { Rational } from 'node-av';
  *
  * // Common time bases
  * const timebase = new Rational(1, 90000); // 90kHz for MPEG-TS
@@ -44,7 +44,7 @@ export class Rational {
    *
    * @example
    * ```typescript
-   * import { Rational } from '@seydx/av';
+   * import { Rational } from 'node-av';
    *
    * // Create time base for 25 fps video
    * const timebase = new Rational(1, 25);

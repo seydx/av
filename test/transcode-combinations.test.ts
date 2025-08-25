@@ -5,6 +5,12 @@ import { describe, it } from 'node:test';
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, type DecoderOptions, type EncoderOptions, type StreamInfo } from '../src/api/index.js';
 import { AVFMT_NOFILE, AVIO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
 import { FormatContext, IOContext } from '../src/lib/index.js';
+import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
+
+prepareTestEnvironment();
+
+const testInput = getInputFile('video.mp4');
+const testOutputBase = 'test-output';
 
 /**
  * Test all four decode/encode combinations:
@@ -14,9 +20,6 @@ import { FormatContext, IOContext } from '../src/lib/index.js';
  * 4. Software decode + Software encode (Full CPU)
  */
 describe('Transcode Combinations', () => {
-  const testInput = 'testdata/video.mp4';
-  const testOutputBase = 'test-output';
-
   // Helper function to clean up test output files
   function cleanupOutput(filename: string) {
     if (existsSync(filename)) {
@@ -192,7 +195,7 @@ describe('Transcode Combinations', () => {
         return;
       }
 
-      const outputFile = `${testOutputBase}-full-gpu.mp4`;
+      const outputFile = getOutputFile(`${testOutputBase}-full-gpu.mp4`);
       cleanupOutput(outputFile);
 
       try {
@@ -217,7 +220,7 @@ describe('Transcode Combinations', () => {
         return;
       }
 
-      const outputFile = `${testOutputBase}-hw-decode-sw-encode.mp4`;
+      const outputFile = getOutputFile(`${testOutputBase}-hw-decode-sw-encode.mp4`);
       cleanupOutput(outputFile);
 
       try {
@@ -242,7 +245,7 @@ describe('Transcode Combinations', () => {
         return;
       }
 
-      const outputFile = `${testOutputBase}-sw-decode-hw-encode.mp4`;
+      const outputFile = getOutputFile(`${testOutputBase}-sw-decode-hw-encode.mp4`);
       cleanupOutput(outputFile);
 
       try {
@@ -261,7 +264,7 @@ describe('Transcode Combinations', () => {
 
   describe('Full CPU (Software Decode + Software Encode)', () => {
     it('should transcode using full software pipeline', async () => {
-      const outputFile = `${testOutputBase}-full-cpu.mp4`;
+      const outputFile = getOutputFile(`${testOutputBase}-full-cpu.mp4`);
       cleanupOutput(outputFile);
 
       try {
@@ -283,7 +286,7 @@ describe('Transcode Combinations', () => {
         return;
       }
 
-      const outputFile = `${testOutputBase}-zero-copy.mp4`;
+      const outputFile = getOutputFile(`${testOutputBase}-zero-copy.mp4`);
       cleanupOutput(outputFile);
 
       try {

@@ -12,7 +12,7 @@ import type { NativeFFmpegError } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { FFmpegError } from '@seydx/av';
+ * import { FFmpegError } from 'node-av';
  *
  * // Check return codes
  * const ret = await codecContext.sendPacket(packet);
@@ -45,8 +45,8 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
-   * import { AVERROR_EOF } from '@seydx/av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EOF } from 'node-av/constants';
    *
    * const error = new FFmpegError(AVERROR_EOF);
    * console.log(error.message); // "End of file"
@@ -80,8 +80,8 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
    *
    * const message = FFmpegError.strerror(AVERROR_EAGAIN);
    * console.log(message); // "Resource temporarily unavailable"
@@ -107,7 +107,7 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    * import { EAGAIN } from 'errno';
    *
    * const ffmpegError = FFmpegError.makeError(EAGAIN);
@@ -180,7 +180,7 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * const ret = await codecContext.sendPacket(packet);
    * FFmpegError.throwIfError(ret, 'sendPacket');
@@ -218,8 +218,8 @@ export class FFmpegError extends Error {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
-   * import { AVERROR_EOF, AVERROR_EAGAIN } from '@seydx/av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from 'node-av/constants';
    *
    * const ret = await codecContext.receiveFrame(frame);
    * if (FFmpegError.is(ret, AVERROR_EOF)) {

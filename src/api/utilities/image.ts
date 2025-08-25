@@ -33,8 +33,8 @@ export interface ImageAllocation {
  *
  * @example
  * ```typescript
- * import { ImageUtils } from '@seydx/av';
- * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24 } from '@seydx/av/constants';
+ * import { ImageUtils } from 'node-av';
+ * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24 } from 'node-av/constants';
  *
  * // Allocate image buffer
  * const image = ImageUtils.alloc(1920, 1080, AV_PIX_FMT_YUV420P, 32);
@@ -65,8 +65,8 @@ export class ImageUtils {
    *
    * @example
    * ```typescript
-   * import { ImageUtils } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
+   * import { ImageUtils } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
    *
    * // Allocate aligned buffer for YUV420P image
    * const image = ImageUtils.alloc(1920, 1080, AV_PIX_FMT_YUV420P, 32);
@@ -117,8 +117,8 @@ export class ImageUtils {
    *
    * @example
    * ```typescript
-   * import { ImageUtils } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
+   * import { ImageUtils } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
    *
    * // Copy between two image buffers
    * ImageUtils.copy(
@@ -146,8 +146,8 @@ export class ImageUtils {
    *
    * @example
    * ```typescript
-   * import { ImageUtils } from '@seydx/av';
-   * import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
+   * import { ImageUtils } from 'node-av';
+   * import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P } from 'node-av/constants';
    *
    * // Calculate buffer sizes for different formats
    * const rgbSize = ImageUtils.getBufferSize(AV_PIX_FMT_RGB24, 1920, 1080, 1);
@@ -180,8 +180,8 @@ export class ImageUtils {
    *
    * @example
    * ```typescript
-   * import { ImageUtils, FFmpegError } from '@seydx/av';
-   * import { AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
+   * import { ImageUtils, FFmpegError } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
    *
    * // Copy planar data to single buffer
    * const dstSize = ImageUtils.getBufferSize(AV_PIX_FMT_YUV420P, 1920, 1080, 1);

@@ -4,11 +4,16 @@ import { describe, it } from 'node:test';
 import { Decoder } from '../src/api/decoder.js';
 import { MediaInput } from '../src/api/media-input.js';
 import { Packet } from '../src/lib/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
+
+prepareTestEnvironment();
+
+const inputFile = getInputFile('demux.mp4');
 
 describe('Decoder', () => {
   describe('create', () => {
     it('should create decoder for video stream', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       // Find video stream
       const videoStream = media.video();
@@ -25,7 +30,7 @@ describe('Decoder', () => {
     });
 
     it('should create decoder for audio stream', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
 
       // Find audio stream
       const audioStream = media.audio();
@@ -41,7 +46,7 @@ describe('Decoder', () => {
     });
 
     it('should create decoder with thread options', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -64,7 +69,7 @@ describe('Decoder', () => {
 
   describe('decode', () => {
     it('should decode video packets', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -96,7 +101,7 @@ describe('Decoder', () => {
     });
 
     it('should decode audio packets', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const audioStream = media.audio();
       assert.ok(audioStream);
 
@@ -128,7 +133,7 @@ describe('Decoder', () => {
     });
 
     it('should handle null frames gracefully', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -151,7 +156,7 @@ describe('Decoder', () => {
     });
 
     it('should throw when decoder is closed', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -170,7 +175,7 @@ describe('Decoder', () => {
 
   describe('flush', () => {
     it('should flush remaining frames', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -201,7 +206,7 @@ describe('Decoder', () => {
     });
 
     it('should throw when decoder is closed', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -216,7 +221,7 @@ describe('Decoder', () => {
 
   describe('resource management', () => {
     it('should support Symbol.dispose', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -230,7 +235,7 @@ describe('Decoder', () => {
     });
 
     it('should handle multiple close calls', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -249,7 +254,7 @@ describe('Decoder', () => {
 
   describe('async iterator', () => {
     it('should decode frames using iterator', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -274,7 +279,7 @@ describe('Decoder', () => {
     });
 
     it('should only decode packets for its stream', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       const audioStream = media.audio();
       assert.ok(videoStream);
@@ -301,7 +306,7 @@ describe('Decoder', () => {
     });
 
     it('should handle empty packet stream', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
 
@@ -327,7 +332,7 @@ describe('Decoder', () => {
 
   describe('stream identification', () => {
     it('should track stream index', async () => {
-      const media = await MediaInput.open('testdata/demux.mp4');
+      const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       const audioStream = media.audio();
       assert.ok(videoStream);

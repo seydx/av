@@ -14,6 +14,9 @@ import {
   avGetBytesPerSample,
   avSampleFmtIsPlanar,
 } from '../src/lib/index.js';
+import { prepareTestEnvironment } from './index.js';
+
+prepareTestEnvironment();
 
 describe('AudioFifo', () => {
   describe('Creation and Lifecycle', () => {

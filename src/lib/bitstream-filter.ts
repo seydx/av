@@ -14,7 +14,7 @@ import type { NativeBitStreamFilter, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { BitStreamFilter } from '@seydx/av';
+ * import { BitStreamFilter } from 'node-av';
  *
  * // Find a specific bitstream filter
  * const h264Mp4ToAnnexB = BitStreamFilter.getByName('h264_mp4toannexb');
@@ -121,7 +121,7 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
    *
    * @example
    * ```typescript
-   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
+   * import { AV_CODEC_ID_H264 } from 'node-av/constants';
    *
    * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
    * if (filter.codecIds?.includes(AV_CODEC_ID_H264)) {

@@ -37,8 +37,8 @@ import type { ChannelLayout } from './types.js';
  *
  * @example
  * ```typescript
- * import { CodecContext, Codec, FFmpegError } from '@seydx/av';
- * import { AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from '@seydx/av/constants';
+ * import { CodecContext, Codec, FFmpegError } from 'node-av';
+ * import { AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from 'node-av/constants';
  *
  * // Create and configure decoder context
  * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
@@ -83,7 +83,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    *
    * @example
    * ```typescript
-   * import { CodecContext, Codec } from '@seydx/av';
+   * import { CodecContext, Codec } from 'node-av';
    *
    * const ctx = new CodecContext();
    * ctx.allocContext3(codec);
@@ -715,8 +715,8 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    *
    * @example
    * ```typescript
-   * import { CodecContext, Codec } from '@seydx/av';
-   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
+   * import { CodecContext, Codec } from 'node-av';
+   * import { AV_CODEC_ID_H264 } from 'node-av/constants';
    *
    * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
    * const ctx = new CodecContext();
@@ -770,7 +770,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * const ret = await ctx.open2(codec, null);
    * FFmpegError.throwIfError(ret, 'open2');
@@ -874,8 +874,8 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    *
    * @example
    * ```typescript
-   * import { FFmpegError, Frame } from '@seydx/av';
-   * import { AVERROR_EAGAIN } from '@seydx/av/constants';
+   * import { FFmpegError, Frame } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av/constants';
    *
    * // Decode packet
    * const ret = await decoder.sendPacket(packet);
@@ -915,8 +915,8 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
+   * import { Frame, FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
    *
    * // Receive all frames from decoder
    * const frame = new Frame();
@@ -962,8 +962,8 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN } from '@seydx/av/constants';
+   * import { Packet, FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av/constants';
    *
    * // Send frame to encoder
    * const ret = await encoder.sendFrame(frame);
@@ -1007,8 +1007,8 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
+   * import { Packet, FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
    *
    * // Receive all packets from encoder
    * const packet = new Packet();

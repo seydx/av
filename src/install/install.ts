@@ -11,9 +11,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = resolve(__dirname, '..', '..');
 
-// Binary will be placed in binary/av.node
+// Binary will be placed in binary/node-av.node
 const binaryDir = resolve(ROOT_DIR, 'binary');
-const binaryPath = resolve(binaryDir, 'av.node');
+const binaryPath = resolve(binaryDir, 'node-av.node');
 
 const downloadBinary = async (url: string): Promise<void> => {
   console.log(`Downloading prebuilt binary from ${url}...`);
@@ -87,8 +87,8 @@ const downloadBinary = async (url: string): Promise<void> => {
   // Extract the .node file
   const directory = await Open.file(tempFile);
 
-  // Find the .node file in the archive (should be named av.node)
-  const nodeFile = directory.files.find((f) => f.path.endsWith('.node'));
+  // Find the .node file in the archive (should be named node-av.node)
+  const nodeFile = directory.files.find((f) => f.path.endsWith('node-av.node'));
   if (!nodeFile) {
     throw new Error('No .node file found in archive');
   }
@@ -146,9 +146,9 @@ async function install(): Promise<void> {
   console.log(`Runtime: ${runtime} (ABI ${abi})`);
 
   // Construct artifact name and URL
-  // Format: av-{platform}-{arch}-{version}-{runtime}-{abi}.zip
-  // Example: av-darwin-arm64-0.1.0-electron-134.zip
-  const artifactName = `av-${platformName}-${arch}-${version}-${runtime}-${abi}.zip`;
+  // Format: node-av-{platform}-{arch}-{version}-{runtime}-{abi}.zip
+  // Example: node-av-darwin-arm64-0.1.0-electron-134.zip
+  const artifactName = `node-av-${platformName}-${arch}-${version}-${runtime}-${abi}.zip`;
   const downloadUrl = `https://github.com/seydx/av/releases/download/v${version}/${artifactName}`;
 
   try {

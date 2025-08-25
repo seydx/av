@@ -23,7 +23,7 @@ import type { Packet } from './packet.js';
  *
  * @example
  * ```typescript
- * import { FormatContext, Packet, FFmpegError } from '@seydx/av';
+ * import { FormatContext, Packet, FFmpegError } from 'node-av';
  *
  * // Demuxing - full control over every step
  * const ctx = new FormatContext();
@@ -51,7 +51,7 @@ import type { Packet } from './packet.js';
  *
  * @example
  * ```typescript
- * import { FormatContext, FFmpegError } from '@seydx/av';
+ * import { FormatContext, FFmpegError } from 'node-av';
  *
  * // Muxing - explicit control
  * const ctx = new FormatContext();
@@ -93,7 +93,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError } from '@seydx/av';
+   * import { FormatContext, FFmpegError } from 'node-av';
    *
    * const ctx = new FormatContext();
    * ctx.allocContext(); // For demuxing
@@ -429,7 +429,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError } from '@seydx/av';
+   * import { FormatContext, FFmpegError } from 'node-av';
    *
    * ctx.allocOutputContext2(null, null, 'output.mp4');
    * const ret = await ctx.openOutput(); // Opens the file for writing
@@ -482,7 +482,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError } from '@seydx/av';
+   * import { FormatContext, FFmpegError } from 'node-av';
    *
    * const ret = await ctx.openInput('video.mp4', null, null);
    * FFmpegError.throwIfError(ret, 'openInput');
@@ -511,7 +511,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError } from '@seydx/av';
+   * import { FormatContext, FFmpegError } from 'node-av';
    *
    * const ret = await ctx.findStreamInfo(null);
    * FFmpegError.throwIfError(ret, 'findStreamInfo');
@@ -541,7 +541,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { Packet, FormatContext, FFmpegError, AVERROR_EOF } from '@seydx/av';
+   * import { Packet, FormatContext, FFmpegError, AVERROR_EOF } from 'node-av';
    *
    * const packet = new Packet();
    * packet.alloc();
@@ -581,7 +581,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError, AV_TIME_BASE, AVSEEK_FLAG_BACKWARD } from '@seydx/av';
+   * import { FormatContext, FFmpegError, AV_TIME_BASE, AVSEEK_FLAG_BACKWARD } from 'node-av';
    *
    * // Seek to 10 seconds
    * const timestamp = 10n * BigInt(AV_TIME_BASE);
@@ -616,7 +616,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError, AV_TIME_BASE } from '@seydx/av';
+   * import { FormatContext, FFmpegError, AV_TIME_BASE } from 'node-av';
    *
    * // Seek to timestamp with tolerance
    * const target = 10n * BigInt(AV_TIME_BASE);
@@ -654,7 +654,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { Dictionary, FormatContext, FFmpegError } from '@seydx/av';
+   * import { Dictionary, FormatContext, FFmpegError } from 'node-av';
    *
    * const options = new Dictionary();
    * options.set('movflags', 'faststart', 0);
@@ -687,7 +687,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError } from '@seydx/av';
+   * import { FormatContext, FFmpegError } from 'node-av';
    *
    * const ret = await ctx.writeFrame(packet);
    * FFmpegError.throwIfError(ret, 'writeFrame');
@@ -723,7 +723,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError } from '@seydx/av';
+   * import { FormatContext, FFmpegError } from 'node-av';
    *
    * // Write packets with automatic interleaving
    * const ret = await ctx.interleavedWriteFrame(packet);
@@ -754,7 +754,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError } from '@seydx/av';
+   * import { FormatContext, FFmpegError } from 'node-av';
    *
    * // Finalize the output file
    * const ret = await ctx.writeTrailer();
@@ -775,7 +775,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext } from '@seydx/av';
+   * import { FormatContext } from 'node-av';
    *
    * // Flush buffered data
    * ctx.flush();
@@ -800,7 +800,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext } from '@seydx/av';
+   * import { FormatContext } from 'node-av';
    *
    * // Dump input format info
    * formatCtx.dumpFormat(0, 'input.mp4', false);
@@ -833,7 +833,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError, AVMEDIA_TYPE_VIDEO } from '@seydx/av';
+   * import { FormatContext, FFmpegError, AVMEDIA_TYPE_VIDEO } from 'node-av';
    *
    * // Find best video stream
    * const videoStreamIndex = ctx.findBestStream(
@@ -869,7 +869,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, FFmpegError, AVMEDIA_TYPE_VIDEO } from '@seydx/av';
+   * import { FormatContext, FFmpegError, AVMEDIA_TYPE_VIDEO } from 'node-av';
    *
    * // Find best video stream with decoder
    * const result = ctx.findBestStream(
@@ -923,8 +923,8 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext, Codec, FFmpegError } from '@seydx/av';
-   * import { AV_CODEC_ID_H264, AVMEDIA_TYPE_VIDEO } from '@seydx/av/constants';
+   * import { FormatContext, Codec, FFmpegError } from 'node-av';
+   * import { AV_CODEC_ID_H264, AVMEDIA_TYPE_VIDEO } from 'node-av/constants';
    *
    * // Add a video stream
    * const videoCodec = Codec.findEncoder(AV_CODEC_ID_H264);
@@ -960,7 +960,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * import { FormatContext } from '@seydx/av';
+   * import { FormatContext } from 'node-av';
    *
    * {
    *   await using ctx = new FormatContext();

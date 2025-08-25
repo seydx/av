@@ -1,17 +1,16 @@
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { AVFMT_NEEDNUMBER, AVFMT_NOFILE, AVFMT_NOTIMESTAMPS, AVIO_FLAG_READ, FormatContext, InputFormat, IOContext } from '../src/lib/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+prepareTestEnvironment();
+
+const inputFile = getInputFile('video.mp4');
+const inputTextFile = getInputFile('text.txt');
 
 describe('InputFormat', () => {
-  const inputVideoFile = path.join(__dirname, '../testdata/video.mp4');
-
   describe('Static Methods', () => {
     it('should find input format by name', () => {
       const format = InputFormat.findInputFormat('mp4');
@@ -229,7 +228,7 @@ describe('InputFormat', () => {
       assert.ok(format);
 
       const ctx = new FormatContext();
-      await ctx.openInput(inputVideoFile, format, null);
+      await ctx.openInput(inputFile, format, null);
       const iformat = ctx.iformat;
       assert.ok(iformat);
       assert.equal(iformat.name, format.name);
@@ -239,7 +238,7 @@ describe('InputFormat', () => {
   describe('Format Probing', () => {
     it('should probe MP4 format from buffer', () => {
       // Read first few KB of MP4 file
-      const fullBuffer = readFileSync(inputVideoFile);
+      const fullBuffer = readFileSync(inputFile);
       const buffer = fullBuffer.subarray(0, 4096);
       const format = InputFormat.probe(buffer, 'video.mp4');
 
@@ -248,7 +247,7 @@ describe('InputFormat', () => {
     });
 
     it('should probe format without filename hint', () => {
-      const fullBuffer = readFileSync(inputVideoFile);
+      const fullBuffer = readFileSync(inputFile);
       const buffer = fullBuffer.subarray(0, 4096);
       const format = InputFormat.probe(buffer);
 
@@ -267,12 +266,12 @@ describe('InputFormat', () => {
     it('should probe different formats from real files', () => {
       // Test with real files from testdata
       const tests = [
-        { file: path.join(__dirname, '../testdata/video.mp4'), expected: 'mp4' },
-        { file: path.join(__dirname, '../testdata/audio.wav'), expected: 'wav' },
-        { file: path.join(__dirname, '../testdata/audio.aac'), expected: 'aac' },
-        { file: path.join(__dirname, '../testdata/audio.mp2'), expected: 'mp2' },
-        { file: path.join(__dirname, '../testdata/image-rgba.png'), expected: 'png' },
-        { file: path.join(__dirname, '../testdata/video.m1v'), expected: 'mpegvideo' },
+        { file: getInputFile('video.mp4'), expected: 'mp4' },
+        { file: getInputFile('audio.wav'), expected: 'wav' },
+        { file: getInputFile('audio.aac'), expected: 'aac' },
+        { file: getInputFile('audio.mp2'), expected: 'mp2' },
+        { file: getInputFile('image-rgba.png'), expected: 'png' },
+        { file: getInputFile('video.m1v'), expected: 'mpegvideo' },
       ];
 
       for (const test of tests) {
@@ -315,7 +314,7 @@ describe('InputFormat', () => {
 
     it('should probe buffer from IOContext', async () => {
       const io = new IOContext();
-      await io.open2(inputVideoFile, AVIO_FLAG_READ);
+      await io.open2(inputFile, AVIO_FLAG_READ);
 
       try {
         const format = await InputFormat.probeBuffer(io);
@@ -328,7 +327,7 @@ describe('InputFormat', () => {
 
     it('should probe buffer with custom max probe size', async () => {
       const io = new IOContext();
-      await io.open2(inputVideoFile, AVIO_FLAG_READ);
+      await io.open2(inputFile, AVIO_FLAG_READ);
 
       try {
         // Use smaller probe size
@@ -341,30 +340,21 @@ describe('InputFormat', () => {
     });
 
     it('should handle probing non-media IOContext', async () => {
-      // Create a temporary text file for testing
-      const tempFile = path.join(__dirname, '../testdata/temp_text.txt');
-      const fs = await import('fs/promises');
-      await fs.writeFile(tempFile, 'This is just text content, not media');
+      const io = new IOContext();
+      await io.open2(inputTextFile, AVIO_FLAG_READ);
 
       try {
-        const io = new IOContext();
-        await io.open2(tempFile, AVIO_FLAG_READ);
-
-        try {
-          const format = await InputFormat.probeBuffer(io);
-          // FFmpeg may detect some formats even from text data (e.g., raw data formats)
-          // We just verify that probeBuffer doesn't crash and returns a valid result
-          if (format) {
-            assert.ok(format instanceof InputFormat, 'Should return InputFormat instance if detected');
-            assert.ok(format.name, 'Detected format should have a name');
-          } else {
-            assert.equal(format, null, 'Should return null if no format detected');
-          }
-        } finally {
-          await io.closep();
+        const format = await InputFormat.probeBuffer(io);
+        // FFmpeg may detect some formats even from text data (e.g., raw data formats)
+        // We just verify that probeBuffer doesn't crash and returns a valid result
+        if (format) {
+          assert.ok(format instanceof InputFormat, 'Should return InputFormat instance if detected');
+          assert.ok(format.name, 'Detected format should have a name');
+        } else {
+          assert.equal(format, null, 'Should return null if no format detected');
         }
       } finally {
-        await fs.unlink(tempFile);
+        await io.closep();
       }
     });
   });

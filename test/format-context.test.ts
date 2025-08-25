@@ -1,8 +1,6 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
-import path from 'node:path';
-import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { existsSync, unlinkSync } from 'node:fs';
+import { after, afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   AV_CODEC_ID_H264,
@@ -21,30 +19,22 @@ import {
   Packet,
   Rational,
 } from '../src/lib/index.js';
+import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+prepareTestEnvironment();
+
+const testFile = getOutputFile('test.mp4');
+const testAudioFile = getOutputFile('test-audio.wav');
+const inputVideoFile = getInputFile('video.mp4');
 
 describe('FormatContext', () => {
   let ctx: FormatContext;
-  const testDir = path.join(__dirname, './.tmp');
-  const testFile = path.join(testDir, 'test.mp4');
-  const testAudioFile = path.join(testDir, 'test-audio.wav');
-  const inputVideoFile = path.join(__dirname, '../testdata/video.mp4');
-
-  before(() => {
-    // Create test directory if it doesn't exist
-    if (!fs.existsSync(testDir)) {
-      fs.mkdirSync(testDir, { recursive: true });
-    }
-  });
 
   after(() => {
     // Clean up test files
     try {
-      if (fs.existsSync(testFile)) fs.unlinkSync(testFile);
-      if (fs.existsSync(testAudioFile)) fs.unlinkSync(testAudioFile);
-      if (fs.existsSync(testDir)) fs.rmdirSync(testDir);
+      if (existsSync(testFile)) unlinkSync(testFile);
+      if (existsSync(testAudioFile)) unlinkSync(testAudioFile);
     } catch {
       // Ignore cleanup errors
     }

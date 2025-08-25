@@ -1,7 +1,5 @@
 import assert from 'node:assert';
-import path from 'node:path';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import {
   AV_CODEC_ID_AAC,
@@ -15,9 +13,11 @@ import {
   Packet,
   Rational,
 } from '../src/lib/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+prepareTestEnvironment();
+
+const inputFile = getInputFile('demux.mp4');
 
 describe('BitStreamFilter', () => {
   describe('Basic Operations', () => {
@@ -228,11 +228,9 @@ describe('BitStreamFilter', () => {
         return;
       }
 
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
       // Open input file
       const formatCtx = new FormatContext();
-      await formatCtx.openInput(testFile, null, null);
+      await formatCtx.openInput(inputFile, null, null);
       await formatCtx.findStreamInfo(null);
 
       // Find video stream

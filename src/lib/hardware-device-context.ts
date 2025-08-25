@@ -15,8 +15,8 @@ import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.
  *
  * @example
  * ```typescript
- * import { HardwareDeviceContext, HardwareFramesContext, FFmpegError } from '@seydx/av';
- * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from '@seydx/av/constants';
+ * import { HardwareDeviceContext, HardwareFramesContext, FFmpegError } from 'node-av';
+ * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from 'node-av/constants';
  *
  * // Create CUDA device context
  * const device = new HardwareDeviceContext();
@@ -44,8 +44,8 @@ import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.
  *
  * @example
  * ```typescript
- * import { HardwareDeviceContext } from '@seydx/av';
- * import { AV_HWDEVICE_TYPE_NONE } from '@seydx/av/constants';
+ * import { HardwareDeviceContext } from 'node-av';
+ * import { AV_HWDEVICE_TYPE_NONE } from 'node-av/constants';
  *
  * // List available hardware device types
  * const types = HardwareDeviceContext.iterateTypes();
@@ -79,8 +79,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from '@seydx/av';
-   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * const device = new HardwareDeviceContext();
    * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
@@ -105,8 +105,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from '@seydx/av';
-   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+   * import { HardwareDeviceContext } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * const name = HardwareDeviceContext.getTypeName(AV_HWDEVICE_TYPE_CUDA);
    * console.log(name); // "cuda"
@@ -127,7 +127,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from '@seydx/av';
+   * import { HardwareDeviceContext } from 'node-av';
    *
    * const types = HardwareDeviceContext.iterateTypes();
    * for (const type of types) {
@@ -153,8 +153,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from '@seydx/av';
-   * import { AV_HWDEVICE_TYPE_NONE } from '@seydx/av/constants';
+   * import { HardwareDeviceContext } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_NONE } from 'node-av/constants';
    *
    * const type = HardwareDeviceContext.findTypeByName('cuda');
    * if (type !== AV_HWDEVICE_TYPE_NONE) {
@@ -203,8 +203,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from '@seydx/av';
-   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * const device = new HardwareDeviceContext();
    * device.alloc(AV_HWDEVICE_TYPE_CUDA);
@@ -236,7 +236,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from '@seydx/av';
+   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
    *
    * const ret = device.init();
    * FFmpegError.throwIfError(ret, 'init device');
@@ -270,8 +270,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from '@seydx/av';
-   * import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from '@seydx/av/constants';
+   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from 'node-av/constants';
    *
    * // Create CUDA device
    * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
@@ -312,8 +312,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from '@seydx/av';
-   * import { AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * // Create CUDA device from VAAPI device
    * const vaapi = new HardwareDeviceContext();
@@ -340,7 +340,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from '@seydx/av';
+   * import { HardwareDeviceContext } from 'node-av';
    *
    * device.free();
    * // device is now invalid and should not be used
@@ -361,7 +361,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from '@seydx/av';
+   * import { HardwareDeviceContext } from 'node-av';
    *
    * const hwconfig = device.hwconfigAlloc();
    * if (hwconfig) {
@@ -392,7 +392,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from '@seydx/av';
+   * import { HardwareDeviceContext } from 'node-av';
    *
    * const constraints = device.getHwframeConstraints();
    * if (constraints) {
@@ -436,8 +436,8 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from '@seydx/av';
-   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * {
    *   using device = new HardwareDeviceContext();

@@ -15,7 +15,7 @@ import type { IRational } from './types.js';
  *
  * @example
  * ```typescript
- * import { Packet, FormatContext, CodecContext, FFmpegError } from '@seydx/av';
+ * import { Packet, FormatContext, CodecContext, FFmpegError } from 'node-av';
  *
  * // Create and allocate packet - full control
  * const packet = new Packet();
@@ -53,7 +53,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/av';
+   * import { Packet } from 'node-av';
    *
    * const packet = new Packet();
    * packet.alloc();
@@ -221,7 +221,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/av';
+   * import { Packet } from 'node-av';
    *
    * const packet = new Packet();
    * packet.alloc();
@@ -276,7 +276,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/av';
+   * import { Packet, FFmpegError } from 'node-av';
    *
    * const src = new Packet();
    * // ... src contains data ...
@@ -330,7 +330,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/av';
+   * import { Packet } from 'node-av';
    *
    * const original = new Packet();
    * // ... original contains data ...
@@ -375,7 +375,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, Rational } from '@seydx/av';
+   * import { Packet, Rational } from 'node-av';
    *
    * // Convert from stream timebase to codec timebase
    * const streamTimebase = new Rational(1, 90000); // 90kHz
@@ -408,7 +408,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/av';
+   * import { Packet, FFmpegError } from 'node-av';
    *
    * const ret = packet.makeRefcounted();
    * FFmpegError.throwIfError(ret, 'makeRefcounted');
@@ -440,7 +440,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from '@seydx/av';
+   * import { Packet, FFmpegError } from 'node-av';
    *
    * // Before modifying packet data
    * const ret = packet.makeWritable();
@@ -470,8 +470,8 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/av';
-   * import { AV_PKT_DATA_PALETTE } from '@seydx/av/constants';
+   * import { Packet } from 'node-av';
+   * import { AV_PKT_DATA_PALETTE } from 'node-av/constants';
    *
    * const paletteData = packet.getSideData(AV_PKT_DATA_PALETTE);
    * if (paletteData) {
@@ -495,8 +495,8 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/av';
-   * import { AV_PKT_DATA_NEW_EXTRADATA } from '@seydx/av/constants';
+   * import { Packet } from 'node-av';
+   * import { AV_PKT_DATA_NEW_EXTRADATA } from 'node-av/constants';
    *
    * const extraData = Buffer.from([0x01, 0x02, 0x03]);
    * const ret = packet.addSideData(AV_PKT_DATA_NEW_EXTRADATA, extraData);
@@ -523,8 +523,8 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/av';
-   * import { AV_PKT_DATA_STRINGS_METADATA } from '@seydx/av/constants';
+   * import { Packet } from 'node-av';
+   * import { AV_PKT_DATA_STRINGS_METADATA } from 'node-av/constants';
    *
    * // Allocate 256 bytes for metadata
    * const metadataBuffer = packet.newSideData(AV_PKT_DATA_STRINGS_METADATA, 256);
@@ -570,7 +570,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from '@seydx/av';
+   * import { Packet } from 'node-av';
    *
    * // Using 'using' declaration for automatic cleanup
    * {

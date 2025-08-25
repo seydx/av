@@ -20,7 +20,7 @@ import type { MediaOutput } from '../media-output.js';
  *
  * @example
  * ```typescript
- * import { StreamingUtils, MediaOutput } from '@seydx/av/api';
+ * import { StreamingUtils, MediaOutput } from 'node-av/api';
  *
  * // Create RTP outputs
  * const videoOutput = await MediaOutput.create('rtp://127.0.0.1:5004');

@@ -1,14 +1,17 @@
 import assert from 'node:assert';
-import { promises as fs } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { stat, unlink } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import { Decoder, Encoder, MediaInput, MediaOutput } from '../src/api/index.js';
 import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
 import { Packet } from '../src/lib/packet.js';
+import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
 
 import type { IOOutputCallbacks } from '../src/api/types.js';
+
+prepareTestEnvironment();
+
+const inputFile = getInputFile('demux.mp4');
 
 describe('MediaOutput', () => {
   let tempFiles: string[] = [];
@@ -16,7 +19,7 @@ describe('MediaOutput', () => {
   const cleanup = async () => {
     for (const file of tempFiles) {
       try {
-        await fs.unlink(file);
+        await unlink(file);
       } catch {
         // Ignore cleanup errors
       }
@@ -25,7 +28,7 @@ describe('MediaOutput', () => {
   };
 
   const getTempFile = (extension: string) => {
-    const file = join(tmpdir(), `test-output-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`);
+    const file = getOutputFile(`test-output-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`);
     tempFiles.push(file);
     return file;
   };
@@ -134,7 +137,7 @@ describe('MediaOutput', () => {
     });
 
     it('should add stream for copy from input stream', async () => {
-      const input = await MediaInput.open('testdata/demux.mp4');
+      const input = await MediaInput.open(inputFile);
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
@@ -316,7 +319,7 @@ describe('MediaOutput', () => {
       await output.close();
 
       // Verify file was created
-      const stats = await fs.stat(outputFile);
+      const stats = await stat(outputFile);
       assert(stats.isFile());
 
       await cleanup();
@@ -385,7 +388,7 @@ describe('MediaOutput', () => {
       await output.close();
 
       // File should still be valid
-      const stats = await fs.stat(outputFile);
+      const stats = await stat(outputFile);
       assert(stats.isFile());
 
       encoder.close();
@@ -431,7 +434,7 @@ describe('MediaOutput', () => {
       encoder.close();
       await output.close();
 
-      const stats = await fs.stat(outputFile);
+      const stats = await stat(outputFile);
       assert(stats.size > 0);
 
       await cleanup();
@@ -541,7 +544,7 @@ describe('MediaOutput', () => {
 
   describe('Integration', () => {
     it('should transcode video with MediaInput/Output', async () => {
-      const input = await MediaInput.open('testdata/demux.mp4');
+      const input = await MediaInput.open(inputFile);
       const outputFile = getTempFile('mp4');
       const output = await MediaOutput.open(outputFile);
 
@@ -603,14 +606,14 @@ describe('MediaOutput', () => {
       await input.close();
 
       // Verify output file exists and has content
-      const stats = await fs.stat(outputFile);
+      const stats = await stat(outputFile);
       assert(stats.size > 0);
 
       await cleanup();
     });
 
     it('should support stream copy', async () => {
-      const input = await MediaInput.open('testdata/demux.mp4');
+      const input = await MediaInput.open(inputFile);
       const outputFile = getTempFile('mkv');
       const output = await MediaOutput.open(outputFile);
 
@@ -639,7 +642,7 @@ describe('MediaOutput', () => {
       await input.close();
 
       // Verify output
-      const stats = await fs.stat(outputFile);
+      const stats = await stat(outputFile);
       assert(stats.size > 0);
 
       // Verify we can open and read the copied file

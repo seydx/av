@@ -34,7 +34,7 @@ interface StreamInfo {
  *
  * @example
  * ```typescript
- * import { MediaOutput, Encoder } from '@seydx/av/api';
+ * import { MediaOutput, Encoder } from 'node-av/api';
  *
  * // Open output file
  * const output = await MediaOutput.open('output.mp4');
@@ -475,7 +475,7 @@ export class MediaOutput implements AsyncDisposable {
     }
 
     // Now free custom IO context if present
-    if (this.ioContext && (this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO)) {
+    if (this.ioContext && this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) {
       try {
         this.ioContext.freeContext();
       } catch {

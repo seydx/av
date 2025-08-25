@@ -1,29 +1,22 @@
 import assert from 'node:assert';
-import fs from 'node:fs/promises';
-import path from 'node:path';
+import { readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { afterEach, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, IOContext } from '../src/lib/index.js';
+import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+prepareTestEnvironment();
 
-// Test data paths
-const testDataDir = path.join(__dirname, '../testdata');
-const testVideoFile = path.join(testDataDir, 'video.mp4');
-const testAudioFile = path.join(testDataDir, 'audio.pcm');
-const testImageFile = path.join(testDataDir, 'image-rgba.png');
-const tempOutputFile = path.join(__dirname, 'test-output.tmp');
-
-// Legacy constants - kept for reference
-// Now using AVSEEK_SET, AVSEEK_CUR, AVSEEK_END, AVSEEK_SIZE from constants
+const testVideoFile = getInputFile('video.mp4');
+const testAudioFile = getInputFile('audio.pcm');
+const testImageFile = getInputFile('image-rgba.png');
+const tempOutputFile = getOutputFile('test-output.tmp');
 
 describe('IOContext', () => {
   // Clean up temp file after each test
   afterEach(async () => {
     try {
-      await fs.unlink(tempOutputFile);
+      await unlink(tempOutputFile);
     } catch {
       // Ignore if file doesn't exist
     }
@@ -123,7 +116,7 @@ describe('IOContext', () => {
       const ret = await io.open2(testImageFile, AVIO_FLAG_READ);
       assert.equal(ret, 0, 'Should open file successfully');
 
-      const fileStats = await fs.stat(testImageFile);
+      const fileStats = await stat(testImageFile);
       const fileSize = fileStats.size;
 
       const data = await io.read(fileSize);
@@ -191,7 +184,7 @@ describe('IOContext', () => {
       assert.equal(closeret, 0, 'Should return 0 on success');
 
       // Verify file was written
-      const written = await fs.readFile(tempOutputFile);
+      const written = await readFile(tempOutputFile);
       assert.deepEqual(written, data, 'Should write exact data');
     });
 
@@ -209,7 +202,7 @@ describe('IOContext', () => {
       const closeret = await io.closep();
       assert.equal(closeret, 0, 'Should return 0 on success');
 
-      const written = await fs.readFile(tempOutputFile, 'utf8');
+      const written = await readFile(tempOutputFile, 'utf8');
       assert.equal(written, 'Hello, World!');
     });
 
@@ -223,7 +216,7 @@ describe('IOContext', () => {
       await io.flush();
 
       // Data should be written to disk after flush
-      const written = await fs.readFile(tempOutputFile);
+      const written = await readFile(tempOutputFile);
       assert.deepEqual(written, data);
 
       const closeret = await io.closep();
@@ -345,7 +338,7 @@ describe('IOContext', () => {
       assert.ok(size > 0n, 'Should return positive size');
 
       // Compare with actual file size
-      const stats = await fs.stat(testVideoFile);
+      const stats = await stat(testVideoFile);
       assert.equal(size, BigInt(stats.size), 'Should match actual file size');
 
       const closeret = await io.closep();
@@ -461,7 +454,7 @@ describe('IOContext', () => {
   describe('Edge Cases', () => {
     it('should handle empty file', async () => {
       // Create empty file
-      await fs.writeFile(tempOutputFile, '');
+      await writeFile(tempOutputFile, '');
 
       const io = new IOContext();
       const ret = await io.open2(tempOutputFile, AVIO_FLAG_READ);
@@ -490,7 +483,7 @@ describe('IOContext', () => {
       const data = await io.read(1024 * 1024 * 100); // 100MB
 
       if (Buffer.isBuffer(data)) {
-        const fileStats = await fs.stat(testVideoFile);
+        const fileStats = await stat(testVideoFile);
         assert.ok(data.length <= fileStats.size, 'Should not exceed file size');
       }
 
@@ -535,7 +528,7 @@ describe('IOContext', () => {
   describe('Custom Callbacks', () => {
     it('should create context with read callback only', async () => {
       // Load file into memory
-      const fileBuffer = await fs.readFile(testVideoFile);
+      const fileBuffer = await readFile(testVideoFile);
       let position = 0;
 
       const io = new IOContext();
@@ -562,7 +555,7 @@ describe('IOContext', () => {
     });
 
     it('should create context with read and seek callbacks', async () => {
-      const fileBuffer = await fs.readFile(testVideoFile);
+      const fileBuffer = await readFile(testVideoFile);
       let position = 0;
 
       const io = new IOContext();
@@ -645,7 +638,7 @@ describe('IOContext', () => {
     });
 
     it('should handle null return from read callback as EOF', async () => {
-      const fileBuffer = await fs.readFile(testVideoFile);
+      const fileBuffer = await readFile(testVideoFile);
       let position = 0;
 
       const io = new IOContext();
@@ -687,7 +680,7 @@ describe('IOContext', () => {
     });
 
     it('should handle partial reads in callback', async () => {
-      const fileBuffer = await fs.readFile(testVideoFile);
+      const fileBuffer = await readFile(testVideoFile);
       let position = 0;
       const maxReadSize = 100; // Force small reads
 
@@ -713,7 +706,7 @@ describe('IOContext', () => {
       const bufferSizes = [256, 1024, 4096, 16384];
 
       for (const bufferSize of bufferSizes) {
-        const fileBuffer = await fs.readFile(testVideoFile);
+        const fileBuffer = await readFile(testVideoFile);
         let position = 0;
 
         const io = new IOContext();

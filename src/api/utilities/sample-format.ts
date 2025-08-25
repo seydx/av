@@ -20,8 +20,8 @@ import type { AVSampleFormat } from '../../lib/constants.js';
  *
  * @example
  * ```typescript
- * import { SampleFormat } from '@seydx/av';
- * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
+ * import { SampleFormat } from 'node-av';
+ * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
  *
  * // Get format information
  * console.log(SampleFormat.getName(AV_SAMPLE_FMT_S16));        // "s16"
@@ -48,8 +48,8 @@ export class SampleFormat {
    *
    * @example
    * ```typescript
-   * import { SampleFormat } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLT } from '@seydx/av/constants';
+   * import { SampleFormat } from 'node-av';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLT } from 'node-av/constants';
    *
    * console.log(SampleFormat.getBytesPerSample(AV_SAMPLE_FMT_S16)); // 2
    * console.log(SampleFormat.getBytesPerSample(AV_SAMPLE_FMT_FLT)); // 4
@@ -70,8 +70,8 @@ export class SampleFormat {
    *
    * @example
    * ```typescript
-   * import { SampleFormat } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
+   * import { SampleFormat } from 'node-av';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
    *
    * console.log(SampleFormat.getName(AV_SAMPLE_FMT_S16));  // "s16"
    * console.log(SampleFormat.getName(AV_SAMPLE_FMT_FLTP)); // "fltp"
@@ -93,8 +93,8 @@ export class SampleFormat {
    *
    * @example
    * ```typescript
-   * import { SampleFormat } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_FLT } from '@seydx/av/constants';
+   * import { SampleFormat } from 'node-av';
+   * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_FLT } from 'node-av/constants';
    *
    * const packed = SampleFormat.getPackedFormat(AV_SAMPLE_FMT_FLTP);
    * console.log(packed === AV_SAMPLE_FMT_FLT); // true
@@ -116,8 +116,8 @@ export class SampleFormat {
    *
    * @example
    * ```typescript
-   * import { SampleFormat } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_FLT, AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
+   * import { SampleFormat } from 'node-av';
+   * import { AV_SAMPLE_FMT_FLT, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
    *
    * const planar = SampleFormat.getPlanarFormat(AV_SAMPLE_FMT_FLT);
    * console.log(planar === AV_SAMPLE_FMT_FLTP); // true
@@ -139,8 +139,8 @@ export class SampleFormat {
    *
    * @example
    * ```typescript
-   * import { SampleFormat } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_S16P } from '@seydx/av/constants';
+   * import { SampleFormat } from 'node-av';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_S16P } from 'node-av/constants';
    *
    * console.log(SampleFormat.isPlanar(AV_SAMPLE_FMT_S16));  // false (packed)
    * console.log(SampleFormat.isPlanar(AV_SAMPLE_FMT_S16P)); // true (planar)

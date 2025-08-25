@@ -20,6 +20,8 @@ import {
 } from '../src/lib/constants.js';
 import { Frame, SoftwareScaleContext } from '../src/lib/index.js';
 
+import type { SWSFlag } from '../src/lib/constants.js';
+
 describe('SoftwareScaleContext', () => {
   describe('Creation and Lifecycle', () => {
     it('should create a new SoftwareScaleContext', () => {
@@ -453,7 +455,7 @@ describe('SoftwareScaleContext', () => {
       const sws = new SoftwareScaleContext();
 
       // High quality algorithm for offline processing
-      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 3840, 2160, AV_PIX_FMT_YUV420P, ((SWS_LANCZOS as number) | (SWS_ACCURATE_RND as number)) as any);
+      sws.getContext(1920, 1080, AV_PIX_FMT_YUV420P, 3840, 2160, AV_PIX_FMT_YUV420P, (SWS_LANCZOS | SWS_ACCURATE_RND) as SWSFlag);
 
       assert.ok(sws, 'Should configure for high-quality scaling');
       sws.freeContext();

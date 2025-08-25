@@ -20,8 +20,8 @@ import type { ChannelLayout } from '../../lib/types.js';
  *
  * @example
  * ```typescript
- * import { ChannelLayoutUtils } from '@seydx/av';
- * import { AV_CHANNEL_ORDER_NATIVE } from '@seydx/av/constants';
+ * import { ChannelLayoutUtils } from 'node-av';
+ * import { AV_CHANNEL_ORDER_NATIVE } from 'node-av/constants';
  *
  * // Describe a stereo layout
  * const stereo: ChannelLayout = {
@@ -58,8 +58,8 @@ export class ChannelLayoutUtils {
    *
    * @example
    * ```typescript
-   * import { ChannelLayoutUtils } from '@seydx/av';
-   * import { AV_CHANNEL_ORDER_NATIVE, AV_CHANNEL_ORDER_CUSTOM } from '@seydx/av/constants';
+   * import { ChannelLayoutUtils } from 'node-av';
+   * import { AV_CHANNEL_ORDER_NATIVE, AV_CHANNEL_ORDER_CUSTOM } from 'node-av/constants';
    *
    * // Standard layouts
    * const mono: ChannelLayout = {

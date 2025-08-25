@@ -14,8 +14,8 @@ import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { AudioFifo, FFmpegError } from '@seydx/av';
- * import { AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
+ * import { AudioFifo, FFmpegError } from 'node-av';
+ * import { AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
  *
  * // Create audio FIFO for stereo float samples
  * const fifo = new AudioFifo();
@@ -49,8 +49,8 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { AudioFifo } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_S16 } from '@seydx/av/constants';
+   * import { AudioFifo } from 'node-av';
+   * import { AV_SAMPLE_FMT_S16 } from 'node-av/constants';
    *
    * const fifo = new AudioFifo();
    * fifo.alloc(AV_SAMPLE_FMT_S16, 2, 1024);
@@ -72,7 +72,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * if (fifo.size >= frameSize) {
    *   // Enough samples available for a full frame
@@ -98,7 +98,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * if (fifo.space >= frameSize) {
    *   // Enough space for a full frame
@@ -129,8 +129,8 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { AudioFifo } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_FLTP } from '@seydx/av/constants';
+   * import { AudioFifo } from 'node-av';
+   * import { AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
    *
    * const fifo = new AudioFifo();
    * fifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 4096);
@@ -181,7 +181,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * // Planar format (separate buffers per channel)
    * const leftChannel = Buffer.alloc(frameSize * 4);  // float32
@@ -221,7 +221,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * // Planar format (separate buffers per channel)
    * const leftChannel = Buffer.alloc(frameSize * 4);  // float32
@@ -262,7 +262,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * // Peek at next samples without removing them
    * const peekBuffer = Buffer.alloc(frameSize * 4);
@@ -332,7 +332,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from '@seydx/av';
+   * import { FFmpegError } from 'node-av';
    *
    * // Increase FIFO capacity
    * const ret = fifo.realloc(8192);
@@ -363,8 +363,8 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { AudioFifo } from '@seydx/av';
-   * import { AV_SAMPLE_FMT_S16 } from '@seydx/av/constants';
+   * import { AudioFifo } from 'node-av';
+   * import { AV_SAMPLE_FMT_S16 } from 'node-av/constants';
    *
    * {
    *   using fifo = new AudioFifo();

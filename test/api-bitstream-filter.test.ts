@@ -1,21 +1,19 @@
 import assert from 'node:assert';
-import path from 'node:path';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { BitStreamFilterAPI, MediaInput } from '../src/api/index.js';
 import { AV_CODEC_ID_H264 } from '../src/lib/constants.js';
 import { Packet } from '../src/lib/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+prepareTestEnvironment();
+
+const inputFile = getInputFile('demux.mp4');
 
 describe('BitStreamFilterAPI', () => {
   describe('Basic Operations', () => {
     it('should create and dispose filter', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
       assert.ok(stream, 'Should have video stream');
 
@@ -29,9 +27,7 @@ describe('BitStreamFilterAPI', () => {
     });
 
     it('should throw for non-existent filter', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
 
       await assert.rejects(async () => await BitStreamFilterAPI.create('non_existent_filter', stream!), /Bitstream filter 'non_existent_filter' not found/);
@@ -40,9 +36,7 @@ describe('BitStreamFilterAPI', () => {
 
   describe('Packet Processing', () => {
     it('should process packets through null filter', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
       assert.ok(stream);
 
@@ -73,9 +67,7 @@ describe('BitStreamFilterAPI', () => {
     });
 
     it('should handle flush correctly', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
       assert.ok(stream);
 
@@ -95,9 +87,7 @@ describe('BitStreamFilterAPI', () => {
     });
 
     it('should handle flushPackets generator', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
       assert.ok(stream);
 
@@ -123,9 +113,7 @@ describe('BitStreamFilterAPI', () => {
     });
 
     it('should reset filter state', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
       assert.ok(stream);
 
@@ -138,9 +126,7 @@ describe('BitStreamFilterAPI', () => {
 
   describe('Stream Processing', () => {
     it('should process packet stream with processAll', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
       assert.ok(stream);
 
@@ -171,9 +157,7 @@ describe('BitStreamFilterAPI', () => {
 
   describe('H.264 Filtering', () => {
     it('should process H.264 with h264_mp4toannexb filter', async function (t) {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
 
       if (!stream || stream.codecpar.codecId !== AV_CODEC_ID_H264) {
@@ -213,9 +197,7 @@ describe('BitStreamFilterAPI', () => {
 
   describe('Error Handling', () => {
     it('should throw when using disposed filter', async () => {
-      const testFile = path.join(__dirname, '..', 'testdata', 'demux.mp4');
-
-      await using media = await MediaInput.open(testFile);
+      await using media = await MediaInput.open(inputFile);
       const stream = media.video();
       assert.ok(stream);
 

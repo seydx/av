@@ -39,7 +39,7 @@ import type { MediaInputOptions, RawData } from './types.js';
  *
  * @example
  * ```typescript
- * import { MediaInput } from '@seydx/av/api';
+ * import { MediaInput } from 'node-av/api';
  *
  * // Open from file
  * const media = await MediaInput.open('video.mp4');

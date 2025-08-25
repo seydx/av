@@ -14,7 +14,7 @@ import type { NativeDictionary, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { Dictionary, CodecContext, FFmpegError } from '@seydx/av';
+ * import { Dictionary, CodecContext, FFmpegError } from 'node-av';
  *
  * // Using Dictionary for codec options
  * const options = new Dictionary();
@@ -50,7 +50,7 @@ import type { NativeDictionary, NativeWrapper } from './native-types.js';
  *
  * @example
  * ```typescript
- * import { Dictionary, FFmpegError } from '@seydx/av';
+ * import { Dictionary, FFmpegError } from 'node-av';
  *
  * // Parsing options from string
  * const dict = new Dictionary();
@@ -81,7 +81,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
-   * import { Dictionary, FFmpegError } from '@seydx/av';
+   * import { Dictionary, FFmpegError } from 'node-av';
    *
    * const dict = new Dictionary();
    * const ret = dict.set('key', 'value', 0); // Auto-allocates on first use
@@ -116,7 +116,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
-   * import { Dictionary } from '@seydx/av';
+   * import { Dictionary } from 'node-av';
    *
    * const options = {
    *   bitrate: '128k',
@@ -188,7 +188,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
-   * import { Dictionary, FFmpegError } from '@seydx/av';
+   * import { Dictionary, FFmpegError } from 'node-av';
    *
    * const src = new Dictionary();
    * src.set('key1', 'value1');
@@ -227,8 +227,8 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
-   * import { Dictionary, FFmpegError } from '@seydx/av';
-   * import { AV_DICT_DONT_OVERWRITE } from '@seydx/av/constants';
+   * import { Dictionary, FFmpegError } from 'node-av';
+   * import { AV_DICT_DONT_OVERWRITE } from 'node-av/constants';
    *
    * const ret1 = dict.set('bitrate', '128k');
    * FFmpegError.throwIfError(ret1, 'set bitrate');
@@ -343,7 +343,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
-   * import { Dictionary, FFmpegError } from '@seydx/av';
+   * import { Dictionary, FFmpegError } from 'node-av';
    *
    * // Parse codec options with single-char separators
    * const ret = dict.parseString('bitrate=128k:preset=fast', '=', ':');
@@ -404,7 +404,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    *
    * @example
    * ```typescript
-   * import { Dictionary, FFmpegError } from '@seydx/av';
+   * import { Dictionary, FFmpegError } from 'node-av';
    *
    * {
    *   using dict = new Dictionary();

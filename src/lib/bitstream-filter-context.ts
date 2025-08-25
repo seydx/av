@@ -18,8 +18,8 @@ import type { Packet } from './packet.js';
  *
  * @example
  * ```typescript
- * import { BitStreamFilter, BitStreamFilterContext, Packet, FFmpegError } from '@seydx/av';
- * import { AVERROR_EOF, AVERROR } from '@seydx/av/constants';
+ * import { BitStreamFilter, BitStreamFilterContext, Packet, FFmpegError } from 'node-av';
+ * import { AVERROR_EOF, AVERROR } from 'node-av/constants';
  *
  * // Create and initialize filter context
  * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
@@ -371,7 +371,7 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    *
    * @example
    * ```typescript
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from '@seydx/av/constants';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
    *
    * const packet = new Packet();
    * const ret = await ctx.receivePacket(packet);

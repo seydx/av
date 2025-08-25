@@ -14,7 +14,7 @@ import type { LogOptions } from './types.js';
  *
  * @example
  * ```typescript
- * import { Log, AV_LOG_WARNING, AV_LOG_ERROR, AV_LOG_QUIET } from '@seydx/av';
+ * import { Log, AV_LOG_WARNING, AV_LOG_ERROR, AV_LOG_QUIET } from 'node-av';
  *
  * // Set log level (simple, no performance impact)
  * Log.setLevel(AV_LOG_WARNING);
@@ -64,7 +64,7 @@ export class Log {
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_ERROR, AV_LOG_TRACE, AV_LOG_QUIET } from '@seydx/av';
+   * import { Log, AV_LOG_ERROR, AV_LOG_TRACE, AV_LOG_QUIET } from 'node-av';
    *
    * // Only show errors and fatal messages
    * Log.setLevel(AV_LOG_ERROR);
@@ -93,7 +93,7 @@ export class Log {
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_INFO } from '@seydx/av';
+   * import { Log, AV_LOG_INFO } from 'node-av';
    *
    * const currentLevel = Log.getLevel();
    * console.log(`Current log level: ${currentLevel}`);
@@ -124,7 +124,7 @@ export class Log {
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_INFO, AV_LOG_ERROR, AV_LOG_WARNING } from '@seydx/av';
+   * import { Log, AV_LOG_INFO, AV_LOG_ERROR, AV_LOG_WARNING } from 'node-av';
    *
    * Log.log(AV_LOG_INFO, 'Starting processing...');
    * Log.log(AV_LOG_WARNING, 'Frame rate might be inaccurate');
@@ -156,7 +156,7 @@ export class Log {
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_ERROR, AV_LOG_WARNING } from '@seydx/av';
+   * import { Log, AV_LOG_ERROR, AV_LOG_WARNING } from 'node-av';
    *
    * // Simple callback (warning: can be slow!)
    * Log.setCallback((level, message) => {
@@ -208,7 +208,7 @@ export class Log {
    *
    * @example
    * ```typescript
-   * import { Log } from '@seydx/av';
+   * import { Log } from 'node-av';
    *
    * // Remove custom callback
    * Log.resetCallback();

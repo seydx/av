@@ -1,7 +1,5 @@
 import assert from 'node:assert';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { after, before, describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 
 import { Decoder } from '../src/api/decoder.js';
 import { Encoder } from '../src/api/encoder.js';
@@ -17,22 +15,16 @@ import {
   AVMEDIA_TYPE_VIDEO,
 } from '../src/lib/constants.js';
 import { Frame } from '../src/lib/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
 
 import type { AudioInfo, VideoInfo } from '../src/api/types.js';
 
+prepareTestEnvironment();
+
+const testVideoPath = getInputFile('demux.mp4');
+const testAudioPath = getInputFile('audio.wav');
+
 describe('High-Level Filter API', () => {
-  const testVideoPath = path.join(import.meta.dirname, '..', 'testdata', 'demux.mp4');
-  const testAudioPath = path.join(import.meta.dirname, '..', 'testdata', 'audio.wav');
-  const tempDir = path.join(import.meta.dirname, '.tmp');
-
-  before(async () => {
-    await fs.mkdir(tempDir, { recursive: true });
-  });
-
-  after(async () => {
-    await fs.rm(tempDir, { recursive: true, force: true });
-  });
-
   describe('Filter Creation', () => {
     it('should create a simple video filter', async () => {
       const config: VideoInfo = {
