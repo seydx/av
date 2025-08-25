@@ -50,6 +50,7 @@ jobs:
           key: ffmpeg-jellyfin-macos-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v2
           restore-keys: |
             ffmpeg-jellyfin-macos-${{ matrix.arch }}-
+          save-always: true
       
       - name: Build FFmpeg Libraries
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -186,6 +187,7 @@ jobs:
           key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
           restore-keys: |
             ffmpeg-jellyfin-linux-${{ matrix.arch }}-
+          save-always: true
       
       - name: Build FFmpeg Libraries
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -351,6 +353,7 @@ jobs:
           key: ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
           restore-keys: |
             ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-
+          save-always: true
       
       - name: Build FFmpeg Libraries
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
