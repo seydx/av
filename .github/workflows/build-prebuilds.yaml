@@ -56,29 +56,43 @@ jobs:
         if: steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         run: |
           # Setup build environment
-          sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix
+          sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix/lib/pkgconfig /opt/ffbuild/prefix/include
           sudo chmod -R 777 /opt/ffbuild
-          # Copy Jellyfin's helper scripts
-          sudo cp externals/jellyfin-ffmpeg/builder/images/base/git-mini-clone.sh /opt/ffbuild/bin/git-mini-clone
-          sudo chmod +x /opt/ffbuild/bin/git-mini-clone
-          sudo cp externals/jellyfin-ffmpeg/builder/images/base/retry-tool.sh /opt/ffbuild/bin/retry-tool
-          sudo chmod +x /opt/ffbuild/bin/retry-tool
-          sudo cp externals/jellyfin-ffmpeg/builder/images/base/check-wget.sh /opt/ffbuild/bin/check-wget
-          sudo chmod +x /opt/ffbuild/bin/check-wget
           
-          # Set environment and build
+          # Copy ALL Jellyfin's helper scripts and ensure they're in PATH
+          for script in externals/jellyfin-ffmpeg/builder/images/base/*.sh; do
+            if [ -f "$script" ]; then
+              scriptname=$(basename "$script" .sh)
+              sudo cp "$script" "/opt/ffbuild/bin/$scriptname"
+              sudo chmod +x "/opt/ffbuild/bin/$scriptname"
+            fi
+          done
+          
+          # Set environment for the build
           export PATH="/opt/ffbuild/bin:$PATH"
-          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          export FFBUILD_PREFIX="/opt/ffbuild/prefix"
           
-          cd externals/jellyfin-ffmpeg
-          cd builder
+          # pkg-config needs to find both system and our custom libraries
+          # This is critical for configure to find opus and other built libraries
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          
+          # Debug: Check if pkg-config is available
+          which pkg-config || echo "Warning: pkg-config not found"
+          pkg-config --version || echo "pkg-config version check failed"
+          
+          # Verify build directory structure
+          echo "Build directory setup:"
+          ls -la /opt/ffbuild/ || true
+          ls -la /opt/ffbuild/prefix/ || true
+          
+          cd externals/jellyfin-ffmpeg/builder
+          
           # Map GitHub arch to Jellyfin arch
           if [ "${{ matrix.arch }}" = "x64" ]; then
             ./buildmac.sh x86_64
           else
             ./buildmac.sh arm64
           fi
-          cd ..
           cd ../..
       
       - name: Save FFmpeg Libraries Cache
