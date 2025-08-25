@@ -182,7 +182,8 @@ describe('FilterInOut', () => {
 
       // Free only the head - it will free the entire chain
       first.free();
-      // Don't free second and third - they were freed automatically
+      second.free(); // no need to free, it was freed by the first
+      third.free(); // no need to free, it was freed by the first
     });
 
     it('should handle chain of multiple elements', () => {
