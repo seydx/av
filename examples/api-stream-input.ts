@@ -39,7 +39,7 @@ async function processFromBuffer() {
     if (streamInfo) {
       packetCounts[streamInfo.codecpar.codecType] = (packetCounts[streamInfo.codecpar.codecType] || 0) + 1;
     }
-    // Don't free packets - they're managed by the generator
+    packet.free();
     totalPackets++;
     if (totalPackets >= 100) break; // Limit to prevent reading entire file
   }

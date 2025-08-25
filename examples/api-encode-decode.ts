@@ -103,7 +103,7 @@ async function main() {
           }
         }
       }
-      // Don't free - managed by generator
+      packet.free();
     }
 
     // Flush decoder

@@ -154,7 +154,7 @@ async function main() {
         await output.writePacket(packet, audioOutputIndex);
         audioFrames++;
       }
-      // Don't free - managed by generator
+      packet.free();
     }
 
     // Flush decoder

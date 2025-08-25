@@ -82,7 +82,7 @@ async function extractFrameAsPNG(frameNumber: number) {
         frame.free();
       }
     }
-    // Don't free - managed by generator
+    packet.free();
   }
 
   decoder.close();
@@ -157,7 +157,7 @@ async function extractFramesAtInterval(intervalSeconds: number, count: number) {
         }
       }
     }
-    // Don't free - managed by generator
+    packet.free();
   }
 
   decoder.close();
@@ -215,7 +215,7 @@ async function analyzeFrames(count: number) {
         }
       }
     }
-    // Don't free - managed by generator
+    packet.free();
   }
 
   decoder.close();
@@ -271,7 +271,7 @@ async function generateGIF(startTime: number, duration: number) {
         }
       }
     }
-    // Don't free - managed by generator
+    packet.free();
   }
 
   console.log(`  Collected ${framesAmount} frames`);
