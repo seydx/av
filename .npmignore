@@ -7,14 +7,30 @@ eslint.config.js
 .npmignore
 .prettierignore
 .prettierrc.json
+.claude
+CLAUDE.md
 tsconfig.json
 updates.config.js
 
 node_modules
 .github
 .vscode
+.gitmodules
+.gitattributes
 test.ts
+script.ts
+tsconfig*.json
+CONTRIBUTION.md
 
 /src
 /binary
 /tests
+/binding*.gyp
+/build
+/externals
+/go-astiav
+/examples
+/prebuilds
+/scripts
+/test
+/testdata
