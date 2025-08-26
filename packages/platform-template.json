@@ -1,0 +1,24 @@
+{
+  "name": "@seydx/node-av-PLATFORM",
+  "version": "0.0.1",
+  "description": "node-av (PLATFORM binary)",
+  "author": "seydx (https://github.com/seydx/av)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/seydx/av.git"
+  },
+  "files": [
+    "node-av.node"
+  ],
+  "main": "node-av.node",
+  "engines": {
+    "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
+  },
+  "os": [
+    "OS_VALUE"
+  ],
+  "cpu": [
+    "CPU_VALUE"
+  ]
+}

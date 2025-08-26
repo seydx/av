@@ -15,13 +15,17 @@ Thank you for your interest in contributing to node-av! This guide will help you
 
 ### Prerequisites
 
-- Node.js 22.18.0 or later (LTS version)
-- Python 3.x (for node-gyp)
-- FFmpeg 7.1 or later development libraries
+For contributing to node-av, you'll need a development environment with:
+- Node.js 18.17.0+ (LTS recommended)
+- FFmpeg 7.1+ with development headers
+- Python 3.12+ (for node-gyp)
+- C++ compiler with C++17 support
+
+For detailed setup instructions by platform, see the **[Installation Guide](INSTALLATION.md#platform-specific-instructions)**.
 
 ### Before Contributing
 
-1. Check the [issue tracker](https://github.com/seydx/ffmpeg/issues) for existing issues or feature requests
+1. Check the [issue tracker](https://github.com/seydx/av/issues) for existing issues or feature requests
 2. Fork the repository and create a new branch from `main`
 3. Follow the code style and structure guidelines below
 4. Write tests for new functionality
@@ -29,22 +33,56 @@ Thank you for your interest in contributing to node-av! This guide will help you
 
 ## Development Setup
 
+### Initial Setup
+
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/ffmpeg.git
-cd ffmpeg
+git clone https://github.com/YOUR_USERNAME/av.git
+cd av
 
-# Install dependencies
+# Install build dependencies
+npm install --save-dev node-addon-api node-gyp
+
+# Install all dependencies and build
 npm install
+```
 
-# Build native bindings
+For platform-specific setup instructions, including FFmpeg installation, see the **[Installation Guide](INSTALLATION.md#building-from-source)**.
+
+### Build Commands
+
+```bash
+# Build native bindings only
 npm run build:native
 
-# Build TypeScript
+# Build TypeScript only
 npm run build:tsc
 
-# Run tests
+# Build everything (native + TypeScript)
+npm run build
+
+# Build everything including tests and examples
+npm run build:all
+
+# Clean build artifacts
+npm run clean
+
+# Generate FFmpeg constants (auto-generated, do not edit manually)
+npm run generate:constants
+
+# Generate channel layouts (auto-generated, do not edit manually)
+npm run generate:layouts
+```
+
+
+### Testing
+
+```bash
+# Run all tests
 npm run test:all
+
+# Run specific test file
+tsx --test test/decoder.test.ts
 ```
 
 ## Code Style Guide

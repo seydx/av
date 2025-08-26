@@ -27,6 +27,7 @@
     "test",
     "examples",
     "scripts",
+    "install",
   ],
   "exclude": [
     "node_modules",

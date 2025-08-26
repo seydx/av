@@ -347,9 +347,16 @@ NodeAV provides direct bindings to FFmpeg's low-level C APIs, which inherently o
 | `transcode-aac` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode_aac.c) | [✓](examples/transcode-aac.ts) | |
 | `transcode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓](examples/transcode.ts) | |
 
-## API Reference
 
-TODO
+## Installation
+
+```bash
+npm install node-av
+```
+
+Prebuilt binaries are available for macOS, Linux, and Windows (x64/arm64). The package will automatically build from source if needed.
+
+For detailed installation instructions, build requirements, and troubleshooting, see the **[Installation Guide](INSTALLATION.md)**.
 
 ## License
 

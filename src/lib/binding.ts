@@ -5,9 +5,9 @@
  * All native classes are accessed through this single entry point.
  */
 
-import { createRequire } from 'node:module';
-
-import { avPath } from '../install/index.js';
+import { existsSync } from 'fs';
+import { createRequire } from 'module';
+import { join } from 'path';
 
 import type { AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type {
@@ -39,28 +39,6 @@ import type {
   NativeStream,
 } from './native-types.js';
 import type { ChannelLayout, IRational } from './types.js';
-
-/**
- * Union type for all native FFmpeg objects that support AVOptions.
- *
- * These objects have an AVClass structure as their first member,
- * which enables the AVOption API for runtime configuration.
- */
-export type OptionCapableObject =
-  | NativeCodecContext
-  | NativeFormatContext
-  | NativeFilterContext
-  | NativeFilterGraph
-  | NativeSoftwareScaleContext
-  | NativeSoftwareResampleContext
-  | NativeIOContext
-  | NativeBitStreamFilterContext;
-
-const require = createRequire(import.meta.url);
-
-// Load the native binary directly from binary folder
-// This will be downloaded by postinstall script
-const nativeBinding = require(avPath());
 
 // Constructor types for native bindings
 type NativePacketConstructor = new () => NativePacket;
@@ -196,8 +174,10 @@ interface NativeOptionStatic {
   show(obj: OptionCapableObject, reqFlags?: number, rejFlags?: number): number;
 }
 
-// Export the loaded native bindings
-export const bindings = nativeBinding as {
+/**
+ * The complete native binding interface
+ */
+export interface NativeBinding {
   // Core Types
   Packet: NativePacketConstructor;
   Frame: NativeFrameConstructor;
@@ -280,4 +260,87 @@ export const bindings = nativeBinding as {
   avSamplesGetBufferSize: (nbChannels: number, nbSamples: number, sampleFmt: AVSampleFormat, align: number) => { size: number; linesize: number } | number;
   avChannelLayoutDescribe: (channelLayout: Partial<ChannelLayout>) => string | null;
   avSdpCreate: (contexts: NativeFormatContext[]) => string | null;
-};
+}
+
+/**
+ * Union type for all native FFmpeg objects that support AVOptions.
+ *
+ * These objects have an AVClass structure as their first member,
+ * which enables the AVOption API for runtime configuration.
+ */
+export type OptionCapableObject =
+  | NativeCodecContext
+  | NativeFormatContext
+  | NativeFilterContext
+  | NativeFilterGraph
+  | NativeSoftwareScaleContext
+  | NativeSoftwareResampleContext
+  | NativeIOContext
+  | NativeBitStreamFilterContext;
+
+function loadBinding(): NativeBinding {
+  const require = createRequire(import.meta.url);
+  const errors: Error[] = [];
+
+  // Detect platform
+  const platform = process.platform;
+  const arch = process.arch;
+  const platformArch = `${platform}-${arch}`;
+
+  // Try 1: Platform-specific package (optionalDependencies)
+  try {
+    const packageName = `@seydx/node-av-${platformArch}`;
+    return require(`${packageName}/node-av.node`);
+  } catch (err) {
+    errors.push(new Error(`Platform package not found: ${err}`));
+  }
+
+  // Try 2: Local build directory (development)
+  try {
+    const localPath = join(process.cwd(), 'build', 'Release', 'node-av.node');
+    if (existsSync(localPath)) {
+      return require(localPath);
+    }
+  } catch (err) {
+    errors.push(new Error(`Local build not found: ${err}`));
+  }
+
+  // Try 3: Binary directory (postinstall)
+  try {
+    const binaryPath = join(process.cwd(), 'binary', 'node-av.node');
+    if (existsSync(binaryPath)) {
+      return require(binaryPath);
+    }
+  } catch (err) {
+    errors.push(new Error(`Binary directory not found: ${err}`));
+  }
+
+  // Try 4: node-gyp-build style paths
+  try {
+    const gypBuildPath = join(process.cwd(), 'build', 'node-av.node');
+    if (existsSync(gypBuildPath)) {
+      return require(gypBuildPath);
+    }
+  } catch (err) {
+    errors.push(new Error(`node-gyp build not found: ${err}`));
+  }
+
+  // All attempts failed
+  const errorMessages = errors.map((e) => e.message).join('\n  ');
+  // prettier-ignore
+  throw new Error(
+    `Could not load the node-av native binding for ${platformArch}.\n` +
+    `Attempted locations:\n  ${errorMessages}\n\n` +
+    'Possible solutions:\n' +
+    "1. Run 'npm install' to download the prebuilt binary\n" +
+    "2. Run 'npm install --build-from-source' to compile from source\n" +
+    '3. Ensure you have the required dependencies for your platform\n' +
+    '\n' +
+    'See https://github.com/seydx/av for more information.',
+  );
+}
+
+// Load the native binding with fallback logic
+const bindings = loadBinding();
+
+export { bindings };

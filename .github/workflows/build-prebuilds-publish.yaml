@@ -1,0 +1,99 @@
+name: '🚀 Build and Publish Release'
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  # Call the reusable build workflow
+  build:
+    uses: ./.github/workflows/build-prebuilds.yaml
+  
+  # Release job that runs after build completes
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Dependencies
+        run: |
+          npm ci --ignore-scripts
+
+      - uses: actions/download-artifact@v4
+
+      - name: List all artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          ls -la
+          find . -name "*.zip" -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: '**/*.zip'
+          body: |
+            ## node-av Release ${{ github.ref_name }}
+            
+            ### 📦 Updated Packages
+            
+            The following platform packages have been updated to ${{ github.ref_name }}:
+            - `@seydx/node-av-darwin-arm64@${{ github.ref_name }}`
+            - `@seydx/node-av-darwin-x64@${{ github.ref_name }}`
+            - `@seydx/node-av-linux-arm64@${{ github.ref_name }}`
+            - `@seydx/node-av-linux-x64@${{ github.ref_name }}`
+            - `@seydx/node-av-win32-arm64@${{ github.ref_name }}`
+            - `@seydx/node-av-win32-x64@${{ github.ref_name }}`
+
+      - name: Prepare Platform Packages
+        run: |
+          # First, copy the downloaded binaries to the packages directory
+          mkdir -p packages
+          
+          # Copy each platform binary to its package directory
+          for platform in darwin-arm64 darwin-x64 linux-arm64 linux-x64 win32-arm64 win32-x64; do
+            if [ -d "$platform" ]; then
+              echo "Processing $platform"
+              mkdir -p "packages/$platform"
+              # Find and copy the .zip file
+              zip_file=$(find "$platform" -name "*.zip" -type f | head -1)
+              if [ -n "$zip_file" ]; then
+                echo "Extracting $zip_file to packages/$platform"
+                unzip -j "$zip_file" -d "packages/$platform"
+              fi
+            fi
+          done
+          
+          # Now create the package.json files for each platform
+          node scripts/create-platform-packages.js
+
+      - name: Publish Platform Packages to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Navigate to packages directory
+          cd packages
+          
+          # Publish each platform package
+          for dir in */; do
+            echo "Publishing $dir"
+            cd "$dir"
+            npm publish --access public
+            cd ..
+          done
+
+      - name: Publish Main Package to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Wait a bit to ensure platform packages are available
+          sleep 30
+          
+          # Publish main package
+          npm publish --access public

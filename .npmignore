@@ -21,11 +21,12 @@ test.ts
 script.ts
 tsconfig*.json
 CONTRIBUTION.md
+INSTALLATION.md
 
 /src
 /binary
 /tests
-/binding*.gyp
+/binding-jellyfin.gyp
 /build
 /externals
 /go-astiav
@@ -34,3 +35,4 @@ CONTRIBUTION.md
 /scripts
 /test
 /testdata
+/packages

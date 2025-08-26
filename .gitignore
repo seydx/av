@@ -49,3 +49,5 @@ ffmpeg_examples
 /binding.local.gyp
 /build-darwin.sh
 /CLAUDE.md
+/prebuilds
+/packages

@@ -2,15 +2,10 @@ name: '🏗️ Build Prebuilds'
 
 on:
   push:
-    # branches: [main]
-    tags: ['v*']
+    branches: [main]
   pull_request:
   workflow_dispatch:
-
-env:
-  # Define target versions here
-  NODE_TARGETS: "22.0.0 24.0.0"  # Can add more: "22.0.0 24.0.0"
-  ELECTRON_TARGETS: "37.0.0 38.0.0"  # Can add more: "37.0.0 38.0.0"
+  workflow_call:
 
 jobs:
   build_mac:
@@ -40,7 +35,7 @@ jobs:
           # Ensure gsed is available (gnu-sed installs it as gsed)
           which gsed || brew link --force gnu-sed
           npm ci --ignore-scripts
-          npm install --no-save prebuildify
+          npm install --no-save node-gyp
 
       - name: Restore FFmpeg Libraries Cache
         id: cache-ffmpeg-restore
@@ -102,7 +97,7 @@ jobs:
           path: /opt/ffbuild/prefix
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
           
-      - name: Build Node.js Bindings
+      - name: Build Native Binary
         run: |
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
@@ -110,68 +105,38 @@ jobs:
           export CFLAGS="-I/opt/ffbuild/prefix/include"
           export CXXFLAGS="-I/opt/ffbuild/prefix/include"
           export LDFLAGS="-L/opt/ffbuild/prefix/lib"
-          for target in $NODE_TARGETS; do
-            echo "Building for Node.js v${target}..."
-            npx prebuildify \
-              --runtime=node \
-              --target="${target}" \
-              --arch=${{ matrix.arch }} \
-              --strip \
-              --tag-libc
-          done
           
-      - name: Build Electron Bindings
+          # Build using node-gyp directly (N-API ensures compatibility)
+          npx node-gyp rebuild
+          
+          # Move binary to expected location
+          mkdir -p build
+          cp build/Release/node-av.node build/node-av.node
+
+      - name: Run Tests
         run: |
-          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          export CFLAGS="-I/opt/ffbuild/prefix/include"
-          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
-          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
-          for target in $ELECTRON_TARGETS; do
-            echo "Building for Electron v${target}..."
-            npx prebuildify \
-              --runtime=electron \
-              --target="${target}" \
-              --arch=${{ matrix.arch }} \
-              --strip \
-              --tag-libc
-          done
+          npm run test:all
+        env:
+          PKG_CONFIG_PATH: "/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
 
       - name: Get Package Version
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      - name: Package Artifacts
+      - name: Package Binary
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         run: |
           mkdir -p artifacts
-          cd prebuilds
-          
-          # Package each runtime/ABI combination
-          for dir in darwin-${{ matrix.arch }}; do
-            if [ -d "$dir" ]; then
-              for file in "$dir"/*.node; do
-                if [ -f "$file" ]; then
-                  filename=$(basename "$file")
-                  # Extract runtime and ABI from filename
-                  # Format: node.abi127.node or electron.abi134.node
-                  if [[ "$filename" =~ (node|electron)\.abi([0-9]+)\.node ]]; then
-                    runtime="${BASH_REMATCH[1]}"
-                    abi="${BASH_REMATCH[2]}"
-                    artifact_name="node-av-darwin-${{ matrix.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
-                    (cd "$dir" && zip -j "../../artifacts/${artifact_name}" "$(basename "$file")")
-                    # Rename the .node file inside the zip to av.node
-                    (cd ../../artifacts && zip -u "${artifact_name}" -j && printf "@ $(basename "$file")\n@=av.node\n" | zipnote -w "${artifact_name}")
-                  fi
-                fi
-              done
-            fi
-          done
-          
+          artifact_name="node-av-darwin-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip"
+          (cd build && zip -j "../artifacts/${artifact_name}" node-av.node)
           ls -la artifacts/
 
       - name: Upload Artifacts
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: node-av-${{ matrix.target }}
+          name: darwin-${{ matrix.arch }}
           path: artifacts/*.zip
 
   build_linux:
@@ -197,7 +162,7 @@ jobs:
       - name: Install Dependencies
         run: |
           npm ci --ignore-scripts
-          npm install --no-save prebuildify
+          npm install --no-save node-gyp
 
       - name: Restore FFmpeg Libraries Cache
         id: cache-ffmpeg-restore
@@ -267,7 +232,7 @@ jobs:
           ls -la /opt/ffbuild/prefix/lib/ | head -20
           pkg-config --exists libavcodec || echo "Warning: pkg-config files may not be properly configured"
           
-      - name: Build Node.js Bindings
+      - name: Build Native Binary
         run: |
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
@@ -275,67 +240,38 @@ jobs:
           export CFLAGS="-I/opt/ffbuild/prefix/include"
           export CXXFLAGS="-I/opt/ffbuild/prefix/include"
           export LDFLAGS="-L/opt/ffbuild/prefix/lib"
-          for target in $NODE_TARGETS; do
-            echo "Building for Node.js v${target}..."
-            npx prebuildify \
-              --runtime=node \
-              --target="${target}" \
-              --arch=${{ matrix.arch }} \
-              --strip \
-              --tag-libc
-          done
           
-      - name: Build Electron Bindings
+          # Build using node-gyp directly (N-API ensures compatibility)
+          npx node-gyp rebuild
+          
+          # Move binary to expected location
+          mkdir -p build
+          cp build/Release/node-av.node build/node-av.node
+
+      - name: Run Tests
         run: |
-          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          export CFLAGS="-I/opt/ffbuild/prefix/include"
-          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
-          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
-          for target in $ELECTRON_TARGETS; do
-            echo "Building for Electron v${target}..."
-            npx prebuildify \
-              --runtime=electron \
-              --target="${target}" \
-              --arch=${{ matrix.arch }} \
-              --strip \
-              --tag-libc
-          done
+          npm run test:all
+        env:
+          PKG_CONFIG_PATH: "/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
 
       - name: Get Package Version
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      - name: Package Artifacts
+      - name: Package Binary
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         run: |
           mkdir -p artifacts
-          cd prebuilds
-          
-          # Package each runtime/ABI combination
-          for dir in linux-${{ matrix.arch }}; do
-            if [ -d "$dir" ]; then
-              for file in "$dir"/*.node; do
-                if [ -f "$file" ]; then
-                  filename=$(basename "$file")
-                  # Extract runtime and ABI from filename
-                  if [[ "$filename" =~ (node|electron)\.abi([0-9]+)\.node ]]; then
-                    runtime="${BASH_REMATCH[1]}"
-                    abi="${BASH_REMATCH[2]}"
-                    artifact_name="node-av-linux-${{ matrix.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
-                    (cd "$dir" && zip -j "../../artifacts/${artifact_name}" "$(basename "$file")")
-                    # Rename the .node file inside the zip to av.node
-                    (cd ../../artifacts && zip -u "${artifact_name}" -j && printf "@ $(basename "$file")\n@=av.node\n" | zipnote -w "${artifact_name}")
-                  fi
-                fi
-              done
-            fi
-          done
-          
+          artifact_name="node-av-linux-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip"
+          (cd build && zip -j "../artifacts/${artifact_name}" node-av.node)
           ls -la artifacts/
 
       - name: Upload Artifacts
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: node-av-${{ matrix.target }}
+          name: linux-${{ matrix.arch }}
           path: artifacts/*.zip
 
   build_windows:
@@ -398,7 +334,7 @@ jobs:
         shell: bash
         run: |
           npm ci --ignore-scripts
-          npm install --no-save prebuildify
+          npm install --no-save node-gyp
 
       - name: Restore FFmpeg Libraries Cache
         id: cache-ffmpeg-restore
@@ -430,7 +366,7 @@ jobs:
             /clangarm64/ffbuild
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
 
-      - name: Build Node.js Bindings
+      - name: Build Native Binary
         shell: bash
         run: |
           # Use Jellyfin binding configuration
@@ -446,109 +382,42 @@ jobs:
             export CXXFLAGS="-I/clangarm64/ffbuild/include"
             export LDFLAGS="-L/clangarm64/ffbuild/lib"
           fi
-          for target in $NODE_TARGETS; do
-            echo "Building for Node.js v${target}..."
-            npx prebuildify \
-              --runtime=node \
-              --target="${target}" \
-              --arch=${{ matrix.os.arch }} \
-              --strip \
-              --tag-libc
-          done
           
-      - name: Build Electron Bindings
+          # Build using node-gyp directly (N-API ensures compatibility)
+          npx node-gyp rebuild
+          
+          # Move binary to expected location
+          mkdir -p build
+          cp build/Release/node-av.node build/node-av.node
+
+      - name: Run Tests
         shell: bash
         run: |
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
-            export CFLAGS="-I/clang64/ffbuild/include"
-            export CXXFLAGS="-I/clang64/ffbuild/include"
-            export LDFLAGS="-L/clang64/ffbuild/lib"
           else
             export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
-            export CFLAGS="-I/clangarm64/ffbuild/include"
-            export CXXFLAGS="-I/clangarm64/ffbuild/include"
-            export LDFLAGS="-L/clangarm64/ffbuild/lib"
           fi
-          for target in $ELECTRON_TARGETS; do
-            echo "Building for Electron v${target}..."
-            npx prebuildify \
-              --runtime=electron \
-              --target="${target}" \
-              --arch=${{ matrix.os.arch }} \
-              --strip \
-              --tag-libc
-          done
+          npm run test:all
 
       - name: Get Package Version
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         shell: bash
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      - name: Package Artifacts
+      - name: Package Binary
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
           mkdir -p artifacts
-          cd prebuilds
-          
-          # Package each runtime/ABI combination
-          for dir in win32-${{ matrix.os.arch }}; do
-            if [ -d "$dir" ]; then
-              for file in "$dir"/*.node; do
-                if [ -f "$file" ]; then
-                  filename=$(basename "$file")
-                  # Extract runtime and ABI from filename
-                  if [[ "$filename" =~ (node|electron)\.abi([0-9]+)\.node ]]; then
-                    runtime="${BASH_REMATCH[1]}"
-                    abi="${BASH_REMATCH[2]}"
-                    artifact_name="node-av-win32-${{ matrix.os.arch }}-${{ steps.version.outputs.version }}-${runtime}-${abi}.zip"
-                    (cd "$dir" && zip -j "../../artifacts/${artifact_name}" "$(basename "$file")")
-                    # Rename the .node file inside the zip to av.node
-                    (cd ../../artifacts && zip -u "${artifact_name}" -j && printf "@ $(basename "$file")\n@=av.node\n" | zipnote -w "${artifact_name}")
-                  fi
-                fi
-              done
-            fi
-          done
-          
+          artifact_name="node-av-win32-${{ matrix.os.arch }}-${{ steps.version.outputs.version }}.zip"
+          (cd build && zip -j "../artifacts/${artifact_name}" node-av.node)
           ls -la artifacts/
 
       - name: Upload Artifacts
+        if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: node-av-win${{ matrix.os.arch == 'arm64' && 'arm64' || '64' }}
+          name: win32-${{ matrix.os.arch }}
           path: artifacts/*.zip
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [build_mac, build_linux, build_windows]
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/download-artifact@v4
-
-      - name: List all artifacts
-        run: ls -la **/*.zip
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: '**/*.zip'
-          body: |
-            ## node-av Prebuilds
-            
-            Statically linked with Jellyfin FFmpeg libraries
-            
-            ### Supported Platforms
-            - macOS (x64, arm64)
-            - Linux (x64, arm64)
-            - Windows (x64, arm64)
-            
-            ### Supported Runtimes
-            - Node.js v22+ 
-            - Electron v37+
-            
-            ### Binary Naming Convention
-            `node-av-{platform}-{arch}-{version}-{runtime}-{abi}.zip`
-
-            Example: `node-av-darwin-arm64-0.1.0-electron-134.zip`
