@@ -348,11 +348,7 @@ NodeAV provides direct bindings to FFmpeg's low-level C APIs, which inherently o
 | `transcode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓](examples/transcode.ts) | |
 
 
-## Installation
-
-```bash
-npm install node-av
-```
+## Prebuilt Binaries
 
 Prebuilt binaries are available for macOS, Linux, and Windows (x64/arm64). The package will automatically build from source if needed.
 
@@ -377,5 +373,3 @@ For issues and questions, please use the GitHub issue tracker.
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
 - [FFmpeg Doxygen](https://ffmpeg.org/doxygen/trunk/)
 - [Jellyfin FFmpeg](https://github.com/jellyfin/jellyfin-ffmpeg)
-- [go-astiav](https://github.com/asticode/go-astiav) - Similar Go bindings that inspired this project
-- [Werift](https://github.com/werift/werift) - A WebRTC Implementation for TypeScript (Node.js)
