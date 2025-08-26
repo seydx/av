@@ -10,18 +10,6 @@ Node.js bindings for FFmpeg libraries, providing both low-level and high-level A
 npm install node-av
 ```
 
-## Requirements
-
-**For Users**
-- Node.js v20 or higher
-- No FFmpeg installation required - all necessary libraries are bundled
-
-**For Development**
-- Node.js v20 or higher
-- FFmpeg 7.1+ development headers
-- TypeScript 5.0+ (for TypeScript development)
-- C++ build tools (for building native bindings)
-
 ## Quick Start
 
 ### High-Level API
