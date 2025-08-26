@@ -52,36 +52,21 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         run: |
-          # Setup build environment
-          sudo mkdir -p /opt/ffbuild/bin /opt/ffbuild/prefix/lib/pkgconfig /opt/ffbuild/prefix/include
-          sudo chmod -R 777 /opt/ffbuild
+          # Prepare prefix dir exactly like Jellyfin does
+          sudo mkdir -p /opt/ffbuild
+          sudo chmod 777 /opt/ffbuild
           
-          # Copy ALL Jellyfin's helper scripts and ensure they're in PATH
+          # Make helper scripts available in PATH (required by library build scripts)
+          sudo mkdir -p /usr/local/bin
           for script in externals/jellyfin-ffmpeg/builder/images/base/*.sh; do
             if [ -f "$script" ]; then
               scriptname=$(basename "$script" .sh)
-              sudo cp "$script" "/opt/ffbuild/bin/$scriptname"
-              sudo chmod +x "/opt/ffbuild/bin/$scriptname"
+              sudo cp "$script" "/usr/local/bin/$scriptname"
+              sudo chmod +x "/usr/local/bin/$scriptname"
             fi
           done
           
-          # Set environment for the build
-          export PATH="/opt/ffbuild/bin:$PATH"
-          export FFBUILD_PREFIX="/opt/ffbuild/prefix"
-          
-          # pkg-config needs to find both system and our custom libraries
-          # This is critical for configure to find opus and other built libraries
-          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          
-          # Debug: Check if pkg-config is available
-          which pkg-config || echo "Warning: pkg-config not found"
-          pkg-config --version || echo "pkg-config version check failed"
-          
-          # Verify build directory structure
-          echo "Build directory setup:"
-          ls -la /opt/ffbuild/ || true
-          ls -la /opt/ffbuild/prefix/ || true
-          
+          # Run buildmac.sh from the builder directory
           cd externals/jellyfin-ffmpeg/builder
           
           # Map GitHub arch to Jellyfin arch
@@ -90,7 +75,8 @@ jobs:
           else
             ./buildmac.sh arm64
           fi
-          cd ../..
+          
+          cd ../../..
       
       - name: Save FFmpeg Libraries Cache
         if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
@@ -98,6 +84,22 @@ jobs:
         with:
           path: /opt/ffbuild/prefix
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
+      
+      - name: Verify FFmpeg Installation
+        run: |
+          echo "Checking FFmpeg libraries..."
+          ls -la /opt/ffbuild/prefix/lib/*.a | head -20 || echo "No libraries found!"
+          echo ""
+          echo "Checking pkg-config files..."
+          ls -la /opt/ffbuild/prefix/lib/pkgconfig/*.pc | head -10 || echo "No pkg-config files found!"
+          echo ""
+          echo "Testing pkg-config..."
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig"
+          pkg-config --exists libavcodec && echo "✓ libavcodec found" || echo "✗ libavcodec not found"
+          pkg-config --exists libavformat && echo "✓ libavformat found" || echo "✗ libavformat not found"
+          pkg-config --exists libavutil && echo "✓ libavutil found" || echo "✗ libavutil not found"
+          pkg-config --exists libswscale && echo "✓ libswscale found" || echo "✗ libswscale not found"
+          pkg-config --exists libswresample && echo "✓ libswresample found" || echo "✗ libswresample not found"
           
       - name: Build Native Binary
         run: |
@@ -357,8 +359,12 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         run: |
+          # Prepare prefix dir exactly like Jellyfin does
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild
+          
           # Update pacman database and retry on failures
           pacman -Syy --noconfirm || pacman -Syy --noconfirm
+          
           cd externals/jellyfin-ffmpeg
           ${{ matrix.os.build_script }}
           cd ../..
@@ -371,6 +377,31 @@ jobs:
             /clang64/ffbuild
             /clangarm64/ffbuild
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
+      
+      - name: Verify FFmpeg Installation
+        shell: bash
+        run: |
+          echo "Checking FFmpeg libraries..."
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            ls -la /clang64/ffbuild/lib/*.a | head -20 || echo "No libraries found!"
+            echo ""
+            echo "Checking pkg-config files..."
+            ls -la /clang64/ffbuild/lib/pkgconfig/*.pc | head -10 || echo "No pkg-config files found!"
+            export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig"
+          else
+            ls -la /clangarm64/ffbuild/lib/*.a | head -20 || echo "No libraries found!"
+            echo ""
+            echo "Checking pkg-config files..."
+            ls -la /clangarm64/ffbuild/lib/pkgconfig/*.pc | head -10 || echo "No pkg-config files found!"
+            export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig"
+          fi
+          echo ""
+          echo "Testing pkg-config..."
+          pkg-config --exists libavcodec && echo "✓ libavcodec found" || echo "✗ libavcodec not found"
+          pkg-config --exists libavformat && echo "✓ libavformat found" || echo "✗ libavformat not found"
+          pkg-config --exists libavutil && echo "✓ libavutil found" || echo "✗ libavutil not found"
+          pkg-config --exists libswscale && echo "✓ libswscale found" || echo "✗ libswscale not found"
+          pkg-config --exists libswresample && echo "✓ libswresample found" || echo "✗ libswresample not found"
 
       - name: Build Native Binary
         shell: bash
