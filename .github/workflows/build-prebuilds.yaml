@@ -56,10 +56,14 @@ jobs:
           sudo mkdir -p /opt/ffbuild
           sudo chmod 777 /opt/ffbuild
           
-          # CRITICAL: Create symlink because FFmpeg configure uses /ffbuild/prefix
-          # but all libraries are installed to /opt/ffbuild/prefix
-          # This is a quirk in Jellyfin's buildmac.sh script
-          sudo ln -s /opt/ffbuild /ffbuild
+          # WORKAROUND: macOS GitHub runners don't allow creating symlinks in root
+          # Try to create symlink, but don't fail if it doesn't work
+          if sudo ln -s /opt/ffbuild /ffbuild 2>/dev/null; then
+            echo "Symlink created successfully"
+          else
+            echo "Cannot create symlink in root (expected on GitHub runners)"
+            # We'll handle this by modifying the configure prefix
+          fi
           
           # Make helper scripts available in PATH (required by library build scripts)
           sudo mkdir -p /usr/local/bin
@@ -71,8 +75,16 @@ jobs:
             fi
           done
           
-          # Run buildmac.sh from the jellyfin-ffmpeg root, exactly like Jellyfin does
+          # Run buildmac.sh from the jellyfin-ffmpeg root
           cd externals/jellyfin-ffmpeg
+          
+          # If symlink failed, we need to patch the build script
+          if [ ! -L /ffbuild ]; then
+            echo "Patching buildmac.sh to use /opt/ffbuild instead of /ffbuild"
+            sed -i '' 's|FFBUILD_PREFIX="/opt/ffbuild/prefix"|FFBUILD_PREFIX="/opt/ffbuild/prefix"|' builder/buildmac.sh
+            # Also patch the configure command in buildmac.sh
+            sed -i '' 's|--prefix=/ffbuild/prefix|--prefix=/opt/ffbuild/prefix|' builder/buildmac.sh
+          fi
           
           # Map GitHub arch to Jellyfin arch
           if [ "${{ matrix.arch }}" = "x64" ]; then
@@ -81,7 +93,7 @@ jobs:
             ./builder/buildmac.sh arm64
           fi
           
-          # IMPORTANT: Install FFmpeg properly instead of just building executables
+          # buildmac.sh does configure + make, but NOT make install
           echo "Installing FFmpeg libraries and headers..."
           make install DESTDIR="" prefix="/opt/ffbuild/prefix"
           
@@ -208,42 +220,69 @@ jobs:
           fi
           
           # Try to use pre-built Docker image from our registry
-          OUR_IMAGE="ghcr.io/${{ github.repository }}-ffmpeg:${TARGET}-gpl"
+          OUR_IMAGE="ghcr.io/${{ github.repository }}/${TARGET}-gpl:latest"
           
           if docker pull "$OUR_IMAGE" 2>/dev/null; then
             echo "Using pre-built Docker image from our registry"
-            
-            # Extract development files from our Docker image
-            CONTAINER_ID=$(docker create "$OUR_IMAGE")
-            
-            # Copy the entire prefix directory with libraries and headers
-            sudo mkdir -p /opt/ffbuild/prefix
-            docker cp "$CONTAINER_ID:/ffbuild/prefix/" /opt/ffbuild/
-            docker rm "$CONTAINER_ID"
           else
             echo "No pre-built image found, building from scratch"
             
             # Build using Jellyfin's script which creates a Docker image locally
             cd builder
+            # Set our repository instead of jellyfin's
+            export GITHUB_REPOSITORY="${{ github.repository }}"
             ./makeimage.sh "$TARGET" gpl
-            
-            # The image is now tagged as ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest locally
-            # Extract development files from it
-            IMAGE_TAG="ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
-            CONTAINER_ID=$(docker create "$IMAGE_TAG")
-            
-            # Copy the entire prefix directory with libraries and headers
-            sudo mkdir -p /opt/ffbuild/prefix
-            docker cp "$CONTAINER_ID:/ffbuild/prefix/" /opt/ffbuild/
-            docker rm "$CONTAINER_ID"
-            
-            # Also create the portable binaries
-            ./build.sh "$TARGET" gpl
-            mkdir -p ../../bin
-            mv artifacts/jellyfin-ffmpeg*portable_${TARGET}-gpl*.tar.xz ../../bin/ || true
-            
             cd ..
           fi
+          
+          # Now we have the Docker image, let's build FFmpeg and extract libraries/headers
+          echo "Building FFmpeg libraries and extracting from Docker..."
+          
+          # Create a build script that will run inside Docker
+          cat > build-ffmpeg-libs.sh << 'EOF'
+          #!/bin/bash
+          set -xe
+          cd /ffbuild
+          
+          # FFmpeg source should be available
+          if [ ! -d ffmpeg ]; then
+            echo "Error: FFmpeg source not found in Docker image!"
+            exit 1
+          fi
+          
+          cd ffmpeg
+          
+          # Configure if not already done
+          if [ ! -f config.h ]; then
+            ./configure --prefix=/ffbuild/prefix \
+              $FFBUILD_TARGET_FLAGS \
+              --extra-version="Jellyfin" \
+              $(cat /ffbuild/ffmpeg_configure_flags.txt 2>/dev/null || echo "")
+          fi
+          
+          # Build FFmpeg
+          make -j$(nproc)
+          
+          # Install libraries and headers (not binaries to save time)
+          make install-libs-static install-headers
+          
+          # Package the results
+          cd /ffbuild
+          tar czf /output/ffmpeg-dev.tar.gz prefix/include prefix/lib
+          EOF
+          
+          chmod +x build-ffmpeg-libs.sh
+          
+          # Run the build script in Docker
+          mkdir -p output
+          docker run --rm -v $(pwd)/output:/output -v $(pwd)/build-ffmpeg-libs.sh:/build.sh "$OUR_IMAGE" bash /build.sh
+          
+          # Extract the libraries and headers to the expected location
+          sudo mkdir -p /opt/ffbuild
+          sudo tar xzf output/ffmpeg-dev.tar.gz -C /opt/ffbuild/
+          
+          # Cleanup
+          rm -rf output build-ffmpeg-libs.sh
           
           cd ../..
       
@@ -371,10 +410,8 @@ jobs:
         id: cache-ffmpeg-restore
         uses: actions/cache/restore@v4
         with:
-          path: |
-            /clang64/ffbuild
-            /clangarm64/ffbuild
-          key: ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v1
+          path: ${{ matrix.os.msystem == 'CLANG64' && '/clang64/ffbuild' || '/clangarm64/ffbuild' }}
+          key: ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v2
           restore-keys: |
             ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-
       
@@ -393,8 +430,8 @@ jobs:
           # Run Jellyfin's build script to build dependencies and configure FFmpeg
           ${{ matrix.os.build_script }}
           
-          # IMPORTANT: Install FFmpeg properly instead of just building executables
-          # This ensures all libraries, headers, and pkg-config files are in the right place
+          # IMPORTANT: build.sh or buildarm64.sh already ran configure + make
+          # We just need to install libraries and headers
           echo "Installing FFmpeg libraries and headers..."
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             PREFIX="/clang64/ffbuild"
@@ -402,8 +439,8 @@ jobs:
             PREFIX="/clangarm64/ffbuild"
           fi
           
-          # Run make install to properly install everything
-          make install DESTDIR="" prefix="$PREFIX"
+          # Install libraries and headers (skip binaries to save time)
+          make install-libs-static install-headers DESTDIR="" prefix="$PREFIX"
           
           cd ../..
       
@@ -411,9 +448,7 @@ jobs:
         if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: |
-            /clang64/ffbuild
-            /clangarm64/ffbuild
+          path: ${{ matrix.os.msystem == 'CLANG64' && '/clang64/ffbuild' || '/clangarm64/ffbuild' }}
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
       
       - name: Verify FFmpeg Installation

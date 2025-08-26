@@ -5,9 +5,11 @@ on:
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday
   push:
+    branches: [main]
     paths:
-      - 'externals/jellyfin-ffmpeg/builder/**'
+      - 'externals/jellyfin-ffmpeg/**'
       - '.github/workflows/build-docker-images.yaml'
+      - '.github/workflows/build-prebuilds.yaml'
 
 env:
   REGISTRY: ghcr.io
@@ -46,21 +48,25 @@ jobs:
       - name: Build Docker Image
         run: |
           cd externals/jellyfin-ffmpeg/builder
+          # Set our repository instead of jellyfin's
+          export GITHUB_REPOSITORY="${{ github.repository }}"
           ./makeimage.sh ${{ matrix.target }} ${{ matrix.variant }}
       
       - name: Tag and Push Image
         run: |
-          # The makeimage.sh script creates an image tagged as ghcr.io/jellyfin/jellyfin-ffmpeg/{target}-{variant}:latest
-          SOURCE_IMAGE="ghcr.io/jellyfin/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:latest"
+          # The makeimage.sh script now creates an image with our repository name
+          SOURCE_IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.target }}-${{ matrix.variant }}:latest"
           
-          # Our target repository
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.variant }}"
+          # Our target repository (simplified naming)
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ github.repository }}:${{ matrix.target }}-${{ matrix.variant }}"
           
-          # Tag and push with our repository name
+          # Push the image (it's already tagged correctly)
+          docker push "$SOURCE_IMAGE"
+          
+          # Also tag with simplified name and date
           docker tag "$SOURCE_IMAGE" "$IMAGE_TAG"
           docker push "$IMAGE_TAG"
           
-          # Also tag with date
-          DATE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.variant }}-$(date +%Y%m%d)"
+          DATE_TAG="${{ env.REGISTRY }}/${{ github.repository }}:${{ matrix.target }}-${{ matrix.variant }}-$(date +%Y%m%d)"
           docker tag "$SOURCE_IMAGE" "$DATE_TAG"
           docker push "$DATE_TAG"
