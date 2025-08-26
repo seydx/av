@@ -11,6 +11,8 @@ jobs:
   build_mac:
     name: 'macOS ${{ matrix.arch }}'
     runs-on: macos-13
+    # Skip this job if it's a tag push (handled by build-prebuilds-publish.yaml)
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
     strategy:
       matrix:
         include:
@@ -136,12 +138,14 @@ jobs:
         if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: darwin-${{ matrix.arch }}
+          name: node-av-darwin-${{ matrix.arch }}-${{ steps.version.outputs.version }}
           path: artifacts/*.zip
 
   build_linux:
     name: 'Linux ${{ matrix.arch }}'
     runs-on: ubuntu-latest
+    # Skip this job if it's a tag push (handled by build-prebuilds-publish.yaml)
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
     strategy:
       matrix:
         include:
@@ -271,12 +275,14 @@ jobs:
         if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ matrix.arch }}
+          name: node-av-linux-${{ matrix.arch }}-${{ steps.version.outputs.version }}
           path: artifacts/*.zip
 
   build_windows:
     name: 'Windows ${{ matrix.os.arch }}'
     runs-on: ${{ matrix.os.runner }}
+    # Skip this job if it's a tag push (handled by build-prebuilds-publish.yaml)
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
     strategy:
       matrix:
         os:
@@ -419,5 +425,5 @@ jobs:
         if: github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: win32-${{ matrix.os.arch }}
+          name: node-av-win32-${{ matrix.os.arch }}-${{ steps.version.outputs.version }}
           path: artifacts/*.zip
