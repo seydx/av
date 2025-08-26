@@ -200,41 +200,49 @@ jobs:
         run: |
           cd externals/jellyfin-ffmpeg
           
-          # Build and extract development files from the Docker container
+          # Determine target architecture
           if [ "${{ matrix.arch }}" = "x64" ]; then
             TARGET="linux64"
-            IMAGE="ghcr.io/${{ github.repository }}-ffmpeg:linux64-gpl"
           else
             TARGET="linuxarm64"
-            IMAGE="ghcr.io/${{ github.repository }}-ffmpeg:linuxarm64-gpl"
           fi
           
-          # Try to use prebuilt image first
-          if docker pull "$IMAGE" 2>/dev/null; then
-            echo "Using prebuilt Docker image"
-            docker tag "$IMAGE" "ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
+          # Try to use pre-built Docker image from our registry
+          OUR_IMAGE="ghcr.io/${{ github.repository }}-ffmpeg:${TARGET}-gpl"
+          
+          if docker pull "$OUR_IMAGE" 2>/dev/null; then
+            echo "Using pre-built Docker image from our registry"
+            
+            # Extract development files from our Docker image
+            CONTAINER_ID=$(docker create "$OUR_IMAGE")
+            
+            # Copy the entire prefix directory with libraries and headers
+            sudo mkdir -p /opt/ffbuild/prefix
+            docker cp "$CONTAINER_ID:/ffbuild/prefix/" /opt/ffbuild/
+            docker rm "$CONTAINER_ID"
           else
-            echo "Building Docker image from scratch"
-            if [ "${{ matrix.arch }}" = "x64" ]; then
-              ./build-linux-amd64 ../bin
-            else
-              ./build-linux-arm64 ../bin
-            fi
-          fi
-          
-          # Extract development files from the Docker image
-          IMAGE_TAG="ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
-          
-          # Create a container and copy the prefix directory
-          CONTAINER_ID=$(docker create "$IMAGE_TAG")
-          sudo mkdir -p /opt/ffbuild/prefix
-          docker cp "$CONTAINER_ID:/ffbuild/prefix/" /opt/ffbuild/
-          docker rm "$CONTAINER_ID"
-          
-          # Also build the portable archive if using prebuilt image
-          if docker images -q "$IMAGE" 2>/dev/null; then
-            ./builder/build.sh "$TARGET" gpl
-            mv builder/artifacts/jellyfin-ffmpeg*portable_${TARGET}-gpl*.tar.xz ../bin/ || true
+            echo "No pre-built image found, building from scratch"
+            
+            # Build using Jellyfin's script which creates a Docker image locally
+            cd builder
+            ./makeimage.sh "$TARGET" gpl
+            
+            # The image is now tagged as ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest locally
+            # Extract development files from it
+            IMAGE_TAG="ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
+            CONTAINER_ID=$(docker create "$IMAGE_TAG")
+            
+            # Copy the entire prefix directory with libraries and headers
+            sudo mkdir -p /opt/ffbuild/prefix
+            docker cp "$CONTAINER_ID:/ffbuild/prefix/" /opt/ffbuild/
+            docker rm "$CONTAINER_ID"
+            
+            # Also create the portable binaries
+            ./build.sh "$TARGET" gpl
+            mkdir -p ../../bin
+            mv artifacts/jellyfin-ffmpeg*portable_${TARGET}-gpl*.tar.xz ../../bin/ || true
+            
+            cd ..
           fi
           
           cd ../..
