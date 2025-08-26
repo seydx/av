@@ -1,5 +1,7 @@
 # NodeAV
 
+> ⚠️ **Work in Progress**: This project is currently under active development and not yet ready for production use. APIs may change, and some features may be incomplete or unstable. Prebuilt binaries are still being developed - currently, installation requires FFmpeg development headers to build from source.
+
 Node.js bindings for FFmpeg libraries, providing both low-level and high-level APIs for audio/video processing. Built from the ground up with TypeScript, NodeAV offers complete type safety and IntelliSense support throughout your media processing workflows. The library seamlessly bridges the gap between FFmpeg's powerful C APIs and modern JavaScript development, enabling developers to leverage the full capabilities of FFmpeg directly within Node.js applications without sacrificing performance or functionality. Whether you need direct control over codecs, formats, and filters through low-level bindings, or prefer the convenience of high-level abstractions with automatic resource management and async/await support, NodeAV provides a unified, type-safe interface for all your audio and video processing needs.
 
 ## Installation
