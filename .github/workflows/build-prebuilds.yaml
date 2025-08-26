@@ -56,6 +56,11 @@ jobs:
           sudo mkdir -p /opt/ffbuild
           sudo chmod 777 /opt/ffbuild
           
+          # CRITICAL: Create symlink because FFmpeg configure uses /ffbuild/prefix
+          # but all libraries are installed to /opt/ffbuild/prefix
+          # This is a quirk in Jellyfin's buildmac.sh script
+          sudo ln -s /opt/ffbuild /ffbuild
+          
           # Make helper scripts available in PATH (required by library build scripts)
           sudo mkdir -p /usr/local/bin
           for script in externals/jellyfin-ffmpeg/builder/images/base/*.sh; do
@@ -66,17 +71,27 @@ jobs:
             fi
           done
           
-          # Run buildmac.sh from the builder directory
-          cd externals/jellyfin-ffmpeg/builder
+          # Run buildmac.sh from the jellyfin-ffmpeg root, exactly like Jellyfin does
+          cd externals/jellyfin-ffmpeg
           
           # Map GitHub arch to Jellyfin arch
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            ./buildmac.sh x86_64
+            ./builder/buildmac.sh x86_64
           else
-            ./buildmac.sh arm64
+            ./builder/buildmac.sh arm64
           fi
           
-          cd ../../..
+          # IMPORTANT: Install FFmpeg properly instead of just building executables
+          echo "Installing FFmpeg libraries and headers..."
+          make install DESTDIR="" prefix="/opt/ffbuild/prefix"
+          
+          # Verify installation
+          echo "Verifying FFmpeg installation..."
+          ls -la /opt/ffbuild/prefix/lib/*.a | head -5 || echo "No static libraries found!"
+          ls -la /opt/ffbuild/prefix/include/ || echo "No headers found!"
+          ls -la /opt/ffbuild/prefix/lib/pkgconfig/*.pc | head -5 || echo "No pkg-config files found!"
+          
+          cd ../..
       
       - name: Save FFmpeg Libraries Cache
         if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
@@ -366,7 +381,22 @@ jobs:
           pacman -Syy --noconfirm || pacman -Syy --noconfirm
           
           cd externals/jellyfin-ffmpeg
+          
+          # Run Jellyfin's build script to build dependencies and configure FFmpeg
           ${{ matrix.os.build_script }}
+          
+          # IMPORTANT: Install FFmpeg properly instead of just building executables
+          # This ensures all libraries, headers, and pkg-config files are in the right place
+          echo "Installing FFmpeg libraries and headers..."
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            PREFIX="/clang64/ffbuild"
+          else
+            PREFIX="/clangarm64/ffbuild"
+          fi
+          
+          # Run make install to properly install everything
+          make install DESTDIR="" prefix="$PREFIX"
+          
           cd ../..
       
       - name: Save FFmpeg Libraries Cache
@@ -381,54 +411,83 @@ jobs:
       - name: Verify FFmpeg Installation
         shell: bash
         run: |
-          echo "Checking FFmpeg libraries..."
+          echo "=== Verifying FFmpeg Installation ==="
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            ls -la /clang64/ffbuild/lib/*.a | head -20 || echo "No libraries found!"
-            echo ""
-            echo "Checking pkg-config files..."
-            ls -la /clang64/ffbuild/lib/pkgconfig/*.pc | head -10 || echo "No pkg-config files found!"
-            export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig"
+            PREFIX="/clang64/ffbuild"
           else
-            ls -la /clangarm64/ffbuild/lib/*.a | head -20 || echo "No libraries found!"
-            echo ""
-            echo "Checking pkg-config files..."
-            ls -la /clangarm64/ffbuild/lib/pkgconfig/*.pc | head -10 || echo "No pkg-config files found!"
-            export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig"
+            PREFIX="/clangarm64/ffbuild"
           fi
+          
+          echo "Checking libraries in $PREFIX/lib/..."
+          if [ -f "$PREFIX/lib/libavcodec.a" ]; then
+            ls -la "$PREFIX/lib/"*.a | head -10
+            echo "✓ FFmpeg static libraries found"
+          else
+            echo "✗ FFmpeg static libraries NOT found!"
+            exit 1
+          fi
+          
           echo ""
-          echo "Testing pkg-config..."
-          pkg-config --exists libavcodec && echo "✓ libavcodec found" || echo "✗ libavcodec not found"
-          pkg-config --exists libavformat && echo "✓ libavformat found" || echo "✗ libavformat not found"
-          pkg-config --exists libavutil && echo "✓ libavutil found" || echo "✗ libavutil not found"
-          pkg-config --exists libswscale && echo "✓ libswscale found" || echo "✗ libswscale not found"
-          pkg-config --exists libswresample && echo "✓ libswresample found" || echo "✗ libswresample not found"
+          echo "Checking headers in $PREFIX/include/..."
+          if [ -d "$PREFIX/include/libavcodec" ]; then
+            ls -la "$PREFIX/include/" | head -10
+            echo "✓ FFmpeg headers found"
+          else
+            echo "✗ FFmpeg headers NOT found!"
+            exit 1
+          fi
+          
+          echo ""
+          echo "Checking pkg-config files in $PREFIX/lib/pkgconfig/..."
+          if [ -f "$PREFIX/lib/pkgconfig/libavcodec.pc" ]; then
+            ls -la "$PREFIX/lib/pkgconfig/"*.pc | head -10
+            echo "✓ pkg-config files found"
+          else
+            echo "✗ pkg-config files NOT found!"
+            exit 1
+          fi
 
       - name: Build Native Binary
-        shell: bash
+        shell: msys2 {0}
         run: |
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
+          
+          # Set environment for the correct architecture
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
             export CFLAGS="-I/clang64/ffbuild/include"
             export CXXFLAGS="-I/clang64/ffbuild/include"
             export LDFLAGS="-L/clang64/ffbuild/lib"
+            export CC="clang"
+            export CXX="clang++"
+            export AR="llvm-ar"
+            export NM="llvm-nm"
           else
             export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
             export CFLAGS="-I/clangarm64/ffbuild/include"
             export CXXFLAGS="-I/clangarm64/ffbuild/include"
             export LDFLAGS="-L/clangarm64/ffbuild/lib"
+            export CC="clang"
+            export CXX="clang++"
+            export AR="llvm-ar"
+            export NM="llvm-nm"
           fi
           
-          # Build using node-gyp directly (N-API ensures compatibility)
-          npx node-gyp rebuild
+          # CRITICAL: Use MSYS2's pkg-config, not Strawberry Perl's
+          export PATH="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin:$PATH"
+          which pkg-config
+          pkg-config --version
+          
+          # Build using node-gyp with clang (not MSVC)
+          npx node-gyp rebuild --verbose
           
           # Move binary to expected location
           mkdir -p build
           cp build/Release/node-av.node build/node-av.node
 
       - name: Run Tests
-        shell: bash
+        shell: msys2 {0}
         run: |
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
