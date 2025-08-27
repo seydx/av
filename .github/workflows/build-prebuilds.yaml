@@ -465,6 +465,14 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
 
+      - name: Install build dependencies
+        run: |
+          # Install the same dependencies that Jellyfin's 00-dep.sh installs
+          # This ensures they're in PATH for all subsequent steps
+          brew install wget subversion mercurial autoconf automake cmake meson ninja \
+            pkg-config coreutils gcc make python-setuptools pcre2 libtool gnu-sed \
+            gnu-tar nasm quilt texinfo
+
       - name: Prepare prefix dir
         run: |
           # Always create the directory structure with proper permissions
@@ -514,9 +522,8 @@ jobs:
             ARCH_NAME="x86_64"
           fi
           
-          # Run the build script - it will install its own dependencies via brew
-          # The buildmac.sh script calls images/macos/00-dep.sh which installs:
-          # coreutils, gnu-sed, gnu-tar, and other GNU tools needed for the build
+          # Run the build script
+          # Dependencies are already installed via brew in earlier step
           ./buildmac.sh $ARCH_NAME
           
           # The build script uses /ffbuild/prefix but we need /opt/ffbuild/prefix
