@@ -179,7 +179,7 @@ jobs:
 
   build_linux:
     name: 'Linux ${{ matrix.arch }}'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     # Skip this job if it's a tag push (handled by build-prebuilds-publish.yaml)
     if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
     strategy:
@@ -187,8 +187,10 @@ jobs:
         include:
           - arch: x64
             target: linux64
+            runner: ubuntu-latest
           - arch: arm64
             target: linuxarm64
+            runner: ubuntu-24.04-arm
     
     steps:
       - uses: actions/checkout@v5
@@ -342,7 +344,7 @@ jobs:
           # Install prebuildify
           npm install --no-save prebuildify
           
-          # Build N-API binary (works with all Node/Electron versions that support N-API)
+          # Build N-API binary (native build on matching architecture)
           npx prebuildify \
             --napi \
             --strip \
@@ -458,8 +460,8 @@ jobs:
         id: cache-ffmpeg-restore
         uses: actions/cache/restore@v4
         with:
-          path: ${{ matrix.os.msystem == 'CLANG64' && '/clang64/ffbuild' || '/clangarm64/ffbuild' }}
-          key: ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v2
+          path: ${{ matrix.os.msystem == 'CLANG64' && 'C:\msys64\clang64\ffbuild' || 'C:\msys64\clangarm64\ffbuild' }}
+          key: ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v3
           restore-keys: |
             ffmpeg-jellyfin-windows-${{ matrix.os.arch }}-
       
@@ -496,47 +498,61 @@ jobs:
         if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: ${{ matrix.os.msystem == 'CLANG64' && '/clang64/ffbuild' || '/clangarm64/ffbuild' }}
+          path: ${{ matrix.os.msystem == 'CLANG64' && 'C:\msys64\clang64\ffbuild' || 'C:\msys64\clangarm64\ffbuild' }}
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
       
 
       - name: Build Native Binary
         shell: bash
         run: |
-          # Use Jellyfin binding configuration
+          # Use Jellyfin binding configuration  
           cp binding-jellyfin.gyp binding.gyp
           
           # Install prebuildify
           npm install --no-save prebuildify
           
-          # Set up MSYS2 environment paths in Windows format
-          MSYS2_ROOT="C:\\msys64"
+          # Convert MSYS2 paths to Windows paths for MSVC
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            MSYS_PREFIX="${MSYS2_ROOT}\\clang64"
-            export PKG_CONFIG_PATH="${MSYS_PREFIX}\\ffbuild\\lib\\pkgconfig;${PKG_CONFIG_PATH}"
-            export CFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
-            export CXXFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
-            export LDFLAGS="-L${MSYS_PREFIX}\\ffbuild\\lib"
-            export CC="${MSYS_PREFIX}\\bin\\clang.exe"
-            export CXX="${MSYS_PREFIX}\\bin\\clang++.exe"
-            export AR="${MSYS_PREFIX}\\bin\\llvm-ar.exe"
-            export NM="${MSYS_PREFIX}\\bin\\llvm-nm.exe"
-            STRIP_BIN="${MSYS_PREFIX}\\bin\\strip.exe"
+            MSYS_PREFIX="C:\\msys64\\clang64"
+            STRIP_BIN="C:\\msys64\\clang64\\bin\\strip.exe"
           else
-            MSYS_PREFIX="${MSYS2_ROOT}\\clangarm64"
-            export PKG_CONFIG_PATH="${MSYS_PREFIX}\\ffbuild\\lib\\pkgconfig;${PKG_CONFIG_PATH}"
-            export CFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
-            export CXXFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
-            export LDFLAGS="-L${MSYS_PREFIX}\\ffbuild\\lib"
-            export CC="${MSYS_PREFIX}\\bin\\clang.exe"
-            export CXX="${MSYS_PREFIX}\\bin\\clang++.exe"
-            export AR="${MSYS_PREFIX}\\bin\\llvm-ar.exe"
-            export NM="${MSYS_PREFIX}\\bin\\llvm-nm.exe"
-            STRIP_BIN="${MSYS_PREFIX}\\bin\\strip.exe"
+            MSYS_PREFIX="C:\\msys64\\clangarm64"
+            STRIP_BIN="C:\\msys64\\clangarm64\\bin\\strip.exe"
           fi
           
-          # Add MSYS2 bin to PATH for pkg-config and other tools
-          export PATH="${MSYS_PREFIX}\\bin;${PATH}"
+          # Update binding.gyp to use Windows paths
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            sed -i 's|/clang64|C:\\\\msys64\\\\clang64|g' binding.gyp
+          else
+            sed -i 's|/clangarm64|C:\\\\msys64\\\\clangarm64|g' binding.gyp
+          fi
+          
+          # Also need to change library names from -l format to direct .a files for MSVC
+          sed -i 's|"-lavformat"|"libavformat.a"|g' binding.gyp
+          sed -i 's|"-lavcodec"|"libavcodec.a"|g' binding.gyp
+          sed -i 's|"-lavfilter"|"libavfilter.a"|g' binding.gyp
+          sed -i 's|"-lswscale"|"libswscale.a"|g' binding.gyp
+          sed -i 's|"-lswresample"|"libswresample.a"|g' binding.gyp
+          sed -i 's|"-lavdevice"|"libavdevice.a"|g' binding.gyp
+          sed -i 's|"-lavutil"|"libavutil.a"|g' binding.gyp
+          sed -i 's|"-lx264"|"libx264.a"|g' binding.gyp
+          sed -i 's|"-lx265"|"libx265.a"|g' binding.gyp
+          sed -i 's|"-lvpx"|"libvpx.a"|g' binding.gyp
+          sed -i 's|"-lopus"|"libopus.a"|g' binding.gyp
+          sed -i 's|"-lmp3lame"|"libmp3lame.a"|g' binding.gyp
+          sed -i 's|"-lfdk-aac"|"libfdk-aac.a"|g' binding.gyp
+          sed -i 's|"-ldav1d"|"libdav1d.a"|g' binding.gyp
+          sed -i 's|"-lSvtAv1Enc"|"libSvtAv1Enc.a"|g' binding.gyp
+          # Remove the -l prefix from Windows system libraries
+          sed -i 's|"-lws2_32"|"ws2_32.lib"|g' binding.gyp
+          sed -i 's|"-lsecur32"|"secur32.lib"|g' binding.gyp
+          sed -i 's|"-lbcrypt"|"bcrypt.lib"|g' binding.gyp
+          sed -i 's|"-lstrmiids"|"strmiids.lib"|g' binding.gyp
+          sed -i 's|"-lmfuuid"|"mfuuid.lib"|g' binding.gyp
+          sed -i 's|"-lole32"|"ole32.lib"|g' binding.gyp
+          sed -i 's|"-luser32"|"user32.lib"|g' binding.gyp
+          sed -i 's|"-ladvapi32"|"advapi32.lib"|g' binding.gyp
+          sed -i 's|"-lshell32"|"shell32.lib"|g' binding.gyp
           
           # Build N-API binary
           npx prebuildify \
@@ -544,6 +560,18 @@ jobs:
             --strip \
             --arch=${{ matrix.os.arch }} \
             --strip-bin="${STRIP_BIN}"
+          
+          # Copy to build directory for tests
+          mkdir -p build
+          if [ -f "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" ]; then
+            cp "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" build/node-av.node
+          else
+            # Debug: show what was actually created
+            echo "Expected binary at prebuilds/win32-${{ matrix.os.arch }}/node.napi.node not found"
+            echo "Contents of prebuilds/:"
+            ls -la prebuilds/ || echo "prebuilds directory not found"
+            exit 1
+          fi
           
           # Copy to build directory for tests
           mkdir -p build
