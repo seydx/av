@@ -18,7 +18,7 @@ env:
 jobs:
   build_docker_images:
     name: 'Build ${{ matrix.target }} Docker Image'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -27,8 +27,12 @@ jobs:
         include:
           - target: linux64
             variant: gpl
+            platform: linux/amd64
+            runner: ubuntu-latest  # x64 runner
           - target: linuxarm64
             variant: gpl
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm  # ARM64 runner
     
     steps:
       - uses: actions/checkout@v5
@@ -50,23 +54,24 @@ jobs:
           cd externals/jellyfin-ffmpeg/builder
           # Set our repository instead of jellyfin's
           export GITHUB_REPOSITORY="${{ github.repository }}"
+          
+          # Native build - no need for platform specification on native runners
           ./makeimage.sh ${{ matrix.target }} ${{ matrix.variant }}
       
       - name: Tag and Push Image
         run: |
-          # The makeimage.sh script now creates an image with our repository name
+          # The makeimage.sh creates a local image, we need to push it
           SOURCE_IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.target }}-${{ matrix.variant }}:latest"
           
-          # Our target repository (simplified naming)
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ github.repository }}:${{ matrix.target }}-${{ matrix.variant }}"
-          
-          # Push the image (it's already tagged correctly)
+          # Push the main image
           docker push "$SOURCE_IMAGE"
           
-          # Also tag with simplified name and date
+          # Create and push simplified tag
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ github.repository }}:${{ matrix.target }}-${{ matrix.variant }}"
           docker tag "$SOURCE_IMAGE" "$IMAGE_TAG"
           docker push "$IMAGE_TAG"
           
+          # Create and push date tag
           DATE_TAG="${{ env.REGISTRY }}/${{ github.repository }}:${{ matrix.target }}-${{ matrix.variant }}-$(date +%Y%m%d)"
           docker tag "$SOURCE_IMAGE" "$DATE_TAG"
           docker push "$DATE_TAG"
