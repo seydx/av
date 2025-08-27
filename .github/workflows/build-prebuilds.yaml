@@ -193,24 +193,42 @@ jobs:
           npm install --no-save prebuildify
 
       - name: Build Native Addon
-        shell: bash
+        shell: msys2 {0}
         run: |
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           
-          # Set strip binary path
+          # Set environment for MSYS2/Clang build
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            STRIP_BIN="C:\\msys64\\clang64\\bin\\strip.exe"
+            export CC="clang"
+            export CXX="clang++"
+            export AR="llvm-ar"
+            export LINK="clang++"
+            export LD="clang++"
+            export NM="llvm-nm"
+            export RANLIB="llvm-ranlib"
+            STRIP_BIN="/clang64/bin/strip.exe"
           else
-            STRIP_BIN="C:\\msys64\\clangarm64\\bin\\strip.exe"
+            export CC="clang"
+            export CXX="clang++"
+            export AR="llvm-ar" 
+            export LINK="clang++"
+            export LD="clang++"
+            export NM="llvm-nm"
+            export RANLIB="llvm-ranlib"
+            STRIP_BIN="/clangarm64/bin/strip.exe"
           fi
           
-          # Build N-API binary
+          # Set pkg-config path
+          export PKG_CONFIG_PATH="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          
+          # Build N-API binary with MSYS2 make instead of MSVS
           npx prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.os.arch }} \
-            --strip-bin="${STRIP_BIN}"
+            --strip-bin="${STRIP_BIN}" \
+            --backend=make
           
           echo "Native addon built successfully"
           echo "Prebuild structure:"
@@ -323,17 +341,16 @@ jobs:
             echo "Docker image built locally: ${IMAGE}"
           fi
           
-          # Create a modified version of build.sh that preserves ffbuild/prefix and disables LTO
+          # Create a modified version of build.sh that preserves ffbuild/prefix
           # We copy build.sh and modify it
           cp build.sh build-preserve.sh
           # Comment out line 104 which deletes ffbuild
           sed -i '104s/^/# /' build-preserve.sh
-          # Replace --enable-lto in the configure command inside the Docker script
-          # The configure line is built dynamically, so we patch the final command
-          sed -i 's/--enable-lto[^ ]*/--disable-lto/g' build-preserve.sh
-          # Also patch the variant file that adds the LTO flag
-          sed -i 's/--enable-lto[^ ]*/--disable-lto/g' variants/defaults-gpl.sh
           chmod +x build-preserve.sh
+          
+          # Disable LTO by removing it from the variant file
+          # The --enable-lto=auto is on line 9 of variants/defaults-gpl.sh
+          sed -i 's/--enable-lto=auto//' variants/defaults-gpl.sh
           
           # Build FFmpeg using modified script
           echo "Building FFmpeg using modified build script (LTO disabled)..."
