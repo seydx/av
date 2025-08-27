@@ -255,9 +255,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-v1-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
-            ffmpeg-linux-${{ matrix.arch }}-
+            ffmpeg-linux-${{ matrix.arch }}-v1-
             
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -276,13 +276,7 @@ jobs:
         run: |
           cd externals/jellyfin-ffmpeg
           
-          # Set environment to use our repository namespace for Docker images
-          # This makes Jellyfin's scripts use ghcr.io/<our-repo>/ instead of ghcr.io/jellyfin/jellyfin-ffmpeg/
-          export GITHUB_REPOSITORY="${{ github.repository }}"
-          
-          # Build using Jellyfin's builder scripts
-          cd builder
-          
+          # Use Jellyfin's build scripts with modification to preserve ffbuild/prefix
           # Determine target
           if [ "${{ matrix.target }}" = "amd64" ]; then
             TARGET="linux64"
@@ -290,34 +284,68 @@ jobs:
             TARGET="linuxarm64"
           fi
           
-          # Check if our Docker image exists
-          DOCKER_IMAGE="ghcr.io/${{ github.repository }}/${TARGET}-gpl:latest"
-          echo "Checking for Docker image: ${DOCKER_IMAGE}"
+          # Use our own Docker image, NOT Jellyfin's (they are private)
+          cd builder
+          IMAGE="ghcr.io/${{ github.repository }}/${TARGET}-gpl:latest"
           
-          if ! docker pull "${DOCKER_IMAGE}" 2>/dev/null; then
-            echo "Docker image not found, building it locally..."
-            # Build the Docker image locally (for this run only)
-            # Note: We do NOT push it - that's handled by build-docker-images.yaml
-            ./makeimage.sh "${TARGET}" gpl
-            DOCKER_IMAGE="ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
-            echo "Docker image built locally: ${DOCKER_IMAGE}"
+          # Try to pull our image from registry first
+          if docker pull "${IMAGE}" 2>/dev/null; then
+            echo "✓ Using our Docker image from registry: ${IMAGE}"
           else
-            echo "✓ Using existing Docker image from registry"
+            # If not available, build it locally using Jellyfin's makeimage.sh
+            echo "Docker image not in registry, building locally..."
+            # Set GITHUB_REPOSITORY so makeimage.sh uses our namespace
+            export GITHUB_REPOSITORY="${{ github.repository }}"
+            ./makeimage.sh "${TARGET}" gpl
+            echo "Docker image built locally: ${IMAGE}"
           fi
           
-          # Extract ALL libraries from the Docker image
-          # The libraries are in /opt/ffbuild in the container!
-          CONTAINER_ID=$(docker create "$DOCKER_IMAGE")
+          # Create a modified version of build.sh that preserves ffbuild/prefix
+          # We copy build.sh and comment out the rm -rf ffbuild line
+          cp build.sh build-preserve.sh
+          # Comment out line 104 which deletes ffbuild
+          sed -i '104s/^/# /' build-preserve.sh
+          chmod +x build-preserve.sh
           
-          # Copy everything from /opt/ffbuild in container to /opt/ffbuild/prefix on host
-          sudo mkdir -p /opt/ffbuild/prefix
-          sudo docker cp "$CONTAINER_ID:/opt/ffbuild/." /opt/ffbuild/prefix/
-          docker rm "$CONTAINER_ID"
+          # Build FFmpeg using modified script
+          echo "Building FFmpeg using modified build script..."
+          # Set GITHUB_REPOSITORY so build.sh uses our Docker images
+          export GITHUB_REPOSITORY="${{ github.repository }}"
+          ./build-preserve.sh "${TARGET}" gpl
           
-          # Fix permissions after docker cp (which creates files as root)
-          sudo chown -R $USER:$USER /opt/ffbuild
-          
-          echo "Extracted libraries from Docker image"
+          # Now extract the prefix directory which contains all headers and static libraries
+          if [ -d ffbuild/prefix ]; then
+            echo "Extracting FFmpeg build artifacts..."
+            sudo mkdir -p /opt/ffbuild/prefix
+            sudo cp -r ffbuild/prefix/* /opt/ffbuild/prefix/
+            
+            # Also check if codec libraries are in /opt/ffbuild inside container
+            # We might need to extract them from our Docker image
+            CONTAINER_ID=$(docker create "ghcr.io/${{ github.repository }}/${TARGET}-gpl:latest")
+            # Try to copy codec libraries if they exist
+            docker cp "${CONTAINER_ID}:/opt/ffbuild/lib" /tmp/codec-libs 2>/dev/null && {
+              echo "Found codec libraries in Docker image, copying..."
+              sudo cp -n /tmp/codec-libs/*.a /opt/ffbuild/prefix/lib/ 2>/dev/null || true
+              rm -rf /tmp/codec-libs
+            }
+            docker cp "${CONTAINER_ID}:/opt/ffbuild/include" /tmp/codec-includes 2>/dev/null && {
+              echo "Found codec headers in Docker image, copying..."
+              sudo cp -rn /tmp/codec-includes/* /opt/ffbuild/prefix/include/ 2>/dev/null || true
+              rm -rf /tmp/codec-includes
+            }
+            docker rm "${CONTAINER_ID}"
+            
+            # Clean up the preserved ffbuild directory now
+            rm -rf ffbuild
+            
+            sudo chown -R $USER:$USER /opt/ffbuild
+          else
+            echo "Error: ffbuild/prefix not found!"
+            echo "Checking what exists:"
+            ls -la ffbuild/ 2>/dev/null || echo "ffbuild directory not found"
+            ls -la . || echo "Current directory contents"
+            exit 1
+          fi
           
           echo "=== Build completed, verifying outputs ==="
           echo "Total static libraries: $(ls /opt/ffbuild/prefix/lib/*.a 2>/dev/null | wc -l)"
@@ -327,11 +355,9 @@ jobs:
             ls -la /opt/ffbuild/prefix/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
           done
           echo "Codec libraries:"
-          for lib in libx264 libx265 libopus libvpx libdav1d libfdk-aac; do
+          for lib in libx264 libx265 libopus libvpx libvorbis libmp3lame; do
             ls -la /opt/ffbuild/prefix/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
           done
-          echo "PKG-CONFIG files:"
-          ls /opt/ffbuild/prefix/lib/pkgconfig/*.pc 2>/dev/null | head -5 || echo "No .pc files found"
           cd ../..
           
       - name: Save FFmpeg cache
@@ -339,7 +365,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-v1-${{ steps.ffmpeg-hash.outputs.hash }}
 
       - name: Install Node dependencies
         run: |
@@ -351,12 +377,21 @@ jobs:
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           
+          # Set up environment variables that node-gyp will use
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          export CFLAGS="-I/opt/ffbuild/prefix/include"
-          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
-          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           
-          # Build N-API binary
+          # node-gyp reads these npm_config_* environment variables
+          export npm_config_build_from_source=true
+          export npm_config_jobs=max
+          
+          # Create a temporary .npmrc to ensure the flags are passed to node-gyp
+          echo "build_from_source=true" > .npmrc
+          echo "jobs=max" >> .npmrc
+          
+          # Build N-API binary with proper include paths
+          CFLAGS="-I/opt/ffbuild/prefix/include" \
+          CXXFLAGS="-I/opt/ffbuild/prefix/include" \
+          LDFLAGS="-L/opt/ffbuild/prefix/lib" \
           npx prebuildify \
             --napi \
             --strip \
@@ -410,7 +445,8 @@ jobs:
           # Always create the directory structure with proper permissions
           # This is needed for both cache restore and fresh builds
           sudo mkdir -p /opt/ffbuild/prefix
-          sudo chown -R $USER:$USER /opt/ffbuild
+          # On macOS, use staff group instead of user's name
+          sudo chown -R $USER:staff /opt/ffbuild
           sudo chmod -R 755 /opt/ffbuild
           
       - name: Get Jellyfin FFmpeg commit hash
@@ -431,7 +467,7 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
         run: |
           # Fix permissions after cache restore if needed
-          sudo chown -R $USER:$USER /opt/ffbuild 2>/dev/null || true
+          sudo chown -R $USER:staff /opt/ffbuild 2>/dev/null || true
           
           echo "Cache restored, checking contents:"
           echo "Libraries: $(ls /opt/ffbuild/prefix/lib/*.a 2>/dev/null | wc -l)"
