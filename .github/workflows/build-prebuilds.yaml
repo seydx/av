@@ -65,28 +65,19 @@ jobs:
             # We'll handle this by modifying the configure prefix
           fi
           
-          # Make helper scripts available in PATH (required by library build scripts)
-          sudo mkdir -p /usr/local/bin
-          for script in externals/jellyfin-ffmpeg/builder/images/base/*.sh; do
-            if [ -f "$script" ]; then
-              scriptname=$(basename "$script" .sh)
-              sudo cp "$script" "/usr/local/bin/$scriptname"
-              sudo chmod +x "/usr/local/bin/$scriptname"
-            fi
-          done
-          
           # Run buildmac.sh from the jellyfin-ffmpeg root
           cd externals/jellyfin-ffmpeg
           
           # If symlink failed, we need to patch the build script
           if [ ! -L /ffbuild ]; then
             echo "Patching buildmac.sh to use /opt/ffbuild instead of /ffbuild"
-            sed -i '' 's|FFBUILD_PREFIX="/opt/ffbuild/prefix"|FFBUILD_PREFIX="/opt/ffbuild/prefix"|' builder/buildmac.sh
-            # Also patch the configure command in buildmac.sh
+            # The script already sets FFBUILD_PREFIX correctly, but configure uses hardcoded path
             sed -i '' 's|--prefix=/ffbuild/prefix|--prefix=/opt/ffbuild/prefix|' builder/buildmac.sh
           fi
           
           # Map GitHub arch to Jellyfin arch
+          # IMPORTANT: Set PKG_CONFIG_PATH so FFmpeg can find the dependencies
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
           if [ "${{ matrix.arch }}" = "x64" ]; then
             ./builder/buildmac.sh x86_64
           else
@@ -97,12 +88,6 @@ jobs:
           echo "Installing FFmpeg libraries and headers..."
           make install DESTDIR="" prefix="/opt/ffbuild/prefix"
           
-          # Verify installation
-          echo "Verifying FFmpeg installation..."
-          ls -la /opt/ffbuild/prefix/lib/*.a | head -5 || echo "No static libraries found!"
-          ls -la /opt/ffbuild/prefix/include/ || echo "No headers found!"
-          ls -la /opt/ffbuild/prefix/lib/pkgconfig/*.pc | head -5 || echo "No pkg-config files found!"
-          
           cd ../..
       
       - name: Save FFmpeg Libraries Cache
@@ -112,22 +97,6 @@ jobs:
           path: /opt/ffbuild/prefix
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
       
-      - name: Verify FFmpeg Installation
-        run: |
-          echo "Checking FFmpeg libraries..."
-          ls -la /opt/ffbuild/prefix/lib/*.a | head -20 || echo "No libraries found!"
-          echo ""
-          echo "Checking pkg-config files..."
-          ls -la /opt/ffbuild/prefix/lib/pkgconfig/*.pc | head -10 || echo "No pkg-config files found!"
-          echo ""
-          echo "Testing pkg-config..."
-          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig"
-          pkg-config --exists libavcodec && echo "✓ libavcodec found" || echo "✗ libavcodec not found"
-          pkg-config --exists libavformat && echo "✓ libavformat found" || echo "✗ libavformat not found"
-          pkg-config --exists libavutil && echo "✓ libavutil found" || echo "✗ libavutil not found"
-          pkg-config --exists libswscale && echo "✓ libswscale found" || echo "✗ libswscale not found"
-          pkg-config --exists libswresample && echo "✓ libswresample found" || echo "✗ libswresample not found"
-          
       - name: Build Native Binary
         run: |
           # Use Jellyfin binding configuration
@@ -238,51 +207,58 @@ jobs:
           # Now we have the Docker image, let's build FFmpeg and extract libraries/headers
           echo "Building FFmpeg libraries and extracting from Docker..."
           
+          # Use Jellyfin's build.sh approach - prepare local directories
+          rm -rf ffbuild
+          mkdir -p ffbuild/ffmpeg
+          rsync -a ../.. ffbuild/ffmpeg --exclude=$(basename "$PWD") --exclude=.git
+          
           # Create a build script that will run inside Docker
           cat > build-ffmpeg-libs.sh << 'EOF'
           #!/bin/bash
           set -xe
           cd /ffbuild
-          
-          # FFmpeg source should be available
-          if [ ! -d ffmpeg ]; then
-            echo "Error: FFmpeg source not found in Docker image!"
-            exit 1
-          fi
-          
           cd ffmpeg
           
-          # Configure if not already done
-          if [ ! -f config.h ]; then
-            ./configure --prefix=/ffbuild/prefix \
-              $FFBUILD_TARGET_FLAGS \
-              --extra-version="Jellyfin" \
-              $(cat /ffbuild/ffmpeg_configure_flags.txt 2>/dev/null || echo "")
+          # Apply patches if any
+          if [[ -f "debian/patches/series" ]]; then
+            ln -s /ffbuild/ffmpeg/debian/patches patches
+            quilt push -a
           fi
+          
+          # Configure FFmpeg with all the collected flags
+          ./configure --prefix=/ffbuild/prefix \
+            $FFBUILD_TARGET_FLAGS \
+            --extra-version="Jellyfin" \
+            --extra-cflags="$FF_CFLAGS" \
+            --extra-cxxflags="$FF_CXXFLAGS" \
+            --extra-ldflags="$FF_LDFLAGS" \
+            --extra-ldexeflags="$FF_LDEXEFLAGS" \
+            --extra-libs="$FF_LIBS" \
+            $FF_CONFIGURE
           
           # Build FFmpeg
           make -j$(nproc)
           
-          # Install libraries and headers (not binaries to save time)
-          make install-libs-static install-headers
+          # Install everything
+          make install
           
-          # Package the results
+          # Package the results (only dev files, not binaries)
           cd /ffbuild
           tar czf /output/ffmpeg-dev.tar.gz prefix/include prefix/lib
           EOF
           
           chmod +x build-ffmpeg-libs.sh
           
-          # Run the build script in Docker
+          # Run the build script in Docker (mount ffbuild directory like Jellyfin does)
           mkdir -p output
-          docker run --rm -v $(pwd)/output:/output -v $(pwd)/build-ffmpeg-libs.sh:/build.sh "$OUR_IMAGE" bash /build.sh
+          docker run --rm -v $(pwd)/ffbuild:/ffbuild -v $(pwd)/output:/output -v $(pwd)/build-ffmpeg-libs.sh:/build.sh "$OUR_IMAGE" bash /build.sh
           
           # Extract the libraries and headers to the expected location
           sudo mkdir -p /opt/ffbuild
           sudo tar xzf output/ffmpeg-dev.tar.gz -C /opt/ffbuild/
           
           # Cleanup
-          rm -rf output build-ffmpeg-libs.sh
+          rm -rf ffbuild output build-ffmpeg-libs.sh
           
           cd ../..
       
@@ -292,13 +268,6 @@ jobs:
         with:
           path: /opt/ffbuild/prefix
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
-          
-      - name: Verify FFmpeg Libraries
-        run: |
-          # Verify that the development files are available
-          ls -la /opt/ffbuild/prefix/include/ | head -20
-          ls -la /opt/ffbuild/prefix/lib/ | head -20
-          pkg-config --exists libavcodec || echo "Warning: pkg-config files may not be properly configured"
           
       - name: Build Native Binary
         run: |
@@ -439,8 +408,8 @@ jobs:
             PREFIX="/clangarm64/ffbuild"
           fi
           
-          # Install libraries and headers (skip binaries to save time)
-          make install-libs-static install-headers DESTDIR="" prefix="$PREFIX"
+          # Install everything (make install is simpler and works)
+          make install DESTDIR="" prefix="$PREFIX"
           
           cd ../..
       
@@ -451,44 +420,6 @@ jobs:
           path: ${{ matrix.os.msystem == 'CLANG64' && '/clang64/ffbuild' || '/clangarm64/ffbuild' }}
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
       
-      - name: Verify FFmpeg Installation
-        shell: bash
-        run: |
-          echo "=== Verifying FFmpeg Installation ==="
-          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            PREFIX="/clang64/ffbuild"
-          else
-            PREFIX="/clangarm64/ffbuild"
-          fi
-          
-          echo "Checking libraries in $PREFIX/lib/..."
-          if [ -f "$PREFIX/lib/libavcodec.a" ]; then
-            ls -la "$PREFIX/lib/"*.a | head -10
-            echo "✓ FFmpeg static libraries found"
-          else
-            echo "✗ FFmpeg static libraries NOT found!"
-            exit 1
-          fi
-          
-          echo ""
-          echo "Checking headers in $PREFIX/include/..."
-          if [ -d "$PREFIX/include/libavcodec" ]; then
-            ls -la "$PREFIX/include/" | head -10
-            echo "✓ FFmpeg headers found"
-          else
-            echo "✗ FFmpeg headers NOT found!"
-            exit 1
-          fi
-          
-          echo ""
-          echo "Checking pkg-config files in $PREFIX/lib/pkgconfig/..."
-          if [ -f "$PREFIX/lib/pkgconfig/libavcodec.pc" ]; then
-            ls -la "$PREFIX/lib/pkgconfig/"*.pc | head -10
-            echo "✓ pkg-config files found"
-          else
-            echo "✗ pkg-config files NOT found!"
-            exit 1
-          fi
 
       - name: Build Native Binary
         shell: msys2 {0}
