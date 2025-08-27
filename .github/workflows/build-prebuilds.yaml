@@ -274,11 +274,6 @@ jobs:
             TARGET="linuxarm64"
           fi
           
-          # The build.sh script will:
-          # 1. Try to pull ghcr.io/<our-repo>/${TARGET}-gpl:latest
-          # 2. If not found, build.sh uses the base image to build
-          # Note: makeimage.sh creates the Docker image if needed
-          
           # Check if our Docker image exists
           DOCKER_IMAGE="ghcr.io/${{ github.repository }}/${TARGET}-gpl:latest"
           echo "Checking for Docker image: ${DOCKER_IMAGE}"
@@ -288,38 +283,22 @@ jobs:
             # Build the Docker image locally (for this run only)
             # Note: We do NOT push it - that's handled by build-docker-images.yaml
             ./makeimage.sh "${TARGET}" gpl
-            echo "Docker image built locally for this run"
+            DOCKER_IMAGE="ghcr.io/jellyfin/jellyfin-ffmpeg/${TARGET}-gpl:latest"
+            echo "Docker image built locally: ${DOCKER_IMAGE}"
           else
             echo "✓ Using existing Docker image from registry"
           fi
           
-          # Run the build with the Docker image (now guaranteed to exist)
-          # IMPORTANT: build.sh creates ffbuild/prefix/ with libraries,
-          # but then deletes it at the end! We need to preserve it.
+          # Extract ALL libraries from the Docker image
+          # The libraries are in /opt/ffbuild in the container!
+          CONTAINER_ID=$(docker create "$DOCKER_IMAGE")
           
-          # Modify build.sh to not delete ffbuild directory
-          # We make a copy and patch it
-          cp build.sh build-preserve.sh
-          # Comment out the rm -rf ffbuild line
-          sed -i 's/^rm -rf ffbuild/#rm -rf ffbuild/' build-preserve.sh
+          # Copy everything from /opt/ffbuild in container to /opt/ffbuild/prefix on host
+          sudo mkdir -p /opt/ffbuild/prefix
+          docker cp "$CONTAINER_ID:/opt/ffbuild/." /opt/ffbuild/prefix/
+          docker rm "$CONTAINER_ID"
           
-          # Run our modified build script
-          ./build-preserve.sh "${TARGET}" gpl
-          
-          # Now the libraries are in ffbuild/prefix/ and won't be deleted
-          # Move them to our standard location
-          sudo mkdir -p /opt/ffbuild
-          if [ -d "ffbuild/prefix" ]; then
-            sudo mv ffbuild/prefix /opt/ffbuild/
-            echo "Libraries successfully moved to /opt/ffbuild/prefix"
-          else
-            echo "ERROR: ffbuild/prefix not found after build!"
-            ls -la ffbuild/ || echo "ffbuild directory not found"
-            exit 1
-          fi
-          
-          # Clean up
-          rm -rf ffbuild build-preserve.sh
+          echo "Extracted libraries from Docker image"
           
           echo "=== Build completed, verifying outputs ==="
           echo "Total static libraries: $(ls /opt/ffbuild/prefix/lib/*.a 2>/dev/null | wc -l)"
