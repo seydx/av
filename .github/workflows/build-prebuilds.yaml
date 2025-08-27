@@ -210,7 +210,8 @@ jobs:
           # Use Jellyfin's build.sh approach - prepare local directories
           rm -rf ffbuild
           mkdir -p ffbuild/ffmpeg
-          rsync -a ../.. ffbuild/ffmpeg --exclude=$(basename "$PWD") --exclude=.git
+          # We're in externals/jellyfin-ffmpeg, copy the FFmpeg source (current directory)
+          rsync -a . ffbuild/ffmpeg --exclude=builder --exclude=.git
           
           # Create a build script that will run inside Docker
           cat > build-ffmpeg-libs.sh << 'EOF'
