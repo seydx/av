@@ -274,7 +274,7 @@ jobs:
           path: /opt/ffbuild/prefix
           key: ffmpeg-linux-${{ matrix.arch }}-v3-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
-            ffmpeg-linux-${{ matrix.arch }}-v2-
+            ffmpeg-linux-${{ matrix.arch }}-v3-
             
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
