@@ -178,6 +178,41 @@ jobs:
           echo "=== Final library count: $(ls ${PREFIX}/lib/*.a | wc -l) ==="
           echo "=== Final header directories: $(ls -d ${PREFIX}/include/*/ | wc -l) ==="
           
+          # Debug: Check what exists for cache
+          echo "=== Checking cache paths ==="
+          echo "MSYS2 path ${PREFIX} exists: $([ -d ${PREFIX} ] && echo 'YES' || echo 'NO')"
+          echo "Windows path C:\\msys64\\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\\ffbuild exists:"
+          ls -la "C:\\msys64\\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\\ffbuild" 2>/dev/null || echo "Path not accessible from MSYS2 shell"
+          # Convert MSYS2 path to Windows path
+          echo "Content of ${PREFIX}:"
+          ls -la ${PREFIX}/ || echo "Not found"
+          
+      - name: Verify FFmpeg build output
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: |
+          # Check MSYS2 path
+          MSYS_PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
+          echo "Checking MSYS2 path: ${MSYS_PREFIX}"
+          if [ -d "${MSYS_PREFIX}" ]; then
+            echo "✓ MSYS2 directory exists"
+            echo "Libraries: $(find ${MSYS_PREFIX}/lib -name "*.a" 2>/dev/null | wc -l)"
+            echo "Headers: $(find ${MSYS_PREFIX}/include -name "*.h" 2>/dev/null | wc -l)"
+            
+            # Now check if it's accessible from Windows path
+            WIN_PREFIX="C:/msys64/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
+            echo "Checking Windows path: ${WIN_PREFIX}"
+            if [ -d "${WIN_PREFIX}" ]; then
+              echo "✓ Windows path also accessible"
+            else
+              echo "✗ Windows path not accessible from MSYS2"
+            fi
+          else
+            echo "✗ MSYS2 directory does not exist!"
+            echo "Checking if build actually created files:"
+            ls -la "/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/" | head -20
+          fi
+      
       - name: Save FFmpeg cache
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
         uses: actions/cache/save@v4
@@ -220,22 +255,47 @@ jobs:
           # Set pkg-config path
           export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
           
-          # Force node-gyp to use make instead of MSBuild
-          export npm_config_msvs_version=""
+          # CRITICAL: Force node-gyp to use make generator instead of MSVS
+          # This is essential for MSYS2/Clang builds
+          export npm_config_node_gyp="$(which node-gyp)"
+          export npm_config_disturl="https://nodejs.org/dist"
           export npm_config_build_from_source="true"
-          export GYP_MSVS_VERSION=""
           
           # Set include and lib paths
           export CFLAGS="-I${PREFIX}/include"
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
           
-          # Build N-API binary
-          npx prebuildify \
-            --napi \
-            --strip \
+          # Build N-API binary - use node-gyp directly with make generator
+          # prebuildify doesn't pass the generator flag, so we need to do it manually
+          NODE_VERSION="24.0.0"
+          TARGET_DIR="prebuilds/win32-${{ matrix.os.arch }}"
+          mkdir -p "${TARGET_DIR}"
+          
+          # Run node-gyp directly with make generator
+          npx node-gyp rebuild \
+            --target=${NODE_VERSION} \
             --arch=${{ matrix.os.arch }} \
-            --strip-bin="${STRIP_BIN}"
+            --dist-url=https://nodejs.org/dist \
+            --module_name=node-av \
+            --module_path="${TARGET_DIR}" \
+            --napi_version=9 \
+            --node_abi_napi=napi \
+            --release \
+            --jobs=max \
+            --verbose \
+            -- -f make
+          
+          # Move the built binary to the expected location
+          if [ -f "build/Release/node-av.node" ]; then
+            cp "build/Release/node-av.node" "${TARGET_DIR}/node.napi.node"
+            "${STRIP_BIN}" "${TARGET_DIR}/node.napi.node"
+            echo "Binary built and stripped successfully"
+          else
+            echo "Error: Binary not found at build/Release/node-av.node"
+            ls -la build/ || true
+            exit 1
+          fi
           
           echo "Native addon built successfully"
           echo "Prebuild structure:"
