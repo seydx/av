@@ -93,7 +93,9 @@ jobs:
         run: |
           # Always create the directory structure with proper permissions
           # This is needed for both cache restore and fresh builds
-          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild/lib/pkgconfig
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild/include
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild/bin
 
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
@@ -123,31 +125,9 @@ jobs:
         run: |
           cd externals/jellyfin-ffmpeg
           
-          # For ARM64, we need to manually copy libraries after makepkg-mingw installs them
-          if [ "${{ matrix.os.msystem }}" = "CLANGARM64" ]; then
-            echo "ARM64 build detected - will need to manually copy libraries"
-            # Create directories
-            mkdir -p /clangarm64/ffbuild/lib/pkgconfig
-            mkdir -p /clangarm64/ffbuild/include
-          fi
-          
           # Run Jellyfin build script (builds all dependencies + FFmpeg)
+          echo "Running build script: ${{ matrix.os.build_script }}"
           ${{ matrix.os.build_script }}
-          
-          # For ARM64, manually copy the built libraries from PKGBUILD directories
-          if [ "${{ matrix.os.msystem }}" = "CLANGARM64" ]; then
-            echo "Copying ARM64 libraries from PKGBUILD directories..."
-            # Find and copy all .a files from the build directories
-            find msys2/PKGBUILD -name "*.a" -path "*/dest/*/clangarm64/ffbuild/*" -exec cp {} /clangarm64/ffbuild/lib/ \; 2>/dev/null || true
-            # Find and copy all .pc files  
-            find msys2/PKGBUILD -name "*.pc" -path "*/dest/*/clangarm64/ffbuild/*" -exec cp {} /clangarm64/ffbuild/lib/pkgconfig/ \; 2>/dev/null || true
-            # Copy headers
-            for dir in msys2/PKGBUILD/*/src/dest/*/clangarm64/ffbuild/include/*; do
-              if [ -d "$dir" ]; then
-                cp -r "$dir" /clangarm64/ffbuild/include/ 2>/dev/null || true
-              fi
-            done
-          fi
           
           # After build, libraries are in /clang*/ffbuild/lib/
           # Headers are in /clang*/ffbuild/include/
@@ -225,7 +205,8 @@ jobs:
         shell: bash
         run: |
           npm ci --ignore-scripts
-          npm install --no-save prebuildify
+          # Install node-gyp globally to avoid modifying package-lock.json
+          npm install -g node-gyp
 
       - name: Build Native Addon
         shell: msys2 {0}
@@ -273,7 +254,7 @@ jobs:
           mkdir -p "${TARGET_DIR}"
           
           # Run node-gyp directly with make generator
-          npx node-gyp rebuild \
+          node-gyp rebuild \
             --target=${NODE_VERSION} \
             --arch=${{ matrix.os.arch }} \
             --dist-url=https://nodejs.org/dist \
@@ -478,7 +459,8 @@ jobs:
       - name: Install Node dependencies
         run: |
           npm ci --ignore-scripts
-          npm install --no-save prebuildify
+          # Install prebuildify globally to avoid modifying package-lock.json
+          npm install -g prebuildify
 
       - name: Build Native Addon
         run: |
@@ -507,18 +489,32 @@ jobs:
           CFLAGS="-I/opt/ffbuild/prefix/include" \
           CXXFLAGS="-I/opt/ffbuild/prefix/include" \
           LDFLAGS="-L/opt/ffbuild/prefix/lib" \
-          npx prebuildify \
+          prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.arch }} \
             --tag-libc
           
           echo "Native addon built successfully"
+          echo "Checking prebuild structure:"
           ls -la prebuilds/
+          ls -la prebuilds/linux-${{ matrix.arch }}/ || echo "Directory structure different"
           
-          # Copy binary for tests
-          mkdir -p build
-          cp prebuilds/linux-${{ matrix.arch }}/node-av.node build/node-av.node || true
+          # Copy binary for tests - prebuildify creates node.napi.node or node.napi.musl.node/node.napi.glibc.node
+          mkdir -p build/Release
+          if [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" ]; then
+            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node (glibc)"
+          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" ]; then
+            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node (musl)"
+          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.node" ]; then
+            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node"
+          else
+            echo "Warning: Binary not found at expected location"
+            find prebuilds -name "*.node" -type f
+          fi
 
       - name: Run Tests
         run: |
@@ -647,7 +643,8 @@ jobs:
       - name: Install Node dependencies
         run: |
           npm ci --ignore-scripts
-          npm install --no-save prebuildify
+          # Install prebuildify globally to avoid modifying package-lock.json
+          npm install -g prebuildify
 
       - name: Build Native Addon
         run: |
@@ -659,18 +656,29 @@ jobs:
           export CXXFLAGS="-I/opt/ffbuild/prefix/include"
           export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           
+          # Set deployment target to match Metal libraries
+          export MACOSX_DEPLOYMENT_TARGET="13.0"
+          
           # Build N-API binary
-          npx prebuildify \
+          prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.arch }}
           
           echo "Native addon built successfully"
+          echo "Checking prebuild structure:"
           ls -la prebuilds/
+          ls -la prebuilds/darwin-${{ matrix.arch }}/ || echo "Directory structure different"
           
-          # Copy binary for tests
-          mkdir -p build
-          cp prebuilds/darwin-${{ matrix.arch }}/node-av.node build/node-av.node || true
+          # Copy binary for tests - prebuildify creates node.napi.node
+          mkdir -p build/Release
+          if [ -f "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" ]; then
+            cp "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node"
+          else
+            echo "Warning: Binary not found at expected location"
+            find prebuilds -name "*.node" -type f
+          fi
 
       - name: Run Tests
         run: |
