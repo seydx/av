@@ -45,15 +45,24 @@ jobs:
         id: cache-ffmpeg-restore
         uses: actions/cache/restore@v4
         with:
-          path: /opt/ffbuild/prefix
-          key: ffmpeg-jellyfin-macos-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v2
+          path: ~/ffbuild-cache
+          key: ffmpeg-jellyfin-macos-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v3
           restore-keys: |
             ffmpeg-jellyfin-macos-${{ matrix.arch }}-
       
       - name: Build FFmpeg Libraries
         id: build-ffmpeg
-        if: steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         run: |
+          # Restore from cache if available
+          if [ -d ~/ffbuild-cache ] && [ "$(ls -A ~/ffbuild-cache)" ]; then
+            echo "Restoring FFmpeg libraries from cache..."
+            sudo mkdir -p /opt/ffbuild/prefix
+            sudo cp -r ~/ffbuild-cache/* /opt/ffbuild/prefix/
+            echo "Cache restored successfully"
+            exit 0
+          fi
+          
+          echo "Building FFmpeg libraries from source..."
           # Prepare prefix dir exactly like Jellyfin does
           sudo mkdir -p /opt/ffbuild
           sudo chmod 777 /opt/ffbuild
@@ -107,13 +116,17 @@ jobs:
           echo "Installing FFmpeg libraries and headers..."
           make install DESTDIR="" prefix="/opt/ffbuild/prefix"
           
+          # Save to cache directory
+          mkdir -p ~/ffbuild-cache
+          cp -r /opt/ffbuild/prefix/* ~/ffbuild-cache/
+          
           cd ../..
       
       - name: Save FFmpeg Libraries Cache
         if: steps.build-ffmpeg.outcome == 'success' && steps.cache-ffmpeg-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: /opt/ffbuild/prefix
+          path: ~/ffbuild-cache
           key: ${{ steps.cache-ffmpeg-restore.outputs.cache-primary-key }}
       
       - name: Build Native Binary
@@ -211,9 +224,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v4
+          key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v5
           restore-keys: |
-            ffmpeg-jellyfin-linux-${{ matrix.arch }}-
+            ffmpeg-jellyfin-linux-${{ matrix.arch }}-v5-
       
       - name: Build FFmpeg Libraries
         id: build-ffmpeg
