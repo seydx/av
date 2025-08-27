@@ -115,15 +115,6 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          # If we have a partial cache hit (restore-key match), clean the directory
-          # to avoid conflicts like "file exists" errors
-          PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
-          if [ -d "${PREFIX}" ]; then
-            echo "Cleaning existing prefix directory to avoid conflicts..."
-            rm -rf "${PREFIX}"/*
-            mkdir -p "${PREFIX}"
-          fi
-          
           cd externals/jellyfin-ffmpeg
           
           # For ARM64, we need to manually copy libraries after makepkg-mingw installs them
@@ -300,15 +291,6 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          # If we have a partial cache hit (restore-key match), clean the directory
-          # to avoid conflicts like "file exists" errors
-          if [ -d /opt/ffbuild/prefix ]; then
-            echo "Cleaning existing prefix directory to avoid conflicts..."
-            sudo rm -rf /opt/ffbuild/prefix/*
-            sudo mkdir -p /opt/ffbuild/prefix
-            sudo chown -R $USER:$USER /opt/ffbuild
-          fi
-          
           cd externals/jellyfin-ffmpeg
           
           # Use Jellyfin's build scripts with modification to preserve ffbuild/prefix
@@ -335,15 +317,17 @@ jobs:
             echo "Docker image built locally: ${IMAGE}"
           fi
           
-          # Create a modified version of build.sh that preserves ffbuild/prefix
-          # We copy build.sh and comment out the rm -rf ffbuild line
+          # Create a modified version of build.sh that preserves ffbuild/prefix and disables LTO
+          # We copy build.sh and modify it
           cp build.sh build-preserve.sh
           # Comment out line 104 which deletes ffbuild
           sed -i '104s/^/# /' build-preserve.sh
+          # Disable LTO to avoid version mismatch with node-gyp's compiler
+          sed -i 's/--enable-lto[^ ]*/--disable-lto/g' build-preserve.sh
           chmod +x build-preserve.sh
           
           # Build FFmpeg using modified script
-          echo "Building FFmpeg using modified build script..."
+          echo "Building FFmpeg using modified build script (LTO disabled)..."
           # Set GITHUB_REPOSITORY so build.sh uses our Docker images
           export GITHUB_REPOSITORY="${{ github.repository }}"
           ./build-preserve.sh "${TARGET}" gpl
@@ -516,24 +500,22 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          # If we have a partial cache hit (restore-key match), clean the directory
-          # to avoid conflicts like "file exists" errors
-          if [ -d /opt/ffbuild/prefix ]; then
-            echo "Cleaning existing prefix directory to avoid conflicts..."
-            sudo rm -rf /opt/ffbuild/prefix/*
-            sudo mkdir -p /opt/ffbuild/prefix
-            sudo chown -R $USER:staff /opt/ffbuild
-          fi
-          
           cd externals/jellyfin-ffmpeg/builder
           
           # Map our arch names to Jellyfin's
           ARCH_NAME="${{ matrix.arch }}"
           if [ "$ARCH_NAME" = "x64" ]; then
             ARCH_NAME="x86_64"
+            # Intel Mac - GNU tools are in /usr/local
+            export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/opt/gnu-sed/libexec/gnubin:/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
+          else
+            # ARM Mac - GNU tools are in /opt/homebrew
+            export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/opt/gnu-tar/libexec/gnubin:$PATH"
           fi
           
-          # Run the build script
+          # Run the build script - it will install its own dependencies via brew
+          # The buildmac.sh script calls images/macos/00-dep.sh which installs:
+          # coreutils, gnu-sed, gnu-tar, and other GNU tools needed for the build
           ./buildmac.sh $ARCH_NAME
           
           # The build script uses /ffbuild/prefix but we need /opt/ffbuild/prefix
@@ -553,7 +535,7 @@ jobs:
           done
           
           # Fix permissions before caching
-          sudo chown -R $USER:$USER /opt/ffbuild
+          sudo chown -R $USER:staff /opt/ffbuild
           
           cd ..
           
