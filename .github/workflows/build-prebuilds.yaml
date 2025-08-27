@@ -328,8 +328,11 @@ jobs:
           cp build.sh build-preserve.sh
           # Comment out line 104 which deletes ffbuild
           sed -i '104s/^/# /' build-preserve.sh
-          # Disable LTO to avoid version mismatch with node-gyp's compiler
+          # Replace --enable-lto in the configure command inside the Docker script
+          # The configure line is built dynamically, so we patch the final command
           sed -i 's/--enable-lto[^ ]*/--disable-lto/g' build-preserve.sh
+          # Also patch the variant file that adds the LTO flag
+          sed -i 's/--enable-lto[^ ]*/--disable-lto/g' variants/defaults-gpl.sh
           chmod +x build-preserve.sh
           
           # Build FFmpeg using modified script
