@@ -14,8 +14,60 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Get FFmpeg include path from pkg-config
+// Get FFmpeg include path from environment variable or auto-detect
 const getFFmpegPath = () => {
+  // First check environment variable
+  if (process.env.FFMPEG_INCLUDE_PATH) {
+    const envPath = process.env.FFMPEG_INCLUDE_PATH;
+    if (fs.existsSync(envPath)) {
+      return envPath;
+    }
+  }
+
+  // Try pkg-config for installed FFmpeg
+  try {
+    const pkgConfigPath = execSync('pkg-config --variable=includedir libavutil', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'], // Suppress stderr
+    }).trim();
+    if (pkgConfigPath && fs.existsSync(pkgConfigPath)) {
+      // Go up one level from libavutil include dir to get the FFmpeg root include
+      const ffmpegInclude = path.dirname(pkgConfigPath);
+      if (fs.existsSync(path.join(ffmpegInclude, 'libavcodec/avcodec.h'))) {
+        console.log('Using FFmpeg from pkg-config');
+        return ffmpegInclude;
+      }
+    }
+  } catch {
+    // pkg-config not available or libavutil not found
+  }
+
+  // Check common installation paths
+  const commonPaths = [
+    '/opt/ffbuild/prefix/include', // CI builds
+    '/usr/local/include', // Linux/macOS local
+    '/opt/homebrew/include', // macOS Homebrew ARM64
+    '/usr/local/opt/ffmpeg/include', // macOS Homebrew x64
+    'C:\\msys64\\clang64\\include', // Windows CLANG64
+    'C:\\msys64\\clangarm64\\include', // Windows CLANGARM64
+  ];
+
+  for (const includePath of commonPaths) {
+    if (fs.existsSync(path.join(includePath, 'libavcodec/avcodec.h'))) {
+      console.log(`Using FFmpeg from: ${includePath}`);
+      return includePath;
+    }
+  }
+
+  // Try Jellyfin FFmpeg if it exists
+  const jellyfinPath = path.join(__dirname, '../externals/jellyfin-ffmpeg');
+  if (fs.existsSync(jellyfinPath)) {
+    console.log('Using Jellyfin FFmpeg source');
+    return jellyfinPath;
+  }
+
+  // Fallback to original FFmpeg
+  console.log('Using original FFmpeg source');
   return path.join(__dirname, '../externals/ffmpeg');
 };
 
@@ -722,61 +774,6 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
         const name = match[1]; // Keep original AVERROR_ prefix
         const value = parseInt(match[2]);
         errorConstants.push({ name, value });
-      }
-    }
-
-    // Get platform-specific POSIX error codes
-    const getPosixErrorCode = (errorName) => {
-      try {
-        // Compile a small C program to get the actual error code
-        const cCode = `
-          #include <errno.h>
-          #include <stdio.h>
-          int main() {
-            printf("%d", ${errorName});
-            return 0;
-          }
-        `;
-        const tmpFile = path.join(__dirname, 'tmp_errno.c');
-        const tmpExe = path.join(__dirname, 'tmp_errno');
-        fs.writeFileSync(tmpFile, cCode);
-        execSync(`cc -o ${tmpExe} ${tmpFile}`, { stdio: 'ignore' });
-        const result = execSync(tmpExe, { encoding: 'utf8' }).trim();
-        fs.unlinkSync(tmpFile);
-        fs.unlinkSync(tmpExe);
-        return -parseInt(result); // FFmpeg uses negative error codes
-      } catch (e) {
-        console.warn(`Failed to get platform-specific value for ${errorName}`, e);
-        return null;
-      }
-    };
-
-    // Add common POSIX errors with platform-specific values
-    const posixErrorNames = [
-      { name: 'AVERROR_EAGAIN', errno: 'EAGAIN' },
-      { name: 'AVERROR_ENOMEM', errno: 'ENOMEM' },
-      { name: 'AVERROR_EINVAL', errno: 'EINVAL' },
-      { name: 'AVERROR_EPIPE', errno: 'EPIPE' },
-      { name: 'AVERROR_ENOSYS', errno: 'ENOSYS' },
-      { name: 'AVERROR_EIO', errno: 'EIO' },
-      { name: 'AVERROR_EPERM', errno: 'EPERM' },
-      { name: 'AVERROR_ETIMEDOUT', errno: 'ETIMEDOUT' },
-    ];
-
-    const posixErrors = [];
-    for (const { name, errno } of posixErrorNames) {
-      const value = getPosixErrorCode(errno);
-      if (value !== null) {
-        posixErrors.push({ name, value });
-        console.log(`  ${name}: ${value} (platform-specific)`);
-      }
-    }
-
-    // Check which errors we already have
-    const existingErrorNames = new Set(errorConstants.map((e) => e.name));
-    for (const posixError of posixErrors) {
-      if (!existingErrorNames.has(posixError.name)) {
-        errorConstants.push(posixError);
       }
     }
 

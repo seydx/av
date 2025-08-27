@@ -9,7 +9,8 @@ import { existsSync } from 'fs';
 import { createRequire } from 'module';
 import { join } from 'path';
 
-import type { AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { AVError, AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { PosixError } from './error.js';
 import type {
   NativeAudioFifo,
   NativeBitStreamFilter,
@@ -85,8 +86,7 @@ type NativeDictionaryConstructor = new () => NativeDictionary;
 interface NativeFFmpegErrorConstructor {
   new (code?: number): NativeFFmpegError;
   strerror(errnum: number): string;
-  makeError(posixError: number): number;
-  isError(code: number): boolean;
+  getAverror(errorName: PosixError): AVError;
 }
 
 interface NativeFilterConstructor {

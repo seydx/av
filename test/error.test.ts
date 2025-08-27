@@ -106,34 +106,6 @@ describe('FFmpegError', () => {
       });
     });
 
-    describe('makeError', () => {
-      it('should convert POSIX error to FFmpeg error', () => {
-        const ffmpegError = FFmpegError.makeError(22); // EINVAL
-        assert.equal(typeof ffmpegError, 'number', 'Should return number');
-        assert.ok(ffmpegError < 0, 'Should return negative number');
-      });
-
-      it('should handle common POSIX errors', () => {
-        const posixErrors = [1, 2, 5, 11, 12, 22];
-
-        for (const posix of posixErrors) {
-          const ffmpeg = FFmpegError.makeError(posix);
-          assert.ok(ffmpeg < 0, `Should convert ${posix} to negative`);
-        }
-      });
-
-      it('should handle zero', () => {
-        const result = FFmpegError.makeError(0);
-        assert.equal(typeof result, 'number');
-      });
-
-      it('should handle negative input', () => {
-        // Already negative, behavior depends on implementation
-        const result = FFmpegError.makeError(-22);
-        assert.equal(typeof result, 'number');
-      });
-    });
-
     describe('isFFmpegError', () => {
       it('should identify negative codes as errors', () => {
         assert.ok(FFmpegError.isFFmpegError(-1), '-1 should be error');

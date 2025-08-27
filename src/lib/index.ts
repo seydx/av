@@ -66,8 +66,8 @@ export { Rational } from './rational.js';
 // Logging
 export { Log } from './log.js';
 
-// FFmpegError
-export { FFmpegError } from './error.js';
+// Error handling
+export * from './error.js';
 
 // Utilities
 export * from './utilities.js';

@@ -1,5 +1,63 @@
 import { bindings } from './binding.js';
+import type { AVError } from './constants.js';
 import type { NativeFFmpegError } from './native-types.js';
+
+/**
+ * POSIX error names that can be converted to FFmpeg error codes.
+ * These are platform-specific and resolved at runtime.
+ */
+export enum PosixError {
+  EAGAIN = 'EAGAIN',
+  ENOMEM = 'ENOMEM',
+  EINVAL = 'EINVAL',
+  EIO = 'EIO',
+  EPIPE = 'EPIPE',
+  ENOSPC = 'ENOSPC',
+  ENOENT = 'ENOENT',
+  EACCES = 'EACCES',
+  EPERM = 'EPERM',
+  EEXIST = 'EEXIST',
+  ENODEV = 'ENODEV',
+  ENOTDIR = 'ENOTDIR',
+  EISDIR = 'EISDIR',
+  EBUSY = 'EBUSY',
+  EMFILE = 'EMFILE',
+  ERANGE = 'ERANGE',
+}
+
+// Cache for error codes to avoid repeated native calls
+const errorCache: Record<string, AVError> = {};
+
+/**
+ * Get a cached FFmpeg error code by name.
+ * @internal
+ */
+function getCachedError(name: PosixError): AVError {
+  if (!(name in errorCache)) {
+    errorCache[name] = bindings.FFmpegError.getAverror(name);
+  }
+  return errorCache[name];
+}
+
+// Platform-specific POSIX errors used by FFmpeg
+// These MUST be computed at runtime because POSIX error codes
+// differ between operating systems (e.g., EAGAIN is 35 on macOS but 11 on Linux)
+export const AVERROR_EAGAIN = getCachedError(PosixError.EAGAIN);
+export const AVERROR_ENOMEM = getCachedError(PosixError.ENOMEM);
+export const AVERROR_EINVAL = getCachedError(PosixError.EINVAL);
+export const AVERROR_EIO = getCachedError(PosixError.EIO);
+export const AVERROR_EPIPE = getCachedError(PosixError.EPIPE);
+export const AVERROR_ENOSPC = getCachedError(PosixError.ENOSPC);
+export const AVERROR_ENOENT = getCachedError(PosixError.ENOENT);
+export const AVERROR_EACCES = getCachedError(PosixError.EACCES);
+export const AVERROR_EPERM = getCachedError(PosixError.EPERM);
+export const AVERROR_EEXIST = getCachedError(PosixError.EEXIST);
+export const AVERROR_ENODEV = getCachedError(PosixError.ENODEV);
+export const AVERROR_ENOTDIR = getCachedError(PosixError.ENOTDIR);
+export const AVERROR_EISDIR = getCachedError(PosixError.EISDIR);
+export const AVERROR_EBUSY = getCachedError(PosixError.EBUSY);
+export const AVERROR_EMFILE = getCachedError(PosixError.EMFILE);
+export const AVERROR_ERANGE = getCachedError(PosixError.ERANGE);
 
 /**
  * FFmpeg error handling.
@@ -95,31 +153,44 @@ export class FFmpegError extends Error {
   }
 
   /**
-   * Convert a POSIX error code to FFmpeg error code.
+   * Get FFmpeg error code by POSIX error name dynamically.
    *
-   * Converts standard POSIX error codes to FFmpeg's error format.
+   * This method provides platform-independent access to POSIX error codes
+   * converted to FFmpeg format. The POSIX error codes are resolved at runtime
+   * to ensure correct platform-specific values.
    *
-   * Direct mapping to AVERROR() macro
-   *
-   * @param posixError - POSIX error code (positive)
+   * @param errorName - POSIX error name from the PosixError enum
    *
    * @returns FFmpeg error code (negative)
    *
+   * @throws {TypeError} If the error name is unknown
+   *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   * import { EAGAIN } from 'errno';
+   * import { FFmpegError, PosixError } from 'node-av';
    *
-   * const ffmpegError = FFmpegError.makeError(EAGAIN);
-   * // ffmpegError is now AVERROR(EAGAIN)
+   * // Get platform-specific error codes at runtime
+   * const AVERROR_EAGAIN = FFmpegError.AVERROR(PosixError.EAGAIN);
+   * const AVERROR_EIO = FFmpegError.AVERROR(PosixError.EIO);
    *
-   * if (ret === ffmpegError) {
-   *   console.log('Resource temporarily unavailable');
+   * // Use in comparisons
+   * const ret = await codecContext.receiveFrame(frame);
+   * if (ret === FFmpegError.AVERROR(PosixError.EAGAIN)) {
+   *   console.log('Need more input');
+   * }
+   *
+   * // Or use the pre-cached constants
+   * import { AVERROR_EAGAIN } from 'node-av';
+   * if (ret === AVERROR_EAGAIN) {
+   *   console.log('Need more input');
    * }
    * ```
+   *
+   * @see {@link getKnownErrors} To get all available POSIX error codes
+   * @see {@link PosixError} For the list of supported POSIX errors
    */
-  static makeError(posixError: number): number {
-    return bindings.FFmpegError.makeError(posixError);
+  static AVERROR(errorName: PosixError): AVError {
+    return bindings.FFmpegError.getAverror(errorName);
   }
 
   /**
@@ -138,7 +209,10 @@ export class FFmpegError extends Error {
    * ```
    */
   static isFFmpegError(code: number): boolean {
-    return bindings.FFmpegError.isError(code);
+    if (typeof code !== 'number') {
+      return false;
+    }
+    return code < 0;
   }
 
   /**
@@ -196,7 +270,7 @@ export class FFmpegError extends Error {
    * @see {@link isFFmpegError} To check if value is error
    */
   static throwIfError(code: number, operation?: string): void {
-    if (code < 0) {
+    if (FFmpegError.isFFmpegError(code)) {
       const error = new FFmpegError(code);
       if (operation) {
         (error as any).message = `${operation} failed: ${error.message}`;

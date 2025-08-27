@@ -29,8 +29,7 @@ private:
   // === Static Methods ===
   
   static Napi::Value Strerror(const Napi::CallbackInfo& info);
-  static Napi::Value MakeError(const Napi::CallbackInfo& info);
-  static Napi::Value IsError(const Napi::CallbackInfo& info);
+  static Napi::Value GetAverror(const Napi::CallbackInfo& info);
   
   // === Properties ===
   

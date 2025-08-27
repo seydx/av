@@ -680,18 +680,6 @@ export const AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION = 2 as AVStreamGroupPa
 export const AV_STREAM_GROUP_PARAMS_TILE_GRID = 3 as AVStreamGroupParamsType;
 export const AV_STREAM_GROUP_PARAMS_LCEVC = 4 as AVStreamGroupParamsType;
 
-// libavformat/avlanguage.h
-export type AVLangCodespace = number & { readonly [__ffmpeg_brand]: 'AVLangCodespace' };
-
-export const AV_LANG_ISO639_2_BIBL = 0 as AVLangCodespace;
-export const AV_LANG_ISO639_2_TERM = 1 as AVLangCodespace;
-export const AV_LANG_ISO639_1 = 2 as AVLangCodespace;
-
-// libavformat/mux.h
-export type AVWriteUncodedFrameFlags = number & { readonly [__ffmpeg_brand]: 'AVWriteUncodedFrameFlags' };
-
-export const AV_WRITE_UNCODED_FRAME_QUERY = 1 as AVWriteUncodedFrameFlags;
-
 // libavutil/avstring.h
 export type AVEscapeMode = number & { readonly [__ffmpeg_brand]: 'AVEscapeMode' };
 
@@ -1927,7 +1915,7 @@ export type AVFilterCmdFlag = number & { readonly [__ffmpeg_brand]: 'AVFilterCmd
 export const AVFILTER_CMD_FLAG_ONE = 1 as AVFilterCmdFlag;
 export const AVFILTER_CMD_FLAG_FAST = 2 as AVFilterCmdFlag;
 
-// AVFILTER constants (from libavfilter/avfilter.h, libavfilter/bufferqueue.h, libavfilter/buffersink.h...)
+// AVFILTER constants (from libavfilter/avfilter.h, libavfilter/buffersink.h, libavfilter/buffersrc.h...)
 export type AVFilterConstants = number & { readonly [__ffmpeg_brand]: 'AVFilterConstants' };
 
 export const AVFILTER_THREAD_SLICE = 0x1 as AVFilterConstants;
@@ -2064,11 +2052,10 @@ export const SWS_CS_SMPTE240M = 7 as SWSFlag;
 export const SWS_CS_DEFAULT = 5 as SWSFlag;
 export const SWS_CS_BT2020 = 9 as SWSFlag;
 
-// SWR constants (from libswresample/swresample.h, libswresample/swresample_internal.h)
+// SWR constants (from libswresample/swresample.h)
 export type SWRFlag = number & { readonly [__ffmpeg_brand]: 'SWRFlag' };
 
 export const SWR_FLAG_RESAMPLE = 1 as SWRFlag;
-export const SWR_CH_MAX = 64 as SWRFlag;
 
 // ============================================================================
 // AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods
@@ -2110,14 +2097,6 @@ export const AVERROR_HTTP_SERVER_ERROR = -1482175992 as AVError;
 export const AVERROR_EXPERIMENTAL = -733130664 as AVError;
 export const AVERROR_INPUT_CHANGED = -1668179713 as AVError;
 export const AVERROR_OUTPUT_CHANGED = -1668179714 as AVError;
-export const AVERROR_EAGAIN = -35 as AVError;
-export const AVERROR_ENOMEM = -12 as AVError;
-export const AVERROR_EINVAL = -22 as AVError;
-export const AVERROR_EPIPE = -32 as AVError;
-export const AVERROR_ENOSYS = -78 as AVError;
-export const AVERROR_EIO = -5 as AVError;
-export const AVERROR_EPERM = -1 as AVError;
-export const AVERROR_ETIMEDOUT = -60 as AVError;
 
 // Special time constants
 export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN

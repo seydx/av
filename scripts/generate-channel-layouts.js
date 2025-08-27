@@ -12,8 +12,23 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Get FFmpeg include path from pkg-config
+// Get FFmpeg include path from environment variable or fallback
 const getFFmpegPath = () => {
+  // First check environment variable
+  if (process.env.FFMPEG_INCLUDE_PATH) {
+    const envPath = process.env.FFMPEG_INCLUDE_PATH;
+    if (fs.existsSync(envPath)) {
+      return envPath;
+    }
+  }
+
+  // Try Jellyfin FFmpeg if it exists
+  const jellyfinPath = path.join(__dirname, '../externals/jellyfin-ffmpeg');
+  if (fs.existsSync(jellyfinPath)) {
+    return jellyfinPath;
+  }
+
+  // Fallback to original FFmpeg
   return path.join(__dirname, '../externals/ffmpeg');
 };
 
@@ -131,7 +146,58 @@ int main() {
 
   // Compile and run
   try {
-    execSync(`gcc -I${FFMPEG_PATH} -L/opt/homebrew/lib ${tmpFile} -lavutil -o ${outFile}`, { stdio: 'inherit' });
+    // Dynamically determine include and lib paths based on what exists
+    const possibleIncludePaths = [
+      `-I${FFMPEG_PATH}`,
+      '/opt/ffbuild/prefix/include', // CI builds
+      '/usr/local/include', // Linux/macOS local
+      '/opt/homebrew/include', // macOS Homebrew ARM64
+      '/usr/local/opt/ffmpeg/include', // macOS Homebrew x64
+      'C:\\msys64\\clang64\\include', // Windows CLANG64
+      'C:\\msys64\\clangarm64\\include', // Windows CLANGARM64
+      '/clang64/ffbuild/include', // Windows CI CLANG64
+      '/clangarm64/ffbuild/include', // Windows CI CLANGARM64
+    ];
+
+    const possibleLibPaths = [
+      '/opt/ffbuild/prefix/lib', // CI builds
+      '/usr/local/lib', // Linux/macOS local
+      '/opt/homebrew/lib', // macOS Homebrew ARM64
+      '/usr/local/opt/ffmpeg/lib', // macOS Homebrew x64
+      'C:\\msys64\\clang64\\lib', // Windows CLANG64
+      'C:\\msys64\\clangarm64\\lib', // Windows CLANGARM64
+      '/clang64/ffbuild/lib', // Windows CI CLANG64
+      '/clangarm64/ffbuild/lib', // Windows CI CLANGARM64
+    ];
+
+    // Filter to only existing paths
+    const includePaths = possibleIncludePaths
+      .filter((p) => !p.startsWith('-I') || fs.existsSync(p.substring(2)))
+      .map((p) => (p.startsWith('-I') ? p : `-I${p}`))
+      .filter((p) => {
+        const path = p.substring(2);
+        return path === FFMPEG_PATH || fs.existsSync(path);
+      })
+      .join(' ');
+
+    const libPaths = possibleLibPaths
+      .filter((p) => fs.existsSync(p))
+      .map((p) => `-L${p}`)
+      .join(' ');
+
+    // Try to use pkg-config if available
+    let pkgConfigFlags = '';
+    try {
+      pkgConfigFlags = execSync('pkg-config --cflags --libs libavutil', { encoding: 'utf8' }).trim();
+    } catch {
+      // pkg-config not available, use manual paths
+    }
+
+    const compileCmd = pkgConfigFlags
+      ? `gcc ${includePaths} ${tmpFile} ${pkgConfigFlags} -o ${outFile}`
+      : `gcc ${includePaths} ${libPaths} ${tmpFile} -lavutil -o ${outFile}`;
+
+    execSync(compileCmd, { stdio: 'inherit' });
     const output = execSync(outFile, { encoding: 'utf8' });
 
     // Clean up

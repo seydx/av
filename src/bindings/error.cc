@@ -1,4 +1,5 @@
 #include "error.h"
+#include <errno.h>
 
 namespace ffmpeg {
 
@@ -10,8 +11,7 @@ Napi::Object FFmpegError::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FFmpegError", {
     // Static methods
     StaticMethod<&FFmpegError::Strerror>("strerror"),
-    StaticMethod<&FFmpegError::MakeError>("makeError"),
-    StaticMethod<&FFmpegError::IsError>("isError"),
+    StaticMethod<&FFmpegError::GetAverror>("getAverror"),
     
     // Properties
     InstanceAccessor<&FFmpegError::GetErrorCode>("code"),
@@ -53,27 +53,40 @@ Napi::Value FFmpegError::Strerror(const Napi::CallbackInfo& info) {
   return Napi::String::New(env, errbuf);
 }
 
-Napi::Value FFmpegError::MakeError(const Napi::CallbackInfo& info) {
+Napi::Value FFmpegError::GetAverror(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  if (info.Length() < 1 || !info[0].IsNumber()) {
-    Napi::TypeError::New(env, "POSIX error code (number) required").ThrowAsJavaScriptException();
+  if (info.Length() < 1 || !info[0].IsString()) {
+    Napi::TypeError::New(env, "Error name (string) required").ThrowAsJavaScriptException();
     return env.Null();
   }
   
-  int posixError = info[0].As<Napi::Number>().Int32Value();
-  return Napi::Number::New(env, AVERROR(posixError));
-}
-
-Napi::Value FFmpegError::IsError(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
+  std::string errorName = info[0].As<Napi::String>().Utf8Value();
   
-  if (info.Length() < 1 || !info[0].IsNumber()) {
-    return Napi::Boolean::New(env, false);
-  }
+  // Handle POSIX error codes
+  if (errorName == "EAGAIN") return Napi::Number::New(env, AVERROR(EAGAIN));
+  if (errorName == "ENOMEM") return Napi::Number::New(env, AVERROR(ENOMEM));
+  if (errorName == "EINVAL") return Napi::Number::New(env, AVERROR(EINVAL));
+  if (errorName == "EIO") return Napi::Number::New(env, AVERROR(EIO));
+  if (errorName == "EPIPE") return Napi::Number::New(env, AVERROR(EPIPE));
+  if (errorName == "ENOSPC") return Napi::Number::New(env, AVERROR(ENOSPC));
+  if (errorName == "ENOENT") return Napi::Number::New(env, AVERROR(ENOENT));
+  if (errorName == "EACCES") return Napi::Number::New(env, AVERROR(EACCES));
+  if (errorName == "EPERM") return Napi::Number::New(env, AVERROR(EPERM));
+  if (errorName == "EEXIST") return Napi::Number::New(env, AVERROR(EEXIST));
+  if (errorName == "ENODEV") return Napi::Number::New(env, AVERROR(ENODEV));
+  if (errorName == "ENOTDIR") return Napi::Number::New(env, AVERROR(ENOTDIR));
+  if (errorName == "EISDIR") return Napi::Number::New(env, AVERROR(EISDIR));
+  if (errorName == "EBUSY") return Napi::Number::New(env, AVERROR(EBUSY));
+  if (errorName == "EMFILE") return Napi::Number::New(env, AVERROR(EMFILE));
+  if (errorName == "ERANGE") return Napi::Number::New(env, AVERROR(ERANGE));
   
-  int code = info[0].As<Napi::Number>().Int32Value();
-  return Napi::Boolean::New(env, code < 0);
+  // We don't handle FFmpeg-specific error codes here
+  // They are already available as constants in constants.ts
+  
+  // Unknown error name
+  Napi::TypeError::New(env, "Unknown error name: " + errorName).ThrowAsJavaScriptException();
+  return env.Null();
 }
 
 // === Properties ===
