@@ -259,8 +259,8 @@ jobs:
           sudo mkdir -p /opt/ffbuild
           sudo tar xzf output/ffmpeg-dev.tar.gz -C /opt/ffbuild/
           
-          # Cleanup
-          rm -rf ffbuild output build-ffmpeg-libs.sh
+          # Cleanup (use sudo because files are owned by docker user)
+          sudo rm -rf ffbuild output build-ffmpeg-libs.sh
           
           # Go back to repository root (we're in externals/jellyfin-ffmpeg/builder)
           cd ../../..
