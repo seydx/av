@@ -171,7 +171,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v3
+          key: ffmpeg-jellyfin-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v4
           restore-keys: |
             ffmpeg-jellyfin-linux-${{ matrix.arch }}-
       
@@ -227,6 +227,12 @@ jobs:
             quilt push -a
           fi
           
+          # The Docker image already has all dependencies installed in /ffbuild/prefix
+          # We need to preserve them while building FFmpeg
+          
+          # First, backup the existing libraries (dependencies)
+          cp -r /ffbuild/prefix /ffbuild/prefix.backup || true
+          
           # Configure FFmpeg with all the collected flags
           ./configure --prefix=/ffbuild/prefix \
             $FFBUILD_TARGET_FLAGS \
@@ -241,12 +247,18 @@ jobs:
           # Build FFmpeg
           make -j$(nproc)
           
-          # Install everything
+          # Install FFmpeg (this adds to existing prefix)
           make install
           
-          # Package the results (only dev files, not binaries)
+          # Restore any missing dependency libraries (in case make install removed some)
+          if [ -d /ffbuild/prefix.backup ]; then
+            cp -n /ffbuild/prefix.backup/lib/*.a /ffbuild/prefix/lib/ 2>/dev/null || true
+            cp -n /ffbuild/prefix.backup/lib/*.so* /ffbuild/prefix/lib/ 2>/dev/null || true
+          fi
+          
+          # Package the results (all libraries and headers)
           cd /ffbuild
-          tar czf /output/ffmpeg-dev.tar.gz prefix/include prefix/lib
+          tar czf /output/ffmpeg-dev.tar.gz prefix/
           EOF
           
           chmod +x build-ffmpeg-libs.sh
