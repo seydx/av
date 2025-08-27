@@ -272,7 +272,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-v2-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-v3-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
             ffmpeg-linux-${{ matrix.arch }}-v2-
             
@@ -384,7 +384,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-v2-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-v3-${{ steps.ffmpeg-hash.outputs.hash }}
 
       - name: Install Node dependencies
         run: |
