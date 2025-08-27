@@ -95,9 +95,9 @@ jobs:
         with:
           path: |
             C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
-          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
+          key: ffmpeg-windows-${{ matrix.os.arch }}-v4-${{ steps.ffmpeg-hash.outputs.hash }}-v4
           restore-keys: |
-            ffmpeg-windows-${{ matrix.os.arch }}-
+            ffmpeg-windows-${{ matrix.os.arch }}-v4-
           
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -187,7 +187,7 @@ jobs:
         with:
           path: |
             C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
-          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
+          key: ffmpeg-windows-${{ matrix.os.arch }}-v4-${{ steps.ffmpeg-hash.outputs.hash }}-v4
           
       - name: Install Node dependencies
         shell: bash
@@ -281,9 +281,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-v1-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-v2-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
-            ffmpeg-linux-${{ matrix.arch }}-v1-
+            ffmpeg-linux-${{ matrix.arch }}-v2-
             
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -400,7 +400,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-v1-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-v2-${{ steps.ffmpeg-hash.outputs.hash }}
 
       - name: Install Node dependencies
         run: |
@@ -494,9 +494,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v4
           restore-keys: |
-            ffmpeg-macos-${{ matrix.arch }}-v3-
+            ffmpeg-macos-${{ matrix.arch }}-v4-
           
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -562,7 +562,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v4
 
       - name: Install Node dependencies
         run: |
