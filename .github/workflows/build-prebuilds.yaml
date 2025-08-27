@@ -355,12 +355,8 @@ jobs:
           sed -i '104s/^/# /' build-preserve.sh
           chmod +x build-preserve.sh
           
-          # Disable LTO by removing it from the variant file
-          # The --enable-lto=auto is on line 9 of variants/defaults-gpl.sh
-          sed -i 's/--enable-lto=auto//' variants/defaults-gpl.sh
-          
           # Build FFmpeg using modified script
-          echo "Building FFmpeg using modified build script (LTO disabled)..."
+          echo "Building FFmpeg using modified build script..."
           # Set GITHUB_REPOSITORY so build.sh uses our Docker images
           export GITHUB_REPOSITORY="${{ github.repository }}"
           ./build-preserve.sh "${TARGET}" gpl
@@ -431,6 +427,13 @@ jobs:
           
           # Set up environment variables that node-gyp will use
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          
+          # Use Clang to match the Docker build environment
+          export CC=clang-18
+          export CXX=clang++-18
+          export AR=llvm-ar-18
+          export NM=llvm-nm-18
+          export RANLIB=llvm-ranlib-18
           
           # node-gyp reads these npm_config_* environment variables
           export npm_config_build_from_source=true
