@@ -6,72 +6,15 @@
  * This extracts all AV_* constants and creates TypeScript constants with branded types
  */
 
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getFFmpegPath } from './utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Get FFmpeg include path from environment variable or auto-detect
-const getFFmpegPath = () => {
-  // First check environment variable
-  if (process.env.FFMPEG_INCLUDE_PATH) {
-    const envPath = process.env.FFMPEG_INCLUDE_PATH;
-    if (fs.existsSync(envPath)) {
-      return envPath;
-    }
-  }
-
-  // Try pkg-config for installed FFmpeg
-  try {
-    const pkgConfigPath = execSync('pkg-config --variable=includedir libavutil', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore'], // Suppress stderr
-    }).trim();
-    if (pkgConfigPath && fs.existsSync(pkgConfigPath)) {
-      // Go up one level from libavutil include dir to get the FFmpeg root include
-      const ffmpegInclude = path.dirname(pkgConfigPath);
-      if (fs.existsSync(path.join(ffmpegInclude, 'libavcodec/avcodec.h'))) {
-        console.log('Using FFmpeg from pkg-config');
-        return ffmpegInclude;
-      }
-    }
-  } catch {
-    // pkg-config not available or libavutil not found
-  }
-
-  // Check common installation paths
-  const commonPaths = [
-    '/opt/ffbuild/prefix/include', // CI builds
-    '/usr/local/include', // Linux/macOS local
-    '/opt/homebrew/include', // macOS Homebrew ARM64
-    '/usr/local/opt/ffmpeg/include', // macOS Homebrew x64
-    'C:\\msys64\\clang64\\include', // Windows CLANG64
-    'C:\\msys64\\clangarm64\\include', // Windows CLANGARM64
-  ];
-
-  for (const includePath of commonPaths) {
-    if (fs.existsSync(path.join(includePath, 'libavcodec/avcodec.h'))) {
-      console.log(`Using FFmpeg from: ${includePath}`);
-      return includePath;
-    }
-  }
-
-  // Try Jellyfin FFmpeg if it exists
-  const jellyfinPath = path.join(__dirname, '../externals/jellyfin-ffmpeg');
-  if (fs.existsSync(jellyfinPath)) {
-    console.log('Using Jellyfin FFmpeg source');
-    return jellyfinPath;
-  }
-
-  // Fallback to original FFmpeg
-  console.log('Using original FFmpeg source');
-  return path.join(__dirname, '../externals/ffmpeg');
-};
-
-const FFMPEG_PATH = getFFmpegPath();
+const FFMPEG_PATH = getFFmpegPath('include');
 console.log(`Using FFmpeg headers from: ${FFMPEG_PATH}`);
 
 // Parse all AV_ constants from a header file
