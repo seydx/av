@@ -61,11 +61,27 @@ jobs:
             if [ -d "$platform" ]; then
               echo "Processing $platform"
               mkdir -p "packages/$platform"
-              # Find and copy the .zip file
+              # Find and extract the .zip file
               zip_file=$(find "$platform" -name "*.zip" -type f | head -1)
               if [ -n "$zip_file" ]; then
-                echo "Extracting $zip_file to packages/$platform"
-                unzip -j "$zip_file" -d "packages/$platform"
+                echo "Extracting $zip_file"
+                # Extract to temp dir first to find the prebuild
+                temp_dir=$(mktemp -d)
+                unzip -q "$zip_file" -d "$temp_dir"
+                
+                # Find the correct .node file from prebuilds
+                # Platform format: darwin-arm64 -> prebuilds/darwin-arm64/node.napi.node
+                node_file="$temp_dir/prebuilds/$platform/node.napi.node"
+                if [ -f "$node_file" ]; then
+                  echo "Found node binary at $node_file"
+                  cp "$node_file" "packages/$platform/node-av.node"
+                else
+                  echo "ERROR: Could not find node binary at $node_file"
+                  ls -la "$temp_dir"
+                  ls -la "$temp_dir/prebuilds" || true
+                  exit 1
+                fi
+                rm -rf "$temp_dir"
               fi
             fi
           done

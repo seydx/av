@@ -10,7 +10,7 @@ on:
 jobs:
   build_mac:
     name: 'macOS ${{ matrix.arch }}'
-    runs-on: macos-13
+    runs-on: ${{ matrix.runner }}
     # Skip this job if it's a tag push (handled by build-prebuilds-publish.yaml)
     if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
     strategy:
@@ -18,8 +18,10 @@ jobs:
         include:
           - arch: x64
             target: mac64
+            runner: macos-13  # Intel-based runner for x64 builds
           - arch: arm64
             target: macarm64
+            runner: macos-14  # ARM64-based runner for native ARM builds
     
     steps:
       - uses: actions/checkout@v5
@@ -73,16 +75,33 @@ jobs:
             echo "Patching buildmac.sh to use /opt/ffbuild instead of /ffbuild"
             # The script already sets FFBUILD_PREFIX correctly, but configure uses hardcoded path
             sed -i '' 's|--prefix=/ffbuild/prefix|--prefix=/opt/ffbuild/prefix|' builder/buildmac.sh
+            # Verify the sed worked
+            grep "configure --prefix=/opt/ffbuild/prefix" builder/buildmac.sh || (echo "ERROR: Failed to patch buildmac.sh" && exit 1)
           fi
           
           # Map GitHub arch to Jellyfin arch
-          # IMPORTANT: Set PKG_CONFIG_PATH so FFmpeg can find the dependencies
-          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
           if [ "${{ matrix.arch }}" = "x64" ]; then
             ./builder/buildmac.sh x86_64
           else
+            # ARM64 build on native ARM64 runner (macos-14)
             ./builder/buildmac.sh arm64
           fi
+          
+          # Debug: Check if libraries were built correctly
+          echo "=== DEBUG: Checking built libraries ==="
+          echo "Checking for opus.pc:"
+          ls -la /opt/ffbuild/prefix/lib/pkgconfig/opus.pc || echo "opus.pc not found"
+          echo "Checking all .pc files:"
+          ls -la /opt/ffbuild/prefix/lib/pkgconfig/*.pc || echo "No .pc files found"
+          echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          echo "Updated PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          echo "Testing pkg-config with opus:"
+          pkg-config --exists opus && echo "opus found by pkg-config" || echo "opus NOT found by pkg-config"
+          pkg-config --modversion opus || echo "Can't get opus version"
+          pkg-config --cflags opus || echo "Can't get opus cflags"
+          pkg-config --libs opus || echo "Can't get opus libs"
+          echo "=== END DEBUG ===="
           
           # buildmac.sh does configure + make, but NOT make install
           echo "Installing FFmpeg libraries and headers..."
@@ -106,12 +125,29 @@ jobs:
           export CXXFLAGS="-I/opt/ffbuild/prefix/include"
           export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           
-          # Build using node-gyp directly (N-API ensures compatibility)
-          npx node-gyp rebuild
+          # Install prebuildify
+          npm install --no-save prebuildify
           
-          # Move binary to expected location
+          # Build N-API binary (works with all Node/Electron versions that support N-API)
+          npx prebuildify \
+            --napi \
+            --strip \
+            --arch=${{ matrix.arch }}
+          
+          # Copy to build directory for tests
           mkdir -p build
-          cp build/Release/node-av.node build/node-av.node
+          # Find and copy the built binary (prebuildify output structure)
+          # Should be in prebuilds/{platform}-{arch}/node.napi.node
+          if [ -f "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" ]; then
+            cp prebuilds/darwin-${{ matrix.arch }}/node.napi.node build/node-av.node
+          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.node" ]; then
+            cp prebuilds/linux-${{ matrix.arch }}/node.napi.node build/node-av.node
+          else
+            # Debug: show what was actually created
+            echo "Expected binary not found. Contents of prebuilds/:"
+            ls -la prebuilds/ || echo "prebuilds directory not found"
+            exit 1
+          fi
 
       - name: Run Tests
         run: |
@@ -129,7 +165,9 @@ jobs:
         run: |
           mkdir -p artifacts
           artifact_name="node-av-darwin-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip"
-          (cd build && zip -j "../artifacts/${artifact_name}" node-av.node)
+          # Zip the entire prebuilds directory (contains the N-API binary)
+          zip -r "artifacts/${artifact_name}" prebuilds/
+          echo "Created artifact: ${artifact_name}"
           ls -la artifacts/
 
       - name: Upload Artifacts
@@ -286,6 +324,14 @@ jobs:
           
       - name: Build Native Binary
         run: |
+          # Debug: Check what libraries are available
+          echo "=== Available FFmpeg libraries ==="
+          ls -la /opt/ffbuild/prefix/lib/*.a | head -50 || echo "No .a files found"
+          echo "=== Checking for specific libraries ==="
+          for lib in libavformat libavcodec libavutil libx264 libopus libvpx; do
+            ls -la /opt/ffbuild/prefix/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}.a found" || echo "✗ ${lib}.a NOT found"
+          done
+          
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
@@ -293,12 +339,29 @@ jobs:
           export CXXFLAGS="-I/opt/ffbuild/prefix/include"
           export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           
-          # Build using node-gyp directly (N-API ensures compatibility)
-          npx node-gyp rebuild
+          # Install prebuildify
+          npm install --no-save prebuildify
           
-          # Move binary to expected location
+          # Build N-API binary (works with all Node/Electron versions that support N-API)
+          npx prebuildify \
+            --napi \
+            --strip \
+            --arch=${{ matrix.arch }}
+          
+          # Copy to build directory for tests
           mkdir -p build
-          cp build/Release/node-av.node build/node-av.node
+          # Find and copy the built binary (prebuildify output structure)
+          # Should be in prebuilds/{platform}-{arch}/node.napi.node
+          if [ -f "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" ]; then
+            cp prebuilds/darwin-${{ matrix.arch }}/node.napi.node build/node-av.node
+          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.node" ]; then
+            cp prebuilds/linux-${{ matrix.arch }}/node.napi.node build/node-av.node
+          else
+            # Debug: show what was actually created
+            echo "Expected binary not found. Contents of prebuilds/:"
+            ls -la prebuilds/ || echo "prebuilds directory not found"
+            exit 1
+          fi
 
       - name: Run Tests
         run: |
@@ -316,7 +379,8 @@ jobs:
         run: |
           mkdir -p artifacts
           artifact_name="node-av-linux-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip"
-          (cd build && zip -j "../artifacts/${artifact_name}" node-av.node)
+          # Package the entire prebuilds directory (contains linux-{arch}/node.napi.node)
+          zip -r "artifacts/${artifact_name}" prebuilds/
           ls -la artifacts/
 
       - name: Upload Artifacts
@@ -437,43 +501,61 @@ jobs:
       
 
       - name: Build Native Binary
-        shell: msys2 {0}
+        shell: bash
         run: |
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           
-          # Set environment for the correct architecture
+          # Install prebuildify
+          npm install --no-save prebuildify
+          
+          # Set up MSYS2 environment paths in Windows format
+          MSYS2_ROOT="C:\\msys64"
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            export PKG_CONFIG_PATH="/clang64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
-            export CFLAGS="-I/clang64/ffbuild/include"
-            export CXXFLAGS="-I/clang64/ffbuild/include"
-            export LDFLAGS="-L/clang64/ffbuild/lib"
-            export CC="clang"
-            export CXX="clang++"
-            export AR="llvm-ar"
-            export NM="llvm-nm"
+            MSYS_PREFIX="${MSYS2_ROOT}\\clang64"
+            export PKG_CONFIG_PATH="${MSYS_PREFIX}\\ffbuild\\lib\\pkgconfig;${PKG_CONFIG_PATH}"
+            export CFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
+            export CXXFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
+            export LDFLAGS="-L${MSYS_PREFIX}\\ffbuild\\lib"
+            export CC="${MSYS_PREFIX}\\bin\\clang.exe"
+            export CXX="${MSYS_PREFIX}\\bin\\clang++.exe"
+            export AR="${MSYS_PREFIX}\\bin\\llvm-ar.exe"
+            export NM="${MSYS_PREFIX}\\bin\\llvm-nm.exe"
+            STRIP_BIN="${MSYS_PREFIX}\\bin\\strip.exe"
           else
-            export PKG_CONFIG_PATH="/clangarm64/ffbuild/lib/pkgconfig:${PKG_CONFIG_PATH}"
-            export CFLAGS="-I/clangarm64/ffbuild/include"
-            export CXXFLAGS="-I/clangarm64/ffbuild/include"
-            export LDFLAGS="-L/clangarm64/ffbuild/lib"
-            export CC="clang"
-            export CXX="clang++"
-            export AR="llvm-ar"
-            export NM="llvm-nm"
+            MSYS_PREFIX="${MSYS2_ROOT}\\clangarm64"
+            export PKG_CONFIG_PATH="${MSYS_PREFIX}\\ffbuild\\lib\\pkgconfig;${PKG_CONFIG_PATH}"
+            export CFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
+            export CXXFLAGS="-I${MSYS_PREFIX}\\ffbuild\\include"
+            export LDFLAGS="-L${MSYS_PREFIX}\\ffbuild\\lib"
+            export CC="${MSYS_PREFIX}\\bin\\clang.exe"
+            export CXX="${MSYS_PREFIX}\\bin\\clang++.exe"
+            export AR="${MSYS_PREFIX}\\bin\\llvm-ar.exe"
+            export NM="${MSYS_PREFIX}\\bin\\llvm-nm.exe"
+            STRIP_BIN="${MSYS_PREFIX}\\bin\\strip.exe"
           fi
           
-          # CRITICAL: Use MSYS2's pkg-config, not Strawberry Perl's
-          export PATH="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin:$PATH"
-          which pkg-config
-          pkg-config --version
+          # Add MSYS2 bin to PATH for pkg-config and other tools
+          export PATH="${MSYS_PREFIX}\\bin;${PATH}"
           
-          # Build using node-gyp with clang (not MSVC)
-          npx node-gyp rebuild --verbose
+          # Build N-API binary
+          npx prebuildify \
+            --napi \
+            --strip \
+            --arch=${{ matrix.os.arch }} \
+            --strip-bin="${STRIP_BIN}"
           
-          # Move binary to expected location
+          # Copy to build directory for tests
           mkdir -p build
-          cp build/Release/node-av.node build/node-av.node
+          if [ -f "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" ]; then
+            cp prebuilds/win32-${{ matrix.os.arch }}/node.napi.node build/node-av.node
+          else
+            # Debug: show what was actually created
+            echo "Expected binary at prebuilds/win32-${{ matrix.os.arch }}/node.napi.node not found"
+            echo "Contents of prebuilds/:"
+            ls -la prebuilds/ || echo "prebuilds directory not found"
+            exit 1
+          fi
 
       - name: Run Tests
         shell: msys2 {0}
@@ -497,7 +579,8 @@ jobs:
         run: |
           mkdir -p artifacts
           artifact_name="node-av-win32-${{ matrix.os.arch }}-${{ steps.version.outputs.version }}.zip"
-          (cd build && zip -j "../artifacts/${artifact_name}" node-av.node)
+          # Package the entire prebuilds directory (contains win32-{arch}/node.napi.node)
+          zip -r "artifacts/${artifact_name}" prebuilds/
           ls -la artifacts/
 
       - name: Upload Artifacts
