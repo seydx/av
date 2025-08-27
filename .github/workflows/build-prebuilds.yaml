@@ -512,11 +512,6 @@ jobs:
           ARCH_NAME="${{ matrix.arch }}"
           if [ "$ARCH_NAME" = "x64" ]; then
             ARCH_NAME="x86_64"
-            # Intel Mac - GNU tools are in /usr/local
-            export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/opt/gnu-sed/libexec/gnubin:/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
-          else
-            # ARM Mac - GNU tools are in /opt/homebrew
-            export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/opt/gnu-tar/libexec/gnubin:$PATH"
           fi
           
           # Run the build script - it will install its own dependencies via brew
