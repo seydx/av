@@ -4,6 +4,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  # Cache versions - increment when FFmpeg build configuration changes
+  CACHE_VERSION_WINDOWS: 'v6'
+  CACHE_VERSION_LINUX: 'v6'
+  CACHE_VERSION_MACOS: 'v6'
+
 on:
   workflow_dispatch:
   workflow_call:  # Allow this workflow to be called by other workflows
@@ -95,9 +101,9 @@ jobs:
         with:
           path: |
             C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
-          key: ffmpeg-windows-${{ matrix.os.arch }}-v4-${{ steps.ffmpeg-hash.outputs.hash }}-v4
+          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
-            ffmpeg-windows-${{ matrix.os.arch }}-v4-
+            ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-
           
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -178,7 +184,7 @@ jobs:
         with:
           path: |
             C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
-          key: ffmpeg-windows-${{ matrix.os.arch }}-v4-${{ steps.ffmpeg-hash.outputs.hash }}-v4
+          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           
       - name: Install Node dependencies
         shell: bash
@@ -272,9 +278,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-v3-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
-            ffmpeg-linux-${{ matrix.arch }}-v3-
+            ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-
             
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -384,7 +390,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-v3-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-${{ steps.ffmpeg-hash.outputs.hash }}
 
       - name: Install Node dependencies
         run: |
@@ -478,9 +484,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v4
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
-            ffmpeg-macos-${{ matrix.arch }}-v4-
+            ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-
           
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -544,7 +550,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v4
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-${{ steps.ffmpeg-hash.outputs.hash }}
 
       - name: Install Node dependencies
         run: |
