@@ -199,10 +199,10 @@
                 "target_arch=='x64'",
                 {
                   "include_dirs": [
-                    "/clang64/ffbuild/include"
+                    "C:/msys64/clang64/ffbuild/include"
                   ],
                   "library_dirs": [
-                    "/clang64/ffbuild/lib"
+                    "C:/msys64/clang64/ffbuild/lib"
                   ]
                 }
               ],
@@ -210,10 +210,10 @@
                 "target_arch=='arm64'",
                 {
                   "include_dirs": [
-                    "/clangarm64/ffbuild/include"
+                    "C:/msys64/clangarm64/ffbuild/include"
                   ],
                   "library_dirs": [
-                    "/clangarm64/ffbuild/lib"
+                    "C:/msys64/clangarm64/ffbuild/lib"
                   ]
                 }
               ]

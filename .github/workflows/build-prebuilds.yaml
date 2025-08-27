@@ -201,16 +201,10 @@ jobs:
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           
-          # Fix Windows paths in binding.gyp for MSVC
+          # Set strip binary path
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            # For x64, replace Unix-style paths with Windows paths
-            sed -i 's|"/clang64/ffbuild/include"|"C:/msys64/clang64/ffbuild/include"|g' binding.gyp
-            sed -i 's|"/clang64/ffbuild/lib"|"C:/msys64/clang64/ffbuild/lib"|g' binding.gyp
             STRIP_BIN="C:\\msys64\\clang64\\bin\\strip.exe"
           else
-            # For ARM64, replace Unix-style paths with Windows paths
-            sed -i 's|"/clangarm64/ffbuild/include"|"C:/msys64/clangarm64/ffbuild/include"|g' binding.gyp
-            sed -i 's|"/clangarm64/ffbuild/lib"|"C:/msys64/clangarm64/ffbuild/lib"|g' binding.gyp
             STRIP_BIN="C:\\msys64\\clangarm64\\bin\\strip.exe"
           fi
           
