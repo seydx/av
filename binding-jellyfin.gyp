@@ -199,9 +199,11 @@
                 "target_arch=='x64'",
                 {
                   "include_dirs": [
+                    "/clang64/ffbuild/include",
                     "C:/msys64/clang64/ffbuild/include"
                   ],
                   "library_dirs": [
+                    "/clang64/ffbuild/lib",
                     "C:/msys64/clang64/ffbuild/lib"
                   ]
                 }
@@ -210,9 +212,11 @@
                 "target_arch=='arm64'",
                 {
                   "include_dirs": [
+                    "/clangarm64/ffbuild/include",
                     "C:/msys64/clangarm64/ffbuild/include"
                   ],
                   "library_dirs": [
+                    "/clangarm64/ffbuild/lib",
                     "C:/msys64/clangarm64/ffbuild/lib"
                   ]
                 }
@@ -262,28 +266,34 @@
               "-liconv",
               "-lc++",
               "-static",
-              "ws2_32.lib",
-              "secur32.lib",
-              "bcrypt.lib",
-              "strmiids.lib",
-              "mfuuid.lib",
-              "ole32.lib",
-              "user32.lib",
-              "advapi32.lib",
-              "shell32.lib",
-              "gdi32.lib",
-              "psapi.lib"
+              "-lws2_32",
+              "-lsecur32",
+              "-lbcrypt",
+              "-lstrmiids",
+              "-lmfuuid",
+              "-lole32",
+              "-luser32",
+              "-ladvapi32",
+              "-lshell32",
+              "-lgdi32",
+              "-lpsapi"
             ],
-            "msvs_settings": {
-              "VCCLCompilerTool": {
-                "ExceptionHandling": 1,
-                "RuntimeLibrary": 0
-              },
-              "VCLinkerTool": {
-                "GenerateDebugInformation": "false",
-                "LinkTimeCodeGeneration": 1
-              }
-            }
+            "cflags": [
+              "-fPIC",
+              "-O3",
+              "-fexceptions"
+            ],
+            "cflags_cc": [
+              "-fPIC",
+              "-O3",
+              "-fexceptions",
+              "-std=c++17"
+            ],
+            "ldflags": [
+              "-static-libgcc",
+              "-static-libstdc++",
+              "-Wl,--gc-sections"
+            ]
           }
         ]
       ]

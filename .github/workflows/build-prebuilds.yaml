@@ -81,7 +81,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Get Jellyfin FFmpeg commit hash
         id: ffmpeg-hash
@@ -230,13 +230,12 @@ jobs:
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
           
-          # Build N-API binary with make
+          # Build N-API binary
           npx prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.os.arch }} \
-            --strip-bin="${STRIP_BIN}" \
-            --backend=make
+            --strip-bin="${STRIP_BIN}"
           
           echo "Native addon built successfully"
           echo "Prebuild structure:"
@@ -284,7 +283,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
       
       - name: Prepare directories
         run: |
@@ -488,7 +487,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
@@ -633,7 +632,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
