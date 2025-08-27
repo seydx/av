@@ -77,13 +77,19 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Get Jellyfin FFmpeg commit hash
+        id: ffmpeg-hash
+        shell: bash
+        run: |
+          echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
         uses: actions/cache@v4
         with:
           path: |
             C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
-          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v3
+          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
           restore-keys: |
             ffmpeg-windows-${{ matrix.os.arch }}-
 
@@ -149,7 +155,7 @@ jobs:
         with:
           path: |
             C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
-          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v3
+          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
           
       - name: Install Node dependencies
         shell: bash
@@ -163,12 +169,16 @@ jobs:
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
           
-          # Convert MSYS2 paths for Windows compatibility
+          # Fix Windows paths in binding.gyp for MSVC
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            sed -i 's|/clang64|C:\\\\msys64\\\\clang64|g' binding.gyp
+            # For x64, replace Unix-style paths with Windows paths
+            sed -i 's|"/clang64/ffbuild/include"|"C:/msys64/clang64/ffbuild/include"|g' binding.gyp
+            sed -i 's|"/clang64/ffbuild/lib"|"C:/msys64/clang64/ffbuild/lib"|g' binding.gyp
             STRIP_BIN="C:\\msys64\\clang64\\bin\\strip.exe"
           else
-            sed -i 's|/clangarm64|C:\\\\msys64\\\\clangarm64|g' binding.gyp
+            # For ARM64, replace Unix-style paths with Windows paths
+            sed -i 's|"/clangarm64/ffbuild/include"|"C:/msys64/clangarm64/ffbuild/include"|g' binding.gyp
+            sed -i 's|"/clangarm64/ffbuild/lib"|"C:/msys64/clangarm64/ffbuild/lib"|g' binding.gyp
             STRIP_BIN="C:\\msys64\\clangarm64\\bin\\strip.exe"
           fi
           
@@ -235,12 +245,17 @@ jobs:
           sudo chown -R $USER:$USER /opt/ffbuild
           sudo chmod -R 755 /opt/ffbuild
 
+      - name: Get Jellyfin FFmpeg commit hash
+        id: ffmpeg-hash
+        run: |
+          echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}
+          key: ffmpeg-linux-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
             ffmpeg-linux-${{ matrix.arch }}-
             
@@ -324,7 +339,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-linux-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}
+          key: ffmpeg-linux-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}
 
       - name: Install Node dependencies
         run: |
@@ -398,12 +413,17 @@ jobs:
           sudo chown -R $USER:$USER /opt/ffbuild
           sudo chmod -R 755 /opt/ffbuild
           
+      - name: Get Jellyfin FFmpeg commit hash
+        id: ffmpeg-hash
+        run: |
+          echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v2
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v2
           restore-keys: |
             ffmpeg-macos-${{ matrix.arch }}-
           
@@ -462,7 +482,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ hashFiles('externals/jellyfin-ffmpeg/**') }}-v2
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v2
 
       - name: Install Node dependencies
         run: |
