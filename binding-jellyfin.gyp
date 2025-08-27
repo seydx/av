@@ -1,4 +1,22 @@
 {
+  "variables": {
+    "conditions": [
+      ["OS=='linux'", {
+        "clang": 1
+      }]
+    ]
+  },
+  "conditions": [
+    ["OS=='linux'", {
+      "make_global_settings": [
+        ["CC", "clang-15"],
+        ["CXX", "clang++-15"],
+        ["LINK", "clang++-15"],
+        ["AR", "llvm-ar-15"],
+        ["NM", "llvm-nm-15"]
+      ]
+    }]
+  ],
   "targets": [
     {
       "target_name": "node-av",
