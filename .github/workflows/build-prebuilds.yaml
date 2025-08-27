@@ -83,6 +83,12 @@ jobs:
         run: |
           echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Prepare prefix dir
+        run: |
+          # Always create the directory structure with proper permissions
+          # This is needed for both cache restore and fresh builds
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild
+
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
         uses: actions/cache@v4
@@ -92,12 +98,6 @@ jobs:
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
           restore-keys: |
             ffmpeg-windows-${{ matrix.os.arch }}-
-
-      - name: Prepare prefix dir
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        run: |
-          # Create ffbuild directory if it doesn't exist
-          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild
           
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -115,10 +115,42 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          # If we have a partial cache hit (restore-key match), clean the directory
+          # to avoid conflicts like "file exists" errors
+          PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
+          if [ -d "${PREFIX}" ]; then
+            echo "Cleaning existing prefix directory to avoid conflicts..."
+            rm -rf "${PREFIX}"/*
+            mkdir -p "${PREFIX}"
+          fi
+          
           cd externals/jellyfin-ffmpeg
+          
+          # For ARM64, we need to manually copy libraries after makepkg-mingw installs them
+          if [ "${{ matrix.os.msystem }}" = "CLANGARM64" ]; then
+            echo "ARM64 build detected - will need to manually copy libraries"
+            # Create directories
+            mkdir -p /clangarm64/ffbuild/lib/pkgconfig
+            mkdir -p /clangarm64/ffbuild/include
+          fi
           
           # Run Jellyfin build script (builds all dependencies + FFmpeg)
           ${{ matrix.os.build_script }}
+          
+          # For ARM64, manually copy the built libraries from PKGBUILD directories
+          if [ "${{ matrix.os.msystem }}" = "CLANGARM64" ]; then
+            echo "Copying ARM64 libraries from PKGBUILD directories..."
+            # Find and copy all .a files from the build directories
+            find msys2/PKGBUILD -name "*.a" -path "*/dest/*/clangarm64/ffbuild/*" -exec cp {} /clangarm64/ffbuild/lib/ \; 2>/dev/null || true
+            # Find and copy all .pc files  
+            find msys2/PKGBUILD -name "*.pc" -path "*/dest/*/clangarm64/ffbuild/*" -exec cp {} /clangarm64/ffbuild/lib/pkgconfig/ \; 2>/dev/null || true
+            # Copy headers
+            for dir in msys2/PKGBUILD/*/src/dest/*/clangarm64/ffbuild/include/*; do
+              if [ -d "$dir" ]; then
+                cp -r "$dir" /clangarm64/ffbuild/include/ 2>/dev/null || true
+              fi
+            done
+          fi
           
           # After build, libraries are in /clang*/ffbuild/lib/
           # Headers are in /clang*/ffbuild/include/
@@ -150,7 +182,7 @@ jobs:
           echo "=== Final header directories: $(ls -d ${PREFIX}/include/*/ | wc -l) ==="
           
       - name: Save FFmpeg cache
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -274,6 +306,15 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          # If we have a partial cache hit (restore-key match), clean the directory
+          # to avoid conflicts like "file exists" errors
+          if [ -d /opt/ffbuild/prefix ]; then
+            echo "Cleaning existing prefix directory to avoid conflicts..."
+            sudo rm -rf /opt/ffbuild/prefix/*
+            sudo mkdir -p /opt/ffbuild/prefix
+            sudo chown -R $USER:$USER /opt/ffbuild
+          fi
+          
           cd externals/jellyfin-ffmpeg
           
           # Use Jellyfin's build scripts with modification to preserve ffbuild/prefix
@@ -459,9 +500,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v2
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
           restore-keys: |
-            ffmpeg-macos-${{ matrix.arch }}-
+            ffmpeg-macos-${{ matrix.arch }}-v3-
           
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -481,6 +522,15 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          # If we have a partial cache hit (restore-key match), clean the directory
+          # to avoid conflicts like "file exists" errors
+          if [ -d /opt/ffbuild/prefix ]; then
+            echo "Cleaning existing prefix directory to avoid conflicts..."
+            sudo rm -rf /opt/ffbuild/prefix/*
+            sudo mkdir -p /opt/ffbuild/prefix
+            sudo chown -R $USER:staff /opt/ffbuild
+          fi
+          
           cd externals/jellyfin-ffmpeg/builder
           
           # Map our arch names to Jellyfin's
@@ -518,7 +568,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: /opt/ffbuild/prefix
-          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v2
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-v3
 
       - name: Install Node dependencies
         run: |
