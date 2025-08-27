@@ -286,16 +286,6 @@ jobs:
         with:
           node-version: '22'
       
-      - name: Install build dependencies
-        run: |
-          # Install Clang 15 to match the Docker container's compiler
-          # This ensures LTO compatibility between FFmpeg and native addon
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 15
-          # Verify installation
-          clang-15 --version
-      
       - name: Prepare directories
         run: |
           # Create the prefix directory with proper permissions
@@ -366,6 +356,10 @@ jobs:
           sed -i '104s/^/# /' build-preserve.sh
           chmod +x build-preserve.sh
           
+          # Disable LTO by removing it from the variant file
+          # The --enable-lto=auto is on line 9 of variants/defaults-gpl.sh
+          sed -i 's/--enable-lto=auto//' variants/defaults-gpl.sh
+          
           # Build FFmpeg using modified script
           echo "Building FFmpeg using modified build script (LTO disabled)..."
           # Set GITHUB_REPOSITORY so build.sh uses our Docker images
@@ -435,9 +429,6 @@ jobs:
         run: |
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
-          
-          # Clang-15 is already configured in binding-jellyfin.gyp
-          # The gyp file will handle compiler selection
           
           # Set up environment variables that node-gyp will use
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"

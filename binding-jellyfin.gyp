@@ -1,22 +1,4 @@
 {
-  "variables": {
-    "conditions": [
-      ["OS=='linux'", {
-        "clang": 1
-      }]
-    ]
-  },
-  "conditions": [
-    ["OS=='linux'", {
-      "make_global_settings": [
-        ["CC", "clang-15"],
-        ["CXX", "clang++-15"],
-        ["LINK", "clang++-15"],
-        ["AR", "llvm-ar-15"],
-        ["NM", "llvm-nm-15"]
-      ]
-    }]
-  ],
   "targets": [
     {
       "target_name": "node-av",
@@ -141,7 +123,7 @@
             "xcode_settings": {
               "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
               "CLANG_CXX_LIBRARY": "libc++",
-              "MACOSX_DEPLOYMENT_TARGET": "10.15",
+              "MACOSX_DEPLOYMENT_TARGET": "12.0",
               "OTHER_LDFLAGS": [
                 "-Wl,-dead_strip"
               ]
