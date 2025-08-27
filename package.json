@@ -50,7 +50,7 @@
     "release:patch": "node scripts/prepare-release.js patch",
     "release:minor": "node scripts/prepare-release.js minor",
     "release:major": "node scripts/prepare-release.js major",
-    "test:all": "npm run build:tests && npm run build:tsc && tsx --test test/**/*.test.ts",
+    "test:all": "npm run build:tests && npm run build:tsc && tsx --test test/*.test.ts",
     "update": "updates --update ./"
   },
   "dependencies": {
