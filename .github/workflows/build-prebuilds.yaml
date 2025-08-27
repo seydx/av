@@ -232,7 +232,8 @@ jobs:
           # Create the prefix directory with proper permissions
           # This is needed for both cache restore and build
           sudo mkdir -p /opt/ffbuild/prefix
-          sudo chmod -R 777 /opt/ffbuild
+          sudo chown -R $USER:$USER /opt/ffbuild
+          sudo chmod -R 755 /opt/ffbuild
 
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
@@ -295,8 +296,11 @@ jobs:
           
           # Copy everything from /opt/ffbuild in container to /opt/ffbuild/prefix on host
           sudo mkdir -p /opt/ffbuild/prefix
-          docker cp "$CONTAINER_ID:/opt/ffbuild/." /opt/ffbuild/prefix/
+          sudo docker cp "$CONTAINER_ID:/opt/ffbuild/." /opt/ffbuild/prefix/
           docker rm "$CONTAINER_ID"
+          
+          # Fix permissions after docker cp (which creates files as root)
+          sudo chown -R $USER:$USER /opt/ffbuild
           
           echo "Extracted libraries from Docker image"
           
@@ -391,7 +395,8 @@ jobs:
           # Always create the directory structure with proper permissions
           # This is needed for both cache restore and fresh builds
           sudo mkdir -p /opt/ffbuild/prefix
-          sudo chmod -R 777 /opt/ffbuild
+          sudo chown -R $USER:$USER /opt/ffbuild
+          sudo chmod -R 755 /opt/ffbuild
           
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
@@ -405,8 +410,8 @@ jobs:
       - name: Verify cache restoration
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
         run: |
-          # Fix permissions after cache restore (cache might restore with wrong permissions)
-          sudo chmod -R 755 /opt/ffbuild/prefix 2>/dev/null || true
+          # Fix permissions after cache restore if needed
+          sudo chown -R $USER:$USER /opt/ffbuild 2>/dev/null || true
           
           echo "Cache restored, checking contents:"
           echo "Libraries: $(ls /opt/ffbuild/prefix/lib/*.a 2>/dev/null | wc -l)"
@@ -446,6 +451,10 @@ jobs:
           for lib in libx264 libx265 libopus libvpx libdav1d; do
             ls -la /opt/ffbuild/prefix/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
           done
+          
+          # Fix permissions before caching
+          sudo chown -R $USER:$USER /opt/ffbuild
+          
           cd ..
           
       - name: Save FFmpeg cache
