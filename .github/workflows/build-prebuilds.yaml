@@ -201,9 +201,8 @@ jobs:
           # Run Jellyfin build script (builds all dependencies + FFmpeg)
           echo "Running build script from $(pwd)"
           
-          # For ARM64, we need to ensure the libraries are accessible
+          # For ARM64, run the build script normally (same as x64)
           if [ "${{ matrix.os.arch }}" = "arm64" ]; then
-            # Build normally first
             if [ -f "../msys2/buildarm64.sh" ]; then
               ../msys2/buildarm64.sh
             elif [ -f "./buildarm64.sh" ]; then
@@ -211,16 +210,6 @@ jobs:
             else
               echo "Error: buildarm64.sh not found"
               exit 1
-            fi
-            
-            # After build, ensure libraries are in the expected location
-            echo "Fixing ARM64 library paths after build..."
-            if [ -d "/clangarm64/lib" ] && [ ! -d "/clangarm64/ffbuild/lib" ]; then
-              echo "Copying libraries from /clangarm64/lib to /clangarm64/ffbuild/lib"
-              mkdir -p /clangarm64/ffbuild/lib/pkgconfig /clangarm64/ffbuild/include
-              cp -f /clangarm64/lib/*.a /clangarm64/ffbuild/lib/ 2>/dev/null || true
-              cp -f /clangarm64/lib/pkgconfig/*.pc /clangarm64/ffbuild/lib/pkgconfig/ 2>/dev/null || true
-              cp -rf /clangarm64/include/* /clangarm64/ffbuild/include/ 2>/dev/null || true
             fi
           else
             # For x64, run the build script normally
