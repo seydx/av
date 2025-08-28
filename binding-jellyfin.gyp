@@ -202,7 +202,8 @@
             "ldflags": [
               "-Wl,--gc-sections",
               "-Wl,--as-needed",
-              "-Wl,--allow-multiple-definition"
+              "-Wl,--allow-multiple-definition",
+              "-Wl,-z,notext"
             ]
           }
         ],
