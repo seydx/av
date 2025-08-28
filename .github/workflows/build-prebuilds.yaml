@@ -332,7 +332,7 @@ jobs:
           # Build with node-gyp directly using make format
           node "${NODE_GYP_PATH}" rebuild \
             --verbose \
-            --format=make \
+            -f make \
             --arch=${{ matrix.os.arch }} \
             --release
           
