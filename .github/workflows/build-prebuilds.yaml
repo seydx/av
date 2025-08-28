@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v6'
-  CACHE_VERSION_LINUX: 'v15'
+  CACHE_VERSION_LINUX: 'v16'
   CACHE_VERSION_MACOS: 'v6'
 
 on:
@@ -414,13 +414,21 @@ jobs:
             
             # Ensure CFLAGS and CXXFLAGS have PIC flags (only if not already present)
             if ! grep 'FF_CFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
-              sed -i 's/FF_CFLAGS=""/FF_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
-              sed -i 's/FF_CFLAGS="\([^"]*\)"/FF_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+              # Check if FF_CFLAGS is empty or has content
+              if grep 'FF_CFLAGS=""' variants/defaults-gpl.sh > /dev/null; then
+                sed -i 's/FF_CFLAGS=""/FF_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+              else
+                sed -i 's/FF_CFLAGS="\([^"]*\)"/FF_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+              fi
             fi
             
             if ! grep 'FF_CXXFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
-              sed -i 's/FF_CXXFLAGS=""/FF_CXXFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
-              sed -i 's/FF_CXXFLAGS="\([^"]*\)"/FF_CXXFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+              # Check if FF_CXXFLAGS is empty or has content
+              if grep 'FF_CXXFLAGS=""' variants/defaults-gpl.sh > /dev/null; then
+                sed -i 's/FF_CXXFLAGS=""/FF_CXXFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+              else
+                sed -i 's/FF_CXXFLAGS="\([^"]*\)"/FF_CXXFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+              fi
             fi
             
             # For ARM64, ensure NEON assembly also gets PIC flags through compiler flags
@@ -429,8 +437,11 @@ jobs:
               
               # Ensure HOST_CFLAGS also have PIC for any build tools
               if ! grep 'FF_HOST_CFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
-                sed -i 's/FF_HOST_CFLAGS=""/FF_HOST_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
-                sed -i 's/FF_HOST_CFLAGS="\([^"]*\)"/FF_HOST_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+                if grep 'FF_HOST_CFLAGS=""' variants/defaults-gpl.sh > /dev/null; then
+                  sed -i 's/FF_HOST_CFLAGS=""/FF_HOST_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+                else
+                  sed -i 's/FF_HOST_CFLAGS="\([^"]*\)"/FF_HOST_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+                fi
               fi
             fi
           fi
