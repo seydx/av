@@ -449,8 +449,15 @@ jobs:
           if [[ "${TARGET}" == linux* ]]; then
             echo "Adding --enable-pic and PIC flags for Linux build..."
             
-            # Add --enable-pic to configure flags
-            sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
+            # For ARM64, disable LTO because it causes issues with NEON assembly
+            # For x64, keep LTO enabled
+            if [[ "${TARGET}" == *arm64* ]]; then
+              # Disable LTO for ARM64 and enable PIC
+              sed -i 's/--enable-lto=auto/--disable-lto --enable-pic/' variants/defaults-gpl.sh
+            else
+              # Add --enable-pic to configure flags for x64
+              sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
+            fi
             
             # Ensure CFLAGS and CXXFLAGS have PIC flags (only if not already present)
             if ! grep 'FF_CFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
@@ -575,21 +582,17 @@ jobs:
           export NM=llvm-nm-18
           export RANLIB=llvm-ranlib-18
           
-          # For ARM64, use GNU ld instead of lld due to PIC/relocation issues with NEON assembly
+          # For ARM64, use lld without LTO plugin (since we disabled LTO for ARM64)
+          # For x64, use lld with LTO plugin
           if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            export LD=ld
-            export LDFLAGS="-fuse-ld=bfd"
-          else
+            # Use lld for ARM64 with text relocations allowed for NEON assembly
             export LD=ld.lld-18
-          fi
-          
-          # Set up LTO plugin path for the linker (not needed for ARM64 with GNU ld)
-          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            # For ARM64, use GNU ld with text relocations allowed
-            export LDFLAGS="-fuse-ld=bfd -Wl,-z,notext"
-            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=bfd -Wl,--allow-multiple-definition -Wl,-z,notext"
+            # No LTO plugin needed since we disabled LTO for ARM64
+            export LDFLAGS="-fuse-ld=lld-18 -Wl,-z,notext"
+            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,--allow-multiple-definition -Wl,-z,notext"
           else
             # For x64, use lld with LTO
+            export LD=ld.lld-18
             LTO_PLUGIN=$(find /usr/lib -name "LLVMgold.so" 2>/dev/null | head -n1)
             if [ -z "$LTO_PLUGIN" ]; then
               LTO_PLUGIN="/usr/lib/llvm-18/lib/LLVMgold.so"
