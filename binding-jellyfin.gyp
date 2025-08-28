@@ -259,8 +259,7 @@
                     "/clang64/ffbuild/lib"
                   ],
                   "libraries": [
-                    "-lvpl",
-                    "-lamf"
+                    "-lvpl"
                   ]
                 }
               ],
@@ -325,6 +324,9 @@
               "-liconv",
               "-lgmp",
               "-lOpenCL",
+              "-lole32",
+              "-lshlwapi",
+              "-lcfgmgr32",
               "-lws2_32",
               "-lsecur32",
               "-lbcrypt",

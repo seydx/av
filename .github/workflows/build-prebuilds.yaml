@@ -116,22 +116,70 @@ jobs:
           MSYS_PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
           
           if [ -d "${CACHE_DIR}" ]; then
+            echo "========================================="
+            echo "=== CACHE RESTORATION DEBUG INFO ==="
+            echo "========================================="
             echo "✓ Cache found at ${CACHE_DIR}"
-            echo "Libraries in cache: $(find ${CACHE_DIR}/lib -name "*.a" 2>/dev/null | wc -l)"
+            echo ""
+            
+            echo "=== Cache directory structure ==="
+            echo "Directories in cache root:"
+            ls -la "${CACHE_DIR}/" | head -20
+            echo ""
+            
+            echo "=== Library directory contents ==="
+            echo "Total libraries in cache: $(find ${CACHE_DIR}/lib -name "*.a" 2>/dev/null | wc -l)"
+            echo "FFmpeg libraries:"
+            ls -la ${CACHE_DIR}/lib/libav*.a 2>/dev/null | head -10 || echo "No libav* libraries found"
+            echo ""
+            echo "Codec libraries:"
+            ls -la ${CACHE_DIR}/lib/libx26*.a ${CACHE_DIR}/lib/libvpx.a ${CACHE_DIR}/lib/libopus.a ${CACHE_DIR}/lib/libdav1d.a 2>/dev/null || echo "Some codec libraries not found"
+            echo ""
+            echo "Hardware acceleration libraries:"
+            ls -la ${CACHE_DIR}/lib/libvpl.a ${CACHE_DIR}/lib/libOpenCL.a ${CACHE_DIR}/lib/OpenCL.a 2>/dev/null || echo "Some hardware libraries not found"
+            echo ""
+            echo "Other important libraries:"
+            ls -la ${CACHE_DIR}/lib/libvorbis*.a ${CACHE_DIR}/lib/libass.a ${CACHE_DIR}/lib/libfontconfig.a 2>/dev/null | head -10 || echo "Some libraries not found"
+            echo ""
+            
+            echo "=== Include directory contents ==="
+            echo "Total header directories: $(ls -d ${CACHE_DIR}/include/*/ 2>/dev/null | wc -l)"
+            echo "Key header directories:"
+            ls -d ${CACHE_DIR}/include/*/ 2>/dev/null | head -20
+            echo ""
+            
+            echo "=== pkg-config files ==="
+            echo "Total .pc files: $(find ${CACHE_DIR}/lib/pkgconfig -name "*.pc" 2>/dev/null | wc -l)"
+            echo "Sample pkg-config files:"
+            ls ${CACHE_DIR}/lib/pkgconfig/*.pc 2>/dev/null | head -20
+            echo ""
             
             # Copy from cache location back to MSYS2 location
-            echo "Copying to MSYS2 location: ${MSYS_PREFIX}"
+            echo "========================================="
+            echo "=== COPYING TO MSYS2 LOCATION ==="
+            echo "========================================="
+            echo "Target: ${MSYS_PREFIX}"
             rm -rf "${MSYS_PREFIX}" 2>/dev/null || true
             mkdir -p "${MSYS_PREFIX}"
             cp -r "${CACHE_DIR}"/* "${MSYS_PREFIX}/"
             
             echo "✓ Files copied to ${MSYS_PREFIX}"
+            echo ""
+            
+            echo "=== Verification after copy ==="
             echo "Libraries: $(ls ${MSYS_PREFIX}/lib/*.a 2>/dev/null | wc -l)"
             echo "Headers: $(ls -d ${MSYS_PREFIX}/include/*/ 2>/dev/null | wc -l)"
+            echo "pkg-config files: $(ls ${MSYS_PREFIX}/lib/pkgconfig/*.pc 2>/dev/null | wc -l)"
+            echo ""
             
-            # Quick check for key libraries
-            for lib in libx264 libavcodec; do
-              ls ${MSYS_PREFIX}/lib/${lib}.a 2>/dev/null && echo "✓ ${lib} found" || echo "✗ ${lib} missing - cache may be incomplete"
+            # Detailed check for key libraries
+            echo "=== Library availability check ==="
+            for lib in libx264 libx265 libavcodec libavformat libvpx libopus libvorbis libvorbisfile libOpenCL OpenCL libvpl libass; do
+              if ls ${MSYS_PREFIX}/lib/${lib}.a 2>/dev/null >/dev/null; then
+                echo "✓ ${lib}.a found"
+              else
+                echo "✗ ${lib}.a NOT FOUND"
+              fi
             done
           else
             echo "✗ Cache directory ${CACHE_DIR} not found!"
@@ -296,6 +344,60 @@ jobs:
         run: |
           # Use Jellyfin binding configuration
           cp binding-jellyfin.gyp binding.gyp
+          
+          echo "========================================="
+          echo "=== PRE-BUILD LIBRARY CHECK ==="
+          echo "========================================="
+          
+          # Check what's available at build time
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            PREFIX="/clang64/ffbuild"
+          else
+            PREFIX="/clangarm64/ffbuild"
+          fi
+          
+          echo "Checking libraries in: ${PREFIX}/lib"
+          echo "Total libraries: $(ls ${PREFIX}/lib/*.a 2>/dev/null | wc -l)"
+          echo ""
+          
+          echo "=== ALL libraries available for linking ==="
+          echo "Listing all .a files in ${PREFIX}/lib:"
+          ls -lh ${PREFIX}/lib/*.a 2>/dev/null | awk '{print $NF " (" $5 ")"}' || echo "No libraries found!"
+          echo ""
+          
+          echo "=== Checking for specific libraries mentioned in binding-jellyfin.gyp ==="
+          EXPECTED_LIBS="libavformat libavcodec libavfilter libavdevice libavutil libswscale libswresample \
+                         libx264 libx265 libvpx libopus libmp3lame libfdk-aac libdav1d libSvtAv1Enc \
+                         libogg libvorbis libvorbisenc libvorbisfile libtheora libtheoraenc libtheoradec \
+                         libwebp libwebpmux libwebpdemux libzimg libxml2 libfontconfig libfreetype \
+                         libharfbuzz libfribidi libass libunibreak libbluray libopenmpt libchromaprint \
+                         libfftw3f libsharpyuv libpng libbrotlidec libbrotlicommon libintl libz libbz2 \
+                         liblzma libiconv libgmp libOpenCL OpenCL libvpl"
+          
+          for lib in $EXPECTED_LIBS; do
+            if ls ${PREFIX}/lib/${lib}.a 2>/dev/null >/dev/null; then
+              size=$(ls -lh ${PREFIX}/lib/${lib}.a 2>/dev/null | awk '{print $5}')
+              echo "✓ ${lib}.a found (${size})"
+            else
+              echo "✗ ${lib}.a NOT FOUND"
+            fi
+          done
+          echo ""
+          
+          echo "=== pkg-config check ==="
+          export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          echo "PKG_CONFIG_PATH: ${PKG_CONFIG_PATH}"
+          echo ""
+          echo "OpenCL pkg-config:"
+          pkg-config --libs OpenCL 2>/dev/null || echo "OpenCL.pc not found"
+          echo ""
+          echo "libvpl pkg-config:"
+          pkg-config --libs vpl 2>/dev/null || echo "vpl.pc not found"
+          echo ""
+          
+          echo "========================================="
+          echo "=== STARTING BUILD ==="
+          echo "========================================="
           
           # Set environment for MSYS2/Clang build
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
