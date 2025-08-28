@@ -273,7 +273,6 @@
               ]
             ],
             "libraries": [
-              "-Wl,--whole-archive",
               "-lavformat",
               "-lavcodec",
               "-lavfilter",
@@ -281,7 +280,6 @@
               "-lavutil",
               "-lswscale",
               "-lswresample",
-              "-Wl,--no-whole-archive",
               "-lx264",
               "-lx265",
               "-lvpx",
@@ -315,8 +313,6 @@
               "-llzma",
               "-liconv",
               "-lgmp",
-              "-lc++",
-              "-static",
               "-lws2_32",
               "-lsecur32",
               "-lbcrypt",
