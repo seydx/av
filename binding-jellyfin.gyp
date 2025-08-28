@@ -323,7 +323,7 @@
               "-llzma",
               "-liconv",
               "-lgmp",
-              "-lOpenCL",
+              "-l:OpenCL.a",
               "-lole32",
               "-lshlwapi",
               "-lcfgmgr32",
