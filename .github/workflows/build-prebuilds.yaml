@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v8'
-  CACHE_VERSION_LINUX: 'v18'
+  CACHE_VERSION_LINUX: 'v19'
   CACHE_VERSION_MACOS: 'v7'
 
 on:
@@ -476,11 +476,13 @@ echo "Library count: $(ls /clangarm64/ffbuild/lib/*.a 2>/dev/null | wc -l)"' bui
           if [[ "${TARGET}" == linux* ]]; then
             echo "Adding --enable-pic and PIC flags for Linux build..."
             
-            # For ARM64, disable LTO because it causes issues with NEON assembly
+            # For ARM64, remove LTO because it causes issues with NEON assembly
             # For x64, keep LTO enabled
             if [[ "${TARGET}" == *arm64* ]]; then
-              # Disable LTO for ARM64 and enable PIC
-              sed -i 's/--enable-lto=auto/--disable-lto --enable-pic/' variants/defaults-gpl.sh
+              # Remove LTO for ARM64 (no --disable-lto, just remove --enable-lto)
+              sed -i 's/--enable-lto=auto//' variants/defaults-gpl.sh
+              # Add --enable-pic flag
+              sed -i '/^FF_CONFIGURE=/s/$/ --enable-pic/' variants/defaults-gpl.sh
             else
               # Add --enable-pic to configure flags for x64
               sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
