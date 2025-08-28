@@ -289,65 +289,70 @@ jobs:
           
           # Set environment for MSYS2/Clang build
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            export CC="/clang64/bin/clang"
-            export CXX="/clang64/bin/clang++"
-            export AR="/clang64/bin/llvm-ar"
-            export LINK="/clang64/bin/clang++"
-            export LD="/clang64/bin/clang++"
-            STRIP_BIN="/clang64/bin/strip.exe"
+            export CC="clang"
+            export CXX="clang++"
+            export AR="llvm-ar"
+            export LINK="clang++"
+            export LD="clang++"
             PREFIX="/clang64/ffbuild"
           else
-            export CC="/clangarm64/bin/clang"
-            export CXX="/clangarm64/bin/clang++"
-            export AR="/clangarm64/bin/llvm-ar"
-            export LINK="/clangarm64/bin/clang++"
-            export LD="/clangarm64/bin/clang++"
-            STRIP_BIN="/clangarm64/bin/strip.exe"
+            export CC="clang"
+            export CXX="clang++"
+            export AR="llvm-ar"
+            export LINK="clang++"
+            export LD="clang++"
             PREFIX="/clangarm64/ffbuild"
           fi
           
           # Set pkg-config path
           export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
           
-          # CRITICAL: Force node-gyp to use make generator instead of MSVS
-          # This is essential for MSYS2/Clang builds
-          export npm_config_node_gyp="$(which node-gyp)"
-          export npm_config_disturl="https://nodejs.org/dist"
-          export npm_config_build_from_source="true"
-          
           # Set include and lib paths
           export CFLAGS="-I${PREFIX}/include"
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
           
-          # Build N-API binary - use node-gyp directly with make generator
-          # prebuildify doesn't pass the generator flag, so we need to do it manually
-          NODE_VERSION="24.0.0"
+          # Install node-gyp
+          npm install -g node-gyp
+          
+          # Configure with node-gyp first
+          node-gyp configure \
+            --target=24.0.0 \
+            --arch=${{ matrix.os.arch }} \
+            --dist-url=https://nodejs.org/dist \
+            -- -f make
+          
+          # FIX: Convert Windows paths to Unix paths in generated makefiles
+          # This fixes the "target pattern contains no '%'" error
+          echo "Fixing Windows paths in makefiles..."
+          for makefile in build/*.mk build/Makefile; do
+            if [ -f "$makefile" ]; then
+              echo "Processing $makefile"
+              # Convert C:\path to /c/path
+              sed -i 's|C:\\|/c/|g' "$makefile"
+              sed -i 's|D:\\|/d/|g' "$makefile"
+              # Convert backslashes to forward slashes
+              sed -i 's|\\|/|g' "$makefile"
+              # Remove any remaining colons that aren't part of rules
+              # But keep the rule patterns (target: dependencies)
+              perl -i -pe 's/(?<!^[^\t]+):(?![ \t])//g if !/^\S+:/' "$makefile"
+            fi
+          done
+          
+          # Now build
+          node-gyp build --verbose
+          
+          # Copy the built binary to the expected location
           TARGET_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "${TARGET_DIR}"
           
-          # Run node-gyp directly with make generator
-          node-gyp rebuild \
-            --target=${NODE_VERSION} \
-            --arch=${{ matrix.os.arch }} \
-            --dist-url=https://nodejs.org/dist \
-            --module_name=node-av \
-            --module_path="${TARGET_DIR}" \
-            --napi_version=9 \
-            --node_abi_napi=napi \
-            --release \
-            --jobs=max \
-            --verbose \
-            -- -f make
-          
-          # Move the built binary to the expected location
           if [ -f "build/Release/node-av.node" ]; then
             cp "build/Release/node-av.node" "${TARGET_DIR}/node.napi.node"
-            "${STRIP_BIN}" "${TARGET_DIR}/node.napi.node"
+            strip "${TARGET_DIR}/node.napi.node"
             echo "Binary built and stripped successfully"
           else
             echo "Error: Binary not found at build/Release/node-av.node"
-            ls -la build/ || true
+            ls -laR build/ || true
             exit 1
           fi
           

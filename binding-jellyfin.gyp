@@ -238,6 +238,11 @@
         [
           "OS=='win'",
           {
+            "msvs_settings": {
+              "VCCLCompilerTool": {
+                "ExceptionHandling": 1
+              }
+            },
             "conditions": [
               [
                 "target_arch=='x64'",
