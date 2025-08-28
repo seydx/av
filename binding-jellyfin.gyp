@@ -46,10 +46,10 @@
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
-        "<!@(echo $CFLAGS | grep -o '\\-I[^ ]*' | sed 's/-I//' || echo '')"
+        "<!@(echo ${CFLAGS} | tr ' ' '\\n' | grep '^-I' | sed 's/^-I//' || true)"
       ],
       "library_dirs": [
-        "<!@(echo $LDFLAGS | grep -o '\\-L[^ ]*' | sed 's/-L//' || echo '')"
+        "<!@(echo ${LDFLAGS} | tr ' ' '\\n' | grep '^-L' | sed 's/^-L//' || true)"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"

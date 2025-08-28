@@ -332,9 +332,6 @@ jobs:
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
           
-          # Create necessary build directories
-          mkdir -p build/Release/obj.target/node-av/src/bindings
-          
           # Build with node-gyp directly using make format
           node "${NODE_GYP_PATH}" rebuild \
             --verbose \
