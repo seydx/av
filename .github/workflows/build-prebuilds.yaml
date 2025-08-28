@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v6'
-  CACHE_VERSION_LINUX: 'v16'
+  CACHE_VERSION_LINUX: 'v17'
   CACHE_VERSION_MACOS: 'v6'
 
 on:
@@ -431,9 +431,16 @@ jobs:
               fi
             fi
             
-            # For ARM64, ensure NEON assembly also gets PIC flags through compiler flags
+            # For ARM64, we need special handling for NEON assembly
+            # The issue is that gas (GNU assembler) needs different PIC flags
             if [[ "${TARGET}" == *arm64* ]]; then
-              echo "Ensuring PIC flags for ARM64 NEON assembly..."
+              echo "Adding PIC flags for ARM64 NEON assembly..."
+              # For ARM64 assembly, we need to pass the correct assembler directive
+              # Add -DPIC to CFLAGS which will be used by the preprocessor for .S files
+              echo 'export GASPP_FIX_XCODE5=1' >> variants/defaults-gpl.sh
+              # Set AS flags for the assembler
+              echo 'export AS="aarch64-ffbuild-linux-gnu-as"' >> variants/defaults-gpl.sh
+              echo 'export ASFLAGS="-march=armv8-a"' >> variants/defaults-gpl.sh
               
               # Ensure HOST_CFLAGS also have PIC for any build tools
               if ! grep 'FF_HOST_CFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
@@ -527,19 +534,34 @@ jobs:
           export AR=llvm-ar-18
           export NM=llvm-nm-18
           export RANLIB=llvm-ranlib-18
-          export LD=ld.lld-18
           
-          # Set up LTO plugin path for the linker
-          LTO_PLUGIN=$(find /usr/lib -name "LLVMgold.so" 2>/dev/null | head -n1)
-          if [ -z "$LTO_PLUGIN" ]; then
-            LTO_PLUGIN="/usr/lib/llvm-18/lib/LLVMgold.so"
+          # For ARM64, use GNU ld instead of lld due to PIC/relocation issues with NEON assembly
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            export LD=ld
+            export LDFLAGS="-fuse-ld=bfd"
+          else
+            export LD=ld.lld-18
           fi
-          export LDFLAGS="-fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN"
+          
+          # Set up LTO plugin path for the linker (not needed for ARM64 with GNU ld)
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            # For ARM64, use GNU ld with text relocations allowed
+            export LDFLAGS="-fuse-ld=bfd -Wl,-z,notext"
+            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=bfd -Wl,--allow-multiple-definition -Wl,-z,notext"
+          else
+            # For x64, use lld with LTO
+            LTO_PLUGIN=$(find /usr/lib -name "LLVMgold.so" 2>/dev/null | head -n1)
+            if [ -z "$LTO_PLUGIN" ]; then
+              LTO_PLUGIN="/usr/lib/llvm-18/lib/LLVMgold.so"
+            fi
+            export LDFLAGS="-fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN"
+            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,--allow-multiple-definition"
+          fi
           
           # Build N-API binary with proper include paths
           CFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
           CXXFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
-          LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,--allow-multiple-definition" \
+          LDFLAGS="$BUILD_LDFLAGS" \
           prebuildify \
             --napi \
             --strip \
