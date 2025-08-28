@@ -1088,7 +1088,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         const audioOutputFile = getTestOutputPath('multi-out-audio.aac');
 
         try {
-          await using input = await MediaInput.open(inputFile);
+          await using input = await MediaInput.open(inputFile2);
           const videoOutput = await MediaOutput.open(videoOutputFile);
           const audioOutput = await MediaOutput.open(audioOutputFile);
 

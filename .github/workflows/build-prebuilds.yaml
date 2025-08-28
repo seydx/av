@@ -322,15 +322,16 @@ jobs:
           export LDFLAGS="-L${PREFIX}/lib"
           
           # Use prebuildify with our custom node-gyp
-          # Important: Set node_gyp_dir for proper path handling in MSYS2
-          NODE_GYP_PATH="$(pwd)/externals/node-gyp/bin/node-gyp.js"
-          export npm_config_node_gyp_dir="$(pwd)/externals/node-gyp"
+          # Important: Convert MSYS2 paths to Windows paths for Node.js
+          # Use cygpath to convert Unix paths to Windows paths
+          NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
+          export npm_config_node_gyp_dir="$(cygpath -w $(pwd)/externals/node-gyp)"
           
           prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.os.arch }} \
-            --node-gyp="node ${NODE_GYP_PATH}"
+            --node-gyp="node \"${NODE_GYP_PATH}\""
           
           echo "Native addon built successfully"
           echo "Prebuild structure:"
