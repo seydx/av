@@ -115,6 +115,8 @@
               "-framework AudioToolbox",
               "-framework VideoToolbox",
               "-framework AVFoundation",
+              "-framework AppKit",
+              "-framework Accelerate",
               "-framework Security",
               "-framework IOKit",
               "-framework OpenGL",
