@@ -124,7 +124,8 @@ int main() {
   // Write C code to temp file (use OS temp directory for cross-platform compatibility)
   const tmpDir = tmpdir();
   const tmpFile = join(tmpDir, 'channel_layouts.c');
-  const outFile = join(tmpDir, 'channel_layouts');
+  // Add .exe extension on Windows
+  const outFile = join(tmpDir, process.platform === 'win32' ? 'channel_layouts.exe' : 'channel_layouts');
   writeFileSync(tmpFile, cCode);
 
   // Compile and run
@@ -160,9 +161,17 @@ int main() {
     execSync(compileCmd, { stdio: 'inherit' });
     const output = execSync(outFile, { encoding: 'utf8' });
 
-    // Clean up
-    unlinkSync(tmpFile);
-    unlinkSync(outFile);
+    // Clean up - ignore errors if files don't exist
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      // Ignore error if file doesn't exist
+    }
+    try {
+      unlinkSync(outFile);
+    } catch {
+      // Ignore error if file doesn't exist
+    }
 
     return output;
   } catch (error) {
