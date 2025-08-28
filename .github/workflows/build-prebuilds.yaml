@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v8'
-  CACHE_VERSION_LINUX: 'v19'
+  CACHE_VERSION_LINUX: 'v20'  # Force rebuild with PIC flags
   CACHE_VERSION_MACOS: 'v7'
 
 on:
@@ -143,41 +143,46 @@ jobs:
         run: |
           cd externals/jellyfin-ffmpeg
           
-          # Run Jellyfin build script (builds all dependencies + FFmpeg)
-          echo "Running build script: ${{ matrix.os.build_script }}"
+          # Check if PKGBUILD directory exists, if not use builder
+          if [ ! -d "PKGBUILD" ]; then
+            echo "PKGBUILD directory not found, using builder directory"
+            cd builder
+          fi
           
-          # Temporarily modify build script for ARM64 to fix library paths
+          # Run Jellyfin build script (builds all dependencies + FFmpeg)
+          echo "Running build script from $(pwd)"
+          
+          # For ARM64, we need to ensure the libraries are accessible
           if [ "${{ matrix.os.arch }}" = "arm64" ]; then
-            # Create a modified build script that copies libraries after PKGBUILD phase
-            cp ${{ matrix.os.build_script }} build-fixed.sh
+            # Build normally first
+            if [ -f "../msys2/buildarm64.sh" ]; then
+              ../msys2/buildarm64.sh
+            elif [ -f "./buildarm64.sh" ]; then
+              ./buildarm64.sh
+            else
+              echo "Error: buildarm64.sh not found"
+              exit 1
+            fi
             
-            # Create the library copy function and insert it into the script
-            # We use printf to avoid heredoc indentation issues
-            printf '%s\n' \
-              '' \
-              '# Fix ARM64 library paths - copy from /clangarm64 to /clangarm64/ffbuild' \
-              'echo "Fixing ARM64 library paths..."' \
-              'if [ -d "/clangarm64/lib" ]; then' \
-              '  echo "Copying libraries from /clangarm64/lib to /clangarm64/ffbuild/lib"' \
-              '  mkdir -p /clangarm64/ffbuild/lib/pkgconfig' \
-              '  cp -f /clangarm64/lib/*.a /clangarm64/ffbuild/lib/ 2>/dev/null || true' \
-              '  cp -f /clangarm64/lib/pkgconfig/*.pc /clangarm64/ffbuild/lib/pkgconfig/ 2>/dev/null || true' \
-              'fi' \
-              'if [ -d "/clangarm64/include" ]; then' \
-              '  echo "Copying headers from /clangarm64/include to /clangarm64/ffbuild/include"' \
-              '  mkdir -p /clangarm64/ffbuild/include' \
-              '  cp -rf /clangarm64/include/* /clangarm64/ffbuild/include/ 2>/dev/null || true' \
-              'fi' \
-              'echo "Library count: $(ls /clangarm64/ffbuild/lib/*.a 2>/dev/null | wc -l)"' \
-              '' > fix-paths.txt
-            
-            # Insert the fix after the PKGBUILD loop
-            sed -i '/^cd "\$BUILDER_ROOT"$/r fix-paths.txt' build-fixed.sh
-            
-            chmod +x build-fixed.sh
-            ./build-fixed.sh
+            # After build, ensure libraries are in the expected location
+            echo "Fixing ARM64 library paths after build..."
+            if [ -d "/clangarm64/lib" ] && [ ! -d "/clangarm64/ffbuild/lib" ]; then
+              echo "Copying libraries from /clangarm64/lib to /clangarm64/ffbuild/lib"
+              mkdir -p /clangarm64/ffbuild/lib/pkgconfig /clangarm64/ffbuild/include
+              cp -f /clangarm64/lib/*.a /clangarm64/ffbuild/lib/ 2>/dev/null || true
+              cp -f /clangarm64/lib/pkgconfig/*.pc /clangarm64/ffbuild/lib/pkgconfig/ 2>/dev/null || true
+              cp -rf /clangarm64/include/* /clangarm64/ffbuild/include/ 2>/dev/null || true
+            fi
           else
-            ${{ matrix.os.build_script }}
+            # For x64, run the build script normally
+            if [ -f "../msys2/build.sh" ]; then
+              ../msys2/build.sh
+            elif [ -f "./build.sh" ]; then
+              ./build.sh
+            else
+              echo "Error: build.sh not found"
+              exit 1
+            fi
           fi
           
           # After build, libraries are in /clang*/ffbuild/lib/
@@ -191,20 +196,12 @@ jobs:
             ls ${PREFIX}/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
           done
           
-          # Also need FFmpeg's own libraries after make install
-          make install
+          # Check if FFmpeg libraries are in the expected location
           echo "FFmpeg libraries:"
           for lib in libavcodec libavformat libavutil libavfilter libswscale libswresample; do
-            ls ${PREFIX}/jellyfin-ffmpeg/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
+            ls ${PREFIX}/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
           done
           
-          # Copy FFmpeg libraries to main lib directory for easier access
-          cp ${PREFIX}/jellyfin-ffmpeg/lib/*.a ${PREFIX}/lib/ 2>/dev/null || true
-          cp -r ${PREFIX}/jellyfin-ffmpeg/include/* ${PREFIX}/include/ 2>/dev/null || true
-          
-          # Also copy pkg-config files
-          mkdir -p ${PREFIX}/lib/pkgconfig
-          cp ${PREFIX}/jellyfin-ffmpeg/lib/pkgconfig/*.pc ${PREFIX}/lib/pkgconfig/ 2>/dev/null || true
           
           echo "=== Final library count: $(ls ${PREFIX}/lib/*.a | wc -l) ==="
           echo "=== Final header directories: $(ls -d ${PREFIX}/include/*/ | wc -l) ==="
@@ -328,14 +325,15 @@ jobs:
           for makefile in build/*.mk build/Makefile; do
             if [ -f "$makefile" ]; then
               echo "Processing $makefile"
-              # Convert C:\path to /c/path
+              # First, convert Windows drive letters to Unix paths
               sed -i 's|C:\\|/c/|g' "$makefile"
               sed -i 's|D:\\|/d/|g' "$makefile"
-              # Convert backslashes to forward slashes
+              sed -i 's|c:\\|/c/|g' "$makefile"
+              sed -i 's|d:\\|/d/|g' "$makefile"
+              # Convert all remaining backslashes to forward slashes
               sed -i 's|\\|/|g' "$makefile"
-              # Remove any remaining colons that aren't part of rules
-              # But keep the rule patterns (target: dependencies)
-              perl -i -pe 's/(?<!^[^\t]+):(?![ \t])//g if !/^\S+:/' "$makefile"
+              # Fix any doubled slashes that might have been created
+              sed -i 's|//|/|g' "$makefile"
             fi
           done
           
@@ -485,59 +483,41 @@ jobs:
           # For Linux builds, add --enable-pic to ensure position-independent code
           # This fixes linking issues with shared libraries on ARM64 and x64
           if [[ "${TARGET}" == linux* ]]; then
-            echo "Adding --enable-pic and PIC flags for Linux build..."
+            echo "Configuring Linux build with PIC support..."
             
-            # For ARM64, remove LTO because it causes issues with NEON assembly
-            # For x64, keep LTO enabled
+            # First backup the original
+            cp variants/defaults-gpl.sh variants/defaults-gpl.sh.orig
+            
+            # Modify configure flags based on architecture
             if [[ "${TARGET}" == *arm64* ]]; then
-              # Remove LTO for ARM64 (no --disable-lto, just remove --enable-lto)
-              sed -i 's/--enable-lto=auto//' variants/defaults-gpl.sh
-              # Add --enable-pic flag to the FF_CONFIGURE variable
-              sed -i 's/^FF_CONFIGURE="\(.*\)"/FF_CONFIGURE="\1 --enable-pic"/' variants/defaults-gpl.sh
+              echo "Configuring for ARM64 without LTO..."
+              # Remove LTO and add PIC for ARM64
+              sed -i '/--enable-lto=auto/d' variants/defaults-gpl.sh
+              # Add --enable-pic to the end of configure line
+              sed -i '/^FF_CONFIGURE=/s/"$/ --enable-pic"/' variants/defaults-gpl.sh
             else
-              # Add --enable-pic to configure flags for x64
+              echo "Configuring for x64 with LTO and PIC..."
+              # Replace LTO line to include PIC for x64
               sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
             fi
             
-            # Ensure CFLAGS and CXXFLAGS have PIC flags (only if not already present)
-            if ! grep 'FF_CFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
-              # Check if FF_CFLAGS is empty or has content
-              if grep 'FF_CFLAGS=""' variants/defaults-gpl.sh > /dev/null; then
-                sed -i 's/FF_CFLAGS=""/FF_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
-              else
-                sed -i 's/FF_CFLAGS="\([^"]*\)"/FF_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
-              fi
-            fi
+            # Force PIC flags in all compilation
+            # Append to the file to ensure these override any defaults
+            echo '' >> variants/defaults-gpl.sh
+            echo '# Force PIC for shared library compatibility' >> variants/defaults-gpl.sh
+            echo 'FF_CFLAGS="${FF_CFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
+            echo 'FF_CXXFLAGS="${FF_CXXFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
+            echo 'FF_LDFLAGS="${FF_LDFLAGS} -fPIC"' >> variants/defaults-gpl.sh
             
-            if ! grep 'FF_CXXFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
-              # Check if FF_CXXFLAGS is empty or has content
-              if grep 'FF_CXXFLAGS=""' variants/defaults-gpl.sh > /dev/null; then
-                sed -i 's/FF_CXXFLAGS=""/FF_CXXFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
-              else
-                sed -i 's/FF_CXXFLAGS="\([^"]*\)"/FF_CXXFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
-              fi
-            fi
+            # IMPORTANT: For both x64 and ARM64, we need assembly PIC support
+            # x86_64 uses YASM/NASM which needs -DPIC
+            # ARM64 uses GAS which also needs -DPIC
+            echo 'FF_ASFLAGS="${FF_ASFLAGS} -DPIC"' >> variants/defaults-gpl.sh
+            echo 'export FF_CFLAGS FF_CXXFLAGS FF_LDFLAGS FF_ASFLAGS' >> variants/defaults-gpl.sh
             
-            # For ARM64, we need special handling for NEON assembly
-            # The issue is that gas (GNU assembler) needs different PIC flags
-            if [[ "${TARGET}" == *arm64* ]]; then
-              echo "Adding PIC flags for ARM64 NEON assembly..."
-              # For ARM64 assembly, we need to pass the correct assembler directive
-              # Add -DPIC to CFLAGS which will be used by the preprocessor for .S files
-              echo 'export GASPP_FIX_XCODE5=1' >> variants/defaults-gpl.sh
-              # Set AS flags for the assembler
-              echo 'export AS="aarch64-ffbuild-linux-gnu-as"' >> variants/defaults-gpl.sh
-              echo 'export ASFLAGS="-march=armv8-a"' >> variants/defaults-gpl.sh
-              
-              # Ensure HOST_CFLAGS also have PIC for any build tools
-              if ! grep 'FF_HOST_CFLAGS=.*-fPIC' variants/defaults-gpl.sh > /dev/null; then
-                if grep 'FF_HOST_CFLAGS=""' variants/defaults-gpl.sh > /dev/null; then
-                  sed -i 's/FF_HOST_CFLAGS=""/FF_HOST_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
-                else
-                  sed -i 's/FF_HOST_CFLAGS="\([^"]*\)"/FF_HOST_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
-                fi
-              fi
-            fi
+            # Display the final configuration for debugging
+            echo "Final configuration:"
+            cat variants/defaults-gpl.sh
           fi
           
           # Build FFmpeg using modified script
