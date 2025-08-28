@@ -7,7 +7,7 @@ import { BitStreamFilterAPI, Decoder, Encoder, FilterAPI, HardwareContext, Media
 import { AV_CHANNEL_LAYOUT_MONO, AV_CHANNEL_LAYOUT_STEREO } from '../src/lib/channel-layouts.js';
 import { AV_CODEC_ID_H264, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
 import { Frame, Packet } from '../src/lib/index.js';
-import { getInputFile, getOutputFile, getTmpDir, prepareTestEnvironment } from './index.js';
+import { getInputFile, getOutputFile, getTmpDir, prepareTestEnvironment, skipInCI } from './index.js';
 
 prepareTestEnvironment();
 
@@ -788,7 +788,7 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
   });
 
-  describe('Hardware Acceleration', () => {
+  describe('Hardware Acceleration', skipInCI, () => {
     it('should support hardware decoder in pipeline', async function (t) {
       // Check if hardware acceleration is available
       const hw = await HardwareContext.auto();
