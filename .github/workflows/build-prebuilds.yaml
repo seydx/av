@@ -332,6 +332,27 @@ jobs:
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
           
+          # Create MinGW import library for Node.js
+          # node-gyp downloads node.lib but we need libnode.dll.a for MinGW
+          NODE_VERSION=$(node --version | sed 's/v//')
+          NODE_CACHE_DIR="$HOME/AppData/Local/node-gyp/Cache/${NODE_VERSION}"
+          
+          if [ ! -f "${NODE_CACHE_DIR}/lib/libnode.dll.a" ]; then
+            echo "Creating MinGW import library for Node.js..."
+            mkdir -p "${NODE_CACHE_DIR}/lib"
+            
+            # Generate def file from node.exe
+            NODE_EXE="$(which node)"
+            gendef "${NODE_EXE}" -o "${NODE_CACHE_DIR}/lib/node.def"
+            
+            # Create import library from def file
+            dlltool -d "${NODE_CACHE_DIR}/lib/node.def" -l "${NODE_CACHE_DIR}/lib/libnode.dll.a" -D node.exe
+            
+            echo "Created libnode.dll.a"
+          else
+            echo "libnode.dll.a already exists"
+          fi
+          
           # Build with node-gyp directly using make format
           node "${NODE_GYP_PATH}" rebuild \
             --verbose \
