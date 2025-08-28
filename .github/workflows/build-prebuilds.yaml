@@ -6,7 +6,7 @@ concurrency:
 
 env:
   # Cache versions - increment when FFmpeg build configuration changes
-  CACHE_VERSION_WINDOWS: 'v6'
+  CACHE_VERSION_WINDOWS: 'v7'
   CACHE_VERSION_LINUX: 'v17'
   CACHE_VERSION_MACOS: 'v6'
 
@@ -102,22 +102,40 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
+            C:\ffmpeg-cache-${{ matrix.os.arch }}
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
             ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-
           
-      - name: Verify cache restoration
+      - name: Copy cache to MSYS2 location
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
+        shell: msys2 {0}
         run: |
-          PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
-          echo "Cache restored, checking contents:"
-          echo "Libraries: $(ls ${PREFIX}/lib/*.a 2>/dev/null | wc -l)"
-          echo "Headers: $(ls -d ${PREFIX}/include/*/ 2>/dev/null | wc -l)"
-          # Quick check for key libraries
-          for lib in libx264 libavcodec; do
-            ls ${PREFIX}/lib/${lib}.a 2>/dev/null && echo "✓ ${lib} found" || echo "✗ ${lib} missing - cache may be incomplete"
-          done
+          CACHE_DIR="C:/ffmpeg-cache-${{ matrix.os.arch }}"
+          MSYS_PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
+          
+          if [ -d "${CACHE_DIR}" ]; then
+            echo "✓ Cache found at ${CACHE_DIR}"
+            echo "Libraries in cache: $(find ${CACHE_DIR}/lib -name "*.a" 2>/dev/null | wc -l)"
+            
+            # Copy from cache location back to MSYS2 location
+            echo "Copying to MSYS2 location: ${MSYS_PREFIX}"
+            rm -rf "${MSYS_PREFIX}" 2>/dev/null || true
+            mkdir -p "${MSYS_PREFIX}"
+            cp -r "${CACHE_DIR}"/* "${MSYS_PREFIX}/"
+            
+            echo "✓ Files copied to ${MSYS_PREFIX}"
+            echo "Libraries: $(ls ${MSYS_PREFIX}/lib/*.a 2>/dev/null | wc -l)"
+            echo "Headers: $(ls -d ${MSYS_PREFIX}/include/*/ 2>/dev/null | wc -l)"
+            
+            # Quick check for key libraries
+            for lib in libx264 libavcodec; do
+              ls ${MSYS_PREFIX}/lib/${lib}.a 2>/dev/null && echo "✓ ${lib} found" || echo "✗ ${lib} missing - cache may be incomplete"
+            done
+          else
+            echo "✗ Cache directory ${CACHE_DIR} not found!"
+            exit 1
+          fi
 
       - name: Build FFmpeg
         id: build-ffmpeg
@@ -167,44 +185,66 @@ jobs:
           echo "Content of ${PREFIX}:"
           ls -la ${PREFIX}/ || echo "Not found"
           
-      - name: Verify FFmpeg build output
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+      - name: Copy FFmpeg build to cache-friendly location
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
         shell: msys2 {0}
         run: |
-          # Check MSYS2 path
+          # The cache action runs outside MSYS2 and needs a guaranteed accessible path
+          # Let's copy the build artifacts to a temp location that we know works
+          
           MSYS_PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
-          echo "Checking MSYS2 path: ${MSYS_PREFIX}"
+          CACHE_DIR="C:/ffmpeg-cache-${{ matrix.os.arch }}"
+          
           if [ -d "${MSYS_PREFIX}" ]; then
-            echo "✓ MSYS2 directory exists"
+            echo "✓ FFmpeg build exists at ${MSYS_PREFIX}"
             echo "Libraries: $(find ${MSYS_PREFIX}/lib -name "*.a" 2>/dev/null | wc -l)"
             echo "Headers: $(find ${MSYS_PREFIX}/include -name "*.h" 2>/dev/null | wc -l)"
             
-            # Now check if it's accessible from Windows path
-            WIN_PREFIX="C:/msys64/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
-            echo "Checking Windows path: ${WIN_PREFIX}"
-            if [ -d "${WIN_PREFIX}" ]; then
-              echo "✓ Windows path also accessible"
-            else
-              echo "✗ Windows path not accessible from MSYS2"
-            fi
+            # Copy to a Windows-accessible location
+            echo "Copying to cache location: ${CACHE_DIR}"
+            rm -rf "${CACHE_DIR}" 2>/dev/null || true
+            mkdir -p "${CACHE_DIR}"
+            cp -r "${MSYS_PREFIX}"/* "${CACHE_DIR}/"
+            
+            echo "✓ Files copied to ${CACHE_DIR}"
+            echo "Libraries in cache dir: $(find ${CACHE_DIR}/lib -name "*.a" 2>/dev/null | wc -l)"
           else
-            echo "✗ MSYS2 directory does not exist!"
-            echo "Checking if build actually created files:"
-            ls -la "/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/" | head -20
+            echo "✗ FFmpeg build directory does not exist!"
+            exit 1
           fi
+      
+      - name: Verify cache path exists (Windows perspective)
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
+        shell: pwsh
+        run: |
+          Write-Host "Checking if cache path exists from Windows PowerShell perspective"
+          $cachePath = "C:\ffmpeg-cache-${{ matrix.os.arch }}"
+          
+          if (Test-Path $cachePath) {
+            Write-Host "✓ Path exists: $cachePath"
+            $libCount = (Get-ChildItem -Path "$cachePath\lib" -Filter "*.a" -ErrorAction SilentlyContinue).Count
+            Write-Host "✓ Found $libCount libraries in $cachePath\lib"
+            
+            # List some key files to verify
+            Write-Host "Key libraries:"
+            Get-ChildItem -Path "$cachePath\lib" -Filter "libav*.a" -ErrorAction SilentlyContinue | Select-Object -First 5 | ForEach-Object { Write-Host "  - $_" }
+          } else {
+            Write-Host "✗ Path does NOT exist: $cachePath"
+          }
       
       - name: Save FFmpeg cache
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: |
-            C:\msys64\${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}\ffbuild
+            C:\ffmpeg-cache-${{ matrix.os.arch }}
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           
       - name: Install Node dependencies
         shell: bash
         run: |
-          npm ci --ignore-scripts
+          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
+          npm install --ignore-scripts
           # Install node-gyp globally to avoid modifying package-lock.json
           npm install -g node-gyp
 
@@ -728,7 +768,8 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          npm ci --ignore-scripts
+          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
+          npm install --ignore-scripts
           # Install prebuildify globally to avoid modifying package-lock.json
           npm install -g prebuildify
 
@@ -802,7 +843,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm ci --ignore-scripts
+          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
+          npm install --ignore-scripts
 
       - name: Download all prebuilds
         uses: actions/download-artifact@v4
