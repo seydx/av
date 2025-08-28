@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, type DecoderOptions, type EncoderOptions, type StreamInfo } from '../src/api/index.js';
 import { AVFMT_NOFILE, AVIO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
 import { FormatContext, IOContext } from '../src/lib/index.js';
-import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
+import { getInputFile, getOutputFile, prepareTestEnvironment, skipInCI } from './index.js';
 
 prepareTestEnvironment();
 
@@ -187,7 +187,7 @@ describe('Transcode Combinations', () => {
     return frameCount;
   }
 
-  describe('Full GPU (Hardware Decode + Hardware Encode)', () => {
+  describe('Full GPU (Hardware Decode + Hardware Encode)', skipInCI, () => {
     it('should transcode using full GPU pipeline when hardware is available', async () => {
       const hw = await HardwareContext.auto();
       if (!hw) {
@@ -212,7 +212,7 @@ describe('Transcode Combinations', () => {
     });
   });
 
-  describe('Hardware Decode + Software Encode', () => {
+  describe('Hardware Decode + Software Encode', skipInCI, () => {
     it('should transcode using hardware decode and software encode', async () => {
       const hw = await HardwareContext.auto();
       if (!hw) {
@@ -238,7 +238,7 @@ describe('Transcode Combinations', () => {
   });
 
   describe('Software Decode + Hardware Encode', () => {
-    it('should transcode using software decode and hardware encode', async () => {
+    it('should transcode using software decode and hardware encode', skipInCI, async () => {
       const hw = await HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available - skipping test');

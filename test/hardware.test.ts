@@ -10,7 +10,7 @@ import {
   AV_PIX_FMT_NV12,
   AV_PIX_FMT_YUV420P,
 } from '../src/lib/constants.js';
-import { getInputFile, prepareTestEnvironment } from './index.js';
+import { getInputFile, prepareTestEnvironment, skipInCI } from './index.js';
 
 import type { Frame } from '../src/lib/index.js';
 
@@ -278,7 +278,7 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should work with Decoder using auto hardware detection', async () => {
+    it('should work with Decoder using auto hardware detection', skipInCI, async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video(0);
       assert.ok(videoStream, 'Should have video stream');

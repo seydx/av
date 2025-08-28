@@ -23,3 +23,20 @@ export function getOutputFile(name: string) {
 export function getTmpDir() {
   return join(__dirname, '.tmp');
 }
+
+export function isCI(): boolean {
+  // Check common CI environment variables
+  return !!(
+    process.env.CI ??
+    process.env.GITHUB_ACTIONS ??
+    process.env.JENKINS ??
+    process.env.TRAVIS ??
+    process.env.CIRCLECI ??
+    process.env.GITLAB_CI ??
+    process.env.BUILDKITE ??
+    process.env.DRONE ??
+    process.env.CONTINUOUS_INTEGRATION
+  );
+}
+
+export const skipInCI = { skip: isCI() ? 'Skipping hardware tests in CI' : false };
