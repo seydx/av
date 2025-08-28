@@ -332,13 +332,64 @@ jobs:
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
           
+          # Test what the ls commands in binding.gyp would output
+          echo "=== Testing ls command output (as used in binding.gyp) ==="
+          ls /opt/ffbuild/prefix/lib/libx264.a 2>/dev/null || echo ''
+          echo "Result: '$?'"
+          echo ""
+          
           # Build with node-gyp directly using make format
           # Note: We don't link against Node.js library because symbols are available at runtime
-          node "${NODE_GYP_PATH}" rebuild \
+          if ! node "${NODE_GYP_PATH}" rebuild \
             --verbose \
             -f make \
             --arch=${{ matrix.os.arch }} \
-            --release
+            --release; then
+            
+            echo "=== Build failed! Outputting debug information ==="
+            echo ""
+            echo "=== Environment variables ==="
+            echo "CC=$CC"
+            echo "CXX=$CXX"
+            echo "AR=$AR"
+            echo "LINK=$LINK"
+            echo "LD=$LD"
+            echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+            echo "CFLAGS=$CFLAGS"
+            echo "CXXFLAGS=$CXXFLAGS"
+            echo "LDFLAGS=$LDFLAGS"
+            echo ""
+            echo "=== Contents of build directory ==="
+            ls -la build/ || true
+            echo ""
+            echo "=== Complete build/Makefile ==="
+            echo "<<<START_MAKEFILE>>>"
+            cat build/Makefile 2>/dev/null || echo "Makefile not found"
+            echo "<<<END_MAKEFILE>>>"
+            echo ""
+            echo "=== Complete build/node-av.target.mk ==="
+            echo "<<<START_NODE_AV_TARGET_MK>>>"
+            cat build/node-av.target.mk 2>/dev/null || echo "node-av.target.mk not found"
+            echo "<<<END_NODE_AV_TARGET_MK>>>"
+            echo ""
+            echo "=== Complete build/config.gypi ==="
+            echo "<<<START_CONFIG_GYPI>>>"
+            cat build/config.gypi 2>/dev/null || echo "config.gypi not found"
+            echo "<<<END_CONFIG_GYPI>>>"
+            echo ""
+            echo "=== Complete binding.gyp (as used) ==="
+            echo "<<<START_BINDING_GYP>>>"
+            cat binding.gyp 2>/dev/null || echo "binding.gyp not found"
+            echo "<<<END_BINDING_GYP>>>"
+            echo ""
+            echo "=== Complete externals/node-gyp/addon.gypi ==="
+            echo "<<<START_ADDON_GYPI>>>"
+            cat externals/node-gyp/addon.gypi 2>/dev/null || echo "addon.gypi not found"
+            echo "<<<END_ADDON_GYPI>>>"
+            echo ""
+            echo "=== Build failed, exiting ==="
+            exit 1
+          fi
           
           # Copy the built binary to prebuilds
           cp build/Release/node-av.node "$PREBUILD_DIR/node.napi.node"
