@@ -579,9 +579,17 @@ jobs:
         run: |
           # Install the same dependencies that Jellyfin's 00-dep.sh installs
           # This ensures they're in PATH for all subsequent steps
-          brew install wget subversion mercurial autoconf automake cmake meson ninja \
-            pkg-config coreutils gcc make python-setuptools pcre2 libtool gnu-sed \
-            gnu-tar nasm quilt texinfo
+          # Check each package and only install if not already present
+          PACKAGES="wget subversion mercurial autoconf automake cmake meson ninja pkg-config coreutils gcc make python-setuptools pcre2 libtool gnu-sed gnu-tar nasm quilt texinfo"
+          
+          for pkg in $PACKAGES; do
+            if brew ls --versions "$pkg" > /dev/null 2>&1; then
+              echo "$pkg is already installed, skipping..."
+            else
+              echo "Installing $pkg..."
+              brew install "$pkg"
+            fi
+          done
 
       - name: Prepare prefix dir
         run: |
