@@ -301,15 +301,13 @@ jobs:
             export CC="clang"
             export CXX="clang++"
             export AR="llvm-ar"
-            export LINK="clang++"
-            export LD="clang++"
+            # Don't set LINK or LD - let node-gyp handle the linker
             PREFIX="/clang64/ffbuild"
           else
             export CC="clang"
             export CXX="clang++"
             export AR="llvm-ar"
-            export LINK="clang++"
-            export LD="clang++"
+            # Don't set LINK or LD - let node-gyp handle the linker
             PREFIX="/clangarm64/ffbuild"
           fi
           
@@ -334,8 +332,16 @@ jobs:
           
           # Test what the ls commands in binding.gyp would output
           echo "=== Testing ls command output (as used in binding.gyp) ==="
-          ls /opt/ffbuild/prefix/lib/libx264.a 2>/dev/null || echo ''
+          TEST_OUTPUT=$(ls /opt/ffbuild/prefix/lib/libx264.a 2>/dev/null || echo '')
+          echo "Output: '${TEST_OUTPUT}'"
+          echo "Output length: ${#TEST_OUTPUT}"
           echo "Result: '$?'"
+          
+          # Also test what happens when ls fails
+          echo "Testing failed ls:"
+          TEST_FAIL=$(ls /nonexistent/path/lib.a 2>/dev/null || echo '')
+          echo "Failed output: '${TEST_FAIL}'"
+          echo "Failed output length: ${#TEST_FAIL}"
           echo ""
           
           # Build with node-gyp directly using make format
@@ -352,8 +358,6 @@ jobs:
             echo "CC=$CC"
             echo "CXX=$CXX"
             echo "AR=$AR"
-            echo "LINK=$LINK"
-            echo "LD=$LD"
             echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
             echo "CFLAGS=$CFLAGS"
             echo "CXXFLAGS=$CXXFLAGS"
