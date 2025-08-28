@@ -764,8 +764,9 @@ jobs:
             # Use lld for ARM64 with text relocations allowed for NEON assembly
             export LD=ld.lld-18
             # No LTO plugin needed since we disabled LTO for ARM64
-            export LDFLAGS="-fuse-ld=lld-18 -Wl,-z,notext"
-            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,--allow-multiple-definition -Wl,-z,notext"
+            # Use -Bsymbolic to bind symbols locally and avoid PIC issues
+            export LDFLAGS="-fuse-ld=lld-18 -Wl,-z,notext -Wl,-Bsymbolic"
+            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,--allow-multiple-definition -Wl,-z,notext -Wl,-Bsymbolic"
           else
             # For x64, use lld with LTO
             export LD=ld.lld-18
@@ -773,8 +774,9 @@ jobs:
             if [ -z "$LTO_PLUGIN" ]; then
               LTO_PLUGIN="/usr/lib/llvm-18/lib/LLVMgold.so"
             fi
-            export LDFLAGS="-fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN"
-            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,--allow-multiple-definition"
+            # Use -Bsymbolic to bind symbols locally and avoid PIC issues
+            export LDFLAGS="-fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,-Bsymbolic"
+            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,--allow-multiple-definition -Wl,-Bsymbolic"
           fi
           
           # Build N-API binary with proper include paths
