@@ -130,17 +130,30 @@ int main() {
     // Get include and lib paths using the utility function
     const { includePaths, libPaths } = getFFmpegLinkPaths();
 
-    // Try to use pkg-config if available
-    let pkgConfigFlags = '';
-    try {
-      pkgConfigFlags = execSync('pkg-config --cflags --libs libavutil', { encoding: 'utf8' }).trim();
-    } catch {
-      // pkg-config not available, use manual paths
-    }
+    // For CI builds with static libraries, use direct static linking
+    let compileCmd;
+    if (fs.existsSync('/opt/ffbuild/prefix/lib/libavutil.a')) {
+      // CI build with static libraries (Linux/macOS)
+      compileCmd = `gcc ${includePaths} ${tmpFile} -L/opt/ffbuild/prefix/lib /opt/ffbuild/prefix/lib/libavutil.a -lm -pthread -o ${outFile}`;
+    } else if (fs.existsSync('/clang64/ffbuild/lib/libavutil.a')) {
+      // Windows CLANG64 CI build with static libraries
+      compileCmd = `gcc ${includePaths} ${tmpFile} -L/clang64/ffbuild/lib /clang64/ffbuild/lib/libavutil.a -lm -pthread -o ${outFile}`;
+    } else if (fs.existsSync('/clangarm64/ffbuild/lib/libavutil.a')) {
+      // Windows CLANGARM64 CI build with static libraries
+      compileCmd = `gcc ${includePaths} ${tmpFile} -L/clangarm64/ffbuild/lib /clangarm64/ffbuild/lib/libavutil.a -lm -pthread -o ${outFile}`;
+    } else {
+      // Try to use pkg-config if available
+      let pkgConfigFlags = '';
+      try {
+        pkgConfigFlags = execSync('pkg-config --cflags --libs libavutil', { encoding: 'utf8' }).trim();
+      } catch {
+        // pkg-config not available, use manual paths
+      }
 
-    const compileCmd = pkgConfigFlags
-      ? `gcc ${includePaths} ${tmpFile} ${pkgConfigFlags} -o ${outFile}`
-      : `gcc ${includePaths} ${libPaths} ${tmpFile} -lavutil -o ${outFile}`;
+      compileCmd = pkgConfigFlags
+        ? `gcc ${includePaths} ${tmpFile} ${pkgConfigFlags} -o ${outFile}`
+        : `gcc ${includePaths} ${libPaths} ${tmpFile} -lavutil -o ${outFile}`;
+    }
 
     execSync(compileCmd, { stdio: 'inherit' });
     const output = execSync(outFile, { encoding: 'utf8' });

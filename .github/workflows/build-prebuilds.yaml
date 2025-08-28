@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v6'
-  CACHE_VERSION_LINUX: 'v11'
+  CACHE_VERSION_LINUX: 'v14'
   CACHE_VERSION_MACOS: 'v6'
 
 on:
@@ -282,18 +282,22 @@ jobs:
           echo "Prebuild structure:"
           ls -laR prebuilds/
           
-          # Copy binary for tests - check multiple possible names
+          # Copy binary for tests - find and copy the first .node file
           mkdir -p binary
-          if [ -f "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" ]; then
-            cp "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node (node.napi.node)"
-          elif [ -f "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" ]; then
-            cp "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node (node-av.node)"
+          
+          # List contents for debugging
+          echo "Contents of prebuilds directory:"
+          ls -la prebuilds/*/ || true
+          
+          # Find and copy the first .node file
+          NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
+          
+          if [ -n "$NODE_FILE" ]; then
+            cp "$NODE_FILE" binary/node-av.node
+            echo "Copied $NODE_FILE to binary/node-av.node"
           else
-            echo "Warning: Binary not found at expected location"
-            echo "Contents of prebuilds directory:"
-            find prebuilds -name "*.node" -type f
+            echo "Error: No .node file found in prebuilds directory"
+            exit 1
           fi
 
       - name: Run Tests
@@ -398,26 +402,39 @@ jobs:
           cp build.sh build-preserve.sh
           # Comment out line 104 which deletes ffbuild
           sed -i '104s/^/# /' build-preserve.sh
+          
+          # Add --extra-asflags to the configure command (it's missing in Jellyfin's build.sh)
+          # This is crucial for ARM64 NEON assembly to be compiled with PIC
+          sed -i "s|--extra-cxxflags='\$FF_CXXFLAGS' \\\\|--extra-cxxflags='\$FF_CXXFLAGS' \\\\\n        --extra-asflags='\$FF_CFLAGS' \\\\|" build-preserve.sh
+          
           chmod +x build-preserve.sh
           
           # For Linux builds, add --enable-pic to ensure position-independent code
           # This fixes linking issues with shared libraries on ARM64 and x64
           if [[ "${TARGET}" == linux* ]]; then
-            echo "Adding --enable-pic for Linux build..."
+            echo "Adding --enable-pic and PIC flags for Linux build..."
+            
+            # Add --enable-pic to configure flags
             sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
             
-            # Add PIC flags to all Linux builds
-            echo "Adding PIC flags to CFLAGS and CXXFLAGS..."
+            # Replace empty CFLAGS and CXXFLAGS with PIC flags
             sed -i 's/FF_CFLAGS=""/FF_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
             sed -i 's/FF_CXXFLAGS=""/FF_CXXFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
             
-            # For ARM64, also add PIC to ASFLAGS for NEON assembly
+            # If CFLAGS/CXXFLAGS are not empty, append PIC flags
+            sed -i 's/FF_CFLAGS="\([^"]*\)"/FF_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+            sed -i 's/FF_CXXFLAGS="\([^"]*\)"/FF_CXXFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
+            
+            # For ARM64, ensure NEON assembly also gets PIC flags
             if [[ "${TARGET}" == *arm64* ]]; then
-              echo "Adding PIC flags to ASFLAGS for ARM64 NEON assembly..."
+              echo "Adding comprehensive PIC flags for ARM64 NEON assembly..."
+              
               # Add ASFLAGS with PIC
               echo 'FF_ASFLAGS="-fPIC -DPIC"' >> variants/defaults-gpl.sh
-              # Also try adding extra-asflags to configure
-              sed -i 's/--enable-lto=auto --enable-pic/--enable-lto=auto --enable-pic --extra-asflags="-fPIC -DPIC"/' variants/defaults-gpl.sh
+              
+              # Ensure HOST_CFLAGS also have PIC for any build tools
+              sed -i 's/FF_HOST_CFLAGS=""/FF_HOST_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+              sed -i 's/FF_HOST_CFLAGS="\([^"]*\)"/FF_HOST_CFLAGS="\1 -fPIC -DPIC"/' variants/defaults-gpl.sh
             fi
           fi
           
@@ -511,14 +528,6 @@ jobs:
           fi
           export LDFLAGS="-fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN"
           
-          # node-gyp reads these npm_config_* environment variables
-          export npm_config_build_from_source=true
-          export npm_config_jobs=max
-          
-          # Create a temporary .npmrc to ensure the flags are passed to node-gyp
-          echo "build_from_source=true" > .npmrc
-          echo "jobs=max" >> .npmrc
-          
           # Build N-API binary with proper include paths
           CFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
           CXXFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
@@ -534,24 +543,22 @@ jobs:
           ls -la prebuilds/
           ls -la prebuilds/linux-${{ matrix.arch }}/ || echo "Directory structure different"
           
-          # Copy binary for tests - prebuildify creates node.napi.node or node.napi.musl.node/node.napi.glibc.node
+          # Copy binary for tests - find and copy the first .node file
           mkdir -p binary
-          if [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node (node.napi.glibc.node)"
-          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node (node.napi.musl.node)"
-          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node (node.napi.node)"
-          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node-av.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node-av.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node (node-av.node)"
+          
+          # List contents for debugging
+          echo "Contents of prebuilds directory:"
+          ls -la prebuilds/*/ || true
+          
+          # Find and copy the first .node file
+          NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
+          
+          if [ -n "$NODE_FILE" ]; then
+            cp "$NODE_FILE" binary/node-av.node
+            echo "Copied $NODE_FILE to binary/node-av.node"
           else
-            echo "Warning: Binary not found at expected location"
-            echo "Contents of prebuilds directory:"
-            find prebuilds -name "*.node" -type f
+            echo "Error: No .node file found in prebuilds directory"
+            exit 1
           fi
 
       - name: Run Tests
@@ -719,23 +726,22 @@ jobs:
           ls -la prebuilds/
           ls -la prebuilds/darwin-${{ matrix.arch }}/ || echo "Directory structure different"
           
-          # Copy binary for tests - prebuildify might create different names
+          # Copy binary for tests - find and copy the first .node file
           mkdir -p binary
-          if [ -f "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" ]; then
-            cp "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node (napi)"
-          elif [ -f "prebuilds/darwin-${{ matrix.arch }}/node-av.node" ]; then
-            cp "prebuilds/darwin-${{ matrix.arch }}/node-av.node" binary/node-av.node
-            echo "Binary copied to binary/node-av.node"
+          
+          # List contents for debugging
+          echo "Contents of prebuilds directory:"
+          ls -la prebuilds/*/ || true
+          
+          # Find and copy the first .node file
+          NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
+          
+          if [ -n "$NODE_FILE" ]; then
+            cp "$NODE_FILE" binary/node-av.node
+            echo "Copied $NODE_FILE to binary/node-av.node"
           else
-            echo "Warning: Binary not found at expected location"
-            find prebuilds -name "*.node" -type f
-            # Try to copy whatever we find
-            BINARY=$(find prebuilds -name "*.node" -type f | head -1)
-            if [ -n "$BINARY" ]; then
-              cp "$BINARY" binary/node-av.node
-              echo "Copied $BINARY to binary/node-av.node"
-            fi
+            echo "Error: No .node file found in prebuilds directory"
+            exit 1
           fi
 
       - name: Run Tests
