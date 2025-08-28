@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { afterEach, describe, it } from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, IOContext } from '../src/lib/index.js';
 import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
@@ -88,9 +89,11 @@ describe('IOContext', () => {
 
     it('should handle file:// URLs', async () => {
       const io = new IOContext();
-      const fileUrl = `file://${testVideoFile}`;
+      // Use Node.js built-in pathToFileURL for proper cross-platform conversion
+      const fileUrl = pathToFileURL(testVideoFile).href;
+
       const ret = await io.open2(fileUrl, AVIO_FLAG_READ);
-      assert.equal(ret, 0, 'Should handle file:// protocol');
+      assert.equal(ret, 0, `Should handle file:// protocol (URL: ${fileUrl})`);
       const closret = await io.closep();
       assert.equal(closret, 0, 'Should return 0 on success');
     });
