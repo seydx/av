@@ -66,6 +66,8 @@ jobs:
             zip
             ${{ matrix.os.toolchain }}
             quilt
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-nodejs
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-npm
             diffstat
             ${{ matrix.os.nasm }}
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
@@ -326,6 +328,16 @@ jobs:
           # Important: Convert MSYS2 paths to Windows paths for Node.js
           NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
           
+          # Check that MSYS2's Node.js has the import library
+          MSYS_NODE_LIB="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')/lib/libnode.dll.a"
+          if [ ! -f "${MSYS_NODE_LIB}" ]; then
+            echo "Error: MSYS2 Node.js import library not found at ${MSYS_NODE_LIB}"
+            ls -la "/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')/lib/" | grep -i node || true
+            exit 1
+          else
+            echo "Using MSYS2 Node.js import library at ${MSYS_NODE_LIB}"
+          fi
+          
           # Create prebuilds directory structure
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
@@ -345,11 +357,14 @@ jobs:
           echo ""
           
           # Build with node-gyp directly using make format
-          # Note: We don't link against Node.js library because symbols are available at runtime
+          # Use --nodedir to point to MSYS2's Node.js installation
+          MSYS_NODE_DIR="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')"
+          
           if ! node "${NODE_GYP_PATH}" rebuild \
             --verbose \
             -f make \
             --arch=${{ matrix.os.arch }} \
+            --nodedir="${MSYS_NODE_DIR}" \
             --release; then
             
             echo "=== Build failed! Outputting debug information ==="
