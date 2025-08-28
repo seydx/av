@@ -1090,7 +1090,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           console.log('Skipping test on macOS x64 due to known race condition');
           return;
         }
-        
+
         const videoOutputFile = getTestOutputPath('multi-out-video.mp4');
         const audioOutputFile = getTestOutputPath('multi-out-audio.aac');
 
