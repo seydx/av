@@ -257,6 +257,10 @@
                   ],
                   "library_dirs": [
                     "/clang64/ffbuild/lib"
+                  ],
+                  "libraries": [
+                    "-lvpl",
+                    "-lamf"
                   ]
                 }
               ],
@@ -307,6 +311,7 @@
               "-lunibreak",
               "-lbluray",
               "-lopenmpt",
+              "-lvorbisfile",
               "-lchromaprint",
               "-lfftw3f",
               "-lsharpyuv",
@@ -319,6 +324,7 @@
               "-llzma",
               "-liconv",
               "-lgmp",
+              "-lOpenCL",
               "-lws2_32",
               "-lsecur32",
               "-lbcrypt",
