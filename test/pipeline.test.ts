@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 
 import { BitStreamFilterAPI, Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/api/index.js';
-import { AV_CHANNEL_LAYOUT_MONO } from '../src/lib/channel-layouts.js';
+import { AV_CHANNEL_LAYOUT_MONO, AV_CHANNEL_LAYOUT_STEREO } from '../src/lib/channel-layouts.js';
 import { AV_CODEC_ID_H264, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
 import { Frame, Packet } from '../src/lib/index.js';
 import { getInputFile, getOutputFile, getTmpDir, prepareTestEnvironment } from './index.js';
@@ -1124,7 +1124,7 @@ describe('Pipeline - Comprehensive Tests', () => {
               type: 'audio',
               sampleRate: 44100,
               sampleFormat: AV_SAMPLE_FMT_FLTP,
-              channelLayout: AV_CHANNEL_LAYOUT_MONO,
+              channelLayout: AV_CHANNEL_LAYOUT_STEREO,
               timeBase: { num: 1, den: 44100 },
             },
             {
