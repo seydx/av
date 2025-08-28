@@ -149,6 +149,7 @@
             "libraries": [
               "-L/opt/ffbuild/prefix/lib",
               "-Wl,--whole-archive",
+              "-Wl,--start-group",
               "/opt/ffbuild/prefix/lib/libavformat.a",
               "/opt/ffbuild/prefix/lib/libavcodec.a",
               "/opt/ffbuild/prefix/lib/libavfilter.a",
@@ -156,6 +157,7 @@
               "/opt/ffbuild/prefix/lib/libswscale.a",
               "/opt/ffbuild/prefix/lib/libswresample.a",
               "/opt/ffbuild/prefix/lib/libavutil.a",
+              "-Wl,--end-group",
               "-Wl,--no-whole-archive",
               "<!@(ls /opt/ffbuild/prefix/lib/libx264.a 2>/dev/null || echo '')",
               "<!@(ls /opt/ffbuild/prefix/lib/libx265.a 2>/dev/null || echo '')",
@@ -226,8 +228,9 @@
             ],
             "ldflags": [
               "-Wl,--gc-sections",
-              "-Wl,--as-needed",
-              "-Wl,--allow-multiple-definition"
+              "-Wl,--allow-multiple-definition",
+              "-Wl,-rpath,'$$ORIGIN'",
+              "-Wl,-z,origin"
             ]
           }
         ],
