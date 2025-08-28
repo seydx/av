@@ -321,17 +321,29 @@ jobs:
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
           
-          # Use prebuildify with our custom node-gyp
+          # Use our custom node-gyp directly for better control
           # Important: Convert MSYS2 paths to Windows paths for Node.js
-          # Use cygpath to convert Unix paths to Windows paths
           NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
-          export npm_config_node_gyp_dir="$(cygpath -w $(pwd)/externals/node-gyp)"
           
-          prebuildify \
-            --napi \
-            --strip \
+          # Create prebuilds directory structure
+          PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
+          mkdir -p "$PREBUILD_DIR"
+          
+          # Build with node-gyp directly using make format
+          node "${NODE_GYP_PATH}" rebuild \
+            --format=make \
             --arch=${{ matrix.os.arch }} \
-            --node-gyp="node \"${NODE_GYP_PATH}\""
+            --release
+          
+          # Copy the built binary to prebuilds
+          cp build/Release/node-av.node "$PREBUILD_DIR/node.napi.node"
+          
+          # Strip the binary if needed
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            llvm-strip "$PREBUILD_DIR/node.napi.node"
+          else
+            llvm-strip "$PREBUILD_DIR/node.napi.node"
+          fi
           
           echo "Native addon built successfully"
           echo "Prebuild structure:"

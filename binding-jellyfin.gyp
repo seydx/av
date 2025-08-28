@@ -45,8 +45,7 @@
         "src/bindings/option.cc"
       ],
       "include_dirs": [
-        "<!@(node -p \"require('node-addon-api').include\")",
-        "/opt/ffbuild/prefix/include"
+        "<!@(node -p \"require('node-addon-api').include\")"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"
@@ -64,6 +63,9 @@
         [
           "OS=='mac'",
           {
+            "include_dirs": [
+              "/opt/ffbuild/prefix/include"
+            ],
             "library_dirs": [
               "/opt/ffbuild/prefix/lib"
             ],
@@ -143,6 +145,9 @@
         [
           "OS=='linux'",
           {
+            "include_dirs": [
+              "/opt/ffbuild/prefix/include"
+            ],
             "library_dirs": [
               "/opt/ffbuild/prefix/lib"
             ],
