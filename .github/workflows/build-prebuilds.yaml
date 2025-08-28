@@ -321,6 +321,9 @@ jobs:
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
           
+          # Force gyp to use make generator (for Python gyp code)
+          export GYP_GENERATORS="make"
+          
           # Use our custom node-gyp directly for better control
           # Important: Convert MSYS2 paths to Windows paths for Node.js
           NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
@@ -328,6 +331,9 @@ jobs:
           # Create prebuilds directory structure
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
+          
+          # Create necessary build directories
+          mkdir -p build/Release/obj.target/node-av/src/bindings
           
           # Build with node-gyp directly using make format
           node "${NODE_GYP_PATH}" rebuild \

@@ -45,7 +45,11 @@
         "src/bindings/option.cc"
       ],
       "include_dirs": [
-        "<!@(node -p \"require('node-addon-api').include\")"
+        "<!@(node -p \"require('node-addon-api').include\")",
+        "<!@(echo $CFLAGS | grep -o '\\-I[^ ]*' | sed 's/-I//' || echo '')"
+      ],
+      "library_dirs": [
+        "<!@(echo $LDFLAGS | grep -o '\\-L[^ ]*' | sed 's/-L//' || echo '')"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"
@@ -241,7 +245,7 @@
           }
         ],
         [
-          "OS=='win'",
+          "OS=='win' or (OS!='mac' and OS!='linux')",
           {
             "msvs_settings": {
               "VCCLCompilerTool": {
