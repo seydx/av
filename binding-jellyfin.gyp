@@ -185,9 +185,14 @@
               "-fPIC",
               "-O3"
             ],
+            "cflags_cc": [
+              "-fPIC",
+              "-O3"
+            ],
             "ldflags": [
               "-Wl,--gc-sections",
-              "-Wl,--as-needed"
+              "-Wl,--as-needed",
+              "-Wl,--allow-multiple-definition"
             ]
           }
         ],

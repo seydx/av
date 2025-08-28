@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v6'
-  CACHE_VERSION_LINUX: 'v7'
+  CACHE_VERSION_LINUX: 'v8'
   CACHE_VERSION_MACOS: 'v6'
 
 on:
@@ -283,13 +283,13 @@ jobs:
           ls -laR prebuilds/
           
           # Copy binary for tests - check multiple possible names
-          mkdir -p build/Release
+          mkdir -p binary
           if [ -f "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" ]; then
-            cp "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (node.napi.node)"
+            cp "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node (node.napi.node)"
           elif [ -f "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" ]; then
-            cp "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (node-av.node)"
+            cp "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node (node-av.node)"
           else
             echo "Warning: Binary not found at expected location"
             echo "Contents of prebuilds directory:"
@@ -400,6 +400,13 @@ jobs:
           sed -i '104s/^/# /' build-preserve.sh
           chmod +x build-preserve.sh
           
+          # For Linux builds, add --enable-pic to ensure position-independent code
+          # This fixes linking issues with shared libraries on ARM64 and x64
+          if [[ "${TARGET}" == linux* ]]; then
+            echo "Adding --enable-pic for Linux build..."
+            sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
+          fi
+          
           # Build FFmpeg using modified script
           echo "Building FFmpeg using modified build script..."
           # Set GITHUB_REPOSITORY so build.sh uses our Docker images
@@ -481,6 +488,14 @@ jobs:
           export AR=llvm-ar-18
           export NM=llvm-nm-18
           export RANLIB=llvm-ranlib-18
+          export LD=ld.lld-18
+          
+          # Set up LTO plugin path for the linker
+          LTO_PLUGIN=$(find /usr/lib -name "LLVMgold.so" 2>/dev/null | head -n1)
+          if [ -z "$LTO_PLUGIN" ]; then
+            LTO_PLUGIN="/usr/lib/llvm-18/lib/LLVMgold.so"
+          fi
+          export LDFLAGS="-fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN"
           
           # node-gyp reads these npm_config_* environment variables
           export npm_config_build_from_source=true
@@ -491,9 +506,9 @@ jobs:
           echo "jobs=max" >> .npmrc
           
           # Build N-API binary with proper include paths
-          CFLAGS="-I/opt/ffbuild/prefix/include" \
-          CXXFLAGS="-I/opt/ffbuild/prefix/include" \
-          LDFLAGS="-L/opt/ffbuild/prefix/lib" \
+          CFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
+          CXXFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
+          LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,--allow-multiple-definition" \
           prebuildify \
             --napi \
             --strip \
@@ -506,19 +521,19 @@ jobs:
           ls -la prebuilds/linux-${{ matrix.arch }}/ || echo "Directory structure different"
           
           # Copy binary for tests - prebuildify creates node.napi.node or node.napi.musl.node/node.napi.glibc.node
-          mkdir -p build/Release
+          mkdir -p binary
           if [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (node.napi.glibc.node)"
+            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node (node.napi.glibc.node)"
           elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (node.napi.musl.node)"
+            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node (node.napi.musl.node)"
           elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (node.napi.node)"
+            cp "prebuilds/linux-${{ matrix.arch }}/node.napi.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node (node.napi.node)"
           elif [ -f "prebuilds/linux-${{ matrix.arch }}/node-av.node" ]; then
-            cp "prebuilds/linux-${{ matrix.arch }}/node-av.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (node-av.node)"
+            cp "prebuilds/linux-${{ matrix.arch }}/node-av.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node (node-av.node)"
           else
             echo "Warning: Binary not found at expected location"
             echo "Contents of prebuilds directory:"
@@ -680,21 +695,21 @@ jobs:
           ls -la prebuilds/darwin-${{ matrix.arch }}/ || echo "Directory structure different"
           
           # Copy binary for tests - prebuildify might create different names
-          mkdir -p build/Release
+          mkdir -p binary
           if [ -f "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" ]; then
-            cp "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (napi)"
+            cp "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node (napi)"
           elif [ -f "prebuilds/darwin-${{ matrix.arch }}/node-av.node" ]; then
-            cp "prebuilds/darwin-${{ matrix.arch }}/node-av.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node"
+            cp "prebuilds/darwin-${{ matrix.arch }}/node-av.node" binary/node-av.node
+            echo "Binary copied to binary/node-av.node"
           else
             echo "Warning: Binary not found at expected location"
             find prebuilds -name "*.node" -type f
             # Try to copy whatever we find
             BINARY=$(find prebuilds -name "*.node" -type f | head -1)
             if [ -n "$BINARY" ]; then
-              cp "$BINARY" build/Release/node-av.node
-              echo "Copied $BINARY to build/Release/node-av.node"
+              cp "$BINARY" binary/node-av.node
+              echo "Copied $BINARY to binary/node-av.node"
             fi
           fi
 
