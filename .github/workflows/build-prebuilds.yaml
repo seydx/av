@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v6'
-  CACHE_VERSION_LINUX: 'v8'
+  CACHE_VERSION_LINUX: 'v10'
   CACHE_VERSION_MACOS: 'v6'
 
 on:
@@ -405,6 +405,14 @@ jobs:
           if [[ "${TARGET}" == linux* ]]; then
             echo "Adding --enable-pic for Linux build..."
             sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
+            
+            # For ARM64, we need to ensure NEON assembly is also PIC
+            # Add explicit PIC flags to the build environment
+            if [[ "${TARGET}" == *arm64* ]]; then
+              echo "Adding extra PIC flags for ARM64 NEON assembly..."
+              sed -i 's/FF_CFLAGS=""/FF_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+              sed -i 's/FF_CXXFLAGS=""/FF_CXXFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+            fi
           fi
           
           # Build FFmpeg using modified script
