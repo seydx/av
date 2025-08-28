@@ -487,8 +487,8 @@ jobs:
             if [[ "${TARGET}" == *arm64* ]]; then
               # Remove LTO for ARM64 (no --disable-lto, just remove --enable-lto)
               sed -i 's/--enable-lto=auto//' variants/defaults-gpl.sh
-              # Add --enable-pic flag
-              sed -i '/^FF_CONFIGURE=/s/$/ --enable-pic/' variants/defaults-gpl.sh
+              # Add --enable-pic flag to the FF_CONFIGURE variable
+              sed -i 's/^FF_CONFIGURE="\(.*\)"/FF_CONFIGURE="\1 --enable-pic"/' variants/defaults-gpl.sh
             else
               # Add --enable-pic to configure flags for x64
               sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
