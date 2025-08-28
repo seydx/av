@@ -5,13 +5,14 @@
  */
 
 import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { existsSync, unlinkSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { getFFmpegPath, getFFmpegLinkPaths } from './utils.js';
+import { getFFmpegLinkPaths, getFFmpegPath } from './utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 const FFMPEG_PATH = getFFmpegPath('include');
 console.log(`Using FFmpeg headers from: ${FFMPEG_PATH}`);
@@ -120,10 +121,11 @@ int main() {
 }
 `;
 
-  // Write C code to temp file
-  const tmpFile = path.join('/tmp', 'channel_layouts.c');
-  const outFile = path.join('/tmp', 'channel_layouts');
-  fs.writeFileSync(tmpFile, cCode);
+  // Write C code to temp file (use OS temp directory for cross-platform compatibility)
+  const tmpDir = tmpdir();
+  const tmpFile = join(tmpDir, 'channel_layouts.c');
+  const outFile = join(tmpDir, 'channel_layouts');
+  writeFileSync(tmpFile, cCode);
 
   // Compile and run
   try {
@@ -132,13 +134,13 @@ int main() {
 
     // For CI builds with static libraries, use direct static linking
     let compileCmd;
-    if (fs.existsSync('/opt/ffbuild/prefix/lib/libavutil.a')) {
+    if (existsSync('/opt/ffbuild/prefix/lib/libavutil.a')) {
       // CI build with static libraries (Linux/macOS)
       compileCmd = `gcc ${includePaths} ${tmpFile} -L/opt/ffbuild/prefix/lib /opt/ffbuild/prefix/lib/libavutil.a -lm -pthread -o ${outFile}`;
-    } else if (fs.existsSync('/clang64/ffbuild/lib/libavutil.a')) {
+    } else if (existsSync('/clang64/ffbuild/lib/libavutil.a')) {
       // Windows CLANG64 CI build with static libraries
       compileCmd = `gcc ${includePaths} ${tmpFile} -L/clang64/ffbuild/lib /clang64/ffbuild/lib/libavutil.a -lm -pthread -o ${outFile}`;
-    } else if (fs.existsSync('/clangarm64/ffbuild/lib/libavutil.a')) {
+    } else if (existsSync('/clangarm64/ffbuild/lib/libavutil.a')) {
       // Windows CLANGARM64 CI build with static libraries
       compileCmd = `gcc ${includePaths} ${tmpFile} -L/clangarm64/ffbuild/lib /clangarm64/ffbuild/lib/libavutil.a -lm -pthread -o ${outFile}`;
     } else {
@@ -159,8 +161,8 @@ int main() {
     const output = execSync(outFile, { encoding: 'utf8' });
 
     // Clean up
-    fs.unlinkSync(tmpFile);
-    fs.unlinkSync(outFile);
+    unlinkSync(tmpFile);
+    unlinkSync(outFile);
 
     return output;
   } catch (error) {
@@ -171,7 +173,7 @@ int main() {
 
 // Generate the file
 const generateChannelLayoutsFile = () => {
-  const outputPath = path.join(__dirname, '..', 'src', 'lib', 'channel-layouts.ts');
+  const outputPath = join(__dirname, '..', 'src', 'lib', 'channel-layouts.ts');
 
   let content = `/**
  * FFmpeg Channel Layout Constants
@@ -187,7 +189,7 @@ import type { ChannelLayout } from './types.js';
   const values = getChannelLayoutValues();
   content += values;
 
-  fs.writeFileSync(outputPath, content);
+  writeFileSync(outputPath, content);
   console.log(`Generated ${outputPath}`);
 };
 

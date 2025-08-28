@@ -6,24 +6,24 @@
  * This extracts all AV_* constants and creates TypeScript constants with branded types
  */
 
-import fs from 'fs';
-import path from 'path';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { getFFmpegPath } from './utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 const FFMPEG_PATH = getFFmpegPath('include');
 console.log(`Using FFmpeg headers from: ${FFMPEG_PATH}`);
 
 // Parse all AV_ constants from a header file
 const parseConstants = (headerPath) => {
-  if (!fs.existsSync(headerPath)) {
+  if (!existsSync(headerPath)) {
     return [];
   }
 
-  const content = fs.readFileSync(headerPath, 'utf8');
+  const content = readFileSync(headerPath, 'utf8');
   const constants = [];
 
   // Parse #define constants (including AVERROR, AVFMT, AVIO, AVFILTER, AVSTREAM, AVSEEK, SWS, and SWR)
@@ -61,11 +61,11 @@ const parseConstants = (headerPath) => {
 
 // Parse enum values from a header file
 const parseEnums = (headerPath) => {
-  if (!fs.existsSync(headerPath)) {
+  if (!existsSync(headerPath)) {
     return {};
   }
 
-  const content = fs.readFileSync(headerPath, 'utf8');
+  const content = readFileSync(headerPath, 'utf8');
   const enums = {};
 
   // Find all enum blocks
@@ -153,15 +153,15 @@ const scanAllHeaders = () => {
   const allEnums = new Map();
 
   for (const lib of libraries) {
-    const libPath = path.join(FFMPEG_PATH, lib);
-    if (!fs.existsSync(libPath)) {
+    const libPath = join(FFMPEG_PATH, lib);
+    if (!existsSync(libPath)) {
       continue;
     }
 
-    const headers = fs.readdirSync(libPath).filter((f) => f.endsWith('.h'));
+    const headers = readdirSync(libPath).filter((f) => f.endsWith('.h'));
 
     for (const header of headers) {
-      const headerPath = path.join(libPath, header);
+      const headerPath = join(libPath, header);
 
       // Parse constants
       const constants = parseConstants(headerPath);
@@ -678,10 +678,10 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
       }
     }
 
-    const errorFile = path.join(FFMPEG_PATH, 'libavutil', 'error.h');
+    const errorFile = join(FFMPEG_PATH, 'libavutil', 'error.h');
 
-    if (fs.existsSync(errorFile)) {
-      const errorContent = fs.readFileSync(errorFile, 'utf8');
+    if (existsSync(errorFile)) {
+      const errorContent = readFileSync(errorFile, 'utf8');
 
       // Parse FFERRTAG macro calls
       const fferrtagPattern = /#define\s+(AVERROR_\w+)\s+FFERRTAG\s*\(([^)]+)\)/gm;
@@ -747,15 +747,15 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
 const main = () => {
   console.log('Scanning all FFmpeg headers...');
   const output = generateTypeScript();
-  const outputPath = path.join(__dirname, '..', 'src', 'lib', 'constants.ts');
+  const outputPath = join(__dirname, '..', 'src', 'lib', 'constants.ts');
 
   // Create directory if it doesn't exist
-  const dir = path.dirname(outputPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  const dir = dirname(outputPath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
   }
 
-  fs.writeFileSync(outputPath, output);
+  writeFileSync(outputPath, output);
   console.log(`Generated constants at: ${outputPath}`);
 
   // Show summary

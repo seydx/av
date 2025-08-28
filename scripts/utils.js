@@ -5,12 +5,12 @@
  */
 
 import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { existsSync } from 'fs';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 // Cache the root path to avoid repeated lookups and logging
 let cachedRootPath = null;
@@ -25,11 +25,11 @@ export const getFFmpegPath = (target = 'root') => {
   if (cachedRootPath) {
     switch (target) {
       case 'include':
-        return path.join(cachedRootPath, 'include');
+        return join(cachedRootPath, 'include');
       case 'lib':
-        return path.join(cachedRootPath, 'lib');
+        return join(cachedRootPath, 'lib');
       case 'bin':
-        return path.join(cachedRootPath, 'bin');
+        return join(cachedRootPath, 'bin');
       case 'root':
       default:
         return cachedRootPath;
@@ -41,7 +41,7 @@ export const getFFmpegPath = (target = 'root') => {
   // First check environment variable
   if (process.env.FFMPEG_DEV_PATH) {
     const envPath = process.env.FFMPEG_DEV_PATH;
-    if (fs.existsSync(envPath)) {
+    if (existsSync(envPath)) {
       rootPath = envPath;
     }
   }
@@ -53,9 +53,9 @@ export const getFFmpegPath = (target = 'root') => {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'ignore'], // Suppress stderr
       }).trim();
-      if (pkgConfigPath && fs.existsSync(pkgConfigPath)) {
+      if (pkgConfigPath && existsSync(pkgConfigPath)) {
         // Verify it has the expected structure
-        if (fs.existsSync(path.join(pkgConfigPath, 'include/libavcodec/avcodec.h'))) {
+        if (existsSync(join(pkgConfigPath, 'include/libavcodec/avcodec.h'))) {
           console.log('Using FFmpeg from pkg-config');
           rootPath = pkgConfigPath;
         }
@@ -80,7 +80,7 @@ export const getFFmpegPath = (target = 'root') => {
     ];
 
     for (const testPath of commonPaths) {
-      if (fs.existsSync(path.join(testPath, 'include/libavcodec/avcodec.h'))) {
+      if (existsSync(join(testPath, 'include/libavcodec/avcodec.h'))) {
         console.log(`Using FFmpeg from: ${testPath}`);
         rootPath = testPath;
         break;
@@ -91,8 +91,8 @@ export const getFFmpegPath = (target = 'root') => {
   // Fallback to source directories if no installed FFmpeg found
   if (!rootPath) {
     // Try Jellyfin FFmpeg source
-    const jellyfinPath = path.join(__dirname, '../externals/jellyfin-ffmpeg');
-    if (fs.existsSync(jellyfinPath)) {
+    const jellyfinPath = join(__dirname, '../externals/jellyfin-ffmpeg');
+    if (existsSync(jellyfinPath)) {
       console.log('Using Jellyfin FFmpeg source');
       // For source directories, the structure is different
       cachedRootPath = jellyfinPath;
@@ -103,7 +103,7 @@ export const getFFmpegPath = (target = 'root') => {
     }
 
     // Fallback to original FFmpeg source
-    const ffmpegPath = path.join(__dirname, '../externals/ffmpeg');
+    const ffmpegPath = join(__dirname, '../externals/ffmpeg');
     console.log('Using original FFmpeg source');
     cachedRootPath = ffmpegPath;
     if (target === 'include') {
@@ -118,11 +118,11 @@ export const getFFmpegPath = (target = 'root') => {
   // Return the requested target directory
   switch (target) {
     case 'include':
-      return path.join(rootPath, 'include');
+      return join(rootPath, 'include');
     case 'lib':
-      return path.join(rootPath, 'lib');
+      return join(rootPath, 'lib');
     case 'bin':
-      return path.join(rootPath, 'bin');
+      return join(rootPath, 'bin');
     case 'root':
     default:
       return rootPath;
@@ -163,15 +163,15 @@ export const getFFmpegLinkPaths = () => {
     .filter((p) => {
       if (p.startsWith('-I')) {
         const path = p.substring(2);
-        return fs.existsSync(path);
+        return existsSync(path);
       }
-      return fs.existsSync(p);
+      return existsSync(p);
     })
     .map((p) => (p.startsWith('-I') ? p : `-I${p}`))
     .join(' ');
 
   const libPaths = possibleLibPaths
-    .filter((p) => fs.existsSync(p))
+    .filter((p) => existsSync(p))
     .map((p) => `-L${p}`)
     .join(' ');
 
