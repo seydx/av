@@ -145,7 +145,34 @@ jobs:
           
           # Run Jellyfin build script (builds all dependencies + FFmpeg)
           echo "Running build script: ${{ matrix.os.build_script }}"
-          ${{ matrix.os.build_script }}
+          
+          # Temporarily modify build script for ARM64 to fix library paths
+          if [ "${{ matrix.os.arch }}" = "arm64" ]; then
+            # Create a modified build script that copies libraries after PKGBUILD phase
+            cp ${{ matrix.os.build_script }} build-fixed.sh
+            # Insert copy commands after the PKGBUILD loop, before FFmpeg configure
+            sed -i '/cd "\$BUILDER_ROOT"$/a\
+\
+# Fix ARM64 library paths - copy from /clangarm64 to /clangarm64/ffbuild\
+echo "Fixing ARM64 library paths..."\
+if [ -d "/clangarm64/lib" ]; then\
+  echo "Copying libraries from /clangarm64/lib to /clangarm64/ffbuild/lib"\
+  mkdir -p /clangarm64/ffbuild/lib/pkgconfig\
+  cp -f /clangarm64/lib/*.a /clangarm64/ffbuild/lib/ 2>/dev/null || true\
+  cp -f /clangarm64/lib/pkgconfig/*.pc /clangarm64/ffbuild/lib/pkgconfig/ 2>/dev/null || true\
+fi\
+if [ -d "/clangarm64/include" ]; then\
+  echo "Copying headers from /clangarm64/include to /clangarm64/ffbuild/include"\
+  mkdir -p /clangarm64/ffbuild/include\
+  cp -rf /clangarm64/include/* /clangarm64/ffbuild/include/ 2>/dev/null || true\
+fi\
+echo "Library count: $(ls /clangarm64/ffbuild/lib/*.a 2>/dev/null | wc -l)"' build-fixed.sh
+            
+            chmod +x build-fixed.sh
+            ./build-fixed.sh
+          else
+            ${{ matrix.os.build_script }}
+          fi
           
           # After build, libraries are in /clang*/ffbuild/lib/
           # Headers are in /clang*/ffbuild/include/

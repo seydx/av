@@ -150,10 +150,10 @@
               "-L/opt/ffbuild/prefix/lib",
               "-Wl,--whole-archive",
               "-Wl,--start-group",
+              "/opt/ffbuild/prefix/lib/libavdevice.a",
+              "/opt/ffbuild/prefix/lib/libavfilter.a",
               "/opt/ffbuild/prefix/lib/libavformat.a",
               "/opt/ffbuild/prefix/lib/libavcodec.a",
-              "/opt/ffbuild/prefix/lib/libavfilter.a",
-              "/opt/ffbuild/prefix/lib/libavdevice.a",
               "/opt/ffbuild/prefix/lib/libswscale.a",
               "/opt/ffbuild/prefix/lib/libswresample.a",
               "/opt/ffbuild/prefix/lib/libavutil.a",
@@ -227,10 +227,11 @@
               "-O3"
             ],
             "ldflags": [
-              "-Wl,--gc-sections",
               "-Wl,--allow-multiple-definition",
               "-Wl,-rpath,'$$ORIGIN'",
-              "-Wl,-z,origin"
+              "-Wl,-z,origin",
+              "-Wl,--export-dynamic",
+              "-Wl,--no-as-needed"
             ]
           }
         ],
@@ -242,12 +243,10 @@
                 "target_arch=='x64'",
                 {
                   "include_dirs": [
-                    "/clang64/ffbuild/include",
-                    "C:/msys64/clang64/ffbuild/include"
+                    "/clang64/ffbuild/include"
                   ],
                   "library_dirs": [
-                    "/clang64/ffbuild/lib",
-                    "C:/msys64/clang64/ffbuild/lib"
+                    "/clang64/ffbuild/lib"
                   ]
                 }
               ],
@@ -255,12 +254,10 @@
                 "target_arch=='arm64'",
                 {
                   "include_dirs": [
-                    "/clangarm64/ffbuild/include",
-                    "C:/msys64/clangarm64/ffbuild/include"
+                    "/clangarm64/ffbuild/include"
                   ],
                   "library_dirs": [
-                    "/clangarm64/ffbuild/lib",
-                    "C:/msys64/clangarm64/ffbuild/lib"
+                    "/clangarm64/ffbuild/lib"
                   ]
                 }
               ]
