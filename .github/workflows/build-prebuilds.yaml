@@ -271,12 +271,24 @@ jobs:
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           
       - name: Install Node dependencies
-        shell: bash
         run: |
           # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
           npm install --ignore-scripts
-          # Install node-gyp globally to avoid modifying package-lock.json
-          npm install -g node-gyp
+          # Install prebuildify globally to avoid modifying package-lock.json
+          npm install -g prebuildify
+
+      - name: Setup custom node-gyp
+        shell: msys2 {0}
+        run: |
+          # Install and configure custom node-gyp from submodule
+          pushd externals/node-gyp
+          npm install
+          npm link
+          popd
+          
+          # Verify node-gyp is available
+          which node-gyp
+          node-gyp --version
 
       - name: Build Native Addon
         shell: msys2 {0}
@@ -309,50 +321,16 @@ jobs:
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
           
-          # Install node-gyp
-          npm install -g node-gyp
+          # Use prebuildify with our custom node-gyp
+          # Important: Set node_gyp_dir for proper path handling in MSYS2
+          NODE_GYP_PATH="$(pwd)/externals/node-gyp/bin/node-gyp.js"
+          export npm_config_node_gyp_dir="$(pwd)/externals/node-gyp"
           
-          # Configure with node-gyp first
-          node-gyp configure \
-            --target=24.0.0 \
+          prebuildify \
+            --napi \
+            --strip \
             --arch=${{ matrix.os.arch }} \
-            --dist-url=https://nodejs.org/dist \
-            -- -f make
-          
-          # FIX: Convert Windows paths to Unix paths in generated makefiles
-          # This fixes the "target pattern contains no '%'" error
-          echo "Fixing Windows paths in makefiles..."
-          for makefile in build/*.mk build/Makefile; do
-            if [ -f "$makefile" ]; then
-              echo "Processing $makefile"
-              # First, convert Windows drive letters to Unix paths
-              sed -i 's|C:\\|/c/|g' "$makefile"
-              sed -i 's|D:\\|/d/|g' "$makefile"
-              sed -i 's|c:\\|/c/|g' "$makefile"
-              sed -i 's|d:\\|/d/|g' "$makefile"
-              # Convert all remaining backslashes to forward slashes
-              sed -i 's|\\|/|g' "$makefile"
-              # Fix any doubled slashes that might have been created
-              sed -i 's|//|/|g' "$makefile"
-            fi
-          done
-          
-          # Now build
-          node-gyp build --verbose
-          
-          # Copy the built binary to the expected location
-          TARGET_DIR="prebuilds/win32-${{ matrix.os.arch }}"
-          mkdir -p "${TARGET_DIR}"
-          
-          if [ -f "build/Release/node-av.node" ]; then
-            cp "build/Release/node-av.node" "${TARGET_DIR}/node.napi.node"
-            strip "${TARGET_DIR}/node.napi.node"
-            echo "Binary built and stripped successfully"
-          else
-            echo "Error: Binary not found at build/Release/node-av.node"
-            ls -laR build/ || true
-            exit 1
-          fi
+            --node-gyp="node ${NODE_GYP_PATH}"
           
           echo "Native addon built successfully"
           echo "Prebuild structure:"

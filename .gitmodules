@@ -6,3 +6,7 @@
 	path = externals/jellyfin-ffmpeg
 	url = https://github.com/seydx/jellyfin-ffmpeg.git
 	branch = jellyfin
+[submodule "externals/node-gyp"]
+	path = externals/node-gyp
+	url = https://github.com/seydx/node-gyp.git
+	branch = main
