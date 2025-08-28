@@ -282,13 +282,17 @@ jobs:
           echo "Prebuild structure:"
           ls -laR prebuilds/
           
-          # Copy binary for tests
-          mkdir -p build
-          if [ -f "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" ]; then
-            cp "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" build/node-av.node
-            echo "Binary copied for tests"
+          # Copy binary for tests - check multiple possible names
+          mkdir -p build/Release
+          if [ -f "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" ]; then
+            cp "prebuilds/win32-${{ matrix.os.arch }}/node.napi.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node (node.napi.node)"
+          elif [ -f "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" ]; then
+            cp "prebuilds/win32-${{ matrix.os.arch }}/node-av.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node (node-av.node)"
           else
             echo "Warning: Binary not found at expected location"
+            echo "Contents of prebuilds directory:"
             find prebuilds -name "*.node" -type f
           fi
 
@@ -458,7 +462,8 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          npm ci --ignore-scripts
+          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
+          npm install --ignore-scripts
           # Install prebuildify globally to avoid modifying package-lock.json
           npm install -g prebuildify
 
@@ -504,15 +509,19 @@ jobs:
           mkdir -p build/Release
           if [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" ]; then
             cp "prebuilds/linux-${{ matrix.arch }}/node.napi.glibc.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (glibc)"
+            echo "Binary copied to build/Release/node-av.node (node.napi.glibc.node)"
           elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" ]; then
             cp "prebuilds/linux-${{ matrix.arch }}/node.napi.musl.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node (musl)"
+            echo "Binary copied to build/Release/node-av.node (node.napi.musl.node)"
           elif [ -f "prebuilds/linux-${{ matrix.arch }}/node.napi.node" ]; then
             cp "prebuilds/linux-${{ matrix.arch }}/node.napi.node" build/Release/node-av.node
-            echo "Binary copied to build/Release/node-av.node"
+            echo "Binary copied to build/Release/node-av.node (node.napi.node)"
+          elif [ -f "prebuilds/linux-${{ matrix.arch }}/node-av.node" ]; then
+            cp "prebuilds/linux-${{ matrix.arch }}/node-av.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node (node-av.node)"
           else
             echo "Warning: Binary not found at expected location"
+            echo "Contents of prebuilds directory:"
             find prebuilds -name "*.node" -type f
           fi
 
@@ -670,14 +679,23 @@ jobs:
           ls -la prebuilds/
           ls -la prebuilds/darwin-${{ matrix.arch }}/ || echo "Directory structure different"
           
-          # Copy binary for tests - prebuildify creates node.napi.node
+          # Copy binary for tests - prebuildify might create different names
           mkdir -p build/Release
           if [ -f "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" ]; then
             cp "prebuilds/darwin-${{ matrix.arch }}/node.napi.node" build/Release/node-av.node
+            echo "Binary copied to build/Release/node-av.node (napi)"
+          elif [ -f "prebuilds/darwin-${{ matrix.arch }}/node-av.node" ]; then
+            cp "prebuilds/darwin-${{ matrix.arch }}/node-av.node" build/Release/node-av.node
             echo "Binary copied to build/Release/node-av.node"
           else
             echo "Warning: Binary not found at expected location"
             find prebuilds -name "*.node" -type f
+            # Try to copy whatever we find
+            BINARY=$(find prebuilds -name "*.node" -type f | head -1)
+            if [ -n "$BINARY" ]; then
+              cp "$BINARY" build/Release/node-av.node
+              echo "Copied $BINARY to build/Release/node-av.node"
+            fi
           fi
 
       - name: Run Tests
