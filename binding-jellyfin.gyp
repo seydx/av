@@ -45,11 +45,7 @@
         "src/bindings/option.cc"
       ],
       "include_dirs": [
-        "<!@(node -p \"require('node-addon-api').include\")",
-        "<!@(echo ${CFLAGS} | tr ' ' '\\n' | grep '^-I' | sed 's/^-I//' || true)"
-      ],
-      "library_dirs": [
-        "<!@(echo ${LDFLAGS} | tr ' ' '\\n' | grep '^-L' | sed 's/^-L//' || true)"
+        "<!@(node -p \"require('node-addon-api').include\")"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"
@@ -313,11 +309,12 @@
               "-lbluray",
               "-lopenmpt",
               "-lchromaprint",
-              "-lfftw3",
+              "-lfftw3f",
               "-lz",
               "-lbz2",
               "-llzma",
               "-liconv",
+              "-lgmp",
               "-lc++",
               "-static",
               "-lws2_32",
@@ -325,11 +322,6 @@
               "-lbcrypt",
               "-lstrmiids",
               "-lmfuuid",
-              "-lole32",
-              "-luser32",
-              "-ladvapi32",
-              "-lshell32",
-              "-lgdi32",
               "-lpsapi"
             ],
             "cflags": [
