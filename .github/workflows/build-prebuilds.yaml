@@ -640,6 +640,9 @@ jobs:
             ARCH_NAME="x86_64"
           fi
           
+          # Set deployment target to ensure proper platform load commands in libraries
+          export MACOSX_DEPLOYMENT_TARGET="14.0"
+          
           # Run the build script
           # Dependencies are already installed via brew in earlier step
           ./buildmac.sh $ARCH_NAME
@@ -689,7 +692,7 @@ jobs:
           export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           
           # Set deployment target to match Metal libraries
-          export MACOSX_DEPLOYMENT_TARGET="13.0"
+          export MACOSX_DEPLOYMENT_TARGET="14.0"
           
           # Build N-API binary
           prebuildify \

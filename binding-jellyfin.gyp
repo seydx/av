@@ -114,6 +114,7 @@
               "-framework CoreServices",
               "-framework AudioToolbox",
               "-framework VideoToolbox",
+              "-framework AVFoundation",
               "-framework Security",
               "-framework IOKit",
               "-framework OpenGL",
