@@ -283,6 +283,7 @@
               "-lavutil",
               "-lswscale",
               "-lswresample",
+              "-lpostproc",
               "-lx264",
               "-lx265",
               "-lvpx",
