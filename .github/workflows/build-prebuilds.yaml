@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v6'
-  CACHE_VERSION_LINUX: 'v10'
+  CACHE_VERSION_LINUX: 'v11'
   CACHE_VERSION_MACOS: 'v6'
 
 on:
@@ -406,12 +406,18 @@ jobs:
             echo "Adding --enable-pic for Linux build..."
             sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
             
-            # For ARM64, we need to ensure NEON assembly is also PIC
-            # Add explicit PIC flags to the build environment
+            # Add PIC flags to all Linux builds
+            echo "Adding PIC flags to CFLAGS and CXXFLAGS..."
+            sed -i 's/FF_CFLAGS=""/FF_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+            sed -i 's/FF_CXXFLAGS=""/FF_CXXFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+            
+            # For ARM64, also add PIC to ASFLAGS for NEON assembly
             if [[ "${TARGET}" == *arm64* ]]; then
-              echo "Adding extra PIC flags for ARM64 NEON assembly..."
-              sed -i 's/FF_CFLAGS=""/FF_CFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
-              sed -i 's/FF_CXXFLAGS=""/FF_CXXFLAGS="-fPIC -DPIC"/' variants/defaults-gpl.sh
+              echo "Adding PIC flags to ASFLAGS for ARM64 NEON assembly..."
+              # Add ASFLAGS with PIC
+              echo 'FF_ASFLAGS="-fPIC -DPIC"' >> variants/defaults-gpl.sh
+              # Also try adding extra-asflags to configure
+              sed -i 's/--enable-lto=auto --enable-pic/--enable-lto=auto --enable-pic --extra-asflags="-fPIC -DPIC"/' variants/defaults-gpl.sh
             fi
           fi
           
