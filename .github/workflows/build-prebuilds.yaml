@@ -7,7 +7,7 @@ concurrency:
 env:
   # Cache versions - increment when FFmpeg build configuration changes
   CACHE_VERSION_WINDOWS: 'v8'
-  CACHE_VERSION_LINUX: 'v20'  # Force rebuild with PIC flags
+  CACHE_VERSION_LINUX: 'v21'
   CACHE_VERSION_MACOS: 'v7'
 
 on:
@@ -636,45 +636,37 @@ jobs:
           sed -i '104s/^/# /' build-preserve.sh
           chmod +x build-preserve.sh
           
-          # For Linux builds, add --enable-pic to ensure position-independent code
+          # Add --enable-pic to ensure position-independent code
           # This fixes linking issues with shared libraries on ARM64 and x64
-          if [[ "${TARGET}" == linux* ]]; then
-            echo "Configuring Linux build with PIC support..."
-            
-            # First backup the original
-            cp variants/defaults-gpl.sh variants/defaults-gpl.sh.orig
-            
-            # Modify configure flags based on architecture
-            if [[ "${TARGET}" == *arm64* ]]; then
-              echo "Configuring for ARM64 without LTO..."
-              # Remove LTO and add PIC for ARM64
-              sed -i '/--enable-lto=auto/d' variants/defaults-gpl.sh
-              # Add --enable-pic to the end of configure line
-              sed -i '/^FF_CONFIGURE=/s/"$/ --enable-pic"/' variants/defaults-gpl.sh
-            else
-              echo "Configuring for x64 with LTO and PIC..."
-              # Replace LTO line to include PIC for x64
-              sed -i 's/--enable-lto=auto/--enable-lto=auto --enable-pic/' variants/defaults-gpl.sh
-            fi
-            
-            # Force PIC flags in all compilation
-            # Append to the file to ensure these override any defaults
-            echo '' >> variants/defaults-gpl.sh
-            echo '# Force PIC for shared library compatibility' >> variants/defaults-gpl.sh
-            echo 'FF_CFLAGS="${FF_CFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
-            echo 'FF_CXXFLAGS="${FF_CXXFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
-            echo 'FF_LDFLAGS="${FF_LDFLAGS} -fPIC"' >> variants/defaults-gpl.sh
-            
-            # IMPORTANT: For both x64 and ARM64, we need assembly PIC support
-            # x86_64 uses YASM/NASM which needs -DPIC
-            # ARM64 uses GAS which also needs -DPIC
-            echo 'FF_ASFLAGS="${FF_ASFLAGS} -DPIC"' >> variants/defaults-gpl.sh
-            echo 'export FF_CFLAGS FF_CXXFLAGS FF_LDFLAGS FF_ASFLAGS' >> variants/defaults-gpl.sh
-            
-            # Display the final configuration for debugging
-            echo "Final configuration:"
-            cat variants/defaults-gpl.sh
-          fi
+          echo "Configuring Linux build with PIC support..."
+          
+          # First backup the original
+          cp variants/defaults-gpl.sh variants/defaults-gpl.sh.orig
+          
+          # Use same configuration for both architectures - no LTO to avoid PIC issues
+          echo "Configuring Linux build without LTO for PIC compatibility..."
+          # Remove LTO for both architectures
+          sed -i '/--enable-lto=auto/d' variants/defaults-gpl.sh
+          # Add --enable-pic to the end of configure line
+          sed -i '/^FF_CONFIGURE=/s/"$/ --enable-pic"/' variants/defaults-gpl.sh
+          
+          # Force PIC flags in all compilation
+          # Append to the file to ensure these override any defaults
+          echo '' >> variants/defaults-gpl.sh
+          echo '# Force PIC for shared library compatibility' >> variants/defaults-gpl.sh
+          echo 'FF_CFLAGS="${FF_CFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
+          echo 'FF_CXXFLAGS="${FF_CXXFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
+          echo 'FF_LDFLAGS="${FF_LDFLAGS} -fPIC"' >> variants/defaults-gpl.sh
+          
+          # IMPORTANT: For both x64 and ARM64, we need assembly PIC support
+          # x86_64 uses YASM/NASM which needs -DPIC
+          # ARM64 uses GAS which also needs -DPIC
+          echo 'FF_ASFLAGS="${FF_ASFLAGS} -DPIC"' >> variants/defaults-gpl.sh
+          echo 'export FF_CFLAGS FF_CXXFLAGS FF_LDFLAGS FF_ASFLAGS' >> variants/defaults-gpl.sh
+          
+          # Display the final configuration for debugging
+          echo "Final configuration:"
+          cat variants/defaults-gpl.sh
           
           # Build FFmpeg using modified script
           echo "Building FFmpeg using modified build script..."
@@ -758,26 +750,12 @@ jobs:
           export NM=llvm-nm-18
           export RANLIB=llvm-ranlib-18
           
-          # For ARM64, use lld without LTO plugin (since we disabled LTO for ARM64)
-          # For x64, use lld with LTO plugin
-          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            # Use lld for ARM64 with text relocations allowed for NEON assembly
-            export LD=ld.lld-18
-            # No LTO plugin needed since we disabled LTO for ARM64
-            # Use -Bsymbolic to bind symbols locally and avoid PIC issues
-            export LDFLAGS="-fuse-ld=lld-18 -Wl,-z,notext -Wl,-Bsymbolic"
-            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,--allow-multiple-definition -Wl,-z,notext -Wl,-Bsymbolic"
-          else
-            # For x64, use lld with LTO
-            export LD=ld.lld-18
-            LTO_PLUGIN=$(find /usr/lib -name "LLVMgold.so" 2>/dev/null | head -n1)
-            if [ -z "$LTO_PLUGIN" ]; then
-              LTO_PLUGIN="/usr/lib/llvm-18/lib/LLVMgold.so"
-            fi
-            # Use -Bsymbolic to bind symbols locally and avoid PIC issues
-            export LDFLAGS="-fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,-Bsymbolic"
-            BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,-plugin,$LTO_PLUGIN -Wl,--allow-multiple-definition -Wl,-Bsymbolic"
-          fi
+          # Use the same settings for both architectures since ARM64 works
+          export LD=ld.lld-18
+          # Use -Bsymbolic to bind symbols locally and avoid PIC issues
+          # Use -z,notext to allow text relocations (needed for assembly code)
+          export LDFLAGS="-fuse-ld=lld-18 -Wl,-z,notext -Wl,-Bsymbolic"
+          BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,--allow-multiple-definition -Wl,-z,notext -Wl,-Bsymbolic"
           
           # Build N-API binary with proper include paths
           CFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
