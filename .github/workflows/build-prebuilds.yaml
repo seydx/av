@@ -6,9 +6,9 @@ concurrency:
 
 env:
   # Cache versions - increment when FFmpeg build configuration changes
-  CACHE_VERSION_WINDOWS: 'v7'
-  CACHE_VERSION_LINUX: 'v17'
-  CACHE_VERSION_MACOS: 'v6'
+  CACHE_VERSION_WINDOWS: 'v8'
+  CACHE_VERSION_LINUX: 'v18'
+  CACHE_VERSION_MACOS: 'v7'
 
 on:
   workflow_dispatch:
