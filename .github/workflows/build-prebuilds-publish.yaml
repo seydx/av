@@ -1,8 +1,8 @@
-name: '🚀 Build and Publish Release'
+name: "🚀 Build and Publish Release"
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
 
 jobs:
   build-and-publish:
