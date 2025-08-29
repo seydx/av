@@ -66,6 +66,7 @@ jobs:
             ${{ matrix.os.nasm }}
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-nodejs
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-gcc
 
       - uses: actions/checkout@v5
         with:
@@ -202,14 +203,8 @@ jobs:
           export CXX="clang++"
           export AR="llvm-ar"
 
-          # Log PKG_CONFIG_PATH for debugging
-          echo "PKG_CONFIG_PATH: ${PKG_CONFIG_PATH}"
-
           # Set pkg-config path
           export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
-
-          # Log PKG_CONFIG_PATH for debugging
-          echo "PKG_CONFIG_PATH (new): ${PKG_CONFIG_PATH}"
 
           # Set include and lib paths
           export CFLAGS="-I${PREFIX}/include"
@@ -217,46 +212,28 @@ jobs:
           export LDFLAGS="-L${PREFIX}/lib"
 
           # Use our custom node-gyp directly for better control
-          # Important: Convert MSYS2 paths to Windows paths for Node.js
-          NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
-
-          # Log NODE_GYP_PATH for debugging
-          echo "NODE_GYP_PATH: ${NODE_GYP_PATH}"
+          NODE_GYP_PATH="$(pwd)/externals/node-gyp/bin/node-gyp.js"
+          NODE_GYP_WIN_PATH="$(cygpath -w $NODE_GYP_PATH)"
 
           # Use --nodedir to point to MSYS2's Node.js installation
-          MSYS_NODE_DIR="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')"
+          NODE_PATH="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')"
+          NODE_WIN_PATH="$(cygpath -w $NODE_PATH)"
 
-          # Log MSYS_NODE_DIR for debugging
-          echo "MSYS_NODE_DIR: ${MSYS_NODE_DIR}"
-
-          # Find make - it's called mingw32-make in MSYS2
-          echo "Looking for make..."
-          
           # In MSYS2, make is usually called mingw32-make
+          # Use --make to point to the correct make binary
           MAKE_PATH="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/mingw32-make.exe"
-          
-          if [ -f "$MAKE_PATH" ]; then
-            echo "Found make at: $MAKE_PATH"
-          else
-            echo "ERROR: mingw32-make.exe not found at $MAKE_PATH!"
-            echo "Contents of /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin:"
-            ls -la /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/ | grep -i make || echo "No make found"
-            exit 1
-          fi
-
           MAKE_WIN_PATH="$(cygpath -w $MAKE_PATH)"
-          echo "Windows path for make: $MAKE_WIN_PATH"
+
+          node "${NODE_GYP_WIN_PATH}" rebuild \
+            --verbose \
+            --arch=${{ matrix.os.arch }} \
+            --nodedir="${NODE_WIN_PATH}" \
+            --make="${MAKE_WIN_PATH}" \
+            --release
 
           # Create prebuilds directory structure
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
-
-          node "${NODE_GYP_PATH}" rebuild \
-            --verbose \
-            --arch=${{ matrix.os.arch }} \
-            --nodedir="${MSYS_NODE_DIR}" \
-            --make="${MAKE_WIN_PATH}" \
-            --release
 
           # Find the built .node file and copy it with consistent naming
           NODE_FILE=$(find build/Release -name "*.node" -type f | head -1)
