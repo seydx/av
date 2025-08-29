@@ -67,6 +67,7 @@ jobs:
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-nodejs
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-gcc
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-make
 
       - uses: actions/checkout@v5
         with:
