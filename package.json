@@ -1,6 +1,6 @@
 {
   "name": "node-av",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "FFmpeg bindings for Node.js",
   "author": "seydx (https://github.com/seydx/av)",
   "type": "module",
@@ -58,12 +58,12 @@
     "semver": "^7.7.2"
   },
   "optionalDependencies": {
-    "@seydx/node-av-darwin-arm64": "^0.0.2",
-    "@seydx/node-av-darwin-x64": "^0.0.2",
-    "@seydx/node-av-linux-arm64": "^0.0.2",
-    "@seydx/node-av-linux-x64": "^0.0.2",
-    "@seydx/node-av-win32-arm64": "^0.0.2",
-    "@seydx/node-av-win32-x64": "^0.0.2"
+    "@seydx/node-av-darwin-arm64": "^0.0.3",
+    "@seydx/node-av-darwin-x64": "^0.0.3",
+    "@seydx/node-av-linux-arm64": "^0.0.3",
+    "@seydx/node-av-linux-x64": "^0.0.3",
+    "@seydx/node-av-win32-arm64": "^0.0.3",
+    "@seydx/node-av-win32-x64": "^0.0.3"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.2.3",
