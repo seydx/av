@@ -66,6 +66,7 @@ jobs:
             ${{ matrix.os.nasm }}
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-nodejs
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-gcc
 
       - uses: actions/checkout@v5
         with:
