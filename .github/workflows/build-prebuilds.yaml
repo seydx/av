@@ -66,7 +66,6 @@ jobs:
             ${{ matrix.os.nasm }}
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-nodejs
-            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-make
 
       - uses: actions/checkout@v5
         with:
@@ -230,28 +229,18 @@ jobs:
           # Log MSYS_NODE_DIR for debugging
           echo "MSYS_NODE_DIR: ${MSYS_NODE_DIR}"
 
-          # Find make - it should be installed by the toolchain
+          # Find make - it's called mingw32-make in MSYS2
           echo "Looking for make..."
-          echo "Current PATH: $PATH"
           
-          # Check common locations for make
-          if [ -f "/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/make.exe" ]; then
-            MAKE_PATH="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/make.exe"
-            echo "Found make at: $MAKE_PATH"
-          elif [ -f "/usr/bin/make" ]; then
-            MAKE_PATH="/usr/bin/make"
+          # In MSYS2, make is usually called mingw32-make
+          MAKE_PATH="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/mingw32-make.exe"
+          
+          if [ -f "$MAKE_PATH" ]; then
             echo "Found make at: $MAKE_PATH"
           else
-            # Try to find it with find command
-            echo "Searching for make.exe in MSYS2..."
-            find /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }} -name "make.exe" 2>/dev/null | head -1
-            find /usr -name "make" 2>/dev/null | head -1
-            
-            # List what's in the bin directory
+            echo "ERROR: mingw32-make.exe not found at $MAKE_PATH!"
             echo "Contents of /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin:"
             ls -la /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/ | grep -i make || echo "No make found"
-            
-            echo "ERROR: make not found!"
             exit 1
           fi
 
