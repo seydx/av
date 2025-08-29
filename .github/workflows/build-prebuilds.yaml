@@ -189,6 +189,7 @@ jobs:
       - name: Build FFmpeg
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: msys2 {0}
         run: |
           cd externals/jellyfin-ffmpeg
           
@@ -202,6 +203,7 @@ jobs:
           echo "Running build script from $(pwd)"
           
           if [ "${{ matrix.os.arch }}" = "arm64" ]; then
+            # Run ARM64 build
             if [ -f "../msys2/buildarm64.sh" ]; then
               cd ../msys2
             elif [ -f "./buildarm64.sh" ]; then
@@ -212,19 +214,8 @@ jobs:
               exit 1
             fi
             
-            # Copy our fix script from the repo (convert Windows path to MSYS2 path)
-            WORKSPACE_MSYS=$(echo "${{ github.workspace }}" | sed 's|\\|/|g' | sed 's|C:|/c|')
-            cp "${WORKSPACE_MSYS}/.github/scripts/fix-arm64-pkgconfig.sh" ./fix_pkg_config.sh
-            chmod +x fix_pkg_config.sh
-            
-            # Insert our fix into buildarm64.sh right before configure
-            echo "=== Patching buildarm64.sh to fix pkg-config files ==="
-            # The script does cd .. before configure, so we need to reference the script from parent dir
-            awk '/^PKG_CONFIG_PATH=.*configure/ {print "# Fix pkg-config files before configure"; print "./msys2/fix_pkg_config.sh"; print ""} {print}' buildarm64.sh > buildarm64_patched.sh
-            chmod +x buildarm64_patched.sh
-            
-            echo "Running patched buildarm64.sh..."
-            ./buildarm64_patched.sh
+            echo "Running buildarm64.sh..."
+            ./buildarm64.sh
           else
             # For x64
             if [ -f "../msys2/build.sh" ]; then
