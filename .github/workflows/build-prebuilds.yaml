@@ -5,9 +5,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CACHE_VERSION_WINDOWS: 'v11'
-  CACHE_VERSION_LINUX: 'v23'
-  CACHE_VERSION_MACOS: 'v9'
+  CACHE_VERSION_WINDOWS: 'v12'
+  CACHE_VERSION_LINUX: 'v24'
+  CACHE_VERSION_MACOS: 'v10'
 
 on:
   workflow_dispatch:
