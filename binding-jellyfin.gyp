@@ -217,6 +217,8 @@
               "<!@(ls /opt/ffbuild/prefix/lib/libglslang-default-resource-limits.a 2>/dev/null || echo '')",
               "<!@(ls /opt/ffbuild/prefix/lib/liblcms2.a 2>/dev/null || echo '')",
               "<!@(ls /opt/ffbuild/prefix/lib/libOpenCL.a 2>/dev/null || echo '')",
+              "<!@(ls /opt/ffbuild/prefix/lib/libva.a 2>/dev/null || echo '')",
+              "<!@(ls /opt/ffbuild/prefix/lib/libva-drm.a 2>/dev/null || echo '')",
               "-lpthread",
               "-lm",
               "-ldl",
@@ -237,7 +239,8 @@
               "-Wl,-rpath,'$$ORIGIN'",
               "-Wl,-z,origin",
               "-Wl,--export-dynamic",
-              "-Wl,--no-as-needed"
+              "-Wl,--no-as-needed",
+              "-Wl,--wrap=__log2f_finite"
             ]
           }
         ],
