@@ -67,7 +67,6 @@ jobs:
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-nodejs
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-gcc
-            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-make
 
       - uses: actions/checkout@v5
         with:
@@ -216,6 +215,9 @@ jobs:
           # Important: Convert MSYS2 paths to Windows paths for Node.js
           NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
 
+          # Use --nodedir to point to MSYS2's Node.js installation
+          MSYS_NODE_DIR="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')"
+
           # Create prebuilds directory structure
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
@@ -223,6 +225,7 @@ jobs:
           node "${NODE_GYP_PATH}" rebuild \
             --verbose \
             --arch=${{ matrix.os.arch }} \
+            --nodedir="${MSYS_NODE_DIR}" \
             --release
 
           # Find the built .node file and copy it with consistent naming
