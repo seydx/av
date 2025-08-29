@@ -66,7 +66,7 @@ jobs:
             ${{ matrix.os.nasm }}
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-python
             mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-nodejs
-            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-gcc
+            mingw-w64-${{ matrix.os.msystem == 'CLANG64' && 'clang-x86_64' || 'clang-aarch64' }}-make
 
       - uses: actions/checkout@v5
         with:
@@ -230,19 +230,33 @@ jobs:
           # Log MSYS_NODE_DIR for debugging
           echo "MSYS_NODE_DIR: ${MSYS_NODE_DIR}"
 
-          # Find make and convert to Windows path
+          # Find make - it should be installed by the toolchain
           echo "Looking for make..."
-          which make || (echo "ERROR: make not found in PATH!" && exit 1)
-          MAKE_PATH="$(which make)"
-          echo "Found make at: $MAKE_PATH"
+          echo "Current PATH: $PATH"
+          
+          # Check common locations for make
+          if [ -f "/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/make.exe" ]; then
+            MAKE_PATH="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/make.exe"
+            echo "Found make at: $MAKE_PATH"
+          elif [ -f "/usr/bin/make" ]; then
+            MAKE_PATH="/usr/bin/make"
+            echo "Found make at: $MAKE_PATH"
+          else
+            # Try to find it with find command
+            echo "Searching for make.exe in MSYS2..."
+            find /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }} -name "make.exe" 2>/dev/null | head -1
+            find /usr -name "make" 2>/dev/null | head -1
+            
+            # List what's in the bin directory
+            echo "Contents of /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin:"
+            ls -la /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/bin/ | grep -i make || echo "No make found"
+            
+            echo "ERROR: make not found!"
+            exit 1
+          fi
 
           MAKE_WIN_PATH="$(cygpath -w $MAKE_PATH)"
           echo "Windows path for make: $MAKE_WIN_PATH"
-
-          if [ -z "$MAKE_WIN_PATH" ]; then
-            echo "ERROR: Failed to convert make path to Windows format!"
-            exit 1
-          fi
 
           # Create prebuilds directory structure
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
