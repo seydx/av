@@ -212,43 +212,12 @@ jobs:
               exit 1
             fi
             
-            # Patch buildarm64.sh to fix pkg-config files before running FFmpeg configure
-            echo "=== Patching buildarm64.sh to fix pkg-config files ==="
-            
-            # Create the patch script
-            cat > fix_pkg_config.sh << 'FIXSCRIPT'
-            #!/bin/bash
-            # Fix pkg-config files for ARM64 - replace absolute paths with MSYS2 paths
-            echo "=== Fixing pkg-config files for ARM64 ==="
-            for pc in /clangarm64/ffbuild/lib/pkgconfig/*.pc; do
-              if [ -f "$pc" ]; then
-                echo "Patching $(basename $pc)..."
-                # Show original content
-                echo "Original:"
-                grep -E "^prefix=|^libdir=|^includedir=" "$pc"
-                
-                # Replace Windows paths with Unix paths - simpler approach
-                # This handles any drive letter and any path variation
-                sed -i "s|[A-Z]:[/\\\\].*clangarm64/ffbuild|/clangarm64/ffbuild|g" "$pc"
-                
-                # Show patched content
-                echo "After patching:"
-                grep -E "^prefix=|^libdir=|^includedir=" "$pc"
-                echo ""
-              fi
-            done
-            
-            # Test pkg-config after patching
-            echo "Testing pkg-config after patching:"
-            PKG_CONFIG_PATH=/clangarm64/ffbuild/lib/pkgconfig pkg-config --cflags x264
-            PKG_CONFIG_PATH=/clangarm64/ffbuild/lib/pkgconfig pkg-config --libs x264
-            echo "=== pkg-config files fixed ==="
-            FIXSCRIPT
-            
-            # Make script executable
+            # Copy our fix script from the repo
+            cp ${{ github.workspace }}/.github/scripts/fix-arm64-pkgconfig.sh ./fix_pkg_config.sh
             chmod +x fix_pkg_config.sh
             
-            # Insert our fix into buildarm64.sh right before configure (using awk for portability)
+            # Insert our fix into buildarm64.sh right before configure
+            echo "=== Patching buildarm64.sh to fix pkg-config files ==="
             awk '/^PKG_CONFIG_PATH=.*configure/ {print "# Fix pkg-config files before configure"; print "./fix_pkg_config.sh"; print ""} {print}' buildarm64.sh > buildarm64_patched.sh
             chmod +x buildarm64_patched.sh
             
