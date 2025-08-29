@@ -236,20 +236,21 @@ jobs:
             --nodedir="${MSYS_NODE_DIR}" \
             --release
 
-          # Copy the built binary to prebuilds
-          cp build/Release/node-av.node "$PREBUILD_DIR/node.napi.node"
-
-          # Strip the binary
-          llvm-strip "$PREBUILD_DIR/node.napi.node"
-
-          # Copy binary for tests
-          mkdir -p binary
-          NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
-
+          # Find the built .node file and copy it with consistent naming
+          NODE_FILE=$(find build/Release -name "*.node" -type f | head -1)
           if [ -n "$NODE_FILE" ]; then
-            cp "$NODE_FILE" binary/node-av.node
+            cp "$NODE_FILE" "$PREBUILD_DIR/node-av.node"
+            echo "Copied $(basename $NODE_FILE) -> node-av.node"
+            
+            # Strip the binary
+            llvm-strip "$PREBUILD_DIR/node-av.node"
+            
+            # Copy binary for tests
+            mkdir -p binary
+            cp "$PREBUILD_DIR/node-av.node" binary/node-av.node
+            echo "Copied binary for tests"
           else
-            echo "Error: No .node file found in prebuilds directory"
+            echo "Error: No .node file found in build/Release"
             exit 1
           fi
 
@@ -408,13 +409,17 @@ jobs:
             --arch=${{ matrix.arch }} \
             --tag-libc
 
-          # Copy binary for tests
-          mkdir -p binary
-
-          NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
-
-          if [ -n "$NODE_FILE" ]; then
-            cp "$NODE_FILE" binary/node-av.node
+          # Rename the built file to node-av.node for consistency
+          BUILT_FILE=$(find prebuilds -name "*.node" -type f | head -1)
+          if [ -n "$BUILT_FILE" ]; then
+            DIR=$(dirname "$BUILT_FILE")
+            mv "$BUILT_FILE" "$DIR/node-av.node"
+            echo "Renamed $(basename $BUILT_FILE) -> node-av.node"
+            
+            # Copy binary for tests
+            mkdir -p binary
+            cp "$DIR/node-av.node" binary/node-av.node
+            echo "Copied binary for tests"
           else
             echo "Error: No .node file found in prebuilds directory"
             exit 1
@@ -545,13 +550,17 @@ jobs:
             --strip \
             --arch=${{ matrix.arch }}
 
-          # Copy binary for tests
-          mkdir -p binary
-
-          NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
-
-          if [ -n "$NODE_FILE" ]; then
-            cp "$NODE_FILE" binary/node-av.node
+          # Rename the built file to node-av.node for consistency
+          BUILT_FILE=$(find prebuilds -name "*.node" -type f | head -1)
+          if [ -n "$BUILT_FILE" ]; then
+            DIR=$(dirname "$BUILT_FILE")
+            mv "$BUILT_FILE" "$DIR/node-av.node"
+            echo "Renamed $(basename $BUILT_FILE) -> node-av.node"
+            
+            # Copy binary for tests
+            mkdir -p binary
+            cp "$DIR/node-av.node" binary/node-av.node
+            echo "Copied binary for tests"
           else
             echo "Error: No .node file found in prebuilds directory"
             exit 1
@@ -580,7 +589,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: "https://registry.npmjs.org"
 
       - name: Download all prebuilds
         uses: actions/download-artifact@v5
@@ -613,13 +622,11 @@ jobs:
 
       - name: Create platform packages
         run: |
-          # Use the create-platform-packages.js script
           node scripts/create-platform-packages.js
 
           # Copy prebuilds to platform packages
           for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
             if [ -d "prebuilds/$platform" ]; then
-              # Copy the binary to the package directory
               cp "prebuilds/$platform/node-av.node" "packages/$platform/node-av.node"
               echo "Copied binary for $platform"
             fi
