@@ -193,20 +193,16 @@ jobs:
         run: |
           cp binding-jellyfin.gyp binding.gyp
 
-          # Set environment for MSYS2/Clang build
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            export CC="clang"
-            export CXX="clang++"
-            export AR="llvm-ar"
-            # Don't set LINK or LD - let node-gyp handle the linker
             PREFIX="/clang64/ffbuild"
           else
-            export CC="clang"
-            export CXX="clang++"
-            export AR="llvm-ar"
-            # Don't set LINK or LD - let node-gyp handle the linker
             PREFIX="/clangarm64/ffbuild"
           fi
+
+          # Set environment for MSYS2/Clang build
+          export CC="clang"
+          export CXX="clang++"
+          export AR="llvm-ar"
 
           # Set pkg-config path
           export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
@@ -216,9 +212,6 @@ jobs:
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
 
-          # Force gyp to use make generator (for Python gyp code)
-          export GYP_GENERATORS="make"
-
           # Use our custom node-gyp directly for better control
           # Important: Convert MSYS2 paths to Windows paths for Node.js
           NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
@@ -227,15 +220,9 @@ jobs:
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
 
-          # Build with node-gyp directly using make format
-          # Use --nodedir to point to MSYS2's Node.js installation
-          MSYS_NODE_DIR="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')"
-
           node "${NODE_GYP_PATH}" rebuild \
             --verbose \
-            -f make \
             --arch=${{ matrix.os.arch }} \
-            --nodedir="${MSYS_NODE_DIR}" \
             --release
 
           # Find the built .node file and copy it with consistent naming
