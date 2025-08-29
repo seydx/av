@@ -27,6 +27,12 @@ extern "C" {
   __attribute__((weak)) double __exp_finite(double x) {
     return exp(x);
   }
+  __attribute__((weak)) float __exp2f_finite(float x) {
+    return exp2f(x);
+  }
+  __attribute__((weak)) double __exp2_finite(double x) {
+    return exp2(x);
+  }
   __attribute__((weak)) float __powf_finite(float x, float y) {
     return powf(x, y);
   }
