@@ -212,8 +212,9 @@ jobs:
               exit 1
             fi
             
-            # Copy our fix script from the repo
-            cp ${{ github.workspace }}/.github/scripts/fix-arm64-pkgconfig.sh ./fix_pkg_config.sh
+            # Copy our fix script from the repo (convert Windows path to MSYS2 path)
+            WORKSPACE_MSYS=$(echo "${{ github.workspace }}" | sed 's|\\|/|g' | sed 's|C:|/c|')
+            cp "${WORKSPACE_MSYS}/.github/scripts/fix-arm64-pkgconfig.sh" ./fix_pkg_config.sh
             chmod +x fix_pkg_config.sh
             
             # Insert our fix into buildarm64.sh right before configure
