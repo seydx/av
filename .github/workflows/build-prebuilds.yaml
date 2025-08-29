@@ -301,6 +301,11 @@ jobs:
           # Headers are in /clang*/ffbuild/include/
           PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
           
+          # Go back to FFmpeg directory and run make install
+          cd ..
+          echo "=== Running make install to install FFmpeg libraries ==="
+          make install
+          
           echo "=== Build completed, verifying outputs ==="
           echo "Total libraries in ${PREFIX}/lib: $(ls ${PREFIX}/lib/*.a 2>/dev/null | wc -l)"
           echo "Key codec libraries:"
@@ -308,8 +313,27 @@ jobs:
             ls ${PREFIX}/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
           done
           
-          # Check if FFmpeg libraries are in the expected location
-          echo "FFmpeg libraries:"
+          # Check if FFmpeg libraries are in jellyfin-ffmpeg subdirectory
+          echo "FFmpeg libraries (checking jellyfin-ffmpeg subdir):"
+          for lib in libavcodec libavformat libavutil libavfilter libswscale libswresample; do
+            ls ${PREFIX}/jellyfin-ffmpeg/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
+          done
+          
+          # Copy FFmpeg libraries to main lib directory for easier access
+          if [ -d "${PREFIX}/jellyfin-ffmpeg/lib" ]; then
+            echo "Copying FFmpeg libraries to main lib directory..."
+            cp ${PREFIX}/jellyfin-ffmpeg/lib/*.a ${PREFIX}/lib/ 2>/dev/null || true
+            cp -r ${PREFIX}/jellyfin-ffmpeg/include/* ${PREFIX}/include/ 2>/dev/null || true
+            
+            # Also copy pkg-config files
+            if [ -d "${PREFIX}/jellyfin-ffmpeg/lib/pkgconfig" ]; then
+              mkdir -p ${PREFIX}/lib/pkgconfig
+              cp ${PREFIX}/jellyfin-ffmpeg/lib/pkgconfig/*.pc ${PREFIX}/lib/pkgconfig/ 2>/dev/null || true
+            fi
+          fi
+          
+          # Final check after copying
+          echo "FFmpeg libraries (in main lib):"
           for lib in libavcodec libavformat libavutil libavfilter libswscale libswresample; do
             ls ${PREFIX}/lib/${lib}.a 2>/dev/null && echo "✓ ${lib}" || echo "✗ ${lib} missing"
           done

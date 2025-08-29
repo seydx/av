@@ -268,12 +268,10 @@
                 "target_arch=='x64'",
                 {
                   "include_dirs": [
-                    "/clang64/ffbuild/include",
-                    "/clang64/ffbuild/jellyfin-ffmpeg/include"
+                    "/clang64/ffbuild/include"
                   ],
                   "library_dirs": [
-                    "/clang64/ffbuild/lib",
-                    "/clang64/ffbuild/jellyfin-ffmpeg/lib"
+                    "/clang64/ffbuild/lib"
                   ],
                   "libraries": [
                     "-lvpl"
@@ -284,12 +282,10 @@
                 "target_arch=='arm64'",
                 {
                   "include_dirs": [
-                    "/clangarm64/ffbuild/include",
-                    "/clangarm64/ffbuild/jellyfin-ffmpeg/include"
+                    "/clangarm64/ffbuild/include"
                   ],
                   "library_dirs": [
-                    "/clangarm64/ffbuild/lib",
-                    "/clangarm64/ffbuild/jellyfin-ffmpeg/lib"
+                    "/clangarm64/ffbuild/lib"
                   ]
                 }
               ]
