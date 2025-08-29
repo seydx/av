@@ -1,13 +1,13 @@
-name: '🏗️ Build Prebuilds'
+name: "🏗️ Build Prebuilds"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 env:
-  CACHE_VERSION_WINDOWS: 'v12'
-  CACHE_VERSION_LINUX: 'v24'
-  CACHE_VERSION_MACOS: 'v10'
+  CACHE_VERSION_WINDOWS: "v12"
+  CACHE_VERSION_LINUX: "v24"
+  CACHE_VERSION_MACOS: "v10"
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
     secrets:
       NPM_TOKEN:
         required: false
-        description: 'NPM token for publishing packages'
+        description: "NPM token for publishing packages"
   # push:
   #   branches:
   #     - main
@@ -27,7 +27,7 @@ on:
 
 jobs:
   build_windows:
-    name: 'Windows ${{ matrix.os.arch }}'
+    name: "Windows ${{ matrix.os.arch }}"
     runs-on: ${{ matrix.os.runner }}
     strategy:
       fail-fast: false
@@ -73,7 +73,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Get Jellyfin FFmpeg commit hash
         id: ffmpeg-hash
@@ -93,14 +93,14 @@ jobs:
           path: C:\ffmpeg-cache-${{ matrix.os.arch }}
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-
-          
+
       - name: Copy cache to MSYS2 location
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
         shell: msys2 {0}
         run: |
           CACHE_DIR="C:/ffmpeg-cache-${{ matrix.os.arch }}"
           MSYS_PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
-          
+
           if [ -d "${CACHE_DIR}" ]; then
             echo "Restoring FFmpeg cache from ${CACHE_DIR} to ${MSYS_PREFIX}"
             rm -rf "${MSYS_PREFIX}" 2>/dev/null || true
@@ -118,20 +118,20 @@ jobs:
         shell: msys2 {0}
         run: |
           cd externals/jellyfin-ffmpeg/msys2
-          
+
           # Run Jellyfin build script
           if [ "${{ matrix.os.arch }}" = "arm64" ]; then
             ./buildarm64.sh
           else
             ./build.sh
           fi
-          
+
           PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
-          
+
           # Install FFmpeg libraries
           cd ..
           make install
-          
+
           # Copy FFmpeg libraries to main lib directory
           if [ -d "${PREFIX}/jellyfin-ffmpeg/lib" ]; then
             cp ${PREFIX}/jellyfin-ffmpeg/lib/*.a ${PREFIX}/lib/ 2>/dev/null || true
@@ -142,14 +142,14 @@ jobs:
               cp ${PREFIX}/jellyfin-ffmpeg/lib/pkgconfig/*.pc ${PREFIX}/lib/pkgconfig/ 2>/dev/null || true
             fi
           fi
-          
+
       - name: Copy FFmpeg build to cache-friendly location
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
         shell: msys2 {0}
         run: |
           MSYS_PREFIX="/${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild"
           CACHE_DIR="C:/ffmpeg-cache-${{ matrix.os.arch }}"
-          
+
           if [ -d "${MSYS_PREFIX}" ]; then
             echo "Copying FFmpeg build to cache location"
             rm -rf "${CACHE_DIR}" 2>/dev/null || true
@@ -166,7 +166,7 @@ jobs:
         with:
           path: C:\ffmpeg-cache-${{ matrix.os.arch }}
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
-          
+
       - name: Install Node dependencies
         run: |
           # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
@@ -181,7 +181,7 @@ jobs:
           npm install
           npm link
           popd
-          
+
           # Verify node-gyp is available
           which node-gyp
           node-gyp --version
@@ -190,7 +190,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cp binding-jellyfin.gyp binding.gyp
-          
+
           # Set environment for MSYS2/Clang build
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
             export CC="clang"
@@ -205,47 +205,47 @@ jobs:
             # Don't set LINK or LD - let node-gyp handle the linker
             PREFIX="/clangarm64/ffbuild"
           fi
-          
+
           # Set pkg-config path
           export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          
+
           # Set include and lib paths
           export CFLAGS="-I${PREFIX}/include"
           export CXXFLAGS="-I${PREFIX}/include"
           export LDFLAGS="-L${PREFIX}/lib"
-          
+
           # Force gyp to use make generator (for Python gyp code)
           export GYP_GENERATORS="make"
-          
+
           # Use our custom node-gyp directly for better control
           # Important: Convert MSYS2 paths to Windows paths for Node.js
           NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
-          
+
           # Create prebuilds directory structure
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
           mkdir -p "$PREBUILD_DIR"
-          
+
           # Build with node-gyp directly using make format
           # Use --nodedir to point to MSYS2's Node.js installation
           MSYS_NODE_DIR="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')"
-          
+
           node "${NODE_GYP_PATH}" rebuild \
             --verbose \
             -f make \
             --arch=${{ matrix.os.arch }} \
             --nodedir="${MSYS_NODE_DIR}" \
             --release
-          
+
           # Copy the built binary to prebuilds
           cp build/Release/node-av.node "$PREBUILD_DIR/node.napi.node"
-          
+
           # Strip the binary
           llvm-strip "$PREBUILD_DIR/node.napi.node"
-          
+
           # Copy binary for tests
           mkdir -p binary
           NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
-          
+
           if [ -n "$NODE_FILE" ]; then
             cp "$NODE_FILE" binary/node-av.node
           else
@@ -265,7 +265,7 @@ jobs:
           path: prebuilds/
 
   build_linux:
-    name: 'Linux ${{ matrix.arch }}'
+    name: "Linux ${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -284,12 +284,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Get Jellyfin FFmpeg commit hash
         id: ffmpeg-hash
         run: echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
-      
+
       - name: Prepare directories
         run: |
           sudo mkdir -p /opt/ffbuild/prefix
@@ -308,36 +308,33 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          cd externals/jellyfin-ffmpeg
-          
+          cd externals/jellyfin-ffmpeg/builder
+
           # Determine target
           if [ "${{ matrix.target }}" = "amd64" ]; then
             TARGET="linux64"
           else
             TARGET="linuxarm64"
           fi
-          
-          # Use our own Docker image, NOT Jellyfin's (they are private)
-          cd builder
+
+          # Use our own Docker image
           IMAGE="ghcr.io/${{ github.repository }}/${TARGET}-gpl:latest"
-          
+
+          # Set GITHUB_REPOSITORY so build.sh uses our Docker images
+          export GITHUB_REPOSITORY="${{ github.repository }}"
+
           # Try to pull our image from registry first
           if docker pull "${IMAGE}" 2>/dev/null; then
             echo "✓ Using our Docker image from registry: ${IMAGE}"
           else
             # If not available, build it locally using Jellyfin's makeimage.sh
             echo "Docker image not in registry, building locally..."
-            # Set GITHUB_REPOSITORY so makeimage.sh uses our namespace
-            export GITHUB_REPOSITORY="${{ github.repository }}"
             ./makeimage.sh "${TARGET}" gpl
-            echo "Docker image built locally: ${IMAGE}"
           fi
-          
-          # Build FFmpeg using our modified scripts
-          # Set GITHUB_REPOSITORY so build.sh uses our Docker images
-          export GITHUB_REPOSITORY="${{ github.repository }}"
+
+          # Run Jellyfin build script
           ./build.sh "${TARGET}" gpl
-          
+
           # Now extract the prefix directory which contains all headers and static libraries
           if [ -d ffbuild/prefix ]; then
             sudo mkdir -p /opt/ffbuild/prefix
@@ -367,7 +364,7 @@ jobs:
           fi
 
           cd ../..
-          
+
       - name: Save FFmpeg cache
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
         uses: actions/cache/save@v4
@@ -384,10 +381,10 @@ jobs:
       - name: Build Native Addon
         run: |
           cp binding-jellyfin.gyp binding.gyp
-          
+
           # Set up environment variables that node-gyp will use
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          
+
           # Use Clang to match the Docker build environment
           export CC=clang-18
           export CXX=clang++-18
@@ -400,7 +397,7 @@ jobs:
           # Use -z,notext to allow text relocations (needed for assembly code)
           export LDFLAGS="-fuse-ld=lld-18 -Wl,-z,notext -Wl,-Bsymbolic"
           BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,--allow-multiple-definition -Wl,-z,notext -Wl,-Bsymbolic"
-          
+
           # Build N-API binary with proper include paths
           CFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
           CXXFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
@@ -415,7 +412,7 @@ jobs:
           mkdir -p binary
 
           NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
-          
+
           if [ -n "$NODE_FILE" ]; then
             cp "$NODE_FILE" binary/node-av.node
           else
@@ -435,7 +432,7 @@ jobs:
           path: prebuilds/
 
   build_macos:
-    name: 'macOS ${{ matrix.arch }}'
+    name: "macOS ${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -452,7 +449,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
@@ -463,7 +460,7 @@ jobs:
           # This ensures they're in PATH for all subsequent steps
           # Check each package and only install if not already present
           PACKAGES="wget subversion mercurial autoconf automake cmake meson ninja pkg-config coreutils gcc make python-setuptools pcre2 libtool gnu-sed gnu-tar nasm quilt texinfo"
-          
+
           for pkg in $PACKAGES; do
             if brew ls --versions "$pkg" > /dev/null 2>&1; then
               echo "$pkg is already installed, skipping..."
@@ -496,29 +493,29 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           cd externals/jellyfin-ffmpeg/builder
-          
+
           # Map our arch names to Jellyfin's
           ARCH_NAME="${{ matrix.arch }}"
           if [ "$ARCH_NAME" = "x64" ]; then
             ARCH_NAME="x86_64"
           fi
-          
+
           # Set deployment target to ensure proper platform load commands in libraries
           export MACOSX_DEPLOYMENT_TARGET="14.0"
-          
-          # Run the build script
+
+          # Run Jellyfin build script
           ./buildmac.sh $ARCH_NAME
-          
+
           # The build script uses /ffbuild/prefix but we need /opt/ffbuild/prefix
           # Also need to run make install to get FFmpeg libraries
           cd ..
           make install DESTDIR="" prefix="/opt/ffbuild/prefix"
-          
+
           # Fix permissions before caching
           sudo chown -R $USER:staff /opt/ffbuild
-          
+
           cd ..
-          
+
       - name: Save FFmpeg cache
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true' && steps.build-ffmpeg.outcome == 'success'
         uses: actions/cache/save@v4
@@ -535,13 +532,13 @@ jobs:
       - name: Build Native Addon
         run: |
           cp binding-jellyfin.gyp binding.gyp
-          
+
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
           export CFLAGS="-I/opt/ffbuild/prefix/include"
           export CXXFLAGS="-I/opt/ffbuild/prefix/include"
           export LDFLAGS="-L/opt/ffbuild/prefix/lib"
           export MACOSX_DEPLOYMENT_TARGET="14.0"
-          
+
           # Build N-API binary
           prebuildify \
             --napi \
@@ -552,7 +549,7 @@ jobs:
           mkdir -p binary
 
           NODE_FILE=$(find prebuilds -name "*.node" -type f | head -1)
-          
+
           if [ -n "$NODE_FILE" ]; then
             cp "$NODE_FILE" binary/node-av.node
           else
@@ -573,7 +570,7 @@ jobs:
 
   # Package and publish job - only runs when workflow is called from publish workflow
   package:
-    name: 'Package and Publish'
+    name: "Package and Publish"
     needs: [build_windows, build_linux, build_macos]
     runs-on: ubuntu-latest
     if: success() && github.event_name == 'workflow_call'
@@ -582,13 +579,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: |
-          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
-          npm install --ignore-scripts
 
       - name: Download all prebuilds
         uses: actions/download-artifact@v5
@@ -599,15 +591,15 @@ jobs:
       - name: Prepare prebuilds structure
         run: |
           mkdir -p prebuilds
-          
+
           # Copy all prebuilds to a single directory structure
           for dir in prebuilds-artifacts/*/; do
             cp -r "$dir"* prebuilds/
           done
-          
+
           echo "Combined prebuilds structure:"
           ls -laR prebuilds/
-          
+
           # Verify we have all expected platforms
           echo "\nVerifying platform coverage:"
           for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
@@ -623,7 +615,7 @@ jobs:
         run: |
           # Use the create-platform-packages.js script
           node scripts/create-platform-packages.js
-          
+
           # Copy prebuilds to platform packages
           for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
             if [ -d "prebuilds/$platform" ]; then
@@ -632,7 +624,7 @@ jobs:
               echo "Copied binary for $platform"
             fi
           done
-          
+
           echo "Platform packages created:"
           ls -la packages/
           for pkg in packages/*/; do
@@ -645,10 +637,10 @@ jobs:
           # Extract version from tag
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "Version: $VERSION"
-          
+
           # Update main package version
           npm version $VERSION --no-git-tag-version
-          
+
           # Update platform package versions
           for pkg in packages/*/package.json; do
             if [ -f "$pkg" ]; then
@@ -666,19 +658,19 @@ jobs:
               zip -r "node-av-${platform}-${GITHUB_REF#refs/tags/}.zip" "prebuilds/$platform"
             fi
           done
-          
+
           echo "Release archives created:"
           ls -la *.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: '*.zip'
+          files: "*.zip"
           body: |
             ## node-av Release ${{ github.ref_name }}
-            
+
             ### 📦 Updated Packages
-            
+
             The following platform packages have been updated to ${{ github.ref_name }}:
             - `@seydx/node-av-darwin-arm64@${{ github.ref_name }}`
             - `@seydx/node-av-darwin-x64@${{ github.ref_name }}`
@@ -692,7 +684,7 @@ jobs:
         run: |
           # Publish main package
           npm publish --access public
-          
+
           # Publish platform packages
           for pkg_dir in packages/*/; do
             if [ -d "$pkg_dir" ]; then

@@ -40,6 +40,15 @@
       "source.organizeImports": "explicit"
     }
   },
+  "[yaml]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit",
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  },
   "files.associations": {
     "*.gyp": "json",
     "*.yaml": "yaml",
