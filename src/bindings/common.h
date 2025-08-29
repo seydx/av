@@ -4,6 +4,38 @@
 #include <napi.h>
 #include <memory>
 
+// Fix for glibc > 2.31 compatibility
+// These _finite functions were removed but FFmpeg might still reference them
+#ifdef __linux__
+#include <math.h>
+extern "C" {
+  __attribute__((weak)) float __log2f_finite(float x) {
+    return log2f(x);
+  }
+  __attribute__((weak)) double __log2_finite(double x) {
+    return log2(x);
+  }
+  __attribute__((weak)) float __logf_finite(float x) {
+    return logf(x);
+  }
+  __attribute__((weak)) double __log_finite(double x) {
+    return log(x);
+  }
+  __attribute__((weak)) float __expf_finite(float x) {
+    return expf(x);
+  }
+  __attribute__((weak)) double __exp_finite(double x) {
+    return exp(x);
+  }
+  __attribute__((weak)) float __powf_finite(float x, float y) {
+    return powf(x, y);
+  }
+  __attribute__((weak)) double __pow_finite(double x, double y) {
+    return pow(x, y);
+  }
+}
+#endif
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
