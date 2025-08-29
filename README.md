@@ -1,7 +1,5 @@
 # NodeAV
 
-> ⚠️ **Work in Progress**: This project is currently under active development and not yet ready for production use. APIs may change, and some features may be incomplete or unstable. Prebuilt binaries are still being developed - currently, installation requires FFmpeg development headers to build from source.
-
 Native Node.js bindings for FFmpeg with full TypeScript support. Provides direct access to FFmpeg's C APIs through N-API. Includes both raw FFmpeg bindings for full control and higher-level abstractions. Automatic resource management via Disposable pattern, hardware acceleration support and prebuilt binaries for Windows, Linux, and macOS.
 
 ## Installation
