@@ -217,9 +217,6 @@
               "<!@(ls /opt/ffbuild/prefix/lib/libglslang-default-resource-limits.a 2>/dev/null || echo '')",
               "<!@(ls /opt/ffbuild/prefix/lib/liblcms2.a 2>/dev/null || echo '')",
               "<!@(ls /opt/ffbuild/prefix/lib/libOpenCL.a 2>/dev/null || echo '')",
-              "-lva",
-              "-lva-drm",
-              "-lva-x11",
               "-lpthread",
               "-lm",
               "-ldl",
@@ -243,6 +240,18 @@
               "-Wl,-z,origin",
               "-Wl,--export-dynamic",
               "-Wl,--as-needed"
+            ],
+            "conditions": [
+              [
+                "target_arch=='x64'",
+                {
+                  "libraries": [
+                    "-lva",
+                    "-lva-drm",
+                    "-lva-x11"
+                  ]
+                }
+              ]
             ]
           }
         ],
@@ -259,10 +268,12 @@
                 "target_arch=='x64'",
                 {
                   "include_dirs": [
-                    "/clang64/ffbuild/include"
+                    "/clang64/ffbuild/include",
+                    "/clang64/ffbuild/jellyfin-ffmpeg/include"
                   ],
                   "library_dirs": [
-                    "/clang64/ffbuild/lib"
+                    "/clang64/ffbuild/lib",
+                    "/clang64/ffbuild/jellyfin-ffmpeg/lib"
                   ],
                   "libraries": [
                     "-lvpl"
@@ -273,10 +284,12 @@
                 "target_arch=='arm64'",
                 {
                   "include_dirs": [
-                    "/clangarm64/ffbuild/include"
+                    "/clangarm64/ffbuild/include",
+                    "/clangarm64/ffbuild/jellyfin-ffmpeg/include"
                   ],
                   "library_dirs": [
-                    "/clangarm64/ffbuild/lib"
+                    "/clangarm64/ffbuild/lib",
+                    "/clangarm64/ffbuild/jellyfin-ffmpeg/lib"
                   ]
                 }
               ]
