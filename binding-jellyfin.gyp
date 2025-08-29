@@ -228,19 +228,20 @@
             ],
             "cflags": [
               "-fPIC",
-              "-O3"
+              "-O3",
+              "-fno-finite-math-only"
             ],
             "cflags_cc": [
               "-fPIC",
-              "-O3"
+              "-O3",
+              "-fno-finite-math-only"
             ],
             "ldflags": [
               "-Wl,--allow-multiple-definition",
               "-Wl,-rpath,'$$ORIGIN'",
               "-Wl,-z,origin",
               "-Wl,--export-dynamic",
-              "-Wl,--no-as-needed",
-              "-Wl,--wrap=__log2f_finite"
+              "-Wl,--no-as-needed"
             ]
           }
         ],
