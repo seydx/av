@@ -203,8 +203,14 @@ jobs:
           export CXX="clang++"
           export AR="llvm-ar"
 
+          # Log PKG_CONFIG_PATH for debugging
+          echo "PKG_CONFIG_PATH: ${PKG_CONFIG_PATH}"
+
           # Set pkg-config path
           export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
+          # Log PKG_CONFIG_PATH for debugging
+          echo "PKG_CONFIG_PATH (new): ${PKG_CONFIG_PATH}"
 
           # Set include and lib paths
           export CFLAGS="-I${PREFIX}/include"
@@ -215,8 +221,28 @@ jobs:
           # Important: Convert MSYS2 paths to Windows paths for Node.js
           NODE_GYP_PATH="$(cygpath -w $(pwd)/externals/node-gyp/bin/node-gyp.js)"
 
+          # Log NODE_GYP_PATH for debugging
+          echo "NODE_GYP_PATH: ${NODE_GYP_PATH}"
+
           # Use --nodedir to point to MSYS2's Node.js installation
           MSYS_NODE_DIR="/$(echo ${{ matrix.os.msystem }} | tr '[:upper:]' '[:lower:]')"
+
+          # Log MSYS_NODE_DIR for debugging
+          echo "MSYS_NODE_DIR: ${MSYS_NODE_DIR}"
+
+          # Find make and convert to Windows path
+          echo "Looking for make..."
+          which make || (echo "ERROR: make not found in PATH!" && exit 1)
+          MAKE_PATH="$(which make)"
+          echo "Found make at: $MAKE_PATH"
+
+          MAKE_WIN_PATH="$(cygpath -w $MAKE_PATH)"
+          echo "Windows path for make: $MAKE_WIN_PATH"
+
+          if [ -z "$MAKE_WIN_PATH" ]; then
+            echo "ERROR: Failed to convert make path to Windows format!"
+            exit 1
+          fi
 
           # Create prebuilds directory structure
           PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
