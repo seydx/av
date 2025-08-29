@@ -77,14 +77,26 @@ jobs:
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "Version: $VERSION"
 
-          # Update main package version
-          npm version $VERSION --no-git-tag-version
+          # Check if main package needs version update
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+            echo "Updating main package version from $CURRENT_VERSION to $VERSION"
+            npm version $VERSION --no-git-tag-version
+          else
+            echo "Main package already at version $VERSION"
+          fi
 
           # Update platform package versions
           for pkg in packages/*/package.json; do
             if [ -f "$pkg" ]; then
               cd $(dirname "$pkg")
-              npm version $VERSION --no-git-tag-version
+              PKG_VERSION=$(node -p "require('./package.json').version")
+              if [ "$PKG_VERSION" != "$VERSION" ]; then
+                echo "Updating $(basename $(dirname "$pkg")) from $PKG_VERSION to $VERSION"
+                npm version $VERSION --no-git-tag-version
+              else
+                echo "$(basename $(dirname "$pkg")) already at version $VERSION"
+              fi
               cd -
             fi
           done
