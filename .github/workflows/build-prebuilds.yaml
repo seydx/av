@@ -226,6 +226,7 @@ jobs:
             --verbose \
             --arch=${{ matrix.os.arch }} \
             --nodedir="${MSYS_NODE_DIR}" \
+            --make="${MAKE_WIN_PATH}" \
             --release
 
           # Find the built .node file and copy it with consistent naming
