@@ -219,6 +219,7 @@
               "<!@(ls /opt/ffbuild/prefix/lib/libOpenCL.a 2>/dev/null || echo '')",
               "-lva",
               "-lva-drm",
+              "-lva-x11",
               "-lpthread",
               "-lm",
               "-ldl",
@@ -239,10 +240,9 @@
             "ldflags": [
               "-Wl,--allow-multiple-definition",
               "-Wl,-rpath,'$$ORIGIN'",
-              "-Wl,-rpath,/opt/ffbuild/prefix/lib",
               "-Wl,-z,origin",
               "-Wl,--export-dynamic",
-              "-Wl,--no-as-needed"
+              "-Wl,--as-needed"
             ]
           }
         ],
