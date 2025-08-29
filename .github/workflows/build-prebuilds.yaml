@@ -201,7 +201,6 @@ jobs:
           # Run Jellyfin build script (builds all dependencies + FFmpeg)
           echo "Running build script from $(pwd)"
           
-          # For ARM64, create a debug version with additional checks
           if [ "${{ matrix.os.arch }}" = "arm64" ]; then
             if [ -f "../msys2/buildarm64.sh" ]; then
               cd ../msys2
@@ -213,43 +212,11 @@ jobs:
               exit 1
             fi
             
-            # Create debug version of buildarm64.sh with additional checks
-            echo "Creating debug version of buildarm64.sh..."
-            cat buildarm64.sh | awk '
-            /makepkg-mingw -sLfi --noconfirm --skippgpcheck/ {
-                print
-                print ""
-                print "        # Debug: Check if x264 was installed correctly"
-                print "        if [ \"$pkg\" = \"40-mingw-w64-x264\" ]; then"
-                print "            echo \"=== DEBUG: Checking x264 installation ===\""
-                print "            echo \"Checking /clangarm64/ffbuild/lib:\""
-                print "            ls -la /clangarm64/ffbuild/lib/libx264* 2>/dev/null || echo \"  x264 not found in /clangarm64/ffbuild/lib\""
-                print "            echo \"Checking /clangarm64/ffbuild/lib/pkgconfig:\""
-                print "            ls -la /clangarm64/ffbuild/lib/pkgconfig/x264* 2>/dev/null || echo \"  x264.pc not found in /clangarm64/ffbuild/lib/pkgconfig\""
-                print "            echo \"Checking /clangarm64/lib:\""
-                print "            ls -la /clangarm64/lib/libx264* 2>/dev/null || echo \"  x264 not found in /clangarm64/lib\""
-                print "            echo \"Checking /clangarm64/lib/pkgconfig:\""
-                print "            ls -la /clangarm64/lib/pkgconfig/x264* 2>/dev/null || echo \"  x264.pc not found in /clangarm64/lib/pkgconfig\""
-                print "            echo \"\""
-                print "            echo \"Testing pkg-config with PKG_CONFIG_PATH=/clangarm64/ffbuild/lib/pkgconfig:\""
-                print "            PKG_CONFIG_PATH=/clangarm64/ffbuild/lib/pkgconfig pkg-config --exists x264 && echo \"  pkg-config finds x264!\" || echo \"  pkg-config CANNOT find x264\""
-                print "            PKG_CONFIG_PATH=/clangarm64/ffbuild/lib/pkgconfig pkg-config --modversion x264 2>/dev/null || echo \"  Cannot get version\""
-                print "            PKG_CONFIG_PATH=/clangarm64/ffbuild/lib/pkgconfig pkg-config --cflags x264 2>/dev/null || echo \"  Cannot get cflags\""
-                print "            PKG_CONFIG_PATH=/clangarm64/ffbuild/lib/pkgconfig pkg-config --libs x264 2>/dev/null || echo \"  Cannot get libs\""
-                print "            echo \"=== END DEBUG ===\""
-                print "        fi"
-                next
-            }
-            { print }
-            ' > buildarm64-debug.sh
-            
-            chmod +x buildarm64-debug.sh
-            
-            # Run the debug version
-            echo "Running debug version..."
-            ./buildarm64-debug.sh
+            # Run the original script without modifications
+            echo "Running original buildarm64.sh..."
+            ./buildarm64.sh
           else
-            # For x64, create a debug version with additional checks (same as ARM64)
+            # For x64
             if [ -f "../msys2/build.sh" ]; then
               cd ../msys2
             elif [ -f "./build.sh" ]; then
@@ -260,41 +227,9 @@ jobs:
               exit 1
             fi
             
-            # Create debug version of build.sh with additional checks
-            echo "Creating debug version of build.sh..."
-            cat build.sh | awk '
-            /makepkg-mingw -sLfi --noconfirm --skippgpcheck/ {
-                print
-                print ""
-                print "        # Debug: Check if x264 was installed correctly"
-                print "        if [ \"$pkg\" = \"40-mingw-w64-x264\" ]; then"
-                print "            echo \"=== DEBUG: Checking x264 installation ===\""
-                print "            echo \"Checking /clang64/ffbuild/lib:\""
-                print "            ls -la /clang64/ffbuild/lib/libx264* 2>/dev/null || echo \"  x264 not found in /clang64/ffbuild/lib\""
-                print "            echo \"Checking /clang64/ffbuild/lib/pkgconfig:\""
-                print "            ls -la /clang64/ffbuild/lib/pkgconfig/x264* 2>/dev/null || echo \"  x264.pc not found in /clang64/ffbuild/lib/pkgconfig\""
-                print "            echo \"Checking /clang64/lib:\""
-                print "            ls -la /clang64/lib/libx264* 2>/dev/null || echo \"  x264 not found in /clang64/lib\""
-                print "            echo \"Checking /clang64/lib/pkgconfig:\""
-                print "            ls -la /clang64/lib/pkgconfig/x264* 2>/dev/null || echo \"  x264.pc not found in /clang64/lib/pkgconfig\""
-                print "            echo \"\""
-                print "            echo \"Testing pkg-config with PKG_CONFIG_PATH=/clang64/ffbuild/lib/pkgconfig:\""
-                print "            PKG_CONFIG_PATH=/clang64/ffbuild/lib/pkgconfig pkg-config --exists x264 && echo \"  pkg-config finds x264!\" || echo \"  pkg-config CANNOT find x264\""
-                print "            PKG_CONFIG_PATH=/clang64/ffbuild/lib/pkgconfig pkg-config --modversion x264 2>/dev/null || echo \"  Cannot get version\""
-                print "            PKG_CONFIG_PATH=/clang64/ffbuild/lib/pkgconfig pkg-config --cflags x264 2>/dev/null || echo \"  Cannot get cflags\""
-                print "            PKG_CONFIG_PATH=/clang64/ffbuild/lib/pkgconfig pkg-config --libs x264 2>/dev/null || echo \"  Cannot get libs\""
-                print "            echo \"=== END DEBUG ===\""
-                print "        fi"
-                next
-            }
-            { print }
-            ' > build-debug.sh
-            
-            chmod +x build-debug.sh
-            
-            # Run the debug version
-            echo "Running debug version..."
-            ./build-debug.sh
+            # Run the original script without modifications
+            echo "Running original build.sh..."
+            ./build.sh
           fi
           
           # After build, libraries are in /clang*/ffbuild/lib/
