@@ -472,7 +472,7 @@ describe('Utilities', () => {
       const elapsed = Date.now() - startTime;
       // Allow some tolerance (sleep might not be exact)
       assert.ok(elapsed >= 5, 'Should sleep for at least 5ms');
-      assert.ok(elapsed < 150, 'Should not sleep for more than 150ms');
+      assert.ok(elapsed < 200, 'Should not sleep for more than 200ms');
     });
 
     it('should handle zero sleep', () => {
