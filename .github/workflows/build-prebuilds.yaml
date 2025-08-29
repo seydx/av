@@ -219,7 +219,8 @@ jobs:
             
             # Insert our fix into buildarm64.sh right before configure
             echo "=== Patching buildarm64.sh to fix pkg-config files ==="
-            awk '/^PKG_CONFIG_PATH=.*configure/ {print "# Fix pkg-config files before configure"; print "./fix_pkg_config.sh"; print ""} {print}' buildarm64.sh > buildarm64_patched.sh
+            # The script does cd .. before configure, so we need to reference the script from parent dir
+            awk '/^PKG_CONFIG_PATH=.*configure/ {print "# Fix pkg-config files before configure"; print "./msys2/fix_pkg_config.sh"; print ""} {print}' buildarm64.sh > buildarm64_patched.sh
             chmod +x buildarm64_patched.sh
             
             echo "Running patched buildarm64.sh..."
