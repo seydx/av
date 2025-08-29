@@ -316,7 +316,6 @@ jobs:
         run: |
           cd externals/jellyfin-ffmpeg
           
-          # Use Jellyfin's build scripts with modification to preserve ffbuild/prefix
           # Determine target
           if [ "${{ matrix.target }}" = "amd64" ]; then
             TARGET="linux64"
@@ -340,43 +339,10 @@ jobs:
             echo "Docker image built locally: ${IMAGE}"
           fi
           
-          # Create a modified version of build.sh that preserves ffbuild/prefix
-          # We copy build.sh and modify it
-          cp build.sh build-preserve.sh
-          # Comment out line 104 which deletes ffbuild
-          sed -i '104s/^/# /' build-preserve.sh
-          chmod +x build-preserve.sh
-          
-          # Add --enable-pic to ensure position-independent code
-          # This fixes linking issues with shared libraries on ARM64 and x64
-          
-          # First backup the original
-          cp variants/defaults-gpl.sh variants/defaults-gpl.sh.orig
-          
-          # Use same configuration for both architectures - no LTO to avoid PIC issues
-          sed -i '/--enable-lto=auto/d' variants/defaults-gpl.sh
-
-          # Add --enable-pic to the end of configure line
-          sed -i '/^FF_CONFIGURE=/s/"$/ --enable-pic"/' variants/defaults-gpl.sh
-          
-          # Force PIC flags in all compilation
-          # Append to the file to ensure these override any defaults
-          echo '' >> variants/defaults-gpl.sh
-          echo '# Force PIC for shared library compatibility' >> variants/defaults-gpl.sh
-          echo 'FF_CFLAGS="${FF_CFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
-          echo 'FF_CXXFLAGS="${FF_CXXFLAGS} -fPIC -DPIC"' >> variants/defaults-gpl.sh
-          echo 'FF_LDFLAGS="${FF_LDFLAGS} -fPIC"' >> variants/defaults-gpl.sh
-          
-          # IMPORTANT: For both x64 and ARM64, we need assembly PIC support
-          # x86_64 uses YASM/NASM which needs -DPIC
-          # ARM64 uses GAS which also needs -DPIC
-          echo 'FF_ASFLAGS="${FF_ASFLAGS} -DPIC"' >> variants/defaults-gpl.sh
-          echo 'export FF_CFLAGS FF_CXXFLAGS FF_LDFLAGS FF_ASFLAGS' >> variants/defaults-gpl.sh
-          
-          # Build FFmpeg using modified script
+          # Build FFmpeg using our modified scripts
           # Set GITHUB_REPOSITORY so build.sh uses our Docker images
           export GITHUB_REPOSITORY="${{ github.repository }}"
-          ./build-preserve.sh "${TARGET}" gpl
+          ./build.sh "${TARGET}" gpl
           
           # Now extract the prefix directory which contains all headers and static libraries
           if [ -d ffbuild/prefix ]; then
