@@ -5,15 +5,9 @@ on:
     tags: ['v*']
 
 jobs:
-  # Call the reusable build workflow
-  # The package job in build-prebuilds.yaml will handle everything:
-  # - Building all platforms
-  # - Creating platform packages
-  # - Creating GitHub release
-  # - Publishing to NPM
   build-and-publish:
     uses: ./.github/workflows/build-prebuilds.yaml
-    secrets: inherit  # Pass secrets including NPM_TOKEN
+    secrets: inherit
     permissions:
-      contents: write  # For creating releases
-      packages: write  # For publishing packages
+      contents: write
+      packages: write

@@ -28,11 +28,11 @@ jobs:
           - target: linux64
             variant: gpl
             platform: linux/amd64
-            runner: ubuntu-latest  # x64 runner
+            runner: ubuntu-latest
           - target: linuxarm64
             variant: gpl
             platform: linux/arm64
-            runner: ubuntu-24.04-arm  # ARM64 runner
+            runner: ubuntu-24.04-arm 
     
     steps:
       - uses: actions/checkout@v5
@@ -54,8 +54,6 @@ jobs:
           cd externals/jellyfin-ffmpeg/builder
           # Set our repository instead of jellyfin's
           export GITHUB_REPOSITORY="${{ github.repository }}"
-          
-          # Native build - no need for platform specification on native runners
           ./makeimage.sh ${{ matrix.target }} ${{ matrix.variant }}
       
       - name: Tag and Push Image
