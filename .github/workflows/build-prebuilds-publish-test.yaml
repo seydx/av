@@ -1,0 +1,170 @@
+name: "🧪 Test Build and Publish Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_version:
+        description: 'Test version to use (e.g., 0.0.99-test.1)'
+        required: true
+        default: '0.0.99-test.1'
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-prebuilds.yaml
+
+  package-and-publish:
+    name: "Package and Publish"
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Download all prebuilds
+        uses: actions/download-artifact@v5
+        with:
+          pattern: prebuild-*
+          path: prebuilds-artifacts
+
+      - name: Prepare prebuilds structure
+        run: |
+          mkdir -p prebuilds
+
+          # Copy all prebuilds to a single directory structure
+          for dir in prebuilds-artifacts/*/; do
+            cp -r "$dir"* prebuilds/
+          done
+
+          echo "Combined prebuilds structure:"
+          ls -laR prebuilds/
+
+          # Verify we have all expected platforms
+          echo -e "\nVerifying platform coverage:"
+          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+            if [ -d "prebuilds/$platform" ]; then
+              echo "✓ $platform"
+            else
+              echo "✗ $platform missing"
+              exit 1  # Fail if any platform is missing
+            fi
+          done
+
+      - name: Create platform packages
+        run: |
+          node scripts/create-platform-packages.js
+
+          # Copy prebuilds to platform packages (already named node-av.node)
+          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+            if [ -d "prebuilds/$platform" ]; then
+              cp "prebuilds/$platform/node-av.node" "packages/$platform/node-av.node"
+              echo "Copied binary for $platform"
+            fi
+          done
+
+          echo "Platform packages created:"
+          ls -la packages/
+          for pkg in packages/*/; do
+            echo "Contents of $pkg:"
+            ls -la "$pkg"
+          done
+
+      - name: Update version
+        run: |
+          # Use test version from input
+          VERSION="${{ github.event.inputs.test_version }}"
+          echo "Test Version: $VERSION"
+
+          # Check if main package needs version update
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+            echo "Updating main package version from $CURRENT_VERSION to $VERSION"
+            npm version $VERSION --no-git-tag-version
+          else
+            echo "Main package already at version $VERSION"
+          fi
+
+          # Update platform package versions
+          for pkg in packages/*/package.json; do
+            if [ -f "$pkg" ]; then
+              cd $(dirname "$pkg")
+              PKG_VERSION=$(node -p "require('./package.json').version")
+              if [ "$PKG_VERSION" != "$VERSION" ]; then
+                echo "Updating $(basename $(dirname "$pkg")) from $PKG_VERSION to $VERSION"
+                npm version $VERSION --no-git-tag-version
+              else
+                echo "$(basename $(dirname "$pkg")) already at version $VERSION"
+              fi
+              cd -
+            fi
+          done
+
+      - name: Create release archives (TEST)
+        run: |
+          # Create archives for each platform
+          VERSION="${{ github.event.inputs.test_version }}"
+          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+            if [ -d "prebuilds/$platform" ]; then
+              zip -r "node-av-${platform}-${VERSION}.zip" "prebuilds/$platform"
+            fi
+          done
+
+          echo "Release archives created:"
+          ls -la *.zip
+
+      - name: Test GitHub Release (DRY RUN)
+        run: |
+          echo "🧪 TEST MODE: Would create GitHub Release"
+          echo "============================================"
+          echo "Release Title: node-av Test Release ${{ github.event.inputs.test_version }}"
+          echo ""
+          echo "Release Body:"
+          echo "## node-av Test Release ${{ github.event.inputs.test_version }}"
+          echo ""
+          echo "### 📦 Test Packages (NOT PUBLISHED)"
+          echo ""
+          echo "The following platform packages would be updated to ${{ github.event.inputs.test_version }}:"
+          echo "- @seydx/node-av-darwin-arm64@${{ github.event.inputs.test_version }}"
+          echo "- @seydx/node-av-darwin-x64@${{ github.event.inputs.test_version }}"
+          echo "- @seydx/node-av-linux-arm64@${{ github.event.inputs.test_version }}"
+          echo "- @seydx/node-av-linux-x64@${{ github.event.inputs.test_version }}"
+          echo "- @seydx/node-av-win32-arm64@${{ github.event.inputs.test_version }}"
+          echo "- @seydx/node-av-win32-x64@${{ github.event.inputs.test_version }}"
+          echo ""
+          echo "Artifacts that would be uploaded:"
+          ls -la *.zip
+
+      - name: Test NPM Publish (DRY RUN)
+        run: |
+          echo "🧪 TEST MODE: Running npm publish with --dry-run"
+          echo "================================================"
+          echo ""
+          
+          # Test publish platform packages
+          echo "Testing platform package publishing:"
+          for pkg_dir in packages/*/; do
+            if [ -d "$pkg_dir" ]; then
+              echo ""
+              echo "📦 Testing publish for $(basename "$pkg_dir"):"
+              cd "$pkg_dir"
+              npm publish --access public --dry-run
+              cd -
+            fi
+          done
+
+          echo ""
+          echo "Testing main package publishing:"
+          echo "📦 Testing publish for @seydx/av:"
+          npm publish --access public --dry-run
+          
+          echo ""
+          echo "✅ Dry run completed successfully!"
+          echo "No packages were actually published to NPM."
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
