@@ -53,8 +53,7 @@
     "update": "updates --update ./"
   },
   "dependencies": {
-    "detect-libc": "^2.0.4",
-    "semver": "^7.7.2"
+    "detect-libc": "^2.0.4"
   },
   "optionalDependencies": {
     "@seydx/node-av-darwin-arm64": "^1.0.0",
