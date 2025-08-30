@@ -287,42 +287,24 @@ function loadBinding(): NativeBinding {
   const arch = process.arch;
   const platformArch = `${platform}-${arch}`;
 
-  // Try 1: Platform-specific package (optionalDependencies)
+  // Local build directory (--build-from-source)
+  try {
+    const localPath = [join(process.cwd(), 'build', 'Release', 'node-av.node'), join(process.cwd(), 'binary', 'node-av.node'), join(process.cwd(), 'node-av.node')];
+    for (const path of localPath) {
+      if (existsSync(path)) {
+        return require(path);
+      }
+    }
+  } catch (err) {
+    errors.push(new Error(`Local build not found or loading failed: ${err}`));
+  }
+
+  // Platform-specific package (optionalDependencies)
   try {
     const packageName = `@seydx/node-av-${platformArch}`;
     return require(`${packageName}/node-av.node`);
   } catch (err) {
-    errors.push(new Error(`Platform package not found: ${err}`));
-  }
-
-  // Try 2: Local build directory (development)
-  try {
-    const localPath = join(process.cwd(), 'build', 'Release', 'node-av.node');
-    if (existsSync(localPath)) {
-      return require(localPath);
-    }
-  } catch (err) {
-    errors.push(new Error(`Local build not found: ${err}`));
-  }
-
-  // Try 3: Binary directory (postinstall)
-  try {
-    const binaryPath = join(process.cwd(), 'binary', 'node-av.node');
-    if (existsSync(binaryPath)) {
-      return require(binaryPath);
-    }
-  } catch (err) {
-    errors.push(new Error(`Binary directory not found: ${err}`));
-  }
-
-  // Try 4: node-gyp-build style paths
-  try {
-    const gypBuildPath = join(process.cwd(), 'build', 'node-av.node');
-    if (existsSync(gypBuildPath)) {
-      return require(gypBuildPath);
-    }
-  } catch (err) {
-    errors.push(new Error(`node-gyp build not found: ${err}`));
+    errors.push(new Error(`Platform package not found or loading failed: ${err}`));
   }
 
   // All attempts failed
@@ -330,13 +312,7 @@ function loadBinding(): NativeBinding {
   // prettier-ignore
   throw new Error(
     `Could not load the node-av native binding for ${platformArch}.\n` +
-    `Attempted locations:\n  ${errorMessages}\n\n` +
-    'Possible solutions:\n' +
-    "1. Run 'npm install' to download the prebuilt binary\n" +
-    "2. Run 'npm install --build-from-source' to compile from source\n" +
-    '3. Ensure you have the required dependencies for your platform\n' +
-    '\n' +
-    'See https://github.com/seydx/av for more information.',
+    `Attempted locations:\n  ${errorMessages}\n\n`,
   );
 }
 
