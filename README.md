@@ -231,6 +231,8 @@ try {
 
 NodeAV executes all media operations directly through FFmpeg's native C libraries. The Node.js bindings add minimal overhead - mostly just the JavaScript-to-C boundary crossings. During typical operations like transcoding or filtering, most processing time is spent in FFmpeg's optimized C code. You get full access to hardware acceleration, SIMD optimizations, and multi-threading capabilities.
 
+Heavy and I/O operations are executed asynchronously using N-API's AsyncWorker, preventing FFmpeg calls from blocking the Node.js event loop.
+
 ## Memory Safety Considerations
 
 NodeAV provides direct bindings to FFmpeg's C APIs, which work with raw memory pointers. The high-level API adds safety abstractions and automatic resource management, but incorrect usage can still cause crashes. Common issues include mismatched video dimensions, incompatible pixel formats, or improper frame buffer handling. The library validates parameters where possible, but can't guarantee complete memory safety without limiting functionality. When using the low-level API, pay attention to parameter consistency, resource cleanup, and format compatibility. Following the documented patterns helps avoid memory-related issues.
