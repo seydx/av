@@ -2,14 +2,6 @@
 
 import detectLibc from 'detect-libc';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import semverSatisfies from 'semver/functions/satisfies.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
-const { engines } = packageJson;
 
 const spawnSyncOptions = {
   encoding: 'utf8',
@@ -32,14 +24,6 @@ export const buildPlatformArch = () => {
   const { npm_config_arch, npm_config_platform, npm_config_libc } = process.env;
   const libc = typeof npm_config_libc === 'string' ? npm_config_libc : runtimeLibc();
   return `${npm_config_platform ?? process.platform}${libc}-${npm_config_arch ?? process.arch}`;
-};
-
-export const isUnsupportedNodeRuntime = () => {
-  if (process.release?.name === 'node' && process.versions) {
-    if (!semverSatisfies(process.versions.node, engines.node)) {
-      return { found: process.versions.node, expected: engines.node };
-    }
-  }
 };
 
 export const spawnRebuild = () =>
