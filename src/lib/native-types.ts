@@ -333,6 +333,7 @@ export interface NativeCodecParameters extends Disposable {
   copy(dst: NativeCodecParameters): number;
   fromContext(codecContext: NativeCodecContext): number;
   toContext(codecContext: NativeCodecContext): number;
+  toJSON(): Record<string, any>;
 
   // ===== Properties - General =====
   codecType: AVMediaType;
@@ -600,6 +601,9 @@ export interface NativeFormatContext extends AsyncDisposable {
   readonly streams: NativeStream[] | null;
   strictStdCompliance: number;
   maxStreams: number;
+  readonly nbPrograms: number;
+  readonly pbBytes: bigint;
+  readonly probeScore: number;
 
   // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
