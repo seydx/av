@@ -207,10 +207,7 @@ export class Encoder implements Disposable {
         const videoInfo = input;
         codecContext.width = videoInfo.width;
         codecContext.height = videoInfo.height;
-        // Only set pixelFormat if provided (might be omitted for hardware encoders)
-        if (videoInfo.pixelFormat !== undefined) {
-          codecContext.pixelFormat = videoInfo.pixelFormat;
-        }
+        codecContext.pixelFormat = videoInfo.pixelFormat;
 
         // Set pkt_timebase and timeBase to input timebase
         codecContext.pktTimebase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
@@ -296,13 +293,10 @@ export class Encoder implements Disposable {
 
     // Apply hardware acceleration if provided and encoder supports it
     if (options.hardware && isHardwareEncoder) {
-      // For hardware encoders, always set the hardware pixel format
-      // (overrides what was copied from stream parameters)
-      codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
-
       // Check if frames context already available (shared from decoder)
       if (options.hardware.framesContext) {
         codecContext.hwFramesCtx = options.hardware.framesContext;
+        codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
       }
       // Else: Will set hwFramesCtx later in encode() when first frame arrives
       // DO NOT create frames context here - wait for first frame!
@@ -373,6 +367,10 @@ export class Encoder implements Disposable {
         // First frame - create frames context for upload
         this.hardware.ensureFramesContext(frame.width, frame.height);
         this.codecContext.hwFramesCtx = this.hardware.framesContext ?? null;
+      }
+
+      if (this.codecContext.hwFramesCtx) {
+        this.codecContext.pixelFormat = this.hardware.getHardwarePixelFormat();
       }
     }
     // Software encoder completely ignores hardware context
