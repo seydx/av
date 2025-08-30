@@ -11,6 +11,7 @@ import {
   AV_PICTURE_TYPE_P,
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_YUV420P,
+  AV_SAMPLE_FMT_FLT,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16,
   AVCHROMA_LOC_LEFT,
@@ -637,6 +638,116 @@ describe('Frame', () => {
       const retrieved = frame.getSideData(AV_FRAME_DATA_STEREO3D);
       assert.ok(retrieved, 'Should have side data after buffer allocation');
       assert.equal(retrieved.readUInt32LE(0), 0x12345678, 'Data should be intact');
+    });
+  });
+
+  describe('fromBuffer', () => {
+    it('should fill video frame from buffer', () => {
+      frame.alloc();
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.width = 320;
+      frame.height = 240;
+      frame.allocBuffer();
+
+      // YUV420P: Y plane (320*240) + U plane (160*120) + V plane (160*120)
+      const ySize = frame.width * frame.height;
+      const uvSize = (frame.width / 2) * (frame.height / 2);
+      const totalSize = ySize + uvSize * 2;
+
+      // Create test buffer with pattern
+      const buffer = Buffer.alloc(totalSize);
+      // Fill Y plane with gradient
+      for (let i = 0; i < ySize; i++) {
+        buffer[i] = i % 256;
+      }
+      // Fill U plane
+      for (let i = 0; i < uvSize; i++) {
+        buffer[ySize + i] = 128;
+      }
+      // Fill V plane
+      for (let i = 0; i < uvSize; i++) {
+        buffer[ySize + uvSize + i] = 128;
+      }
+
+      const ret = frame.fromBuffer(buffer);
+      assert.ok(ret >= 0, 'fromBuffer should succeed');
+
+      // Verify data was written
+      const data = frame.data;
+      assert.ok(data, 'Frame should have data');
+      assert.ok(data[0] instanceof Buffer, 'Y plane should be a Buffer');
+
+      // Check if some data was actually written (first few bytes)
+      const yPlane = data[0];
+      assert.equal(yPlane[0], 0, 'First Y value should match');
+      assert.equal(yPlane[1], 1, 'Second Y value should match');
+    });
+
+    it('should fill audio frame from buffer', () => {
+      frame.alloc();
+      frame.format = AV_SAMPLE_FMT_FLT;
+      frame.nbSamples = 1024;
+      frame.channelLayout = { order: 0, nbChannels: 2, mask: 3n }; // stereo
+      frame.allocBuffer();
+
+      // Float32 stereo: 1024 samples * 2 channels * 4 bytes
+      const samplesSize = frame.nbSamples * 2 * 4;
+      const buffer = Buffer.alloc(samplesSize);
+
+      // Fill with test pattern (alternating values)
+      const floatArray = new Float32Array(buffer.buffer);
+      for (let i = 0; i < floatArray.length; i++) {
+        floatArray[i] = i % 2 === 0 ? 0.5 : -0.5;
+      }
+
+      const ret = frame.fromBuffer(buffer);
+      assert.equal(ret, 0, 'fromBuffer should succeed for audio');
+
+      // Verify data was written
+      const data = frame.data;
+      assert.ok(data, 'Frame should have data');
+      assert.ok(data[0] instanceof Buffer, 'Audio data should be a Buffer');
+    });
+
+    it('should fail with unallocated frame', () => {
+      const buffer = Buffer.alloc(100);
+
+      assert.throws(() => {
+        frame.fromBuffer(buffer);
+      }, /Frame not allocated/);
+    });
+
+    it('should fail with buffer too small', () => {
+      frame.alloc();
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.width = 1920;
+      frame.height = 1080;
+      frame.allocBuffer();
+
+      // Buffer way too small for HD video
+      const buffer = Buffer.alloc(100);
+
+      assert.throws(() => {
+        frame.fromBuffer(buffer);
+      }, /Buffer too small/);
+    });
+
+    it('should fail with invalid input', () => {
+      frame.alloc();
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.width = 320;
+      frame.height = 240;
+      frame.allocBuffer();
+
+      assert.throws(() => {
+        // @ts-expect-error Testing invalid input
+        frame.fromBuffer('not a buffer');
+      }, /Buffer required/);
+
+      assert.throws(() => {
+        // @ts-expect-error Testing invalid input
+        frame.fromBuffer(null);
+      }, /Buffer required/);
     });
   });
 });
