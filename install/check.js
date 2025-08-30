@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'node:module';
+
 import { getFFmpegLibraryVersions, globalFFmpegVersion, log, spawnRebuild, useGlobalFFmpeg } from './ffmpeg.js';
 
-const buildFromSource = async (msg) => {
+const require = createRequire(import.meta.url);
+
+const buildFromSource = (msg) => {
   log(msg);
   log('Building from source requires:');
   log('  - FFmpeg 7.1+ with development headers');
@@ -14,16 +18,14 @@ const buildFromSource = async (msg) => {
   let hasNodeGyp = false;
 
   try {
-    // @ts-expect-error
-    await import('node-addon-api');
+    require('node-addon-api');
     hasNodeAddonApi = true;
   } catch {
     // Not installed
   }
 
   try {
-    // @ts-expect-error
-    await import('node-gyp');
+    require('node-gyp');
     hasNodeGyp = true;
   } catch {
     // Not installed
@@ -66,7 +68,7 @@ const buildFromSource = async (msg) => {
         const packageName = `@seydx/node-av-${platform}-${arch}`;
 
         // Try to resolve the package
-        await import(`${packageName}/package.json`);
+        require(`${packageName}/package.json`);
         log(`Using prebuilt binary from ${packageName}`);
         return;
       } catch {
@@ -82,9 +84,9 @@ const buildFromSource = async (msg) => {
         for (const lib of versions) {
           log(`  ✓ ${lib.name.padEnd(20)} v${lib.version} (${lib.description})`);
         }
-        await buildFromSource('Building with system FFmpeg');
+        buildFromSource('Building with system FFmpeg');
       } else {
-        await buildFromSource(`Detected globally-installed FFmpeg v${globalFFmpegVersion()}`);
+        buildFromSource(`Detected globally-installed FFmpeg v${globalFFmpegVersion()}`);
       }
     } else {
       // No system FFmpeg found
