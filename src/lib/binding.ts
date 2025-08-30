@@ -5,9 +5,10 @@
  * All native classes are accessed through this single entry point.
  */
 
-import { existsSync } from 'fs';
-import { createRequire } from 'module';
-import { join } from 'path';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AVError, AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from './constants.js';
 import type { PosixError } from './error.js';
@@ -40,6 +41,9 @@ import type {
   NativeStream,
 } from './native-types.js';
 import type { ChannelLayout, IRational } from './types.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Constructor types for native bindings
 type NativePacketConstructor = new () => NativePacket;
@@ -289,7 +293,10 @@ function loadBinding(): NativeBinding {
 
   // Local build directory (--build-from-source)
   try {
-    const localPath = [join(process.cwd(), 'build', 'Release', 'node-av.node'), join(process.cwd(), 'binary', 'node-av.node'), join(process.cwd(), 'node-av.node')];
+    const releasePath = resolve(__dirname, '..', '..', 'build', 'Release', 'node-av.node');
+    const binaryPath = resolve(__dirname, '..', '..', 'binary', 'node-av.node');
+    const rootPath = resolve(__dirname, '..', '..', 'node-av.node');
+    const localPath = [releasePath, binaryPath, rootPath];
     for (const path of localPath) {
       if (existsSync(path)) {
         return require(path);
