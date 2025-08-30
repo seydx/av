@@ -10,6 +10,9 @@
  * @module api/media-output
  */
 
+import { mkdir } from 'fs/promises';
+import { dirname, resolve } from 'path';
+
 import { AVFMT_FLAG_CUSTOM_IO, AVFMT_NOFILE, AVIO_FLAG_WRITE, FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
 import { Encoder } from './encoder.js';
 
@@ -132,18 +135,28 @@ export class MediaOutput implements AsyncDisposable {
 
     try {
       if (typeof target === 'string') {
-        // File or stream URL
-        const ret = output.formatContext.allocOutputContext2(null, options?.format ?? null, target === '' ? null : target);
+        // File or stream URL - resolve relative paths and create directories
+        // Check if it's a URL (starts with protocol://) or a file path
+        const isUrl = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(target);
+        const resolvedTarget = isUrl ? target : resolve(target);
+
+        // Create directory structure for local files (not URLs)
+        if (!isUrl && target !== '') {
+          const dir = dirname(resolvedTarget);
+          await mkdir(dir, { recursive: true });
+        }
+        // Allocate output context
+        const ret = output.formatContext.allocOutputContext2(null, options?.format ?? null, resolvedTarget === '' ? null : resolvedTarget);
         FFmpegError.throwIfError(ret, 'Failed to allocate output context');
 
         // Check if we need to open IO
         const oformat = output.formatContext.oformat;
-        if (target && oformat && !(oformat.flags & AVFMT_NOFILE)) {
+        if (resolvedTarget && oformat && !(oformat.flags & AVFMT_NOFILE)) {
           // For file-based formats, we need to open the file using avio_open2
           // FFmpeg will manage the AVIOContext internally
           output.ioContext = new IOContext();
-          const openRet = await output.ioContext.open2(target, AVIO_FLAG_WRITE);
-          FFmpegError.throwIfError(openRet, `Failed to open output file: ${target}`);
+          const openRet = await output.ioContext.open2(resolvedTarget, AVIO_FLAG_WRITE);
+          FFmpegError.throwIfError(openRet, `Failed to open output file: ${resolvedTarget}`);
           output.formatContext.pb = output.ioContext;
         }
       } else {
