@@ -11,7 +11,7 @@
  *   --duration <n>   Stream duration in seconds (default: 10)
  *
  * Examples:
- *   tsx examples/api-hw-rtsp-rtp-listener.ts rtsp://admin:pass@192.168.1.100/ch1 --duration 30
+ *   tsx examples/api-hw-rtsp-custom-io.ts rtsp://admin:pass@192.168.1.100/ch1 --duration 30
  */
 
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
