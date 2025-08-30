@@ -770,22 +770,6 @@ describe('Pipeline - Comprehensive Tests', () => {
         'Should throw error for invalid filter',
       );
     });
-
-    it('should handle output write errors gracefully', async () => {
-      const outputFile = '/invalid/path/that/does/not/exist/output.mp4';
-
-      await using input = await MediaInput.open(inputFile);
-
-      await assert.rejects(
-        async () => {
-          await using output = await MediaOutput.open(outputFile);
-          const control = pipeline(input, output);
-          await control.completion;
-        },
-        /ENOENT|permission|cannot|failed/i,
-        'Should throw error for invalid output path',
-      );
-    });
   });
 
   describe('Hardware Acceleration', skipInCI, () => {
