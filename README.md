@@ -304,7 +304,3 @@ For issues and questions, please use the GitHub issue tracker.
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
 - [FFmpeg Doxygen](https://ffmpeg.org/doxygen/trunk/)
 - [Jellyfin FFmpeg](https://github.com/jellyfin/jellyfin-ffmpeg)
-
----
-
-*Part of the [camera.ui](https://github.com/seydx/camera.ui) ecosystem - A comprehensive camera management solution.*
