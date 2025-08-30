@@ -58,93 +58,42 @@ await input.close();
 
 ### Pipeline API
 
-The Pipeline API provides streamlined media processing with automatic flow control. It supports two modes:
-
-#### Simple Pipeline (single stream)
-
 ```typescript
-import { pipeline, MediaInput, MediaOutput, Decoder, Encoder, FilterAPI } from 'node-av/api';
+import { pipeline, MediaInput, MediaOutput, Decoder, Encoder } from 'node-av/api';
 
-// Full transcode pipeline: input → decoder → encoder → output
+// Simple transcode pipeline: input → decoder → encoder → output
 const input = await MediaInput.open('input.mp4');
 const output = await MediaOutput.open('output.mp4');
 const decoder = await Decoder.create(input.video());
-const encoder = await Encoder.create('libx264', {
-  type: 'video',
-  width: 1920,
-  height: 1080,
-  pixelFormat: AV_PIX_FMT_YUV420P,
-  timeBase: { num: 1, den: 30 }
-}, {
-  bitrate: '2M'
+const encoder = await Encoder.create('libx264', input.video(), {
+  bitrate: '2M',
+  gopSize: 60
 });
 
 const control = pipeline(input, decoder, encoder, output);
 await control.completion;
 
-// With filter: input → decoder → filter → encoder → output  
-const filter = await FilterAPI.create('scale=1280:720', input.video());
-const control2 = pipeline(input, decoder, filter, encoder, output);
-await control2.completion;
-
-// Stream copy (no re-encoding): input → output
-const control3 = pipeline(input, output);
-await control3.completion;
+// The pipeline automatically handles:
+// - Flow control between components
+// - Resource management and cleanup
+// - Error propagation
+// - Backpressure handling
 ```
 
-#### Named Pipeline (multiple streams)
+## More Examples
 
-```typescript
-// Process multiple streams with named routing
-const control = pipeline(
-  { video: videoInput, audio: audioInput },
-  {
-    video: [videoDecoder, videoFilter, videoEncoder],
-    audio: [audioDecoder, audioFilter, audioEncoder]
-  },
-  { video: videoOutput, audio: audioOutput }
-);
-await control.completion;
+The `examples/` directory contains comprehensive examples for all API levels:
 
-// With single output (muxing)
-const control2 = pipeline(
-  { video: videoInput, audio: audioInput },
-  {
-    video: [videoDecoder, videoEncoder],
-    audio: 'passthrough'  // Stream copy
-  },
-  output
-);
-await control2.completion;
-```
+**High-Level API** (`api-*.ts`)
+- Hardware acceleration, muxing, streaming, custom I/O, and more
 
-#### Partial Pipeline (returns generator)
+**Low-Level API** (direct FFmpeg bindings)
+- Ported FFmpeg C examples showing fine-grained control
 
-```typescript
-// Pipeline without output returns async generator
-const frames = pipeline(input, decoder);
-for await (const frame of frames) {
-  // Process frames
-  frame.free();
-}
+**Pipeline API** (`api-pipeline-*.ts`)
+- Complex workflows with automatic flow control
 
-// With filter
-const filteredFrames = pipeline(input, decoder, filter);
-for await (const frame of filteredFrames) {
-  // Process filtered frames
-  frame.free();
-}
-
-// Named partial pipeline
-const generators = pipeline(
-  { video: videoInput, audio: audioInput },
-  {
-    video: [videoDecoder, videoFilter],
-    audio: [audioDecoder]
-  }
-);
-// generators.video and generators.audio are async generators
-```
+See the [Examples Table](#examples) for a complete list.
 
 ## Hardware Acceleration
 
@@ -249,20 +198,6 @@ const rawAudio = await MediaInput.open({
 }, {
   format: 's16le'
 });
-```
-
-## Error Handling
-
-```typescript
-import { FFmpegError } from 'node-av';
-
-try {
-  const media = await MediaInput.open('input.mp4');
-} catch (error) {
-  if (error instanceof FFmpegError) {
-    console.error(`FFmpeg error ${error.code}: ${error.message}`);
-  }
-}
 ```
 
 ## Resource Management
