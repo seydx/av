@@ -7,13 +7,12 @@
  *
  * This example outputs information in a format similar to:
  * - ffprobe -show_format -show_streams
- * - Includes the new toJSON() method for complete codec parameter access
  *
  * Features demonstrated:
  * - Format metadata extraction (title, artist, etc.)
  * - Stream information (video/audio codecs, bitrates, frame rates)
  * - Format details (container type, duration, file size)
- * - Complete codec parameters via toJSON()
+ * - Complete codec parameters
  *
  * Usage: tsx examples/ffprobe-metadata.ts <input file>
  * Example: tsx examples/ffprobe-metadata.ts testdata/video.mp4
@@ -170,11 +169,11 @@ const audioStream = formatContext.streams?.find((s) => s.codecpar.codecType === 
 const videoStream = formatContext.streams?.find((s) => s.codecpar.codecType === AVMEDIA_TYPE_VIDEO);
 
 if (videoStream) {
-  console.log('// Video stream codec parameters (via toJSON()):');
+  console.log('// Video stream codec parameters:');
   console.log(videoStream.codecpar.toJSON());
 }
 
 if (audioStream) {
-  console.log('\n// Audio stream codec parameters (via toJSON()):');
+  console.log('\n// Audio stream codec parameters:');
   console.log(audioStream.codecpar.toJSON());
 }
