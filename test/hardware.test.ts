@@ -181,11 +181,10 @@ describe('HardwareContext', () => {
         assert.ok(!hw.isDisposed, 'Hardware should not be disposed yet');
 
         encoder.close();
-        assert.ok(hw.isDisposed, 'Hardware should be disposed after encoder closes');
+        assert.ok(!hw.isDisposed, 'Hardware should not be disposed after encoder closes');
 
-        // User can still call dispose - should be safe
         hw.dispose();
-        assert.ok(hw.isDisposed, 'Should still be disposed');
+        assert.ok(hw.isDisposed, 'Should be disposed');
       } catch (error) {
         // Hardware encoding might not be supported
         console.log('Hardware encoding not supported:', error);
@@ -217,11 +216,9 @@ describe('HardwareContext', () => {
 
       assert.ok(!hw.isDisposed, 'Hardware should not be disposed yet');
 
-      // Close first decoder - hardware gets disposed
       decoder1.close();
       assert.ok(!hw.isDisposed, 'Hardware should not be disposed after first decoder closes');
 
-      // Close second decoder - should handle already-disposed hardware gracefully
       decoder2.close();
       assert.ok(!hw.isDisposed, 'Hardware should still not be disposed after second decoder closes');
 
