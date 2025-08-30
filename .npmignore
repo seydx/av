@@ -36,3 +36,8 @@ INSTALLATION.md
 /test
 /testdata
 /packages
+/prebuildify
+/prebuilds-artifacts
+/node-av-*
+/prebuildify
+/*runner.txt

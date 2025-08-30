@@ -53,3 +53,6 @@ ffmpeg_examples
 /packages
 /*runner.txt
 /prebuildify
+/prebuilds-artifacts
+/node-av-*
+/prebuildify

@@ -23,6 +23,12 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Build TypeScript
+        run: npm run build:tsc
+
       - name: Download all prebuilds
         uses: actions/download-artifact@v5
         with:
@@ -140,6 +146,10 @@ jobs:
               cd -
             fi
           done
+
+          # Clean up artifacts that shouldn't be in the main package
+          rm -rf prebuilds-artifacts
+          rm -f *.zip
 
           # Publish main package
           npm publish --access public
