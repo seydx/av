@@ -1,115 +1,123 @@
 #!/usr/bin/env node
 
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 
-import { getFFmpegLibraryVersions, globalFFmpegVersion, log, spawnRebuild, useGlobalFFmpeg } from './ffmpeg.js';
+import { log, spawnRebuild, useGlobalFFmpeg } from './ffmpeg.js';
 
 const require = createRequire(import.meta.url);
 
-const buildFromSource = (msg) => {
-  log(msg);
-  log('Building from source requires:');
-  log('  - FFmpeg 7.1+ with development headers');
-  log('  - Python 3.12+');
-  log('  - node-gyp and node-addon-api');
+const tryLoadPrebuilt = () => {
+  // Try to load from platform-specific package (optionalDependencies)
+  const platform = process.platform;
+  const arch = process.arch;
+  const packageName = `@seydx/node-av-${platform}-${arch}`;
 
-  // Check for node-addon-api and node-gyp
-  let hasNodeAddonApi = false;
-  let hasNodeGyp = false;
+  try {
+    const packagePath = require.resolve(`${packageName}/node-av.node`);
+    if (existsSync(packagePath)) {
+      log(`Using prebuilt binary from ${packageName}`);
+      return true;
+    }
+  } catch {
+    // Package not installed or file not found
+  }
+
+  // Try local binary folder (for development)
+  const localBinary = join(process.cwd(), 'binary', 'node-av.node');
+  if (existsSync(localBinary)) {
+    log('Using local binary from binary/node-av.node');
+    return true;
+  }
+
+  return false;
+};
+
+const buildFromSource = () => {
+  log('Building from source...');
+
+  // Check for required build dependencies
+  const missingDeps = [];
 
   try {
     require('node-addon-api');
-    hasNodeAddonApi = true;
   } catch {
-    // Not installed
+    missingDeps.push('node-addon-api');
   }
 
   try {
     require('node-gyp');
-    hasNodeGyp = true;
   } catch {
-    // Not installed
+    missingDeps.push('node-gyp');
   }
 
-  if (!hasNodeAddonApi || !hasNodeGyp) {
+  if (missingDeps.length > 0) {
     log('');
-    log('Missing build dependencies. Please install:');
-    log('  npm install --save-dev node-addon-api node-gyp');
+    log(`Missing build dependencies: ${missingDeps.join(', ')}`);
+    log('Please install:');
+    log(`  npm install --save-dev ${missingDeps.join(' ')}`);
     log('');
     log('Then run npm install again.');
     process.exit(1);
   }
 
-  log('Found required build dependencies');
   log('Building native bindings...');
 
   const status = spawnRebuild();
   if (status !== 0) {
+    log('');
     log('Build failed. Please ensure you have:');
     log('  - FFmpeg 7.1+ libraries and headers installed');
     log('  - Python 3.12+ installed');
     log('  - A C++ compiler with C++17 support');
+    log('');
     log('See https://github.com/seydx/av for detailed requirements');
     process.exit(status);
   }
+
+  log('Build completed successfully!');
 };
 
 (async () => {
   try {
-    // Check if we should build from source
-    const shouldBuildFromSource = process.env.npm_config_build_from_source;
+    const shouldBuildFromSource = process.env.npm_config_build_from_source === 'true';
 
-    // Try to load the prebuilt binary first (unless explicitly building from source)
-    if (!shouldBuildFromSource) {
-      try {
-        // Check if platform-specific package exists (optionalDependencies)
-        const platform = process.platform;
-        const arch = process.arch;
-        const packageName = `@seydx/node-av-${platform}-${arch}`;
-
-        // Try to resolve the package
-        require(`${packageName}/package.json`);
-        log(`Using prebuilt binary from ${packageName}`);
-        return;
-      } catch {
-        // No prebuilt binary available, will build from source
-      }
-    }
-
-    // No prebuilt binary or --build-from-source flag, check for system FFmpeg
-    if (useGlobalFFmpeg(log)) {
-      const versions = getFFmpegLibraryVersions();
-      if (versions && versions.length > 0) {
-        log('Detected globally-installed FFmpeg libraries:');
-        for (const lib of versions) {
-          log(`  ✓ ${lib.name.padEnd(20)} v${lib.version} (${lib.description})`);
-        }
-        buildFromSource('Building with system FFmpeg');
-      } else {
-        buildFromSource(`Detected globally-installed FFmpeg v${globalFFmpegVersion()}`);
-      }
-    } else {
-      // No system FFmpeg found
-      if (shouldBuildFromSource) {
+    // Priority 1: User explicitly wants to build from source
+    if (shouldBuildFromSource) {
+      if (!useGlobalFFmpeg()) {
         log('--build-from-source specified but no FFmpeg libraries found');
         log('Please install FFmpeg 7.1+ with development headers');
         process.exit(1);
-      } else {
-        log('No prebuilt binary available for your platform');
-        log('No system FFmpeg libraries found (requires v7.1+)');
-        log('');
-        log('Please install FFmpeg 7.1+ and build dependencies:');
-        log('  - FFmpeg development libraries');
-        log('  - Python 3.12+');
-        log('  - npm install --save-dev node-addon-api node-gyp');
-        log('');
-        log('Then run npm install again.');
-        process.exit(1);
+      }
+      // Fall through to build logic below
+    } else {
+      // Priority 2: Try to use prebuilt binary if not forcing source build
+      if (tryLoadPrebuilt()) {
+        return;
       }
     }
+
+    // Build from source (either requested or as fallback)
+    if (useGlobalFFmpeg()) {
+      // Determine why we're building
+      if (shouldBuildFromSource) {
+        log('Building from source as requested');
+      } else {
+        log('No prebuilt binary available for your platform');
+        log('System FFmpeg detected, building from source automatically');
+      }
+
+      buildFromSource();
+    } else {
+      // No FFmpeg found and no prebuilt available
+      log('⚠️  No prebuilt binary and no system FFmpeg found');
+      log('Please install FFmpeg 7.1+ with development headers');
+      log('See https://github.com/seydx/av for installation instructions');
+      process.exit(1);
+    }
   } catch (err) {
-    const summary = err.message.split(/\n/).slice(0, 1);
-    console.log(`node-av: installation error: ${summary}`);
+    console.error(`node-av: Installation error: ${err.message}`);
     process.exit(1);
   }
 })();
