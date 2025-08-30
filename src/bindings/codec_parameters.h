@@ -52,6 +52,7 @@ private:
   Napi::Value Copy(const Napi::CallbackInfo& info);
   Napi::Value FromContext(const Napi::CallbackInfo& info);
   Napi::Value ToContext(const Napi::CallbackInfo& info);
+  Napi::Value ToJSON(const Napi::CallbackInfo& info);
   
   // === Properties ===
   Napi::Value GetCodecType(const Napi::CallbackInfo& info);

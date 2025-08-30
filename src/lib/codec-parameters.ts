@@ -505,6 +505,35 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
+   * Convert all codec parameters to a JSON object.
+   *
+   * Returns all codec parameters as a plain JavaScript object.
+   * Useful for debugging, logging, or serialization.
+   *
+   * Uses native implementation to access all AVCodecParameters fields directly.
+   *
+   * @returns Object with all codec parameters
+   *
+   * @example
+   * ```typescript
+   * const params = stream.codecpar;
+   * const json = params.toJSON();
+   * console.log(JSON.stringify(json, null, 2));
+   * // {
+   * //   "codecType": 0,
+   * //   "codecId": 27,
+   * //   "width": 1920,
+   * //   "height": 1080,
+   * //   "format": 0,
+   * //   ...
+   * // }
+   * ```
+   */
+  toJSON(): Record<string, any> {
+    return this.native.toJSON();
+  }
+
+  /**
    * Dispose of the codec parameters.
    *
    * Implements the Disposable interface for automatic cleanup.
