@@ -57,8 +57,11 @@ Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor("iformat", &FormatContext::GetIformat, nullptr),
     InstanceAccessor("oformat", &FormatContext::GetOformat, &FormatContext::SetOformat),
     InstanceAccessor("pb", nullptr, &FormatContext::SetPb),
+    InstanceAccessor("pbBytes", &FormatContext::GetPbBytes, nullptr),
     InstanceAccessor("strictStdCompliance", &FormatContext::GetStrictStdCompliance, &FormatContext::SetStrictStdCompliance),
     InstanceAccessor("maxStreams", &FormatContext::GetMaxStreams, &FormatContext::SetMaxStreams),
+    InstanceAccessor("nbPrograms", &FormatContext::GetNbPrograms, nullptr),
+    InstanceAccessor("probeScore", &FormatContext::GetProbeScore, nullptr),
     
     // Utility
     InstanceMethod(Napi::Symbol::WellKnown(env, "asyncDispose"), &FormatContext::DisposeAsync),
@@ -678,6 +681,45 @@ Napi::Value FormatContext::GetMaxStreams(const Napi::CallbackInfo& info) {
   }
   
   return Napi::Number::New(env, ctx->max_streams);
+}
+
+Napi::Value FormatContext::GetNbPrograms(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFormatContext* ctx = ctx_;
+  if (!ctx) {
+    return Napi::Number::New(env, 0);
+  }
+  
+  return Napi::Number::New(env, ctx->nb_programs);
+}
+
+Napi::Value FormatContext::GetPbBytes(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFormatContext* ctx = ctx_;
+  if (!ctx || !ctx->pb) {
+    return Napi::Number::New(env, 0);
+  }
+  
+  // Get current position in the file (bytes read/written)
+  int64_t pos = avio_tell(ctx->pb);
+  if (pos < 0) {
+    return Napi::Number::New(env, 0);
+  }
+  
+  return Napi::BigInt::New(env, pos);
+}
+
+Napi::Value FormatContext::GetProbeScore(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  AVFormatContext* ctx = ctx_;
+  if (!ctx) {
+    return Napi::Number::New(env, 0);
+  }
+  
+  return Napi::Number::New(env, ctx->probe_score);
 }
 
 void FormatContext::SetMaxStreams(const Napi::CallbackInfo& info, const Napi::Value& value) {

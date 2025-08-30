@@ -106,6 +106,9 @@ private:
   
   Napi::Value GetMaxStreams(const Napi::CallbackInfo& info);
   void SetMaxStreams(const Napi::CallbackInfo& info, const Napi::Value& value);
+  Napi::Value GetNbPrograms(const Napi::CallbackInfo& info);
+  Napi::Value GetPbBytes(const Napi::CallbackInfo& info);
+  Napi::Value GetProbeScore(const Napi::CallbackInfo& info);
   
   void SetPb(const Napi::CallbackInfo& info, const Napi::Value& value);
   

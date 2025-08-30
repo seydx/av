@@ -335,6 +335,42 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Number of programs in the stream.
+   *
+   * Direct mapping to AVFormatContext->nb_programs
+   *
+   * - demuxing: Set by libavformat
+   */
+  get nbPrograms(): number {
+    return this.native.nbPrograms;
+  }
+
+  /**
+   * Current position in bytes (avio_tell).
+   *
+   * Direct mapping to avio_tell(AVFormatContext->pb)
+   *
+   * Returns the current byte position in the I/O context.
+   * - demuxing: Current read position
+   * - muxing: Current write position
+   */
+  get pbBytes(): bigint {
+    return this.native.pbBytes;
+  }
+
+  /**
+   * Format probing score (0-100).
+   *
+   * Direct mapping to AVFormatContext->probe_score
+   *
+   * Indicates confidence in format detection (higher is better).
+   * - demuxing: Set by format probing
+   */
+  get probeScore(): number {
+    return this.native.probeScore;
+  }
+
+  /**
    * Allocate an AVFormatContext for input.
    *
    * Direct mapping to avformat_alloc_context()
