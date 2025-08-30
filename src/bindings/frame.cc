@@ -299,8 +299,18 @@ Napi::Value Frame::FromBuffer(const Napi::CallbackInfo& info) {
   // For audio frames
   else if (frame_->nb_samples > 0) {
     int channels = frame_->ch_layout.nb_channels;
-    int bytes_per_sample = av_get_bytes_per_sample(static_cast<AVSampleFormat>(frame_->format));
-    int expected_size = frame_->nb_samples * channels * bytes_per_sample;
+    AVSampleFormat sample_fmt = static_cast<AVSampleFormat>(frame_->format);
+    int bytes_per_sample = av_get_bytes_per_sample(sample_fmt);
+    bool is_planar = av_sample_fmt_is_planar(sample_fmt);
+    
+    int expected_size;
+    if (is_planar) {
+      // Planar: nb_samples * bytes_per_sample per channel
+      expected_size = frame_->nb_samples * bytes_per_sample * channels;
+    } else {
+      // Interleaved: nb_samples * channels * bytes_per_sample
+      expected_size = frame_->nb_samples * channels * bytes_per_sample;
+    }
     
     if (size < static_cast<size_t>(expected_size)) {
       Napi::Error::New(env, "Buffer too small for audio data").ThrowAsJavaScriptException();
@@ -308,7 +318,16 @@ Napi::Value Frame::FromBuffer(const Napi::CallbackInfo& info) {
     }
     
     // Copy audio data
-    memcpy(frame_->data[0], data, expected_size);
+    if (is_planar) {
+      // For planar formats, copy to each plane
+      int plane_size = frame_->nb_samples * bytes_per_sample;
+      for (int ch = 0; ch < channels; ch++) {
+        memcpy(frame_->data[ch], data + (ch * plane_size), plane_size);
+      }
+    } else {
+      // For interleaved formats, copy to data[0]
+      memcpy(frame_->data[0], data, expected_size);
+    }
     
     return Napi::Number::New(env, 0);
   }
