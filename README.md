@@ -262,6 +262,7 @@ NodeAV provides direct bindings to FFmpeg's C APIs, which work with raw memory p
 | `demux-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/demux_decode.c) | [✓](examples/demux-decode.ts) | |
 | `encode-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_audio.c) | [✓](examples/encode-audio.ts) | |
 | `encode-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_video.c) | [✓](examples/encode-video.ts) | |
+| `ffprobe-metadata` | | [✓](examples/ffprobe-metadata.ts) | |
 | `filter-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/filter_audio.c) | [✓](examples/filter-audio.ts) | |
 | `hw-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/hw_decode.c) | [✓](examples/hw-decode.ts) | |
 | `hw-encode` | | [✓](examples/hw-encode.ts) | |
