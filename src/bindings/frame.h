@@ -8,6 +8,7 @@ extern "C" {
 #include <libavutil/frame.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
+#include <libavutil/imgutils.h>
 }
 
 namespace ffmpeg {
@@ -45,6 +46,7 @@ private:
   Napi::Value MakeWritable(const Napi::CallbackInfo& info);
   Napi::Value CopyProps(const Napi::CallbackInfo& info);
   Napi::Value Copy(const Napi::CallbackInfo& info);
+  Napi::Value FromBuffer(const Napi::CallbackInfo& info);
   
   // === Properties ===
   Napi::Value GetFormat(const Napi::CallbackInfo& info);

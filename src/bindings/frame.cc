@@ -20,6 +20,7 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Frame::MakeWritable>("makeWritable"),
     InstanceMethod<&Frame::CopyProps>("copyProps"),
     InstanceMethod<&Frame::Copy>("copy"),
+    InstanceMethod<&Frame::FromBuffer>("fromBuffer"),
     
     // Properties
     InstanceAccessor<&Frame::GetFormat, &Frame::SetFormat>("format"),
@@ -243,6 +244,76 @@ Napi::Value Frame::Copy(const Napi::CallbackInfo& info) {
   
   int ret = av_frame_copy(frame_, src->Get());
   return Napi::Number::New(env, ret);
+}
+
+Napi::Value Frame::FromBuffer(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!frame_) {
+    Napi::TypeError::New(env, "Frame not allocated").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  if (info.Length() < 1 || !info[0].IsBuffer()) {
+    Napi::TypeError::New(env, "Buffer required").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
+  uint8_t* data = buffer.Data();
+  size_t size = buffer.Length();
+  
+  // For video frames, copy the buffer data to frame's data planes
+  if (frame_->width > 0 && frame_->height > 0) {
+    // Calculate expected size for the pixel format
+    int expected_size = av_image_get_buffer_size(
+      static_cast<AVPixelFormat>(frame_->format),
+      frame_->width,
+      frame_->height,
+      1
+    );
+    
+    if (expected_size < 0) {
+      Napi::Error::New(env, "Failed to calculate buffer size").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, expected_size);
+    }
+    
+    if (size < static_cast<size_t>(expected_size)) {
+      Napi::Error::New(env, "Buffer too small for frame data").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+    
+    // Fill frame data planes from buffer
+    int ret = av_image_fill_arrays(
+      frame_->data,
+      frame_->linesize,
+      data,
+      static_cast<AVPixelFormat>(frame_->format),
+      frame_->width,
+      frame_->height,
+      1
+    );
+    
+    return Napi::Number::New(env, ret);
+  }
+  // For audio frames
+  else if (frame_->nb_samples > 0) {
+    int channels = frame_->ch_layout.nb_channels;
+    int bytes_per_sample = av_get_bytes_per_sample(static_cast<AVSampleFormat>(frame_->format));
+    int expected_size = frame_->nb_samples * channels * bytes_per_sample;
+    
+    if (size < static_cast<size_t>(expected_size)) {
+      Napi::Error::New(env, "Buffer too small for audio data").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+    
+    // Copy audio data
+    memcpy(frame_->data[0], data, expected_size);
+    
+    return Napi::Number::New(env, 0);
+  }
+  
+  return Napi::Number::New(env, AVERROR(EINVAL));
 }
 
 // === Properties ===

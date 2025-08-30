@@ -817,6 +817,44 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   }
 
   /**
+   * Fill frame data from a buffer.
+   *
+   * Copies raw frame data from a Buffer into this frame's data planes.
+   * The frame must be allocated with the correct format, width/height (for video),
+   * or nb_samples (for audio) before calling this method.
+   *
+   * For video frames, the buffer should contain raw pixel data in the frame's pixel format.
+   * For audio frames, the buffer should contain raw audio samples in the frame's sample format.
+   *
+   * @param buffer - Buffer containing raw frame data
+   * @returns 0 on success, negative AVERROR on failure
+   *
+   * @example
+   * ```typescript
+   * // Video frame from raw YUV420p data
+   * const frame = new Frame();
+   * frame.alloc();
+   * frame.format = AV_PIX_FMT_YUV420P;
+   * frame.width = 1920;
+   * frame.height = 1080;
+   * frame.allocBuffer();
+   * frame.fromBuffer(rawYuvBuffer);
+   *
+   * // Audio frame from raw PCM data
+   * const audioFrame = new Frame();
+   * audioFrame.alloc();
+   * audioFrame.format = AV_SAMPLE_FMT_FLTP;
+   * audioFrame.nbSamples = 1024;
+   * audioFrame.channelLayout = { order: 0, nb_channels: 2, u: { mask: 3n } };
+   * audioFrame.allocBuffer();
+   * audioFrame.fromBuffer(rawPcmBuffer);
+   * ```
+   */
+  fromBuffer(buffer: Buffer): number {
+    return this.native.fromBuffer(buffer);
+  }
+
+  /**
    * Transfer data to or from hardware surfaces.
    *
    * Transfers frame data between hardware (GPU) and software (CPU) memory.

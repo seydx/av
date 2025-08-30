@@ -125,6 +125,7 @@ export interface NativeFrame extends Disposable {
   makeWritable(): number;
   copyProps(src: NativeFrame): number;
   copy(src: NativeFrame): number;
+  fromBuffer(buffer: Buffer): number;
 
   // ===== Properties - General =====
   format: AVPixelFormat | AVSampleFormat;
