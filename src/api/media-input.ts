@@ -11,6 +11,7 @@
  */
 
 import { open } from 'fs/promises';
+import { resolve } from 'path';
 
 import {
   AVFLAG_NONE,
@@ -277,8 +278,12 @@ export class MediaInput implements AsyncDisposable {
       }
 
       if (typeof input === 'string') {
-        // File path or URL
-        const ret = await formatContext.openInput(input, inputFormat, optionsDict);
+        // File path or URL - resolve relative paths to absolute
+        // Check if it's a URL (starts with protocol://) or a file path
+        const isUrl = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(input);
+        const resolvedInput = isUrl ? input : resolve(input);
+
+        const ret = await formatContext.openInput(resolvedInput, inputFormat, optionsDict);
         FFmpegError.throwIfError(ret, 'Failed to open input');
       } else if (Buffer.isBuffer(input)) {
         // Validate buffer is not empty
@@ -346,6 +351,20 @@ export class MediaInput implements AsyncDisposable {
     if (!duration || duration <= 0) return 0;
     // Convert from AV_TIME_BASE (microseconds) to seconds
     return Number(duration) / 1000000;
+  }
+
+  /**
+   * Get overall bitrate in kilobits per second.
+   *
+   * Returns 0 if bitrate is not available.
+   *
+   * @returns Bitrate in kbps
+   */
+  get bitRate(): number {
+    const bitrate = this.formatContext.bitRate;
+    if (!bitrate || bitrate <= 0) return 0;
+    // Convert from AV_TIME_BASE (bits per second) to kilobits per second
+    return Number(bitrate) / 1000;
   }
 
   /**
