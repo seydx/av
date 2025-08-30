@@ -41,6 +41,7 @@ volume/camera.ui.yaml
 debug.txt
 
 /build
+/build2
 .tmp
 go-astiav
 ffmpeg_examples
