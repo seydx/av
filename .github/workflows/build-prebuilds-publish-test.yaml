@@ -124,6 +124,43 @@ jobs:
           echo "Release archives created:"
           ls -la *.zip
 
+      - name: Generate test release notes with commit history
+        run: |
+          # Get the most recent tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          # Build the test release notes
+          cat > test_release_notes.md << 'EOF'
+          ## node-av Test Release ${{ github.event.inputs.test_version }}
+
+          ### 📦 Test Packages (NOT PUBLISHED)
+
+          The following platform packages would be updated to ${{ github.event.inputs.test_version }}:
+          - @seydx/node-av-darwin-arm64@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-darwin-x64@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-linux-arm64@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-linux-x64@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-win32-arm64@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-win32-x64@${{ github.event.inputs.test_version }}
+          EOF
+          
+          # Add recent commits since last tag
+          if [ -n "$LATEST_TAG" ]; then
+            echo "" >> test_release_notes.md
+            echo "### 📝 Recent changes since $LATEST_TAG" >> test_release_notes.md
+            echo "" >> test_release_notes.md
+            
+            # Get commit messages since last tag
+            git log --pretty=format:"- %s (%h)" $LATEST_TAG..HEAD >> test_release_notes.md
+          else
+            echo "" >> test_release_notes.md
+            echo "### 📝 Recent changes" >> test_release_notes.md
+            echo "" >> test_release_notes.md
+            
+            # Get last 20 commits if no tags exist
+            git log --pretty=format:"- %s (%h)" -20 >> test_release_notes.md
+          fi
+
       - name: Test GitHub Release (DRY RUN)
         run: |
           echo "🧪 TEST MODE: Would create GitHub Release"
@@ -131,17 +168,7 @@ jobs:
           echo "Release Title: node-av Test Release ${{ github.event.inputs.test_version }}"
           echo ""
           echo "Release Body:"
-          echo "## node-av Test Release ${{ github.event.inputs.test_version }}"
-          echo ""
-          echo "### 📦 Test Packages (NOT PUBLISHED)"
-          echo ""
-          echo "The following platform packages would be updated to ${{ github.event.inputs.test_version }}:"
-          echo "- @seydx/node-av-darwin-arm64@${{ github.event.inputs.test_version }}"
-          echo "- @seydx/node-av-darwin-x64@${{ github.event.inputs.test_version }}"
-          echo "- @seydx/node-av-linux-arm64@${{ github.event.inputs.test_version }}"
-          echo "- @seydx/node-av-linux-x64@${{ github.event.inputs.test_version }}"
-          echo "- @seydx/node-av-win32-arm64@${{ github.event.inputs.test_version }}"
-          echo "- @seydx/node-av-win32-x64@${{ github.event.inputs.test_version }}"
+          cat test_release_notes.md
           echo ""
           echo "Artifacts that would be uploaded:"
           ls -la *.zip
