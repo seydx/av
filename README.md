@@ -13,47 +13,53 @@ npm install node-av
 ### High-Level API
 
 ```typescript
-import { MediaInput, MediaOutput, Decoder, Encoder } from 'node-av/api';
-import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
+import { Decoder, Encoder, MediaInput, MediaOutput } from 'node-av/api';
 
 // Open media
-const input = await MediaInput.open('input.mp4');
-const output = await MediaOutput.open('output.mp4');
+await using input = await MediaInput.open('input.mp4');
+await using output = await MediaOutput.open('output.mp4');
 
 // Get video stream
 const videoStream = input.video();
 
 // Create decoder/encoder
-const decoder = await Decoder.create(videoStream);
-const encoder = await Encoder.create('libx264', videoStream, {
+using decoder = await Decoder.create(videoStream!);
+using encoder = await Encoder.create('libx264', videoStream!, {
   bitrate: '2M',
-  gopSize: 60
+  gopSize: 60,
 });
 
 // Add stream to output
 const outputIndex = output.addStream(encoder);
 await output.writeHeader();
 
-// Process frames
+// Process packets
 for await (const packet of input.packets()) {
-  if (packet.streamIndex === videoStream.index) {
-    const frame = await decoder.decode(packet);
+  if (packet.streamIndex === videoStream!.index) {
+    using frame = await decoder.decode(packet);
     if (frame) {
-      const encoded = await encoder.encode(frame);
+      using encoded = await encoder.encode(frame);
       if (encoded) {
         await output.writePacket(encoded, outputIndex);
-        encoded.free();
       }
-      frame.free();
     }
   }
-  packet.free();
 }
 
-// Cleanup
+// Flush decoder/encoder
+for await (const frame of decoder.flushFrames()) {
+  using encoded = await encoder.encode(frame);
+  if (encoded) {
+    await output.writePacket(encoded, outputIndex);
+  }
+}
+
+for await (const packet of encoder.flushPackets()) {
+  await output.writePacket(packet, outputIndex);
+}
+
+// End
 await output.writeTrailer();
-await output.close();
-await input.close();
 ```
 
 ### Pipeline API

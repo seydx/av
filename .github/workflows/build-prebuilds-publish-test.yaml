@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       test_version:
-        description: 'Test version to use (e.g., 0.0.99-test.1)'
+        description: "Test version to use (e.g., 0.0.99-test.1)"
         required: true
-        default: '0.0.99-test.1'
+        default: "0.0.99-test.1"
 
 jobs:
   build:
@@ -145,7 +145,7 @@ jobs:
           echo "🧪 TEST MODE: Running npm publish with --dry-run"
           echo "================================================"
           echo ""
-          
+
           # Test publish platform packages
           echo "Testing platform package publishing:"
           for pkg_dir in packages/*/; do
@@ -153,7 +153,7 @@ jobs:
               echo ""
               echo "📦 Testing publish for $(basename "$pkg_dir"):"
               cd "$pkg_dir"
-              npm publish --access public --dry-run
+              npm publish --access public --dry-run --tag test
               cd -
             fi
           done
@@ -161,8 +161,8 @@ jobs:
           echo ""
           echo "Testing main package publishing:"
           echo "📦 Testing publish for @seydx/av:"
-          npm publish --access public --dry-run
-          
+          npm publish --access public --dry-run --tag test
+
           echo ""
           echo "✅ Dry run completed successfully!"
           echo "No packages were actually published to NPM."
