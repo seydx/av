@@ -32,15 +32,14 @@
     }
   },
   "scripts": {
-    "build": "npm run build:native && npm run build:tsc",
-    "build:all": "npm run build:native && npm run build:tests && npm run build:examples && npm run build:tsc",
+    "build": "npm run generate && npm run build:tests && npm run build:examples && npm run build:tsc && npm run build:native",
     "build:examples": "tsc -p tsconfig.examples.json",
     "build:native": "node-gyp rebuild && cpy --flat build/Release/node-av.node binary/",
     "build:tests": "tsc -p tsconfig.tests.json",
-    "build:tsc": "rimraf dist && npm run generate:constants && npm run generate:layouts && tsc -p tsconfig.build.json",
-    "clean": "node-gyp clean && rimraf dist",
-    "clean:tsc": "npm run format && npm run lint:fix && npm run generate:constants && npm run build:tests && npm run build:examples && npm run build:tsc",
+    "build:tsc": "rimraf dist && tsc -p tsconfig.build.json",
+    "clean": "rimraf dist && node-gyp clean && npm run generate && npm run format && npm run lint:fix && npm run build:tests && npm run build:examples && npm run build:tsc",
     "format": "prettier --write src/ --write test/ --write scripts/ --write examples/ --ignore-unknown --no-error-on-unmatched-pattern",
+    "generate": "npm run generate:constants && npm run generate:layouts",
     "generate:constants": "node scripts/generate-constants.js && prettier --write src/lib/constants.ts",
     "generate:layouts": "node scripts/generate-channel-layouts.js && prettier --write src/lib/channel-layouts.ts",
     "install": "node install/check.js",
@@ -50,7 +49,7 @@
     "release:patch": "node scripts/prepare-release.js patch",
     "release:minor": "node scripts/prepare-release.js minor",
     "release:major": "node scripts/prepare-release.js major",
-    "test:all": "npm run build:tests && npm run build:tsc && tsx --test test/*.test.ts",
+    "test:all": "npm run generate && npm run build:tests && npm run build:tsc && tsx --test test/*.test.ts",
     "update": "updates --update ./"
   },
   "dependencies": {

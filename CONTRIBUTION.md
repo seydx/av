@@ -58,11 +58,8 @@ npm run build:native
 # Build TypeScript only
 npm run build:tsc
 
-# Build everything (native + TypeScript)
+# Build everything
 npm run build
-
-# Build everything including tests and examples
-npm run build:all
 
 # Clean build artifacts
 npm run clean
