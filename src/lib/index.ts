@@ -1,6 +1,3 @@
-// Export all generated constants and types
-export * from './channel-layouts.js';
-export * from './constants.js';
 export type * from './types.js';
 
 // Format Context
