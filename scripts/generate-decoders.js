@@ -47,7 +47,7 @@ const extractDecodersFromPatches = () => {
     let patchDecoders = [];
 
     while ((match = decoderPattern.exec(content)) !== null) {
-      const name = match[1].replace(/_/g, '-');
+      const name = match[1];
       patchDecoders.push(name);
       patchedDecoders.push(name);
     }
@@ -79,8 +79,7 @@ const extractDecoders = (includePatches = false) => {
   let match;
 
   while ((match = decoderPattern.exec(content)) !== null) {
-    // Convert underscore to dash (FFmpeg naming convention)
-    const name = match[1].replace(/_/g, '-');
+    const name = match[1];
     decoders.push(name);
   }
 
@@ -122,49 +121,49 @@ const categorizeDecoder = (name) => {
   let isHardware = false;
   let hardwareType = null;
 
-  if (name.includes('-cuvid')) {
+  if (name.includes('_cuvid')) {
     isHardware = true;
     hardwareType = 'NVIDIA CUVID';
-  } else if (name.includes('-nvdec')) {
+  } else if (name.includes('_nvdec')) {
     isHardware = true;
     hardwareType = 'NVIDIA NVDEC';
-  } else if (name.includes('-qsv')) {
+  } else if (name.includes('_qsv')) {
     isHardware = true;
     hardwareType = 'Intel Quick Sync';
-  } else if (name.includes('-vaapi')) {
+  } else if (name.includes('_vaapi')) {
     isHardware = true;
     hardwareType = 'VA-API';
-  } else if (name.includes('-vdpau')) {
+  } else if (name.includes('_vdpau')) {
     isHardware = true;
     hardwareType = 'VDPAU';
-  } else if (name.includes('-videotoolbox')) {
+  } else if (name.includes('_videotoolbox')) {
     isHardware = true;
     hardwareType = 'VideoToolbox (macOS)';
-  } else if (name.includes('-mediacodec')) {
+  } else if (name.includes('_mediacodec')) {
     isHardware = true;
     hardwareType = 'Android MediaCodec';
-  } else if (name.includes('-v4l2m2m')) {
+  } else if (name.includes('_v4l2m2m')) {
     isHardware = true;
     hardwareType = 'V4L2 M2M';
-  } else if (name.includes('-d3d12va')) {
+  } else if (name.includes('_d3d12va')) {
     isHardware = true;
     hardwareType = 'Direct3D 12';
-  } else if (name.includes('-d3d11va')) {
+  } else if (name.includes('_d3d11va')) {
     isHardware = true;
     hardwareType = 'Direct3D 11';
-  } else if (name.includes('-dxva2')) {
+  } else if (name.includes('_dxva2')) {
     isHardware = true;
     hardwareType = 'DXVA2';
-  } else if (name.includes('-vulkan')) {
+  } else if (name.includes('_vulkan')) {
     isHardware = true;
     hardwareType = 'Vulkan';
-  } else if (name.includes('-rkmpp')) {
+  } else if (name.includes('_rkmpp')) {
     isHardware = true;
     hardwareType = 'Rockchip MPP';
-  } else if (name.includes('-mmal')) {
+  } else if (name.includes('_mmal')) {
     isHardware = true;
     hardwareType = 'Raspberry Pi MMAL';
-  } else if (name.endsWith('-at')) {
+  } else if (name.endsWith('_at')) {
     isHardware = true;
     hardwareType = 'AudioToolbox (macOS)';
   }

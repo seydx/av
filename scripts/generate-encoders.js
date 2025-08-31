@@ -47,7 +47,7 @@ const extractEncodersFromPatches = () => {
     let patchEncoders = [];
 
     while ((match = encoderPattern.exec(content)) !== null) {
-      const name = match[1].replace(/_/g, '-');
+      const name = match[1];
       patchEncoders.push(name);
       patchedEncoders.push(name);
     }
@@ -79,8 +79,7 @@ const extractEncoders = (includePatches = false) => {
   let match;
 
   while ((match = encoderPattern.exec(content)) !== null) {
-    // Convert underscore to dash (FFmpeg naming convention)
-    const name = match[1].replace(/_/g, '-');
+    const name = match[1];
     encoders.push(name);
   }
 
@@ -120,43 +119,43 @@ const categorizeEncoder = (name) => {
   let isHardware = false;
   let hardwareType = null;
 
-  if (name.includes('-nvenc')) {
+  if (name.includes('_nvenc')) {
     isHardware = true;
     hardwareType = 'NVIDIA NVENC';
-  } else if (name.includes('-amf')) {
+  } else if (name.includes('_amf')) {
     isHardware = true;
     hardwareType = 'AMD AMF';
-  } else if (name.includes('-qsv')) {
+  } else if (name.includes('_qsv')) {
     isHardware = true;
     hardwareType = 'Intel Quick Sync';
-  } else if (name.includes('-vaapi')) {
+  } else if (name.includes('_vaapi')) {
     isHardware = true;
     hardwareType = 'VA-API';
-  } else if (name.includes('-videotoolbox')) {
+  } else if (name.includes('_videotoolbox')) {
     isHardware = true;
     hardwareType = 'VideoToolbox (macOS)';
-  } else if (name.includes('-mediacodec')) {
+  } else if (name.includes('_mediacodec')) {
     isHardware = true;
     hardwareType = 'Android MediaCodec';
-  } else if (name.includes('-v4l2m2m')) {
+  } else if (name.includes('_v4l2m2m')) {
     isHardware = true;
     hardwareType = 'V4L2 M2M';
-  } else if (name.includes('-d3d12va')) {
+  } else if (name.includes('_d3d12va')) {
     isHardware = true;
     hardwareType = 'Direct3D 12';
-  } else if (name.includes('-d3d11va')) {
+  } else if (name.includes('_d3d11va')) {
     isHardware = true;
     hardwareType = 'Direct3D 11';
-  } else if (name.includes('-mf')) {
+  } else if (name.includes('_mf')) {
     isHardware = true;
     hardwareType = 'Media Foundation';
-  } else if (name.includes('-omx')) {
+  } else if (name.includes('_omx')) {
     isHardware = true;
     hardwareType = 'OpenMAX';
-  } else if (name.includes('-rkmpp')) {
+  } else if (name.includes('_rkmpp')) {
     isHardware = true;
     hardwareType = 'Rockchip MPP';
-  } else if (name.endsWith('-at')) {
+  } else if (name.endsWith('_at')) {
     isHardware = true;
     hardwareType = 'AudioToolbox (macOS)';
   }
