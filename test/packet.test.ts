@@ -12,8 +12,9 @@ import {
   AVFLAG_NONE,
   Packet,
   Rational,
-  type AVPacketFlag,
-} from '../src/lib/index.js';
+} from '../src/index.js';
+
+import type { AVPacketFlag } from '../src/index.js';
 
 describe('Packet', () => {
   let packet: Packet;

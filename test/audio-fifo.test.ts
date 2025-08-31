@@ -13,7 +13,7 @@ import {
   AV_SAMPLE_FMT_U8P,
   avGetBytesPerSample,
   avSampleFmtIsPlanar,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 import { prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();

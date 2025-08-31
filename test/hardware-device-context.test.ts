@@ -8,7 +8,7 @@ import {
   AV_HWDEVICE_TYPE_VDPAU,
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
   HardwareDeviceContext,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('HardwareDeviceContext', () => {
   describe('Static Methods', () => {

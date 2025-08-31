@@ -1,20 +1,9 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import {
-  AV_LOG_DEBUG,
-  AV_LOG_ERROR,
-  AV_LOG_FATAL,
-  AV_LOG_INFO,
-  AV_LOG_PANIC,
-  AV_LOG_QUIET,
-  AV_LOG_TRACE,
-  AV_LOG_VERBOSE,
-  AV_LOG_WARNING,
-  Log,
-} from '../src/lib/index.js';
+import { AV_LOG_DEBUG, AV_LOG_ERROR, AV_LOG_FATAL, AV_LOG_INFO, AV_LOG_PANIC, AV_LOG_QUIET, AV_LOG_TRACE, AV_LOG_VERBOSE, AV_LOG_WARNING, Log } from '../src/index.js';
 
-import type { AVLogLevel } from '../src/lib/index.js';
+import type { AVLogLevel } from '../src/index.js';
 
 describe('Log', () => {
   // Store original log level to restore after tests

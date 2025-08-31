@@ -7,7 +7,7 @@ import {
   AV_CODEC_ID_AV1,
   AV_CODEC_ID_FLAC,
   AV_CODEC_ID_H264,
-  AV_CODEC_ID_HEVC, // H.265 is called HEVC in FFmpeg
+  AV_CODEC_ID_HEVC,
   AV_CODEC_ID_MJPEG,
   AV_CODEC_ID_MP3,
   AV_CODEC_ID_MPEG4,
@@ -20,7 +20,7 @@ import {
   AVMEDIA_TYPE_AUDIO,
   AVMEDIA_TYPE_VIDEO,
   Codec,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('Codec', () => {
   describe('Find Decoders', () => {

@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { AVFMT_NEEDNUMBER, AVFMT_NOFILE, AVFMT_NOTIMESTAMPS, AVIO_FLAG_READ, FormatContext, InputFormat, IOContext } from '../src/lib/index.js';
+import { AVFMT_NEEDNUMBER, AVFMT_NOFILE, AVFMT_NOTIMESTAMPS, AVIO_FLAG_READ, FormatContext, InputFormat, IOContext } from '../src/index.js';
 import { getInputFile, prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();

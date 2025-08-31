@@ -2,10 +2,22 @@ import assert from 'node:assert';
 import { existsSync, unlinkSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, type DecoderOptions, type EncoderOptions, type StreamInfo } from '../src/api/index.js';
-import { AVFMT_NOFILE, AVIO_FLAG_WRITE, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
-import { FormatContext, IOContext } from '../src/lib/index.js';
+import {
+  AVFMT_NOFILE,
+  AVIO_FLAG_WRITE,
+  AV_PIX_FMT_NV12,
+  AV_PIX_FMT_YUV420P,
+  Decoder,
+  Encoder,
+  FilterAPI,
+  FormatContext,
+  HardwareContext,
+  IOContext,
+  MediaInput,
+} from '../src/index.js';
 import { getInputFile, getOutputFile, prepareTestEnvironment, skipInCI } from './index.js';
+
+import type { DecoderOptions, EncoderOptions, StreamInfo } from '../src/index.js';
 
 prepareTestEnvironment();
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AVFILTER_CMD_FLAG_FAST, AVFILTER_CMD_FLAG_ONE, AVFILTER_THREAD_SLICE, AVFLAG_NONE, Filter, FilterContext, FilterGraph } from '../src/lib/index.js';
+import { AVFILTER_CMD_FLAG_FAST, AVFILTER_CMD_FLAG_ONE, AVFILTER_THREAD_SLICE, AVFLAG_NONE, Filter, FilterContext, FilterGraph } from '../src/index.js';
 
 describe('FilterGraph', () => {
   describe('Creation and Lifecycle', () => {

@@ -18,7 +18,7 @@ import {
   OutputFormat,
   Packet,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();

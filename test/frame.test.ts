@@ -21,7 +21,7 @@ import {
   AVCOL_TRC_BT709,
   Frame,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('Frame', () => {
   let frame: Frame;

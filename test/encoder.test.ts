@@ -1,8 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { Encoder } from '../src/api/encoder.js';
-import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
+import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Encoder } from '../src/index.js';
 import { Frame } from '../src/lib/index.js';
 
 describe('Encoder', () => {

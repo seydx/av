@@ -12,7 +12,7 @@ import {
   FormatContext,
   Packet,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 import { getInputFile, prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();

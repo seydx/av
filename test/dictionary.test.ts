@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import { AV_DICT_IGNORE_SUFFIX, AV_DICT_MATCH_CASE, AVFLAG_NONE, Dictionary } from '../src/lib/index.js';
+import { AV_DICT_IGNORE_SUFFIX, AV_DICT_MATCH_CASE, AVFLAG_NONE, Dictionary } from '../src/index.js';
 
 describe('Dictionary', () => {
   let dict: Dictionary;

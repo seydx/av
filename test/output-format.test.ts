@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AVFMT_GLOBALHEADER, AVFMT_NOFILE, AVFMT_NOTIMESTAMPS, AVFMT_VARIABLE_FPS, FormatContext, OutputFormat } from '../src/lib/index.js';
+import { AVFMT_GLOBALHEADER, AVFMT_NOFILE, AVFMT_NOTIMESTAMPS, AVFMT_VARIABLE_FPS, FormatContext, OutputFormat } from '../src/index.js';
 
 describe('OutputFormat', () => {
   describe('Static Methods', () => {

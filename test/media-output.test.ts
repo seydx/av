@@ -2,9 +2,7 @@ import assert from 'node:assert';
 import { stat, unlink } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-import { Decoder, Encoder, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
-import { Packet } from '../src/lib/packet.js';
+import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Decoder, Encoder, MediaInput, MediaOutput, Packet } from '../src/index.js';
 import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
 
 import type { IOOutputCallbacks } from '../src/api/types.js';

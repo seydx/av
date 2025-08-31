@@ -12,7 +12,7 @@ import {
   FilterGraph,
   Frame,
   HardwareDeviceContext,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('FilterContext', () => {
   describe('Creation and Lifecycle', () => {

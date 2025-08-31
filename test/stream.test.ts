@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import type { Stream } from '../src/lib/index.js';
 import {
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
@@ -16,7 +15,9 @@ import {
   Dictionary,
   FormatContext,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
+
+import type { Stream } from '../src/index.js';
 
 describe('Stream', () => {
   let ctx: FormatContext;

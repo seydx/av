@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { Decoder, Encoder, HardwareContext, MediaInput } from '../src/api/index.js';
 import {
   AV_HWDEVICE_TYPE_CUDA,
   AV_HWDEVICE_TYPE_NONE,
@@ -9,7 +8,11 @@ import {
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
   AV_PIX_FMT_NV12,
   AV_PIX_FMT_YUV420P,
-} from '../src/lib/constants.js';
+  Decoder,
+  Encoder,
+  HardwareContext,
+  MediaInput,
+} from '../src/index.js';
 import { getInputFile, prepareTestEnvironment, skipInCI } from './index.js';
 
 import type { Frame } from '../src/lib/index.js';

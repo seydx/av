@@ -1,8 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { IOStream } from '../src/api/index.js';
-import { AVSEEK_SET } from '../src/lib/constants.js';
+import { AVSEEK_SET, IOStream } from '../src/index.js';
 
 describe('IOStream', () => {
   describe('create with Buffer', () => {

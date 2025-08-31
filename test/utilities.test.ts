@@ -58,7 +58,7 @@ import {
   avTs2Str,
   avTs2TimeStr,
   avUsleep,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('Utilities', () => {
   describe('Channel Layout Functions', () => {

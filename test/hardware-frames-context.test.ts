@@ -12,7 +12,7 @@ import {
   Frame,
   HardwareDeviceContext,
   HardwareFramesContext,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('HardwareFramesContext', () => {
   describe('Creation and Lifecycle', () => {

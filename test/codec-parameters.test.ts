@@ -26,7 +26,7 @@ import {
   CodecContext,
   CodecParameters,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('CodecParameters', () => {
   let params: CodecParameters;

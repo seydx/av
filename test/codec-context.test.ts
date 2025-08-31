@@ -22,8 +22,9 @@ import {
   Frame,
   Packet,
   Rational,
-  type AVCodecFlag2,
-} from '../src/lib/index.js';
+} from '../src/index.js';
+
+import type { AVCodecFlag2 } from '../src/index.js';
 
 describe('CodecContext', () => {
   let ctx: CodecContext;

@@ -3,10 +3,24 @@ import { existsSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 
-import { BitStreamFilterAPI, Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/api/index.js';
-import { AV_CHANNEL_LAYOUT_MONO, AV_CHANNEL_LAYOUT_STEREO } from '../src/lib/channel-layouts.js';
-import { AV_CODEC_ID_H264, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP } from '../src/lib/constants.js';
-import { Frame, Packet } from '../src/lib/index.js';
+import {
+  AV_CHANNEL_LAYOUT_MONO,
+  AV_CHANNEL_LAYOUT_STEREO,
+  AV_CODEC_ID_H264,
+  AV_PIX_FMT_NV12,
+  AV_PIX_FMT_YUV420P,
+  AV_SAMPLE_FMT_FLTP,
+  BitStreamFilterAPI,
+  Decoder,
+  Encoder,
+  FilterAPI,
+  Frame,
+  HardwareContext,
+  MediaInput,
+  MediaOutput,
+  Packet,
+  pipeline,
+} from '../src/index.js';
 import { getInputFile, getOutputFile, getTmpDir, prepareTestEnvironment, skipInCI } from './index.js';
 
 prepareTestEnvironment();

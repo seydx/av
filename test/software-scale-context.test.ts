@@ -6,6 +6,8 @@ import {
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_RGBA,
   AV_PIX_FMT_YUV420P,
+  Frame,
+  SoftwareScaleContext,
   SWS_ACCURATE_RND,
   SWS_AREA,
   SWS_BICUBIC,
@@ -17,10 +19,9 @@ import {
   SWS_POINT,
   SWS_SINC,
   SWS_SPLINE,
-} from '../src/lib/constants.js';
-import { Frame, SoftwareScaleContext } from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { SWSFlag } from '../src/lib/constants.js';
+import type { SWSFlag } from '../src/index.js';
 
 describe('SoftwareScaleContext', () => {
   describe('Creation and Lifecycle', () => {

@@ -3,7 +3,7 @@ import { readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { afterEach, describe, it } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
-import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, IOContext } from '../src/lib/index.js';
+import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, IOContext } from '../src/index.js';
 import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();

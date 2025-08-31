@@ -1,10 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { Decoder } from '../src/api/decoder.js';
-import { Encoder } from '../src/api/encoder.js';
-import { FilterAPI, FilterPresets } from '../src/api/filter.js';
-import { MediaInput } from '../src/api/media-input.js';
 import {
   AV_PIX_FMT_RGB24,
   AV_PIX_FMT_YUV420P,
@@ -13,8 +9,13 @@ import {
   AVFILTER_CMD_FLAG_ONE,
   AVMEDIA_TYPE_AUDIO,
   AVMEDIA_TYPE_VIDEO,
-} from '../src/lib/constants.js';
-import { Frame } from '../src/lib/index.js';
+  Decoder,
+  Encoder,
+  FilterAPI,
+  FilterPresets,
+  Frame,
+  MediaInput,
+} from '../src/index.js';
 import { getInputFile, prepareTestEnvironment } from './index.js';
 
 import type { AudioInfo, VideoInfo } from '../src/api/types.js';

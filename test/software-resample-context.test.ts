@@ -16,7 +16,7 @@ import {
   AV_SAMPLE_FMT_U8P,
   Frame,
   SoftwareResampleContext,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('SoftwareResampleContext', () => {
   // Use imported channel layouts

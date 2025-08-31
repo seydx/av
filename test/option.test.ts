@@ -26,7 +26,7 @@ import {
   Rational,
   SoftwareResampleContext,
   SoftwareScaleContext,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 describe('Option API', () => {
   describe('CodecContext Options', () => {

@@ -1,9 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { BitStreamFilterAPI, MediaInput } from '../src/api/index.js';
-import { AV_CODEC_ID_H264 } from '../src/lib/constants.js';
-import { Packet } from '../src/lib/index.js';
+import { AV_CODEC_ID_H264, BitStreamFilterAPI, MediaInput, Packet } from '../src/index.js';
 import { getInputFile, prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();
