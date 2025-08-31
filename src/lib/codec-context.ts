@@ -4,8 +4,6 @@ import { HardwareFramesContext } from './hardware-frames-context.js';
 import { OptionMember } from './option.js';
 import { Rational } from './rational.js';
 
-import type { CodecParameters } from './codec-parameters.js';
-import type { Codec } from './codec.js';
 import type {
   AVChromaLocation,
   AVCodecFlag,
@@ -19,7 +17,9 @@ import type {
   AVPixelFormat,
   AVProfile,
   AVSampleFormat,
-} from './constants.js';
+} from '../constants/constants.js';
+import type { CodecParameters } from './codec-parameters.js';
+import type { Codec } from './codec.js';
 import type { Dictionary } from './dictionary.js';
 import type { Frame } from './frame.js';
 import type { NativeCodecContext, NativeWrapper } from './native-types.js';

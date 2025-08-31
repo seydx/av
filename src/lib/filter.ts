@@ -1,5 +1,5 @@
+import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import { bindings } from './binding.js';
-import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from './constants.js';
 
 import type { NativeFilter, NativeWrapper } from './native-types.js';
 import type { FilterPad } from './types.js';

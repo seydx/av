@@ -1,5 +1,6 @@
 import { bindings } from './binding.js';
-import type { AVError } from './constants.js';
+
+import type { AVError } from '../constants/constants.js';
 import type { NativeFFmpegError } from './native-types.js';
 
 /**

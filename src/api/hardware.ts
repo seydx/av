@@ -38,14 +38,10 @@ import {
   AV_PIX_FMT_VAAPI,
   AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_VULKAN,
-  Codec,
-  Dictionary,
-  FFmpegError,
-  HardwareDeviceContext,
-  HardwareFramesContext,
-} from '../lib/index.js';
+} from '../constants/constants.js';
+import { Codec, Dictionary, FFmpegError, HardwareDeviceContext, HardwareFramesContext } from '../lib/index.js';
 
-import type { AVCodecID, AVHWDeviceType, AVPixelFormat } from '../lib/index.js';
+import type { AVCodecID, AVHWDeviceType, AVPixelFormat } from '../constants/index.js';
 import type { HardwareOptions } from './types.js';
 
 /**

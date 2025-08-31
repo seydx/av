@@ -1,7 +1,7 @@
 import { bindings } from './binding.js';
 
+import type { AVCodecID } from '../constants/constants.js';
 import type { CodecContext } from './codec-context.js';
-import type { AVCodecID } from './constants.js';
 import type { NativeCodecParser, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 

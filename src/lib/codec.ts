@@ -1,7 +1,7 @@
 import { bindings } from './binding.js';
 import { Rational } from './rational.js';
 
-import type { AVCodecCap, AVCodecID, AVHWDeviceType, AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { AVCodecCap, AVCodecID, AVHWDeviceType, AVMediaType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
 import type { NativeCodec, NativeWrapper } from './native-types.js';
 import type { ChannelLayout, CodecProfile } from './types.js';
 

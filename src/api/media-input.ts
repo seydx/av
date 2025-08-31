@@ -13,22 +13,12 @@
 import { open } from 'fs/promises';
 import { resolve } from 'path';
 
-import {
-  AVFLAG_NONE,
-  avGetPixFmtName,
-  avGetSampleFmtName,
-  AVMEDIA_TYPE_AUDIO,
-  AVMEDIA_TYPE_VIDEO,
-  Dictionary,
-  FFmpegError,
-  FormatContext,
-  InputFormat,
-  Packet,
-  Rational,
-} from '../lib/index.js';
+import { AVFLAG_NONE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
+import { avGetPixFmtName, avGetSampleFmtName, Dictionary, FFmpegError, FormatContext, InputFormat, Packet, Rational } from '../lib/index.js';
 import { IOStream } from './io-stream.js';
 
-import type { AVMediaType, AVSeekFlag, IOContext, Stream } from '../lib/index.js';
+import type { AVMediaType, AVSeekFlag } from '../constants/constants.js';
+import type { IOContext, Stream } from '../lib/index.js';
 import type { MediaInputOptions, RawData } from './types.js';
 
 /**

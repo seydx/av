@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVCodecID, AVFormatFlag } from './constants.js';
+import type { AVCodecID, AVFormatFlag } from '../constants/constants.js';
 import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
 
 /**

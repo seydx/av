@@ -2,7 +2,7 @@ import { bindings } from './binding.js';
 import { FilterContext } from './filter-context.js';
 import { OptionMember } from './option.js';
 
-import type { AVFilterCmdFlag, AVFilterConstants } from './constants.js';
+import type { AVFilterCmdFlag, AVFilterConstants } from '../constants/constants.js';
 import type { FilterInOut } from './filter-inout.js';
 import type { Filter } from './filter.js';
 import type { NativeFilterGraph, NativeWrapper } from './native-types.js';

@@ -1,7 +1,6 @@
 import { bindings } from './binding.js';
 import { Rational } from './rational.js';
 
-import type { CodecContext } from './codec-context.js';
 import type {
   AVChromaLocation,
   AVCodecID,
@@ -13,7 +12,8 @@ import type {
   AVPixelFormat,
   AVProfile,
   AVSampleFormat,
-} from './constants.js';
+} from '../constants/constants.js';
+import type { CodecContext } from './codec-context.js';
 import type { NativeCodecParameters, NativeWrapper } from './native-types.js';
 import type { ChannelLayout } from './types.js';
 

@@ -1,13 +1,13 @@
+import { AVFLAG_NONE } from '../constants/constants.js';
 import { bindings } from './binding.js';
 import { Codec } from './codec.js';
-import { AVFLAG_NONE } from './constants.js';
 import { Dictionary } from './dictionary.js';
 import { InputFormat } from './input-format.js';
 import { OptionMember } from './option.js';
 import { OutputFormat } from './output-format.js';
 import { Stream } from './stream.js';
 
-import type { AVFormatFlag, AVMediaType, AVSeekFlag } from './constants.js';
+import type { AVFormatFlag, AVMediaType, AVSeekFlag } from '../constants/constants.js';
 import type { IOContext } from './io-context.js';
 import type { NativeFormatContext, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';

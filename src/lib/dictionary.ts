@@ -1,6 +1,7 @@
+import { AVFLAG_NONE } from '../constants/constants.js';
 import { bindings } from './binding.js';
 
-import { AVFLAG_NONE, type AVDictFlag } from './constants.js';
+import type { AVDictFlag } from '../constants/constants.js';
 import type { NativeDictionary, NativeWrapper } from './native-types.js';
 
 /**

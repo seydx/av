@@ -13,7 +13,8 @@
 import { mkdir } from 'fs/promises';
 import { dirname, resolve } from 'path';
 
-import { AVFMT_FLAG_CUSTOM_IO, AVFMT_NOFILE, AVIO_FLAG_WRITE, FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
+import { AVFMT_FLAG_CUSTOM_IO, AVFMT_NOFILE, AVIO_FLAG_WRITE } from '../constants/constants.js';
+import { FFmpegError, FormatContext, IOContext, Rational } from '../lib/index.js';
 import { Encoder } from './encoder.js';
 
 import type { IRational, Packet, Stream } from '../lib/index.js';

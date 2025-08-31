@@ -10,7 +10,8 @@
  * @module api/bitstream-filter
  */
 
-import { AVERROR_EAGAIN, AVERROR_EOF, BitStreamFilter, BitStreamFilterContext, FFmpegError, Packet } from '../lib/index.js';
+import { AVERROR_EOF } from '../constants/constants.js';
+import { AVERROR_EAGAIN, BitStreamFilter, BitStreamFilterContext, FFmpegError, Packet } from '../lib/index.js';
 
 import type { Stream } from '../lib/index.js';
 

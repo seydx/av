@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVSampleFormat } from './constants.js';
+import type { AVSampleFormat } from '../constants/constants.js';
 import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
 
 /**

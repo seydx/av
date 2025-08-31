@@ -1,7 +1,7 @@
 import { bindings } from './binding.js';
 import { HardwareDeviceContext } from './hardware-device-context.js';
 
-import type { AVHWFrameTransferDirection, AVPixelFormat } from './constants.js';
+import type { AVHWFrameTransferDirection, AVPixelFormat } from '../constants/constants.js';
 import type { Frame } from './frame.js';
 import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.js';
 

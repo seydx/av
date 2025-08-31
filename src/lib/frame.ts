@@ -12,7 +12,7 @@ import type {
   AVPictureType,
   AVPixelFormat,
   AVSampleFormat,
-} from './constants.js';
+} from '../constants/constants.js';
 import type { NativeFrame, NativeWrapper } from './native-types.js';
 import type { ChannelLayout } from './types.js';
 

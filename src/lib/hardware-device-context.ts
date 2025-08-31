@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVHWDeviceType } from './constants.js';
+import type { AVHWDeviceType } from '../constants/constants.js';
 import type { Dictionary } from './dictionary.js';
 import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.js';
 

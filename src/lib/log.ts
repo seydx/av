@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVLogLevel } from './constants.js';
+import type { AVLogLevel } from '../constants/constants.js';
 import type { LogOptions } from './types.js';
 
 /**

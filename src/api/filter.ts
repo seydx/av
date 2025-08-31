@@ -1,11 +1,8 @@
+import { AVERROR_EOF, AVFILTER_FLAG_HWDEVICE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import {
   AVERROR_EAGAIN,
-  AVERROR_EOF,
-  AVFILTER_FLAG_HWDEVICE,
   avGetPixFmtName,
   avGetSampleFmtName,
-  AVMEDIA_TYPE_AUDIO,
-  AVMEDIA_TYPE_VIDEO,
   FFmpegError,
   Frame,
   Filter as LowLevelFilter,
@@ -14,15 +11,8 @@ import {
   Stream,
 } from '../lib/index.js';
 
-import type {
-  AVFilterCmdFlag,
-  AVMediaType,
-  AVPixelFormat,
-  AVSampleFormat,
-  HardwareFramesContext,
-  IRational,
-  FilterContext as LowLevelFilterContext,
-} from '../lib/index.js';
+import type { AVFilterCmdFlag, AVMediaType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { HardwareFramesContext, IRational, FilterContext as LowLevelFilterContext } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 import type { FilterOptions, StreamInfo } from './types.js';
 

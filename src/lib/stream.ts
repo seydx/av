@@ -2,7 +2,7 @@ import { CodecParameters } from './codec-parameters.js';
 import { Dictionary } from './dictionary.js';
 import { Rational } from './rational.js';
 
-import type { AVDiscard, AVDisposition, AVStreamEventFlag } from './constants.js';
+import type { AVDiscard, AVDisposition, AVStreamEventFlag } from '../constants/constants.js';
 import type { NativeStream, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 

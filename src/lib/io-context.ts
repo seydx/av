@@ -1,8 +1,8 @@
+import { AVIO_FLAG_READ } from '../constants/constants.js';
 import { bindings } from './binding.js';
-import { AVIO_FLAG_READ } from './constants.js';
 import { OptionMember } from './option.js';
 
-import type { AVIOFlag, AVSeekWhence } from './constants.js';
+import type { AVIOFlag, AVSeekWhence } from '../constants/constants.js';
 import type { NativeIOContext, NativeWrapper } from './native-types.js';
 
 /**

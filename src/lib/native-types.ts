@@ -14,7 +14,7 @@ import type {
   AVSeekFlag,
   AVSeekWhence,
   SWSFlag,
-} from './constants.js';
+} from '../constants/constants.js';
 
 /**
  * Native FFmpeg Binding Type Definitions
@@ -52,7 +52,7 @@ import type {
   AVProfile,
   AVSampleFormat,
   AVStreamEventFlag,
-} from './constants.js';
+} from '../constants/index.js';
 import type { ChannelLayout, CodecProfile, FilterPad, IRational } from './types.js';
 
 // ============================================================================

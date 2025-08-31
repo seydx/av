@@ -10,7 +10,8 @@
  * @module api/decoder
  */
 
-import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVERROR_EAGAIN, AVERROR_EOF, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
+import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVERROR_EOF } from '../constants/constants.js';
+import { AVERROR_EAGAIN, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
 
 import type { Packet, Stream } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';

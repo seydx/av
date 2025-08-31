@@ -9,7 +9,7 @@
 
 import { bindings } from '../../lib/binding.js';
 
-import type { AVMediaType } from '../../lib/constants.js';
+import type { AVMediaType } from '../../constants/constants.js';
 
 /**
  * Media type utilities.

@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVFormatFlag } from './constants.js';
+import type { AVFormatFlag } from '../constants/constants.js';
 import type { NativeInputFormat, NativeIOContext, NativeWrapper } from './native-types.js';
 
 /**

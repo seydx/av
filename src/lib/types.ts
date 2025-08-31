@@ -5,7 +5,7 @@
  * directly from FFmpeg constants.
  */
 
-import type { AVLogLevel, AVMediaType } from './constants.ts';
+import type { AVLogLevel, AVMediaType } from '../constants/constants.ts';
 
 /**
  * Rational number (fraction) interface

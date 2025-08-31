@@ -10,7 +10,8 @@
  * @module api/io-stream
  */
 
-import { AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, IOContext } from '../lib/index.js';
+import { AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE } from '../constants/constants.js';
+import { IOContext } from '../lib/index.js';
 
 import type { IOInputCallbacks, MediaInputOptions } from './types.js';
 

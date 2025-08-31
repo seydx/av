@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVPacketFlag, AVPacketSideDataType } from './constants.js';
+import type { AVPacketFlag, AVPacketSideDataType } from '../constants/constants.js';
 import type { NativePacket, NativeWrapper } from './native-types.js';
 import type { IRational } from './types.js';
 

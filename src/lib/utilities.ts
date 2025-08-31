@@ -24,7 +24,7 @@
 import { bindings } from './binding.js';
 import { FFmpegError } from './error.js';
 
-import type { AVMediaType, AVPixelFormat, AVSampleFormat } from './constants.js';
+import type { AVMediaType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
 import type { FormatContext } from './format-context.js';
 import type { ChannelLayout, IRational } from './types.js';
 

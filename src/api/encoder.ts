@@ -10,22 +10,13 @@
  * @module api/encoder
  */
 
-import {
-  AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX,
-  AVERROR_EAGAIN,
-  AVERROR_EOF,
-  AVMEDIA_TYPE_AUDIO,
-  AVMEDIA_TYPE_VIDEO,
-  Codec,
-  CodecContext,
-  FFmpegError,
-  Packet,
-  Rational,
-} from '../lib/index.js';
+import { AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX, AVERROR_EOF, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
+import { AVERROR_EAGAIN, Codec, CodecContext, FFmpegError, Packet, Rational } from '../lib/index.js';
 import { Stream } from '../lib/stream.js';
 import { parseBitrate } from './utils.js';
 
-import type { AVCodecID, AVPixelFormat, AVSampleFormat, Frame } from '../lib/index.js';
+import type { AVCodecID, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { Frame } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 import type { EncoderOptions, StreamInfo } from './types.js';
 

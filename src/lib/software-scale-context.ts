@@ -1,8 +1,8 @@
+import { SWS_BILINEAR } from '../constants/constants.js';
 import { bindings } from './binding.js';
-import { SWS_BILINEAR } from './constants.js';
 import { OptionMember } from './option.js';
 
-import type { AVPixelFormat, SWSFlag } from './constants.js';
+import type { AVPixelFormat, SWSFlag } from '../constants/constants.js';
 import type { Frame } from './frame.js';
 import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.js';
 

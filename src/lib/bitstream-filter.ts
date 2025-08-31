@@ -1,6 +1,6 @@
 import { bindings } from './binding.js';
 
-import type { AVCodecID } from './constants.js';
+import type { AVCodecID } from '../constants/constants.js';
 import type { NativeBitStreamFilter, NativeWrapper } from './native-types.js';
 
 /**

@@ -1,7 +1,7 @@
 import { bindings } from './binding.js';
 import { OptionMember } from './option.js';
 
-import type { AVSampleFormat } from './constants.js';
+import type { AVSampleFormat } from '../constants/constants.js';
 import type { Frame } from './frame.js';
 import type { NativeSoftwareResampleContext, NativeWrapper } from './native-types.js';
 import type { ChannelLayout } from './types.js';

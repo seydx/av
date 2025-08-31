@@ -1,4 +1,5 @@
-import type { AVPixelFormat, AVSampleFormat, ChannelLayout, IRational, SWSFlag } from '../lib/index.js';
+import type { AVPixelFormat, AVSampleFormat, SWSFlag } from '../constants/constants.js';
+import type { ChannelLayout, IRational } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 
 /**

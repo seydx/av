@@ -10,7 +10,6 @@
  * @module lib/option
  */
 
-import { bindings } from './binding.js';
 import {
   AV_OPT_SEARCH_CHILDREN,
   AV_OPT_TYPE_BINARY,
@@ -35,11 +34,11 @@ import {
   AV_OPT_TYPE_UINT64,
   AV_OPT_TYPE_VIDEO_RATE,
   AVFLAG_NONE,
-} from './constants.js';
+} from '../constants/constants.js';
+import { bindings } from './binding.js';
 import { Dictionary } from './dictionary.js';
 import { Rational } from './rational.js';
 
-import type { OptionCapableObject } from './binding.js';
 import type {
   AVOptionFlag,
   AVOptionSearchFlags,
@@ -67,7 +66,8 @@ import type {
   AVOptionTypeVideoRate,
   AVPixelFormat,
   AVSampleFormat,
-} from './constants.js';
+} from '../constants/index.js';
+import type { OptionCapableObject } from './binding.js';
 import type { NativeOption } from './native-types.js';
 import type { ChannelLayout, IRational } from './types.js';
 
