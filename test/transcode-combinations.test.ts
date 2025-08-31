@@ -302,7 +302,7 @@ describe('Transcode Combinations', () => {
         // Hardware context is now initialized automatically in create()
 
         // Create hardware encoder with shared context
-        const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
+        const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'libx264';
         const encoder = await Encoder.create(
           encoderName,
           {
