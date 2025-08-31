@@ -1,11 +1,44 @@
 {
     "configurations": [
         {
-            "name": "Mac",
+            "name": "Mac (x64)",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/externals/jellyfin-ffmpeg",
+                "${workspaceFolder}/externals/jellyfin-ffmpeg/**",
+                "${workspaceFolder}/node_modules/node-addon-api",
                 "/usr/local/include/node",
-                "/opt/homebrew/include"
+                "/usr/local/opt/node/include/node",
+                "/usr/local/Cellar/node/*/include/node",
+                "/opt/homebrew/include/node",
+                "/opt/homebrew/opt/node/include/node",
+                "/opt/homebrew/Cellar/node/*/include/node",
+                "/usr/include/node",
+                "${env:HOME}/.node-gyp/*/include/node",
+                "${env:HOME}/.cache/node-gyp/*/include/node"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "macos-clang-x64"
+        },
+        {
+            "name": "Mac (arm64)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/externals/jellyfin-ffmpeg",
+                "${workspaceFolder}/externals/jellyfin-ffmpeg/**",
+                "${workspaceFolder}/node_modules/node-addon-api",
+                "/opt/homebrew/include/node",
+                "/opt/homebrew/opt/node/include/node",
+                "/opt/homebrew/Cellar/node/*/include/node",
+                "/usr/local/include/node",
+                "/usr/local/opt/node/include/node",
+                "/usr/local/Cellar/node/*/include/node",
+                "/usr/include/node",
+                "${env:HOME}/.node-gyp/*/include/node",
+                "${env:HOME}/.cache/node-gyp/*/include/node"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
@@ -14,19 +47,81 @@
             "intelliSenseMode": "macos-clang-arm64"
         },
         {
-            "name": "Linux",
+            "name": "Linux (x64)",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/codespace/.cache/node-gyp/22.17.0/include/node",
-                "/usr/local/share/nvm/versions/node/v22.17.0/include/node",
-                "/usr/include/x86_64-linux-gnu",
-                "${workspaceFolder}/node_modules/node-addon-api"
+                "${workspaceFolder}/externals/jellyfin-ffmpeg",
+                "${workspaceFolder}/node_modules/node-addon-api",
+                "${env:HOME}/.cache/node-gyp/*/include/node",
+                "/usr/include/node",
+                "/usr/local/include/node",
+                "/usr/include/nodejs",
+                "/usr/include/x86_64-linux-gnu"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "c++14",
             "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
+            "name": "Linux (arm64)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/externals/jellyfin-ffmpeg",
+                "${workspaceFolder}/node_modules/node-addon-api",
+                "${env:HOME}/.cache/node-gyp/*/include/node",
+                "/usr/include/node",
+                "/usr/local/include/node",
+                "/usr/include/nodejs",
+                "/usr/include/aarch64-linux-gnu"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-arm64"
+        },
+        {
+            "name": "Win32 (MinGW/MSYS2 x64)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/externals/jellyfin-ffmpeg",
+                "${workspaceFolder}/node_modules/node-addon-api",
+                "${env:MSYS2_ROOT}/mingw64/include/node",
+                "${env:MSYS2_ROOT}/mingw32/include/node",
+                "${env:MINGW_PREFIX}/include/node",
+                "C:/msys64/mingw64/include/node",
+                "C:/msys64/mingw32/include/node",
+                "C:/tools/msys64/mingw64/include/node",
+                "${env:HOME}/.cache/node-gyp/*/include/node",
+                "${env:USERPROFILE}/.node-gyp/*/include/node"
+            ],
+            "defines": ["_WIN32", "WIN32", "__MINGW32__", "__MINGW64__"],
+            "compilerPath": "${env:MINGW_PREFIX}/bin/g++.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "windows-gcc-x64"
+        },
+        {
+            "name": "Win32 (MinGW/MSYS2 ARM64)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/externals/jellyfin-ffmpeg",
+                "${workspaceFolder}/node_modules/node-addon-api",
+                "${env:MSYS2_ROOT}/clangarm64/include/node",
+                "${env:MSYS2_ROOT}/mingw64/include/node",
+                "${env:MINGW_PREFIX}/include/node",
+                "C:/msys64/clangarm64/include/node",
+                "C:/msys64/mingw64/include/node",
+                "${env:HOME}/.cache/node-gyp/*/include/node",
+                "${env:USERPROFILE}/.node-gyp/*/include/node"
+            ],
+            "defines": ["_WIN32", "WIN32", "__MINGW64__", "__aarch64__", "_ARM64_"],
+            "compilerPath": "${env:MINGW_PREFIX}/bin/clang++.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "windows-clang-arm64"
         }
     ],
     "version": 4
