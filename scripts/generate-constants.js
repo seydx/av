@@ -9,12 +9,13 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+
 import { getFFmpegPath } from './utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const FFMPEG_PATH = getFFmpegPath('include');
+const FFMPEG_PATH = getFFmpegPath('root');
 console.log(`Using FFmpeg headers from: ${FFMPEG_PATH}`);
 
 // Parse all AV_ constants from a header file
@@ -747,7 +748,7 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
 const main = () => {
   console.log('Scanning all FFmpeg headers...');
   const output = generateTypeScript();
-  const outputPath = join(__dirname, '..', 'src', 'lib', 'constants.ts');
+  const outputPath = join(__dirname, '..', 'src', 'constants', 'constants.ts');
 
   // Create directory if it doesn't exist
   const dir = dirname(outputPath);

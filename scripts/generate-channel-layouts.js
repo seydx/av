@@ -182,7 +182,7 @@ int main() {
 
 // Generate the file
 const generateChannelLayoutsFile = () => {
-  const outputPath = join(__dirname, '..', 'src', 'lib', 'channel-layouts.ts');
+  const outputPath = join(__dirname, '..', 'src', 'constants', 'channel-layouts.ts');
 
   let content = `/**
  * FFmpeg Channel Layout Constants
@@ -190,7 +190,7 @@ const generateChannelLayoutsFile = () => {
  * DO NOT EDIT MANUALLY
  */
 
-import type { ChannelLayout } from './types.js';
+import type { ChannelLayout } from '../lib/types.js';
 
 // Channel masks (for legacy API)
 `;

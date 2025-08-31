@@ -96,9 +96,7 @@ export const getFFmpegPath = (target = 'root') => {
       console.log('Using Jellyfin FFmpeg source');
       // For source directories, the structure is different
       cachedRootPath = jellyfinPath;
-      if (target === 'include') {
-        return jellyfinPath; // Source has headers directly in root
-      }
+      // Source directories have headers in lib* directories, not in an include folder
       return jellyfinPath;
     }
 
@@ -106,9 +104,7 @@ export const getFFmpegPath = (target = 'root') => {
     const ffmpegPath = join(__dirname, '../externals/ffmpeg');
     console.log('Using original FFmpeg source');
     cachedRootPath = ffmpegPath;
-    if (target === 'include') {
-      return ffmpegPath; // Source has headers directly in root
-    }
+    // Source directories have headers in lib* directories, not in an include folder
     return ffmpegPath;
   }
 
