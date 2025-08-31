@@ -82,7 +82,7 @@ export class Encoder implements Disposable {
   private isOpen = true;
   private supportedFormats: AVPixelFormat[] = [];
   private preferredFormat?: AVPixelFormat;
-  private hardware?: HardwareContext | null; // Store reference to check for late framesContext
+  private hardware?: HardwareContext | null; // Store reference for hardware pixel format
   private isHardwareEncoder = false; // Track if this is a hardware encoder
 
   /**
@@ -92,7 +92,7 @@ export class Encoder implements Disposable {
    *
    * @param codecContext - Initialized codec context
    * @param codecName - Name of the codec
-   * @param hardware - Optional hardware context for late framesContext binding
+   * @param hardware - Optional hardware context for hardware pixel format
    */
   private constructor(codecContext: CodecContext, codecName: string, hardware?: HardwareContext | null) {
     this.codecContext = codecContext;
@@ -291,13 +291,8 @@ export class Encoder implements Disposable {
 
     // Apply hardware acceleration if provided and encoder supports it
     if (options.hardware && isHardwareEncoder) {
-      // Check if frames context already available (shared from decoder)
-      if (options.hardware.framesContext) {
-        codecContext.hwFramesCtx = options.hardware.framesContext;
-        codecContext.pixelFormat = options.hardware.getHardwarePixelFormat();
-      }
-      // Else: Will set hwFramesCtx later in encode() when first frame arrives
-      // DO NOT create frames context here - wait for first frame!
+      // hwFramesCtx will be set later in encode() when first frame arrives
+      // DO NOT set it here - wait for first frame that contains the context!
     }
     // Note: Software encoder silently ignores hardware context
 
@@ -356,25 +351,17 @@ export class Encoder implements Disposable {
       throw new Error('Encoder is closed');
     }
 
-    // Late binding of hw_frames_ctx ONLY for hardware encoders
-    if (this.hardware && this.isHardwareEncoder && !this.codecContext.hwFramesCtx) {
-      if (this.hardware.framesContext) {
-        // Use shared frames context from decoder
-        this.codecContext.hwFramesCtx = this.hardware.framesContext;
-      } else if (frame?.width && frame.height) {
-        // First frame - create frames context for upload
-        this.hardware.ensureFramesContext(frame.width, frame.height);
-        this.codecContext.hwFramesCtx = this.hardware.framesContext ?? null;
-      }
+    // Late binding of hw_frames_ctx for hardware encoders
+    // Hardware encoders get hw_frames_ctx from the frames they receive
+    if (this.isHardwareEncoder && frame?.hwFramesCtx && !this.codecContext.hwFramesCtx) {
+      // Use the hw_frames_ctx from the frame
+      this.codecContext.hwFramesCtx = frame.hwFramesCtx;
 
-      if (this.codecContext.hwFramesCtx) {
+      // Set pixel format based on hardware type
+      if (this.hardware) {
         this.codecContext.pixelFormat = this.hardware.getHardwarePixelFormat();
       }
     }
-    // Software encoder completely ignores hardware context
-
-    // NO MANUAL RESCALING! FFmpeg's avcodec_send_frame() does this internally
-    // The encoder needs pkt_timebase to be set for proper rescaling
 
     // Send frame to encoder
     const sendRet = await this.codecContext.sendFrame(frame);

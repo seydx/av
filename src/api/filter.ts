@@ -74,6 +74,8 @@ export class FilterAPI implements Disposable {
   private mediaType: AVMediaType;
   private initialized = false;
   private needsHardware = false; // Track if this filter REQUIRES hardware
+  private frameNeedsHardware = false; // Track if frame must have a hwFramesCtx (hwdownload)
+  private hasHwUpload = false; // Track if filter chain contains hwupload
   private hardware?: HardwareContext | null; // Store reference for hardware context
   private pendingInit?: { description: string; options: FilterOptions }; // For delayed init
 
@@ -84,7 +86,7 @@ export class FilterAPI implements Disposable {
    * Use the static factory methods for easier creation.
    *
    * @param config - Filter configuration
-   * @param hardware - Optional hardware context for late framesContext binding
+   * @param hardware - Optional hardware context for hardware device and pixel format
    * @internal
    */
   private constructor(config: FilterConfig, hardware?: HardwareContext | null) {
@@ -196,13 +198,6 @@ export class FilterAPI implements Disposable {
       })
       .filter(Boolean);
 
-    // Check if chain contains hwupload (which creates hw frames context)
-    const hasHwDownload = filterNames.some((name) => name === 'hwdownload');
-    const hasHwUpload = filterNames.some((name) => name === 'hwupload');
-    // Check each filter in the chain
-    let needsHardwareFramesContext = false;
-    let needsHardwareDevice = false;
-
     for (const filterName of filterNames) {
       if (!filterName) continue;
 
@@ -210,34 +205,31 @@ export class FilterAPI implements Disposable {
       if (lowLevelFilter) {
         // Check if this filter needs hardware
         if ((lowLevelFilter.flags & AVFILTER_FLAG_HWDEVICE) !== 0) {
-          needsHardwareDevice = true;
-          // Only non-hwupload filters need frames context from decoder
-          if (filterName !== 'hwupload' && filterName !== 'hwdownload') {
-            needsHardwareFramesContext = true;
+          if (!options.hardware) {
+            throw new Error('Hardware filter in chain requires a hardware context. ' + 'Please provide one via options.hardware');
+          }
+
+          // hwupload creates its own hw_frames_ctx, other filters use existing
+          if (filterName === 'hwupload') {
+            filter.hasHwUpload = true;
+          } else if (filterName === 'hwdownload') {
+            filter.frameNeedsHardware = true;
+          } else {
+            // Other hardware filters need existing hw_frames_ctx
+            filter.needsHardware = true;
           }
         }
       }
     }
 
-    // If we have hwupload, we don't need hardware frames context from decoder
-    filter.needsHardware = hasHwDownload || (needsHardwareFramesContext && !hasHwUpload);
-
-    // Validation: Hardware filter MUST have HardwareContext
-    if (needsHardwareDevice && !options.hardware) {
-      throw new Error('Hardware filter in chain requires a hardware context. ' + 'Please provide one via options.hardware');
-    }
-
     // Check if we can initialize immediately
-    // Initialize if: (1) we don't need hardware, OR (2) we need hardware AND have framesContext
-    if (!filter.needsHardware || (filter.needsHardware && options.hardware?.framesContext)) {
-      // Can initialize now
-      if (options.hardware?.framesContext && config.type === 'video') {
-        config.hwFramesCtx = options.hardware.framesContext;
-      }
+    // Initialize if: (1) we don't need hardware, OR (2) hwupload (creates own context)
+    if (!filter.needsHardware || filter.hasHwUpload) {
+      // Can initialize now (hwupload creates its own context, others don't need hardware)
       await filter.initialize(description, options);
       filter.initialized = true;
     } else {
-      // Delay initialization until first frame (hardware needed but no framesContext yet)
+      // Delay initialization until first frame (hardware filters need hw_frames_ctx from frame)
       filter.pendingInit = { description, options };
     }
 
@@ -267,17 +259,14 @@ export class FilterAPI implements Disposable {
   async process(frame: Frame): Promise<Frame | null> {
     // Check for delayed initialization
     if (!this.initialized && this.pendingInit) {
-      if (this.hardware && this.needsHardware && this.config.type === 'video' && !this.config.hwFramesCtx) {
-        // Check if hardware frames context became available
-        if (this.hardware.framesContext) {
-          this.config.hwFramesCtx = this.hardware.framesContext;
+      // For filters that need hardware (but not hwupload), get hw_frames_ctx from the frame
+      // hwupload creates its own hw_frames_ctx, so it doesn't need one from frames
+      if (this.needsHardware && !this.hasHwUpload && frame?.hwFramesCtx && this.config.type === 'video') {
+        this.config.hwFramesCtx = frame.hwFramesCtx;
+
+        // Set pixel format based on hardware type
+        if (this.hardware) {
           this.config.pixelFormat = this.hardware.getHardwarePixelFormat();
-        } else if (frame.hwFramesCtx) {
-          // Otherwise, use the frame's hardware frames context
-          this.config.hwFramesCtx = frame.hwFramesCtx;
-          this.config.pixelFormat = this.hardware.getHardwarePixelFormat();
-        } else {
-          throw new Error('Hardware filter requires frames context which is not yet available');
         }
       }
 
@@ -288,6 +277,10 @@ export class FilterAPI implements Disposable {
 
     if (!this.initialized || !this.buffersrcCtx || !this.buffersinkCtx) {
       throw new Error('Filter not initialized');
+    }
+
+    if (!frame.isHwFrame() && this.frameNeedsHardware) {
+      throw new Error('Cannot use software frame for hwdownload');
     }
 
     // Send frame to filter

@@ -433,11 +433,8 @@ export class Decoder implements Disposable {
     const ret = await this.codecContext.receiveFrame(this.frame);
 
     if (ret === 0) {
-      // Set hw_frames_ctx from frame for other components to share
-      // This is THE moment when hw_frames_ctx becomes available
-      if (this.hardware && this.frame.hwFramesCtx) {
-        this.hardware.framesContext = this.frame.hwFramesCtx;
-      }
+      // Note: hw_frames_ctx is now available in the frame
+      // Other components should get it directly from frames, not from HardwareContext
 
       // Got a frame, clone it for the user
       return this.frame.clone();
