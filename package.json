@@ -21,14 +21,9 @@
       "default": "./dist/lib/index.js"
     },
     "./constants": {
-      "types": "./dist/lib/constants.d.ts",
-      "require": "./dist/lib/constants.js",
-      "default": "./dist/lib/constants.js"
-    },
-    "./layouts": {
-      "types": "./dist/lib/channel-layouts.d.ts",
-      "require": "./dist/lib/channel-layouts.js",
-      "default": "./dist/lib/channel-layouts.js"
+      "types": "./dist/constants/index.d.ts",
+      "require": "./dist/constants/index.js",
+      "default": "./dist/constants/index.js"
     }
   },
   "scripts": {
@@ -39,9 +34,11 @@
     "build:tsc": "rimraf dist && tsc -p tsconfig.build.json",
     "clean": "rimraf dist && node-gyp clean && npm run generate && npm run format && npm run lint:fix && npm run build:tests && npm run build:examples && npm run build:tsc",
     "format": "prettier --write src/ --write test/ --write scripts/ --write examples/ --ignore-unknown --no-error-on-unmatched-pattern",
-    "generate": "npm run generate:constants && npm run generate:layouts",
-    "generate:constants": "node scripts/generate-constants.js && prettier --write src/lib/constants.ts",
-    "generate:layouts": "node scripts/generate-channel-layouts.js && prettier --write src/lib/channel-layouts.ts",
+    "generate": "npm run generate:constants && npm run generate:encoders && npm run generate:decoders && npm run generate:layouts",
+    "generate:constants": "FFMPEG_DEV_PATH=externals/jellyfin-ffmpeg node scripts/generate-constants.js && prettier --write src/constants/constants.ts",
+    "generate:encoders": "FFMPEG_DEV_PATH=externals/jellyfin-ffmpeg node scripts/generate-encoders.js --with-patches && prettier --write src/constants/encoders.ts",
+    "generate:decoders": "FFMPEG_DEV_PATH=externals/jellyfin-ffmpeg node scripts/generate-decoders.js --with-patches && prettier --write src/constants/decoders.ts",
+    "generate:layouts": "FFMPEG_DEV_PATH=externals/jellyfin-ffmpeg node scripts/generate-channel-layouts.js && prettier --write src/constants/channel-layouts.ts",
     "install": "node install/check.js",
     "install-updates": "npm i --save",
     "lint": "eslint .",
@@ -49,6 +46,7 @@
     "release:patch": "node scripts/prepare-release.js patch",
     "release:minor": "node scripts/prepare-release.js minor",
     "release:major": "node scripts/prepare-release.js major",
+    "test": "tsx --test test/*.test.ts",
     "test:all": "npm run generate && npm run build:tests && npm run build:tsc && tsx --test test/*.test.ts",
     "update": "updates --update ./"
   },
