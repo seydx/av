@@ -1,21 +1,3 @@
-import type {
-  AVDictFlag,
-  AVFilterCmdFlag,
-  AVFilterConstants,
-  AVFilterFlag,
-  AVFrameSideDataType,
-  AVHWDeviceType,
-  AVHWFrameTransferDirection,
-  AVIOFlag,
-  AVOptionFlag,
-  AVOptionType,
-  AVPacketSideDataType,
-  AVPixelFormat,
-  AVSeekFlag,
-  AVSeekWhence,
-  SWSFlag,
-} from '../constants/constants.js';
-
 /**
  * Native FFmpeg Binding Type Definitions
  * =======================================
@@ -33,6 +15,23 @@ import type {
  * @packageDocumentation
  */
 
+import type {
+  AVDictFlag,
+  AVFilterCmdFlag,
+  AVFilterConstants,
+  AVFilterFlag,
+  AVFrameSideDataType,
+  AVHWDeviceType,
+  AVHWFrameTransferDirection,
+  AVIOFlag,
+  AVOptionFlag,
+  AVOptionType,
+  AVPacketSideDataType,
+  AVPixelFormat,
+  AVSeekFlag,
+  AVSeekWhence,
+  SWSFlag,
+} from '../constants/constants.js';
 import type {
   AVChromaLocation,
   AVCodecCap,
