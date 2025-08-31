@@ -147,6 +147,86 @@ const parseEnums = (headerPath) => {
   return enums;
 };
 
+// Add hardware constants from patches that aren't in the base FFmpeg
+const addPatchedHardwareConstants = (enums, constants) => {
+  // These constants are added by Jellyfin patches
+
+  // 1. Add hardware device types to enum
+  const hwDeviceEnum = enums.get('AVHWDeviceType');
+  if (hwDeviceEnum) {
+    // Check if RKMPP is already there
+    const hasRKMPP = hwDeviceEnum.values.some((v) => v.name === 'AV_HWDEVICE_TYPE_RKMPP');
+    if (!hasRKMPP) {
+      // Add RKMPP after D3D12VA (value 13)
+      hwDeviceEnum.values.push({
+        name: 'AV_HWDEVICE_TYPE_RKMPP',
+        value: 13,
+      });
+    }
+
+    // Check if NB is already there
+    const hasNB = hwDeviceEnum.values.some((v) => v.name === 'AV_HWDEVICE_TYPE_NB');
+    if (!hasNB) {
+      // Add NB as the count (value 14)
+      hwDeviceEnum.values.push({
+        name: 'AV_HWDEVICE_TYPE_NB',
+        value: 14,
+      });
+    }
+  }
+
+  // 2. Add new hardware acceleration flags
+  if (!constants.has('AV_HWACCEL_FLAG_LOW_PRIORITY')) {
+    constants.set('AV_HWACCEL_FLAG_LOW_PRIORITY', {
+      name: 'AV_HWACCEL_FLAG_LOW_PRIORITY',
+      value: '(1 << 4)',
+      source: 'patch:0052-add-vt-low-priority-keyframe-decoding.patch',
+    });
+  }
+
+  // 3. Add HDR metadata constants for QSV
+  if (!constants.has('HAL_HDR_DEFAULT_MAXCLL')) {
+    constants.set('HAL_HDR_DEFAULT_MAXCLL', {
+      name: 'HAL_HDR_DEFAULT_MAXCLL',
+      value: '4000',
+      source: 'patch:qsv-vpp-filters.patch',
+    });
+  }
+
+  if (!constants.has('HAL_HDR_DEFAULT_MAXFALL')) {
+    constants.set('HAL_HDR_DEFAULT_MAXFALL', {
+      name: 'HAL_HDR_DEFAULT_MAXFALL',
+      value: '400',
+      source: 'patch:qsv-vpp-filters.patch',
+    });
+  }
+
+  // 4. Add subtitle/overlay drawing flags
+  if (!constants.has('FF_DRAW_PROCESS_ALPHA')) {
+    constants.set('FF_DRAW_PROCESS_ALPHA', {
+      name: 'FF_DRAW_PROCESS_ALPHA',
+      value: '(1 << 0)',
+      source: 'patch:0024-add-sub2video-option-to-subtitles-filter.patch',
+    });
+  }
+
+  if (!constants.has('FF_DRAW_MASK_SRC_ALPHA_OPAQUE')) {
+    constants.set('FF_DRAW_MASK_SRC_ALPHA_OPAQUE', {
+      name: 'FF_DRAW_MASK_SRC_ALPHA_OPAQUE',
+      value: '(1 << 1)',
+      source: 'patch:0024-add-sub2video-option-to-subtitles-filter.patch',
+    });
+  }
+
+  if (!constants.has('FF_DRAW_MASK_UNPREMUL_RGB32')) {
+    constants.set('FF_DRAW_MASK_UNPREMUL_RGB32', {
+      name: 'FF_DRAW_MASK_UNPREMUL_RGB32',
+      value: '(1 << 2)',
+      source: 'patch:0024-add-sub2video-option-to-subtitles-filter.patch',
+    });
+  }
+};
+
 // Scan all FFmpeg headers
 const scanAllHeaders = () => {
   const libraries = ['libavcodec', 'libavformat', 'libavutil', 'libavfilter', 'libswscale', 'libswresample'];
@@ -181,6 +261,9 @@ const scanAllHeaders = () => {
       }
     }
   }
+
+  // Add hardware constants from patches
+  addPatchedHardwareConstants(allEnums, allConstants);
 
   return { constants: allConstants, enums: allEnums };
 };

@@ -887,6 +887,8 @@ export const AV_HWDEVICE_TYPE_OPENCL = 9 as AVHWDeviceType;
 export const AV_HWDEVICE_TYPE_MEDIACODEC = 10 as AVHWDeviceType;
 export const AV_HWDEVICE_TYPE_VULKAN = 11 as AVHWDeviceType;
 export const AV_HWDEVICE_TYPE_D3D12VA = 12 as AVHWDeviceType;
+export const AV_HWDEVICE_TYPE_RKMPP = 13 as AVHWDeviceType;
+export const AV_HWDEVICE_TYPE_NB = 14 as AVHWDeviceType;
 
 // libavutil/hwcontext.h
 export type AVHWFrameTransferDirection = number & { readonly [__ffmpeg_brand]: 'AVHWFrameTransferDirection' };
@@ -1777,13 +1779,14 @@ export const AV_OPT_ALLOW_NULL = 0x4 as AVOptionSearchFlags;
 export const AV_OPT_ARRAY_REPLACE = 0x8 as AVOptionSearchFlags;
 export const AV_OPT_MULTI_COMPONENT_RANGE = 0x1000 as AVOptionSearchFlags;
 
-// AV_HWACCEL_FLAG constants (from libavcodec/avcodec.h)
+// AV_HWACCEL_FLAG constants (from libavcodec/avcodec.h, patch:0052-add-vt-low-priority-keyframe-decoding.patch)
 export type AVHWAccelFlag = number & { readonly [__ffmpeg_brand]: 'AVHWAccelFlag' };
 
 export const AV_HWACCEL_FLAG_IGNORE_LEVEL = 0x1 as AVHWAccelFlag;
 export const AV_HWACCEL_FLAG_ALLOW_HIGH_DEPTH = 0x2 as AVHWAccelFlag;
 export const AV_HWACCEL_FLAG_ALLOW_PROFILE_MISMATCH = 0x4 as AVHWAccelFlag;
 export const AV_HWACCEL_FLAG_UNSAFE_OUTPUT = 0x8 as AVHWAccelFlag;
+export const AV_HWACCEL_FLAG_LOW_PRIORITY = 0x10 as AVHWAccelFlag;
 
 // AV_HWACCEL_CAP constants (from libavcodec/avcodec.h)
 export type AVHWAccelCap = number & { readonly [__ffmpeg_brand]: 'AVHWAccelCap' };
@@ -2064,6 +2067,14 @@ export type SWRFlag = number & { readonly [__ffmpeg_brand]: 'SWRFlag' };
 
 export const SWR_FLAG_RESAMPLE = 1 as SWRFlag;
 export const SWR_CH_MAX = 64 as SWRFlag;
+
+// Other constants (ungrouped) - 5 constants
+// These are miscellaneous constants that don't fit into a specific category
+export const HAL_HDR_DEFAULT_MAXCLL = 4000;
+export const HAL_HDR_DEFAULT_MAXFALL = 400;
+export const FF_DRAW_PROCESS_ALPHA = 0x1;
+export const FF_DRAW_MASK_SRC_ALPHA_OPAQUE = 0x2;
+export const FF_DRAW_MASK_UNPREMUL_RGB32 = 0x4;
 
 // ============================================================================
 // AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods
