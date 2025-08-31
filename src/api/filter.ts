@@ -277,25 +277,23 @@ export class FilterAPI implements Disposable {
   async process(frame: Frame): Promise<Frame | null> {
     // Check for delayed initialization
     if (!this.initialized && this.pendingInit) {
-      // Check if hardware frames context became available
-      if (this.hardware?.framesContext && this.config.type === 'video') {
-        this.config.hwFramesCtx = this.hardware.framesContext;
-        // Update pixel format to match hardware frames if using hardware
-        if (this.needsHardware) {
+      if (this.hardware && this.needsHardware && this.config.type === 'video' && !this.config.hwFramesCtx) {
+        // Check if hardware frames context became available
+        if (this.hardware.framesContext) {
+          this.config.hwFramesCtx = this.hardware.framesContext;
           this.config.pixelFormat = this.hardware.getHardwarePixelFormat();
+        } else if (frame.hwFramesCtx) {
+          // Otherwise, use the frame's hardware frames context
+          this.config.hwFramesCtx = frame.hwFramesCtx;
+          this.config.pixelFormat = this.hardware.getHardwarePixelFormat();
+        } else {
+          throw new Error('Hardware filter requires frames context which is not yet available');
         }
-        // Now we can initialize
-        await this.initialize(this.pendingInit.description, this.pendingInit.options);
-        this.pendingInit = undefined;
-        this.initialized = true;
-      } else if (this.needsHardware) {
-        throw new Error('Hardware filter requires frames context which is not yet available');
-      } else {
-        // Software filter or hardware not required, can initialize now
-        await this.initialize(this.pendingInit.description, this.pendingInit.options);
-        this.pendingInit = undefined;
-        this.initialized = true;
       }
+
+      await this.initialize(this.pendingInit.description, this.pendingInit.options);
+      this.pendingInit = undefined;
+      this.initialized = true;
     }
 
     if (!this.initialized || !this.buffersrcCtx || !this.buffersinkCtx) {
