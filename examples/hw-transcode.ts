@@ -28,9 +28,9 @@ import {
   HardwareDeviceContext,
   Packet,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVCodecID, AVHWDeviceType, AVPixelFormat, Stream } from '../src/lib/index.js';
+import type { AVCodecID, AVHWDeviceType, AVPixelFormat, Stream } from '../src/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let inputCtx: FormatContext | null = null;

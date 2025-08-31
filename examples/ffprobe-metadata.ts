@@ -18,9 +18,9 @@
  * Example: tsx examples/ffprobe-metadata.ts testdata/video.mp4
  */
 
-import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO, Codec, FormatContext, avGetPixFmtName, avGetSampleFmtName } from '../src/lib/index.js';
+import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO, Codec, FormatContext, avGetPixFmtName, avGetSampleFmtName } from '../src/index.js';
 
-import type { AVPixelFormat, AVSampleFormat } from '../src/lib/index.js';
+import type { AVPixelFormat, AVSampleFormat } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);

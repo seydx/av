@@ -26,9 +26,9 @@ import {
   Packet,
   Rational,
   SoftwareResampleContext,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVCodecFlag } from '../src/lib/index.js';
+import type { AVCodecFlag } from '../src/index.js';
 
 // The output bit rate in bit/s
 const OUTPUT_BIT_RATE = 96000;

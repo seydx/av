@@ -27,7 +27,7 @@ import {
   FFmpegError,
   Frame,
   Packet,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 const INBUF_SIZE = 4096;
 

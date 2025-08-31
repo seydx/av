@@ -13,8 +13,7 @@
  * Example: tsx examples/api-sw-transcode.ts testdata/video.mp4 examples/.tmp/api-sw-transcode.mp4
  */
 
-import { Decoder, Encoder, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_PIX_FMT_YUV420P } from '../src/lib/constants.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, MediaInput, MediaOutput } from '../src/index.js';
 
 async function softwareTranscode(inputFile: string, outputFile: string) {
   console.log('🎬 Full Software Transcode Example');

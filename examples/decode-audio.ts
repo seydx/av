@@ -41,9 +41,9 @@ import {
   Frame,
   Packet,
   avGetBytesPerSample,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVSampleFormat } from '../src/lib/index.js';
+import type { AVSampleFormat } from '../src/index.js';
 
 const AUDIO_INBUF_SIZE = 20480;
 const AUDIO_REFILL_THRESH = 4096;

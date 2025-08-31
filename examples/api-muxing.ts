@@ -17,7 +17,6 @@
  *   tsx examples/api-muxing.ts testdata/video.m1v testdata/audio.mp2 examples/.tmp/api-muxed-5-force-copy.mp4 --copy (force copy - may not be playable)
  */
 
-import { Decoder, Encoder, FilterAPI, MediaInput, MediaOutput } from '../src/api/index.js';
 import {
   AV_CHANNEL_LAYOUT_MONO,
   AV_CHANNEL_LAYOUT_STEREO,
@@ -27,7 +26,12 @@ import {
   AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_FLTP,
   AV_SAMPLE_FMT_S16P,
-} from '../src/lib/index.js';
+  Decoder,
+  Encoder,
+  FilterAPI,
+  MediaInput,
+  MediaOutput,
+} from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);

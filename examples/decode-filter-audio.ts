@@ -35,9 +35,9 @@ import {
   Frame,
   Log,
   Packet,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { FilterContext } from '../src/lib/index.js';
+import type { FilterContext } from '../src/index.js';
 
 // Filter description - resample to 8kHz mono s16le
 const FILTER_DESCR = 'aresample=8000,aformat=sample_fmts=s16:channel_layouts=mono';

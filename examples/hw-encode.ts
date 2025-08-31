@@ -30,9 +30,9 @@ import {
   HardwareFramesContext,
   Packet,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVHWDeviceType, AVPixelFormat } from '../src/lib/index.js';
+import type { AVHWDeviceType, AVPixelFormat } from '../src/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let width: number;

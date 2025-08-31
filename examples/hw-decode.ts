@@ -25,9 +25,9 @@ import {
   Packet,
   avImageCopyToBuffer,
   avImageGetBufferSize,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVHWDeviceType, AVPixelFormat } from '../src/lib/index.js';
+import type { AVHWDeviceType, AVPixelFormat } from '../src/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let hwPixFmt: AVPixelFormat = AV_PIX_FMT_NONE;

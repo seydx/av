@@ -27,9 +27,9 @@ import {
   SoftwareResampleContext,
   avGetBytesPerSample,
   avRescaleRnd,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVSampleFormat, ChannelLayout } from '../src/lib/index.js';
+import type { AVSampleFormat, ChannelLayout } from '../src/index.js';
 
 /**
  * Get format string from sample format for ffplay

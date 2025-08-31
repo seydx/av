@@ -8,8 +8,7 @@
  * Example: tsx examples/api-encode-decode.ts testdata/video.mp4 examples/.tmp/api-encode-decode.mp4
  */
 
-import { Decoder, Encoder, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_PIX_FMT_YUV420P } from '../src/lib/index.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, MediaInput, MediaOutput } from '../src/index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];

@@ -13,9 +13,9 @@
 
 import { closeSync, openSync, writeSync } from 'node:fs';
 
-import { AV_CODEC_ID_MP2, AV_SAMPLE_FMT_S16, AVERROR_EAGAIN, AVERROR_EOF, Codec, CodecContext, FFmpegError, Frame, Packet } from '../src/lib/index.js';
+import { AV_CODEC_ID_MP2, AV_SAMPLE_FMT_S16, AVERROR_EAGAIN, AVERROR_EOF, Codec, CodecContext, FFmpegError, Frame, Packet } from '../src/index.js';
 
-import type { AVSampleFormat, ChannelLayout } from '../src/lib/index.js';
+import type { AVSampleFormat, ChannelLayout } from '../src/index.js';
 
 /**
  * Check that a given sample format is supported by the encoder

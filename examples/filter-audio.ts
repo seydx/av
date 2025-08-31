@@ -34,9 +34,9 @@ import {
   avGetBytesPerSample,
   avGetSampleFmtName,
   avSampleFmtIsPlanar,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVSampleFormat, ChannelLayout, FilterContext } from '../src/lib/index.js';
+import type { AVSampleFormat, ChannelLayout, FilterContext } from '../src/index.js';
 
 // Configuration
 const INPUT_SAMPLERATE = 48000;

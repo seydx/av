@@ -9,7 +9,7 @@
  * Example: tsx examples/remux.ts testdata/video.mp4 examples/.tmp/remux.mkv
  */
 
-import { AVERROR_EOF, AVFMT_NOFILE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_SUBTITLE, AVMEDIA_TYPE_VIDEO, FFmpegError, FormatContext, Packet } from '../src/lib/index.js';
+import { AVERROR_EOF, AVFMT_NOFILE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_SUBTITLE, AVMEDIA_TYPE_VIDEO, FFmpegError, FormatContext, Packet } from '../src/index.js';
 
 /**
  * Log packet information for debugging

@@ -27,7 +27,7 @@ import {
   Frame,
   Packet,
   Rational,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
 /**
  * Encode one frame and write packets to file

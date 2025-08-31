@@ -40,9 +40,9 @@ import {
   avRescaleQ,
   avTs2Str,
   avTs2TimeStr,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVCodecFlag, AVCodecID, AVPixelFormat, AVSampleFormat, ChannelLayout, Stream } from '../src/lib/index.js';
+import type { AVCodecFlag, AVCodecID, AVPixelFormat, AVSampleFormat, ChannelLayout, Stream } from '../src/index.js';
 
 // Configuration
 const STREAM_DURATION = 10.0;

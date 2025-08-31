@@ -33,9 +33,9 @@ import {
   Rational,
   avChannelLayoutDescribe,
   avRescaleQ,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVCodecFlag, FilterContext } from '../src/lib/index.js';
+import type { AVCodecFlag, FilterContext } from '../src/index.js';
 
 // Global contexts - matching C structure
 let ifmt_ctx: FormatContext | null = null;

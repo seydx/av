@@ -32,9 +32,9 @@ import {
   Packet,
   avRescaleQ,
   avUsleep,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { FilterContext, Rational } from '../src/lib/index.js';
+import type { FilterContext, Rational } from '../src/index.js';
 
 // Filter description - scale to 78x24, rotate counter-clockwise, and convert to gray8
 const FILTER_DESCR = 'scale=78:24,transpose=cclock,format=gray8';

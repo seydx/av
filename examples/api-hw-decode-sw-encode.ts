@@ -13,8 +13,7 @@
  * Example: tsx examples/api-hw-decode-sw-encode.ts testdata/video.mp4 examples/.tmp/api-hw-decode-sw-encode.mp4
  */
 
-import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_PIX_FMT_YUV420P } from '../src/lib/index.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
 
 async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   console.log('🎬 Hardware Decode + Software Encode Example');

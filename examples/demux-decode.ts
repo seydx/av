@@ -37,9 +37,9 @@ import {
   avImageCopy2,
   avSampleFmtIsPlanar,
   avTs2TimeStr,
-} from '../src/lib/index.js';
+} from '../src/index.js';
 
-import type { AVMediaType, AVPixelFormat, AVSampleFormat, Stream } from '../src/lib/index.js';
+import type { AVMediaType, AVPixelFormat, AVSampleFormat, Stream } from '../src/index.js';
 
 // Global state
 let srcFilename: string;

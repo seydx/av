@@ -13,7 +13,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { AVERROR_EOF, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, FFmpegError, FormatContext, IOContext } from '../src/lib/index.js';
+import { AVERROR_EOF, AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE, FFmpegError, FormatContext, IOContext } from '../src/index.js';
 
 /**
  * Buffer data structure for reading

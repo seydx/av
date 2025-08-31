@@ -14,7 +14,7 @@
 import { Buffer } from 'node:buffer';
 import { closeSync, openSync, writeSync } from 'node:fs';
 
-import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, FFmpegError, Frame, SoftwareScaleContext, SWS_BILINEAR } from '../src/lib/index.js';
+import { AV_PIX_FMT_RGB24, AV_PIX_FMT_YUV420P, FFmpegError, Frame, SoftwareScaleContext, SWS_BILINEAR } from '../src/index.js';
 
 /**
  * Fill a YUV420P image with synthetic data
