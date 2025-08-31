@@ -12,6 +12,7 @@ import {
   FF_ENCODER_H264_NVENC,
   FF_ENCODER_H264_QSV,
   FF_ENCODER_H264_VAAPI,
+  FF_ENCODER_H264_VIDEOTOOLBOX,
   FF_ENCODER_LIBX264,
   FilterAPI,
   FormatContext,
@@ -58,20 +59,18 @@ describe('Transcode Combinations', () => {
     }
     const decoder = await Decoder.create(videoStream, decoderOptions);
 
-    // Hardware context is now initialized automatically in create()
-    // when hardware option is provided
-
     // Select encoder name based on hardware
     let encoderName = FF_ENCODER_LIBX264;
     let pixelFormat = AV_PIX_FMT_YUV420P;
     if (useHwEncode && hw) {
       switch (hw.deviceTypeName) {
         case 'videotoolbox':
-          encoderName = FF_ENCODER_LIBX264;
+          encoderName = FF_ENCODER_H264_VIDEOTOOLBOX;
           pixelFormat = AV_PIX_FMT_NV12;
           break;
         case 'cuda':
           encoderName = FF_ENCODER_H264_NVENC;
+          pixelFormat = AV_PIX_FMT_NV12;
           break;
         case 'vaapi':
           encoderName = FF_ENCODER_H264_VAAPI;
@@ -136,7 +135,7 @@ describe('Transcode Combinations', () => {
       if (hw && useHwDecode && !useHwEncode) {
         // HW decode + SW encode: need hwdownload
         // For VideoToolbox, we need scale_vt before hwdownload
-        const filterChain = hw.deviceTypeName === 'videotoolbox' ? 'scale_vt,hwdownload,format=nv12,format=yuv420p' : 'hwdownload,format=yuv420p';
+        const filterChain = hw.deviceTypeName === 'videotoolbox' ? 'scale_vt,hwdownload,format=nv12,format=yuv420p' : 'hwdownload,format=nv12';
         filter = await FilterAPI.create(filterChain, videoStream, { hardware: hw });
       } else if (hw && !useHwDecode && useHwEncode) {
         // SW decode + HW encode: need hwupload

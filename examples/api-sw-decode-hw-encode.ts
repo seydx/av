@@ -14,7 +14,7 @@
  */
 
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { FF_ENCODER_H264_NVENC, FF_ENCODER_H264_QSV, FF_ENCODER_H264_VAAPI, FF_ENCODER_LIBX264, type FFEncoderCodec } from '../src/index.js';
+import { FF_ENCODER_H264_NVENC, FF_ENCODER_H264_QSV, FF_ENCODER_H264_VAAPI, FF_ENCODER_H264_VIDEOTOOLBOX, type FFEncoderCodec } from '../src/index.js';
 
 async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   console.log('🎬 Software Decode + Hardware Encode Example');
@@ -68,7 +68,7 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   let encoderName: FFEncoderCodec;
   switch (hw.deviceTypeName) {
     case 'videotoolbox':
-      encoderName = FF_ENCODER_LIBX264;
+      encoderName = FF_ENCODER_H264_VIDEOTOOLBOX;
       break;
     case 'cuda':
       encoderName = FF_ENCODER_H264_NVENC;

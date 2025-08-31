@@ -9,7 +9,7 @@
  */
 
 import { Decoder, Encoder, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { FF_ENCODER_H264_NVENC, FF_ENCODER_H264_QSV, FF_ENCODER_H264_VAAPI, FF_ENCODER_LIBX264 } from '../src/index.js';
+import { FF_ENCODER_H264_NVENC, FF_ENCODER_H264_QSV, FF_ENCODER_H264_VAAPI, FF_ENCODER_H264_VIDEOTOOLBOX, FF_ENCODER_LIBX264 } from '../src/index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];
@@ -82,7 +82,7 @@ async function main() {
       // Use hardware-specific encoder
       switch (hw.deviceTypeName) {
         case 'videotoolbox':
-          encoderName = FF_ENCODER_LIBX264;
+          encoderName = FF_ENCODER_H264_VIDEOTOOLBOX;
           codecOptions = {
             realtime: '1',
           };
