@@ -175,7 +175,7 @@ const categorizeDecoder = (name) => {
  * Convert decoder name to constant name
  */
 const toConstantName = (name) => {
-  return 'DECODER_' + name.toUpperCase().replace(/-/g, '_');
+  return 'FF_DECODER_' + name.toUpperCase().replace(/_/g, '_');
 };
 
 /**
@@ -220,13 +220,15 @@ const generateTypeScript = (includePatches = false) => {
  */
 
 // Brand symbol for type safety
-const __decoder_brand = Symbol('__decoder_brand');
+const __codec_brand = Symbol('__codec_brand');
 
-// Decoder name types
-export type DecoderName = string & { readonly [__decoder_brand]: 'DecoderName' };
-export type VideoDecoderName = DecoderName & { readonly __type: 'video' };
-export type AudioDecoderName = DecoderName & { readonly __type: 'audio' };
-export type SubtitleDecoderName = DecoderName & { readonly __type: 'subtitle' };
+// Base decoder type
+export type FFDecoderCodec = string & { readonly [__codec_brand]: 'decoder' };
+
+// Specific decoder types by media type
+export type FFVideoDecoder = FFDecoderCodec & { readonly __type: 'video' };
+export type FFAudioDecoder = FFDecoderCodec & { readonly __type: 'audio' };
+export type FFSubtitleDecoder = FFDecoderCodec & { readonly __type: 'subtitle' };
 
 `;
 
@@ -239,7 +241,7 @@ export type SubtitleDecoderName = DecoderName & { readonly __type: 'subtitle' };
     output += '// Software video decoders\n';
     for (const decoder of videoSw.sort()) {
       const constName = toConstantName(decoder);
-      output += `export const ${constName} = '${decoder}' as VideoDecoderName;\n`;
+      output += `export const ${constName} = '${decoder}' as FFVideoDecoder;\n`;
     }
     output += '\n';
   }
@@ -261,7 +263,7 @@ export type SubtitleDecoderName = DecoderName & { readonly __type: 'subtitle' };
       output += `\n// ${hwType}\n`;
       for (const decoder of decoders.sort()) {
         const constName = toConstantName(decoder);
-        output += `export const ${constName} = '${decoder}' as VideoDecoderName;\n`;
+        output += `export const ${constName} = '${decoder}' as FFVideoDecoder;\n`;
       }
     }
     output += '\n';
@@ -276,7 +278,7 @@ export type SubtitleDecoderName = DecoderName & { readonly __type: 'subtitle' };
     output += '// Software audio decoders\n';
     for (const decoder of audioSw.sort()) {
       const constName = toConstantName(decoder);
-      output += `export const ${constName} = '${decoder}' as AudioDecoderName;\n`;
+      output += `export const ${constName} = '${decoder}' as FFAudioDecoder;\n`;
     }
     output += '\n';
   }
@@ -285,7 +287,7 @@ export type SubtitleDecoderName = DecoderName & { readonly __type: 'subtitle' };
     output += '// Hardware audio decoders\n';
     for (const decoder of audioHw.sort()) {
       const constName = toConstantName(decoder);
-      output += `export const ${constName} = '${decoder}' as AudioDecoderName;\n`;
+      output += `export const ${constName} = '${decoder}' as FFAudioDecoder;\n`;
     }
     output += '\n';
   }
@@ -298,7 +300,7 @@ export type SubtitleDecoderName = DecoderName & { readonly __type: 'subtitle' };
 
     for (const decoder of subtitleDecoders.sort()) {
       const constName = toConstantName(decoder);
-      output += `export const ${constName} = '${decoder}' as SubtitleDecoderName;\n`;
+      output += `export const ${constName} = '${decoder}' as FFSubtitleDecoder;\n`;
     }
     output += '\n';
   }
@@ -328,7 +330,7 @@ const main = () => {
 
     // Show summary
     const lines = output.split('\n').length;
-    const constants = (output.match(/export const DECODER_/g) || []).length;
+    const constants = (output.match(/export const FF_DECODER_/g) || []).length;
 
     console.log(`Generated: ${lines} lines, ${constants} decoder constants`);
 
