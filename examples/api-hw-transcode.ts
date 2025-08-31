@@ -9,6 +9,7 @@
  */
 
 import { Decoder, Encoder, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
+import { FF_ENCODER_H264_NVENC, FF_ENCODER_H264_QSV, FF_ENCODER_H264_VAAPI, FF_ENCODER_LIBX264 } from '../src/index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];
@@ -71,7 +72,7 @@ async function main() {
     }
 
     // Determine encoder based on hardware availability
-    let encoderName = 'libx264'; // Default software encoder
+    let encoderName = FF_ENCODER_LIBX264; // Default software encoder
     let codecOptions: Record<string, string> = {
       preset: 'fast',
       crf: '23',
@@ -81,19 +82,19 @@ async function main() {
       // Use hardware-specific encoder
       switch (hw.deviceTypeName) {
         case 'videotoolbox':
-          encoderName = 'h264_videotoolbox';
+          encoderName = FF_ENCODER_LIBX264;
           codecOptions = {
             realtime: '1',
           };
           break;
         case 'cuda':
-          encoderName = 'h264_nvenc';
+          encoderName = FF_ENCODER_H264_NVENC;
           break;
         case 'vaapi':
-          encoderName = 'h264_vaapi';
+          encoderName = FF_ENCODER_H264_VAAPI;
           break;
         case 'qsv':
-          encoderName = 'h264_qsv';
+          encoderName = FF_ENCODER_H264_QSV;
           break;
         default:
           console.log('⚠️  No known H.264 encoder for this hardware, using software');

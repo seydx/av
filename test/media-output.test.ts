@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { stat, unlink } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Decoder, Encoder, MediaInput, MediaOutput, Packet } from '../src/index.js';
+import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Decoder, Encoder, FF_ENCODER_AAC, FF_ENCODER_LIBX264, MediaInput, MediaOutput, Packet } from '../src/index.js';
 import { getInputFile, getOutputFile, prepareTestEnvironment } from './index.js';
 
 import type { IOOutputCallbacks } from '../src/api/types.js';
@@ -106,7 +106,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -159,7 +159,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -192,7 +192,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const videoEncoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -206,7 +206,7 @@ describe('MediaOutput', () => {
       );
 
       const audioEncoder = await Encoder.create(
-        'aac',
+        FF_ENCODER_AAC,
         {
           type: 'audio',
           sampleRate: 48000,
@@ -235,7 +235,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -264,7 +264,7 @@ describe('MediaOutput', () => {
       await output.close();
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -290,7 +290,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -328,7 +328,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -366,7 +366,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -400,7 +400,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -443,7 +443,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -474,7 +474,7 @@ describe('MediaOutput', () => {
       const output = await MediaOutput.open(outputFile);
 
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -514,7 +514,7 @@ describe('MediaOutput', () => {
         assert(output instanceof MediaOutput);
 
         const encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 640,
@@ -553,7 +553,7 @@ describe('MediaOutput', () => {
       // Setup decoder and encoder
       const decoder = await Decoder.create(videoStream);
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,

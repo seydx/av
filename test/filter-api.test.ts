@@ -11,6 +11,7 @@ import {
   AVMEDIA_TYPE_VIDEO,
   Decoder,
   Encoder,
+  FF_ENCODER_LIBX264,
   FilterAPI,
   FilterPresets,
   Frame,
@@ -94,7 +95,7 @@ describe('High-Level Filter API', () => {
 
     it('should create filter for encoder', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 1280,

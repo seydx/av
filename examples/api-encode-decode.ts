@@ -8,7 +8,7 @@
  * Example: tsx examples/api-encode-decode.ts testdata/video.mp4 examples/.tmp/api-encode-decode.mp4
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, MediaInput, MediaOutput } from '../src/index.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, MediaInput, MediaOutput } from '../src/index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];
@@ -42,7 +42,7 @@ async function main() {
     // Create encoder with different settings
     console.log('Creating encoder...');
     const encoder = await Encoder.create(
-      'libx264',
+      FF_ENCODER_LIBX264,
       {
         type: 'video',
         width: Math.floor(videoStream.codecpar.width / 2), // Half resolution

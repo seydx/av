@@ -28,6 +28,8 @@ import {
   AV_SAMPLE_FMT_S16P,
   Decoder,
   Encoder,
+  FF_ENCODER_AAC,
+  FF_ENCODER_LIBX264,
   FilterAPI,
   MediaInput,
   MediaOutput,
@@ -134,7 +136,7 @@ async function main() {
 
     // Create encoder with explicit video parameters
     // Use YUV420P for libx264 as it's the most compatible format
-    videoEncoder = await Encoder.create('libx264', {
+    videoEncoder = await Encoder.create(FF_ENCODER_LIBX264, {
       type: 'video',
       width: videoStream.codecpar.width,
       height: videoStream.codecpar.height,
@@ -169,7 +171,7 @@ async function main() {
 
     // AAC encoder
     audioEncoder = await Encoder.create(
-      'aac',
+      FF_ENCODER_AAC,
       {
         type: 'audio',
         frameSize: 1024,

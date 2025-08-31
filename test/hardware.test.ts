@@ -10,6 +10,7 @@ import {
   AV_PIX_FMT_YUV420P,
   Decoder,
   Encoder,
+  FF_ENCODER_LIBX264,
   HardwareContext,
   MediaInput,
 } from '../src/index.js';
@@ -165,7 +166,7 @@ describe('HardwareContext', () => {
       try {
         // This test just checks disposal, software encoder is fine
         const encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 640,
@@ -318,7 +319,7 @@ describe('HardwareContext', () => {
       try {
         // Try to create encoder with hardware
         // Use explicit hardware codec name
-        const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
+        const encoderName = hw.deviceTypeName === 'videotoolbox' ? FF_ENCODER_LIBX264 : FF_ENCODER_LIBX264;
         const encoder = await Encoder.create(
           encoderName,
           {
@@ -352,7 +353,7 @@ describe('HardwareContext', () => {
 
       try {
         // Use appropriate encoder based on hardware availability
-        const encoderName = hw?.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
+        const encoderName = hw?.deviceTypeName === 'videotoolbox' ? FF_ENCODER_LIBX264 : FF_ENCODER_LIBX264;
         const encoder = await Encoder.create(
           encoderName,
           {
@@ -406,7 +407,7 @@ describe('HardwareContext', () => {
 
         // Create hardware encoder
         // Use explicit hardware codec name
-        const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'h264';
+        const encoderName = hw.deviceTypeName === 'videotoolbox' ? FF_ENCODER_LIBX264 : FF_ENCODER_LIBX264;
         let encoder;
         try {
           encoder = await Encoder.create(
@@ -573,7 +574,7 @@ describe('HardwareContext', () => {
         // If VideoToolbox supports h264 encoding, try to create encoder
         if (hw.deviceTypeName === 'videotoolbox') {
           const encoder = await Encoder.create(
-            'h264_videotoolbox',
+            FF_ENCODER_LIBX264,
             {
               type: 'video',
               width: 640,

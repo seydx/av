@@ -13,6 +13,8 @@ import {
   BitStreamFilterAPI,
   Decoder,
   Encoder,
+  FF_ENCODER_AAC,
+  FF_ENCODER_LIBX264,
   FilterAPI,
   Frame,
   HardwareContext,
@@ -129,7 +131,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: videoStream.codecpar.width,
@@ -178,7 +180,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         using filter = await FilterAPI.create('scale=320:240', videoStream);
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -252,7 +254,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         using decoder = await Decoder.create(videoStream);
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: videoStream.codecpar.width,
@@ -299,7 +301,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         // Create processing stages
         const videoDecoder = await Decoder.create(videoStream);
         const videoEncoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -315,7 +317,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         const audioDecoder = await Decoder.create(audioStream);
         const audioEncoder = await Encoder.create(
-          'aac',
+          FF_ENCODER_AAC,
           {
             type: 'audio',
             sampleRate: 44100,
@@ -370,7 +372,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         // Process video, passthrough audio
         using videoDecoder = await Decoder.create(videoStream);
         using videoEncoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -431,7 +433,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
         using filter = await FilterAPI.create('scale=320:240', videoStream);
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -522,7 +524,7 @@ describe('Pipeline - Comprehensive Tests', () => {
       using decoder = await Decoder.create(videoStream);
       using filter = await FilterAPI.create('scale=320:240', videoStream);
       using encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -560,7 +562,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
       using decoder = await Decoder.create(videoStream);
       using encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -613,7 +615,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         using rotateFilter = await FilterAPI.create('transpose=1', videoStream); // 90 degree rotation
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 240, // Note: swapped due to rotation
@@ -656,7 +658,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         const filters = [filter1, filter2];
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -712,7 +714,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -813,7 +815,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         using filter = await FilterAPI.create('hwdownload,format=nv12', videoStream, { hardware: hw });
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -900,7 +902,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           });
 
           using encoder = await Encoder.create(
-            'libx264',
+            FF_ENCODER_LIBX264,
             {
               type: 'video',
               width: 160,
@@ -990,7 +992,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -1049,7 +1051,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         });
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 160,
@@ -1108,7 +1110,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           const audioDecoder = await Decoder.create(audioStream);
 
           const videoEncoder = await Encoder.create(
-            'libx264',
+            FF_ENCODER_LIBX264,
             {
               type: 'video',
               width: 320,
@@ -1123,7 +1125,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           );
 
           const audioEncoder = await Encoder.create(
-            'aac',
+            FF_ENCODER_AAC,
             {
               type: 'audio',
               sampleRate: 44100,
@@ -1178,7 +1180,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
           using decoder = await Decoder.create(videoStream);
           using encoder = await Encoder.create(
-            'libx264',
+            FF_ENCODER_LIBX264,
             {
               type: 'video',
               width: 320,
@@ -1218,7 +1220,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -1272,7 +1274,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           }
 
           using encoder = await Encoder.create(
-            'libx264',
+            FF_ENCODER_LIBX264,
             {
               type: 'video',
               width: 320,

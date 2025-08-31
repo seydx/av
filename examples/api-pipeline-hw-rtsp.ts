@@ -16,7 +16,20 @@
  *   tsx examples/api-pipeline-hw-rtsp.ts rtsp://server/live output.mp4 --scale 1280x720
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/index.js';
+import {
+  AV_PIX_FMT_YUV420P,
+  Decoder,
+  Encoder,
+  FF_ENCODER_HEVC_QSV,
+  FF_ENCODER_HEVC_VAAPI,
+  FF_ENCODER_HEVC_VIDEOTOOLBOX,
+  FF_ENCODER_LIBX265,
+  FilterAPI,
+  HardwareContext,
+  MediaInput,
+  MediaOutput,
+  pipeline,
+} from '../src/index.js';
 
 import type { PipelineControl } from '../src/index.js';
 
@@ -108,25 +121,25 @@ async function processRtsp() {
     console.log('  ✓ Decoder created');
 
     // Determine encoder and filter based on hardware
-    let encoderName = 'libx265';
+    let encoderName = FF_ENCODER_LIBX265;
     let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
 
     if (hardware) {
       switch (hardware.deviceTypeName) {
         case 'videotoolbox':
-          encoderName = 'hevc_videotoolbox';
+          encoderName = FF_ENCODER_HEVC_VIDEOTOOLBOX;
           filterChain = `scale_vt=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
           break;
         case 'vaapi':
-          encoderName = 'hevc_vaapi';
+          encoderName = FF_ENCODER_HEVC_VAAPI;
           filterChain = `scale_vaapi=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
           break;
         case 'cuda':
-          encoderName = 'hevc_nvenc';
+          encoderName = FF_ENCODER_HEVC_QSV;
           filterChain = `scale_cuda=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
           break;
         case 'qsv':
-          encoderName = 'hevc_qsv';
+          encoderName = FF_ENCODER_HEVC_QSV;
           filterChain = `scale_qsv=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
           break;
       }

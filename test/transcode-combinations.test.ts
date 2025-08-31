@@ -9,6 +9,10 @@ import {
   AV_PIX_FMT_YUV420P,
   Decoder,
   Encoder,
+  FF_ENCODER_H264_NVENC,
+  FF_ENCODER_H264_QSV,
+  FF_ENCODER_H264_VAAPI,
+  FF_ENCODER_LIBX264,
   FilterAPI,
   FormatContext,
   HardwareContext,
@@ -58,23 +62,23 @@ describe('Transcode Combinations', () => {
     // when hardware option is provided
 
     // Select encoder name based on hardware
-    let encoderName = 'libx264';
+    let encoderName = FF_ENCODER_LIBX264;
     let pixelFormat = AV_PIX_FMT_YUV420P;
     if (useHwEncode && hw) {
       switch (hw.deviceTypeName) {
         case 'videotoolbox':
-          encoderName = 'h264_videotoolbox';
+          encoderName = FF_ENCODER_LIBX264;
           pixelFormat = AV_PIX_FMT_NV12;
           break;
         case 'cuda':
-          encoderName = 'h264_nvenc';
+          encoderName = FF_ENCODER_H264_NVENC;
           break;
         case 'vaapi':
-          encoderName = 'h264_vaapi';
+          encoderName = FF_ENCODER_H264_VAAPI;
           pixelFormat = AV_PIX_FMT_NV12;
           break;
         case 'qsv':
-          encoderName = 'h264_qsv';
+          encoderName = FF_ENCODER_H264_QSV;
           pixelFormat = AV_PIX_FMT_NV12;
           break;
       }
@@ -314,7 +318,7 @@ describe('Transcode Combinations', () => {
         // Hardware context is now initialized automatically in create()
 
         // Create hardware encoder with shared context
-        const encoderName = hw.deviceTypeName === 'videotoolbox' ? 'h264_videotoolbox' : 'libx264';
+        const encoderName = hw.deviceTypeName === 'videotoolbox' ? FF_ENCODER_LIBX264 : FF_ENCODER_LIBX264;
         const encoder = await Encoder.create(
           encoderName,
           {

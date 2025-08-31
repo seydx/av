@@ -13,7 +13,7 @@
  * Example: tsx examples/api-sw-transcode.ts testdata/video.mp4 examples/.tmp/api-sw-transcode.mp4
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, MediaInput, MediaOutput } from '../src/index.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, MediaInput, MediaOutput } from '../src/index.js';
 
 async function softwareTranscode(inputFile: string, outputFile: string) {
   console.log('🎬 Full Software Transcode Example');
@@ -47,7 +47,7 @@ async function softwareTranscode(inputFile: string, outputFile: string) {
   // Create software encoder (CPU)
   console.log('🔧 Setting up software encoder...');
   const encoder = await Encoder.create(
-    'libx264',
+    FF_ENCODER_LIBX264,
     {
       type: 'video',
       width: videoStream.codecpar.width,

@@ -19,7 +19,7 @@
  */
 
 import { Decoder, Encoder, FilterAPI, MediaInput, MediaOutput, pipeline } from '../src/api/index.js';
-import { AV_CHANNEL_LAYOUT_STEREO, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from '../src/index.js';
+import { AV_CHANNEL_LAYOUT_STEREO, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16, FF_ENCODER_AAC, FF_ENCODER_LIBX264 } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -120,7 +120,7 @@ async function main() {
     // Create encoders
     console.log('Creating encoders...');
     using videoEncoder = await Encoder.create(
-      'libx264',
+      FF_ENCODER_LIBX264,
       {
         type: 'video',
         width: videoWidth,
@@ -141,7 +141,7 @@ async function main() {
     console.log('  ✓ Video encoder created (H.264)');
 
     using audioEncoder = await Encoder.create(
-      'aac',
+      FF_ENCODER_AAC,
       {
         type: 'audio',
         sampleRate: audioRate,

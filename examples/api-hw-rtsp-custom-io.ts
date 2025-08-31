@@ -14,7 +14,20 @@
  *   tsx examples/api-hw-rtsp-custom-io.ts rtsp://admin:pass@192.168.1.100/ch1 --duration 30
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput, RtpPacket } from '../src/index.js';
+import {
+  AV_PIX_FMT_YUV420P,
+  Decoder,
+  Encoder,
+  FF_ENCODER_HEVC_QSV,
+  FF_ENCODER_HEVC_VAAPI,
+  FF_ENCODER_HEVC_VIDEOTOOLBOX,
+  FF_ENCODER_LIBX265,
+  FilterAPI,
+  HardwareContext,
+  MediaInput,
+  MediaOutput,
+  RtpPacket,
+} from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -90,22 +103,22 @@ async function processRtsp() {
     console.log('Video decoder created\n');
 
     // Determine encoder based on hardware
-    let encoderName = 'libx265'; // Default software encoder
+    let encoderName = FF_ENCODER_LIBX265; // Default software encoder
     const filterChain = 'setpts=N/FRAME_RATE/TB';
 
     if (hardware) {
       switch (hardware.deviceTypeName) {
         case 'videotoolbox':
-          encoderName = 'hevc_videotoolbox';
+          encoderName = FF_ENCODER_HEVC_VIDEOTOOLBOX;
           break;
         case 'vaapi':
-          encoderName = 'hevc_vaapi';
+          encoderName = FF_ENCODER_HEVC_VAAPI;
           break;
         case 'cuda':
-          encoderName = 'hevc_nvenc';
+          encoderName = FF_ENCODER_HEVC_QSV;
           break;
         case 'qsv':
-          encoderName = 'hevc_qsv';
+          encoderName = FF_ENCODER_HEVC_QSV;
           break;
       }
     }

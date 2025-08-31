@@ -1,14 +1,14 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Encoder } from '../src/index.js';
+import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Encoder, FF_ENCODER_AAC, FF_ENCODER_LIBX264 } from '../src/index.js';
 import { Frame } from '../src/lib/index.js';
 
 describe('Encoder', () => {
   describe('create', () => {
     it('should create video encoder', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -26,14 +26,14 @@ describe('Encoder', () => {
 
       assert.ok(encoder);
       assert.equal(encoder.isEncoderOpen, true);
-      assert.equal(encoder.getCodecName(), 'libx264');
+      assert.equal(encoder.getCodecName(), FF_ENCODER_LIBX264);
 
       encoder.close();
     });
 
     it('should create audio encoder', async () => {
       const encoder = await Encoder.create(
-        'aac',
+        FF_ENCODER_AAC,
         {
           type: 'audio',
           sampleRate: 44100,
@@ -48,14 +48,14 @@ describe('Encoder', () => {
 
       assert.ok(encoder);
       assert.equal(encoder.isEncoderOpen, true);
-      assert.equal(encoder.getCodecName(), 'aac');
+      assert.equal(encoder.getCodecName(), FF_ENCODER_AAC);
 
       encoder.close();
     });
 
     it('should create encoder with thread options', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -76,7 +76,7 @@ describe('Encoder', () => {
 
     it('should create encoder with codec options', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -109,7 +109,7 @@ describe('Encoder', () => {
 
       for (const { input, desc } of testCases) {
         const encoder = await Encoder.create(
-          'aac',
+          FF_ENCODER_AAC,
           {
             type: 'audio',
             sampleRate: 44100,
@@ -131,7 +131,7 @@ describe('Encoder', () => {
       await assert.rejects(
         async () =>
           await Encoder.create(
-            'unknown_encoder',
+            'unknown_encoder' as any,
             {
               type: 'video',
               width: 640,
@@ -151,7 +151,7 @@ describe('Encoder', () => {
       await assert.rejects(
         async () =>
           await Encoder.create(
-            'aac',
+            FF_ENCODER_AAC,
             {
               type: 'audio',
               sampleRate: 44100,
@@ -171,7 +171,7 @@ describe('Encoder', () => {
       await assert.rejects(
         async () =>
           await Encoder.create(
-            'libx264',
+            FF_ENCODER_LIBX264,
             {
               type: 'video',
               width: 640,
@@ -191,7 +191,7 @@ describe('Encoder', () => {
   describe('encode', () => {
     it('should encode video frames', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -244,7 +244,7 @@ describe('Encoder', () => {
 
     it('should encode audio frames', async () => {
       const encoder = await Encoder.create(
-        'aac',
+        FF_ENCODER_AAC,
         {
           type: 'audio',
           sampleRate: 44100,
@@ -283,7 +283,7 @@ describe('Encoder', () => {
 
     it('should handle null packets gracefully', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -316,7 +316,7 @@ describe('Encoder', () => {
 
     it('should throw when encoder is closed', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -343,7 +343,7 @@ describe('Encoder', () => {
   describe('flush', () => {
     it('should flush remaining packets', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -389,7 +389,7 @@ describe('Encoder', () => {
 
     it('should throw when encoder is closed', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -411,7 +411,7 @@ describe('Encoder', () => {
   describe('async iterator', () => {
     it('should encode frames using iterator', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -457,7 +457,7 @@ describe('Encoder', () => {
 
     it('should handle empty frame stream', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -490,7 +490,7 @@ describe('Encoder', () => {
   describe('pixel format helpers', () => {
     it('should get preferred pixel format', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -512,7 +512,7 @@ describe('Encoder', () => {
 
     it('should get supported pixel formats', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 640,
@@ -536,7 +536,7 @@ describe('Encoder', () => {
     it('should return empty array for encoders without pixel format info', async () => {
       // AAC audio encoder doesn't have pixel formats
       const encoder = await Encoder.create(
-        'aac',
+        FF_ENCODER_AAC,
         {
           type: 'audio',
           sampleRate: 44100,
@@ -562,7 +562,7 @@ describe('Encoder', () => {
     it('should support Symbol.dispose', async () => {
       {
         using encoder = await Encoder.create(
-          'libx264',
+          FF_ENCODER_LIBX264,
           {
             type: 'video',
             width: 320,
@@ -581,7 +581,7 @@ describe('Encoder', () => {
 
     it('should handle multiple close calls', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,
@@ -604,7 +604,7 @@ describe('Encoder', () => {
 
     it('should return null codec context when closed', async () => {
       const encoder = await Encoder.create(
-        'libx264',
+        FF_ENCODER_LIBX264,
         {
           type: 'video',
           width: 320,

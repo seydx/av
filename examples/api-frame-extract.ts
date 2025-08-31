@@ -19,6 +19,8 @@ import {
   AV_PIX_FMT_YUVJ420P,
   Decoder,
   Encoder,
+  FF_ENCODER_MJPEG,
+  FF_ENCODER_PNG,
   MediaInput,
 } from '../src/index.js';
 
@@ -47,7 +49,7 @@ async function extractFrameAsPNG(frameNumber: number) {
   const decoder = await Decoder.create(videoStream);
 
   // Create PNG encoder
-  const pngEncoder = await Encoder.create('png', {
+  const pngEncoder = await Encoder.create(FF_ENCODER_PNG, {
     type: 'video',
     width: videoStream.codecpar.width,
     height: videoStream.codecpar.height,
@@ -122,7 +124,7 @@ async function extractFramesAtInterval(intervalSeconds: number, count: number) {
 
   // Create JPEG encoder for thumbnails
   const jpegEncoder = await Encoder.create(
-    'mjpeg',
+    FF_ENCODER_MJPEG,
     {
       type: 'video',
       width: 320, // Thumbnail size
