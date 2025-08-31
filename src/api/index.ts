@@ -13,13 +13,13 @@ export { Encoder } from './encoder.js';
 export { HardwareContext } from './hardware.js';
 
 // Filter
-export { FilterAPI } from './filter.js';
+export { FilterAPI, FilterPresets } from './filter.js';
 
 // BitStreamFilter
 export { BitStreamFilterAPI } from './bitstream-filter.js';
 
 // Pipeline
-export { pipeline } from './pipeline.js';
+export { pipeline, type PipelineControl } from './pipeline.js';
 
 // Utilities
 export * from './utilities/index.js';
