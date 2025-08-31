@@ -14,6 +14,7 @@ npm install node-av
 
 ```typescript
 import { Decoder, Encoder, MediaInput, MediaOutput } from 'node-av/api';
+import { FF_ENCODER_LIBX264 } from 'node-av/constants';
 
 // Open media
 await using input = await MediaInput.open('input.mp4');
@@ -24,7 +25,7 @@ const videoStream = input.video();
 
 // Create decoder/encoder
 using decoder = await Decoder.create(videoStream!);
-using encoder = await Encoder.create('libx264', videoStream!, {
+using encoder = await Encoder.create(FF_ENCODER_LIBX264, videoStream!, {
   bitrate: '2M',
   gopSize: 60,
 });
@@ -71,7 +72,7 @@ import { pipeline, MediaInput, MediaOutput, Decoder, Encoder } from 'node-av/api
 const input = await MediaInput.open('input.mp4');
 const output = await MediaOutput.open('output.mp4');
 const decoder = await Decoder.create(input.video());
-const encoder = await Encoder.create('libx264', input.video(), {
+const encoder = await Encoder.create(FF_ENCODER_LIBX264, input.video(), {
   bitrate: '2M',
   gopSize: 60
 });
@@ -109,6 +110,7 @@ The library supports all hardware acceleration methods available in FFmpeg. The 
 
 ```typescript
 import { HardwareContext } from 'node-av/api';
+import { FF_ENCODER_H264_VIDEOTOOLBOX } from 'node-av/constants';
 
 // Automatically detect best available hardware
 const hw = await HardwareContext.auto();
@@ -121,7 +123,7 @@ if (hw) {
   });
   
   // Use with encoder (use hardware-specific codec)
-  const encoder = await Encoder.create('h264_videotoolbox', videoStream, {
+  const encoder = await Encoder.create(FF_ENCODER_H264_VIDEOTOOLBOX, videoStream, {
     hardware: hw
   });
 }
