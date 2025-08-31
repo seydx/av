@@ -41,8 +41,8 @@ const extractEncodersFromPatches = () => {
     const content = readFileSync(join(PATCHES_DIR, patchFile), 'utf8');
 
     // Look for added encoder declarations in patches
-    // Format: +extern const FFCodec ff_<name>_encoder;
-    const encoderPattern = /\+extern const FFCodec ff_(\w+)_encoder;/g;
+    // Format: +extern const FFCodec ff_<name>_encoder; OR +extern FFCodec ff_<name>_encoder;
+    const encoderPattern = /\+extern (?:const )?FFCodec ff_(\w+)_encoder;/g;
     let match;
     let patchEncoders = [];
 
@@ -73,8 +73,8 @@ const extractEncoders = (includePatches = false) => {
   const content = readFileSync(ALLCODECS_PATH, 'utf8');
 
   // Extract all encoder declarations
-  // Format: extern const FFCodec ff_<name>_encoder;
-  const encoderPattern = /extern const FFCodec ff_(\w+)_encoder;/g;
+  // Format: extern const FFCodec ff_<name>_encoder; OR extern FFCodec ff_<name>_encoder;
+  const encoderPattern = /extern (?:const )?FFCodec ff_(\w+)_encoder;/g;
   const encoders = [];
   let match;
 

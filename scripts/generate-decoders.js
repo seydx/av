@@ -41,8 +41,8 @@ const extractDecodersFromPatches = () => {
     const content = readFileSync(join(PATCHES_DIR, patchFile), 'utf8');
 
     // Look for added decoder declarations in patches
-    // Format: +extern const FFCodec ff_<name>_decoder;
-    const decoderPattern = /\+extern const FFCodec ff_(\w+)_decoder;/g;
+    // Format: +extern const FFCodec ff_<name>_decoder; OR +extern FFCodec ff_<name>_decoder;
+    const decoderPattern = /\+extern (?:const )?FFCodec ff_(\w+)_decoder;/g;
     let match;
     let patchDecoders = [];
 
@@ -73,8 +73,8 @@ const extractDecoders = (includePatches = false) => {
   const content = readFileSync(ALLCODECS_PATH, 'utf8');
 
   // Extract all decoder declarations
-  // Format: extern const FFCodec ff_<name>_decoder;
-  const decoderPattern = /extern const FFCodec ff_(\w+)_decoder;/g;
+  // Format: extern const FFCodec ff_<name>_decoder; OR extern FFCodec ff_<name>_decoder;
+  const decoderPattern = /extern (?:const )?FFCodec ff_(\w+)_decoder;/g;
   const decoders = [];
   let match;
 
