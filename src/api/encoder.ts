@@ -25,7 +25,7 @@ import {
 import { Stream } from '../lib/stream.js';
 import { parseBitrate } from './utils.js';
 
-import type { AVPixelFormat, AVSampleFormat, Frame } from '../lib/index.js';
+import type { AVCodecID, AVPixelFormat, AVSampleFormat, Frame } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 import type { EncoderOptions, StreamInfo } from './types.js';
 
@@ -120,7 +120,7 @@ export class Encoder implements Disposable {
    * configures the context with provided options, and opens it.
    * Handles hardware setup including shared frames context for zero-copy.
    *
-   * @param codecName - Name of codec (e.g., 'libx264', 'aac', 'libopus')
+   * @param codecNameOrId - Name of codec (e.g., 'libx264', 'aac', 'libopus') or AVCodecID
    * @param input - Stream or StreamInfo to copy parameters from
    * @param options - Encoder configuration options
    *
@@ -145,13 +145,19 @@ export class Encoder implements Disposable {
    *
    * ```
    */
-  static async create(codecName: string, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
-    const actualCodecName = codecName;
+  static async create(codecNameOrID: string | AVCodecID, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
+    let codec: Codec | null = null;
 
-    // Find encoder by name
-    const codec = Codec.findEncoderByName(actualCodecName);
-    if (!codec) {
-      throw new Error(`Encoder ${actualCodecName} not found`);
+    if (typeof codecNameOrID === 'string') {
+      codec = Codec.findEncoderByName(codecNameOrID);
+    } else {
+      codec = Codec.findEncoder(codecNameOrID);
+    }
+
+    const codecName = codec?.name;
+
+    if (!codec || !codecName) {
+      throw new Error(`Encoder ${codecNameOrID} not found`);
     }
 
     // Allocate codec context
@@ -288,7 +294,7 @@ export class Encoder implements Disposable {
 
     // Validation: Hardware encoder MUST have HardwareContext
     if (supportsHardware && !options.hardware) {
-      throw new Error(`Hardware encoder '${actualCodecName}' requires a hardware context. ` + 'Please provide one via options.hardware');
+      throw new Error(`Hardware encoder '${codecName}' requires a hardware context. ` + 'Please provide one via options.hardware');
     }
 
     // Apply hardware acceleration if provided and encoder supports it
