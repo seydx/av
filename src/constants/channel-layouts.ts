@@ -4,7 +4,7 @@
  * DO NOT EDIT MANUALLY
  */
 
-import type { ChannelLayout } from './types.js';
+import type { ChannelLayout } from '../lib/types.js';
 
 // Channel masks (for legacy API)
 export const AV_CH_FRONT_LEFT = 0x1n;

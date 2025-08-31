@@ -680,6 +680,18 @@ export const AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION = 2 as AVStreamGroupPa
 export const AV_STREAM_GROUP_PARAMS_TILE_GRID = 3 as AVStreamGroupParamsType;
 export const AV_STREAM_GROUP_PARAMS_LCEVC = 4 as AVStreamGroupParamsType;
 
+// libavformat/avlanguage.h
+export type AVLangCodespace = number & { readonly [__ffmpeg_brand]: 'AVLangCodespace' };
+
+export const AV_LANG_ISO639_2_BIBL = 0 as AVLangCodespace;
+export const AV_LANG_ISO639_2_TERM = 1 as AVLangCodespace;
+export const AV_LANG_ISO639_1 = 2 as AVLangCodespace;
+
+// libavformat/mux.h
+export type AVWriteUncodedFrameFlags = number & { readonly [__ffmpeg_brand]: 'AVWriteUncodedFrameFlags' };
+
+export const AV_WRITE_UNCODED_FRAME_QUERY = 1 as AVWriteUncodedFrameFlags;
+
 // libavutil/avstring.h
 export type AVEscapeMode = number & { readonly [__ffmpeg_brand]: 'AVEscapeMode' };
 
@@ -1915,7 +1927,7 @@ export type AVFilterCmdFlag = number & { readonly [__ffmpeg_brand]: 'AVFilterCmd
 export const AVFILTER_CMD_FLAG_ONE = 1 as AVFilterCmdFlag;
 export const AVFILTER_CMD_FLAG_FAST = 2 as AVFilterCmdFlag;
 
-// AVFILTER constants (from libavfilter/avfilter.h, libavfilter/buffersink.h, libavfilter/buffersrc.h...)
+// AVFILTER constants (from libavfilter/avfilter.h, libavfilter/bufferqueue.h, libavfilter/buffersink.h...)
 export type AVFilterConstants = number & { readonly [__ffmpeg_brand]: 'AVFilterConstants' };
 
 export const AVFILTER_THREAD_SLICE = 0x1 as AVFilterConstants;
@@ -1996,11 +2008,6 @@ export const AV_PTS_WRAP_IGNORE = 0 as AVPTSWrap;
 export const AV_PTS_WRAP_ADD_OFFSET = 1 as AVPTSWrap;
 export const AV_PTS_WRAP_SUB_OFFSET = -1 as AVPTSWrap;
 
-// AV_HAVE constants (from libavutil/avconfig.h)
-export type AVHave = number & { readonly [__ffmpeg_brand]: 'AVHave' };
-
-export const AV_HAVE_BIGENDIAN = 0 as AVHave;
-
 // AV_UTF8_FLAG constants (from libavutil/avstring.h)
 export type AVUTF8Flag = number & { readonly [__ffmpeg_brand]: 'AVUTF8Flag' };
 
@@ -2052,10 +2059,11 @@ export const SWS_CS_SMPTE240M = 7 as SWSFlag;
 export const SWS_CS_DEFAULT = 5 as SWSFlag;
 export const SWS_CS_BT2020 = 9 as SWSFlag;
 
-// SWR constants (from libswresample/swresample.h)
+// SWR constants (from libswresample/swresample.h, libswresample/swresample_internal.h)
 export type SWRFlag = number & { readonly [__ffmpeg_brand]: 'SWRFlag' };
 
 export const SWR_FLAG_RESAMPLE = 1 as SWRFlag;
+export const SWR_CH_MAX = 64 as SWRFlag;
 
 // ============================================================================
 // AV_CODEC_HW_CONFIG_METHOD - Hardware configuration methods
