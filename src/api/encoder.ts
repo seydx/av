@@ -16,6 +16,7 @@ import { Stream } from '../lib/stream.js';
 import { parseBitrate } from './utils.js';
 
 import type { AVCodecID, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { FFEncoderCodec } from '../constants/encoders.js';
 import type { Frame } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 import type { EncoderOptions, StreamInfo } from './types.js';
@@ -136,7 +137,7 @@ export class Encoder implements Disposable {
    *
    * ```
    */
-  static async create(codecNameOrID: string | AVCodecID, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
+  static async create(codecNameOrID: FFEncoderCodec | AVCodecID, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
     let codec: Codec | null = null;
 
     if (typeof codecNameOrID === 'string') {
