@@ -112,7 +112,7 @@ export class Encoder implements Disposable {
    * configures the context with provided options, and opens it.
    * Handles hardware setup including shared frames context for zero-copy.
    *
-   * @param codecNameOrId - Name of codec (e.g., 'libx264', 'aac', 'libopus') or AVCodecID
+   * @param encoderCodec - Codec to use for encoding
    * @param input - Stream or StreamInfo to copy parameters from
    * @param options - Encoder configuration options
    *
@@ -137,19 +137,23 @@ export class Encoder implements Disposable {
    *
    * ```
    */
-  static async create(codecNameOrID: FFEncoderCodec | AVCodecID, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
+  static async create(encoderCodec: FFEncoderCodec | AVCodecID | Codec, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
     let codec: Codec | null = null;
+    let codecName = '';
 
-    if (typeof codecNameOrID === 'string') {
-      codec = Codec.findEncoderByName(codecNameOrID);
+    if (encoderCodec instanceof Codec) {
+      codec = encoderCodec;
+      codecName = codec.name ?? 'Unknown';
+    } else if (typeof encoderCodec === 'string') {
+      codec = Codec.findEncoderByName(encoderCodec);
+      codecName = codec?.name ?? encoderCodec;
     } else {
-      codec = Codec.findEncoder(codecNameOrID);
+      codec = Codec.findEncoder(encoderCodec);
+      codecName = codec?.name ?? encoderCodec.toString();
     }
 
-    const codecName = codec?.name;
-
-    if (!codec || !codecName) {
-      throw new Error(`Encoder ${codecNameOrID} not found`);
+    if (!codec) {
+      throw new Error(`Encoder ${codecName} not found`);
     }
 
     // Allocate codec context

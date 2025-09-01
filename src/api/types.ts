@@ -492,3 +492,19 @@ export interface ImageOptions {
     to: AVPixelFormat;
   };
 }
+
+/**
+ * Hardware accelerated codec names supported across different hardware types.
+ * These are generic codec names that map to specific hardware encoder implementations.
+ */
+export type HardwareBaseCodecName =
+  | 'av1' // AV1 codec (amf, mediacodec, nvenc, qsv, vaapi)
+  | 'h264' // H.264/AVC (amf, mediacodec, nvenc, qsv, vaapi, v4l2m2m, mf, omx, rkmpp, videotoolbox, vulkan)
+  | 'hevc' // H.265/HEVC (amf, mediacodec, nvenc, qsv, vaapi, v4l2m2m, mf, rkmpp, videotoolbox, d3d12va, vulkan)
+  | 'h263' // H.263 (v4l2m2m)
+  | 'mpeg2' // MPEG-2 (qsv, vaapi)
+  | 'mpeg4' // MPEG-4 Part 2 (mediacodec, v4l2m2m, omx)
+  | 'vp8' // VP8 (mediacodec, vaapi, v4l2m2m)
+  | 'vp9' // VP9 (mediacodec, qsv, vaapi)
+  | 'mjpeg' // Motion JPEG (qsv, vaapi, rkmpp, videotoolbox)
+  | 'prores'; // ProRes (videotoolbox only)

@@ -13,7 +13,8 @@ export { Encoder } from './encoder.js';
 export { HardwareContext } from './hardware.js';
 
 // Filter
-export { FilterAPI, FilterPresets } from './filter.js';
+export { FilterPresets } from './filter-presets.js';
+export { FilterAPI } from './filter.js';
 
 // BitStreamFilter
 export { BitStreamFilterAPI } from './bitstream-filter.js';
