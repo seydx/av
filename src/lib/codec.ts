@@ -1,7 +1,10 @@
+import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX } from '../constants/constants.js';
 import { bindings } from './binding.js';
 import { Rational } from './rational.js';
 
 import type { AVCodecCap, AVCodecID, AVHWDeviceType, AVMediaType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { FFDecoderCodec } from '../constants/decoders.js';
+import type { FFEncoderCodec } from '../constants/encoders.js';
 import type { NativeCodec, NativeWrapper } from './native-types.js';
 import type { ChannelLayout, CodecProfile } from './types.js';
 
@@ -139,7 +142,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @see {@link findDecoder} To find by codec ID
    */
-  static findDecoderByName(name: string): Codec | null {
+  static findDecoderByName(name: FFDecoderCodec): Codec | null {
     const native = bindings.Codec.findDecoderByName(name);
     return native ? new Codec(native) : null;
   }
@@ -198,7 +201,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @see {@link findEncoder} To find by codec ID
    */
-  static findEncoderByName(name: string): Codec | null {
+  static findEncoderByName(name: FFEncoderCodec): Codec | null {
     const native = bindings.Codec.findEncoderByName(name);
     return native ? new Codec(native) : null;
   }
@@ -483,6 +486,209 @@ export class Codec implements NativeWrapper<NativeCodec> {
    */
   isExperimental(): boolean {
     return this.native.isExperimental();
+  }
+
+  /**
+   * Check if codec has any hardware acceleration support.
+   *
+   * Returns true if hw_configs are present (both generic and dedicated hw codecs).
+   * This includes:
+   * - Generic decoders with hardware acceleration support (e.g., 'h264' with VideoToolbox)
+   * - Dedicated hardware codecs (e.g., 'h264_videotoolbox', 'h264_nvenc')
+   *
+   * @returns true if the codec supports hardware acceleration
+   *
+   * @example
+   * ```typescript
+   * import { Codec } from 'node-av';
+   *
+   * // Check software codec
+   * const x264 = Codec.findEncoderByName('libx264');
+   * console.log(x264?.hasHardwareAcceleration()); // false
+   *
+   * // Check hardware codecs
+   * const h264 = Codec.findDecoderByName('h264');
+   * console.log(h264?.hasHardwareAcceleration()); // true
+   *
+   * const videotoolbox = Codec.findEncoderByName('h264_videotoolbox');
+   * console.log(videotoolbox?.hasHardwareAcceleration()); // true
+   * ```
+   */
+  hasHardwareAcceleration(): boolean {
+    // A codec is considered hardware if it has any hw_config with:
+    // - HW_DEVICE_CTX support (decoders typically use this)
+    // - HW_FRAMES_CTX support (encoders typically use this)
+    for (let i = 0; ; i++) {
+      const config = this.getHwConfig(i);
+      if (!config) break;
+
+      // Check for either HW_DEVICE_CTX or HW_FRAMES_CTX
+      if ((config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) !== 0 || (config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) !== 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if codec supports a specific hardware device type.
+   *
+   * @param deviceType - The hardware device type to check for
+   * @returns true if the codec supports the specified hardware device type
+   *
+   * @example
+   * ```typescript
+   * import { Codec } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
+   *
+   * const h264 = Codec.findDecoderByName('h264');
+   * console.log(h264?.supportsDevice(AV_HWDEVICE_TYPE_VIDEOTOOLBOX)); // true on macOS
+   *
+   * const h264VT = Codec.findEncoderByName('h264_videotoolbox');
+   * console.log(h264VT?.supportsDevice(AV_HWDEVICE_TYPE_VIDEOTOOLBOX)); // true
+   * console.log(h264VT?.supportsDevice(AV_HWDEVICE_TYPE_CUDA)); // false
+   * ```
+   */
+  supportsDevice(deviceType: AVHWDeviceType): boolean {
+    for (let i = 0; ; i++) {
+      const config = this.getHwConfig(i);
+      if (!config) break;
+
+      // Check if this config is for the requested device type
+      if (config.deviceType === deviceType) {
+        // Check if it has any valid hardware method
+        if ((config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) !== 0 || (config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) !== 0) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if this is a hardware-accelerated decoder.
+   *
+   * @param deviceType - Optional: check for specific device support
+   * @returns true if the codec is a decoder with hardware acceleration
+   *
+   * @example
+   * ```typescript
+   * import { AV_HWDEVICE_TYPE_VIDEOTOOLBOX } from 'node-av/constants';
+   *
+   * const h264 = Codec.findDecoderByName('h264');
+   * console.log(h264?.isHardwareAcceleratedDecoder()); // true on macOS
+   * console.log(h264?.isHardwareAcceleratedDecoder(AV_HWDEVICE_TYPE_VIDEOTOOLBOX)); // true
+   *
+   * const libx264 = Codec.findEncoderByName('libx264');
+   * console.log(libx264?.isHardwareAcceleratedDecoder()); // false (encoder)
+   * ```
+   */
+  isHardwareAcceleratedDecoder(deviceType?: AVHWDeviceType): boolean {
+    if (!this.isDecoder()) return false;
+
+    if (deviceType !== undefined) {
+      return this.supportsDevice(deviceType);
+    }
+
+    return this.hasHardwareAcceleration();
+  }
+
+  /**
+   * Check if this is a hardware-accelerated encoder.
+   *
+   * @param deviceType - Optional: check for specific device support
+   * @returns true if the codec is an encoder with hardware acceleration
+   *
+   * @example
+   * ```typescript
+   * import { AV_HWDEVICE_TYPE_VIDEOTOOLBOX } from 'node-av/constants';
+   *
+   * const h264VT = Codec.findEncoderByName('h264_videotoolbox');
+   * console.log(h264VT?.isHardwareAcceleratedEncoder()); // true
+   * console.log(h264VT?.isHardwareAcceleratedEncoder(AV_HWDEVICE_TYPE_VIDEOTOOLBOX)); // true
+   *
+   * const libx264 = Codec.findEncoderByName('libx264');
+   * console.log(libx264?.isHardwareAcceleratedEncoder()); // false
+   * ```
+   */
+  isHardwareAcceleratedEncoder(deviceType?: AVHWDeviceType): boolean {
+    if (!this.isEncoder()) return false;
+
+    if (deviceType !== undefined) {
+      return this.supportsDevice(deviceType);
+    }
+
+    return this.hasHardwareAcceleration();
+  }
+
+  /**
+   * Get list of all supported hardware device types.
+   *
+   * Useful for discovery of available hardware acceleration options.
+   *
+   * @returns Array of supported hardware device types
+   *
+   * @example
+   * ```typescript
+   * const h264 = Codec.findDecoderByName('h264');
+   * const devices = h264?.getSupportedDeviceTypes() ?? [];
+   * console.log('Supported devices:', devices);
+   * // On macOS: [AV_HWDEVICE_TYPE_VIDEOTOOLBOX]
+   * // On Linux with VAAPI: [AV_HWDEVICE_TYPE_VAAPI]
+   * ```
+   */
+  getSupportedDeviceTypes(): AVHWDeviceType[] {
+    const deviceTypes = new Set<AVHWDeviceType>();
+
+    for (let i = 0; ; i++) {
+      const config = this.getHwConfig(i);
+      if (!config) break;
+
+      // Only add if it has valid hw methods
+      if ((config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) !== 0 || (config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) !== 0) {
+        deviceTypes.add(config.deviceType);
+      }
+    }
+
+    return Array.from(deviceTypes);
+  }
+
+  /**
+   * Get the hardware acceleration method for a specific device type.
+   *
+   * Returns the methods flags or null if not supported.
+   * Useful to know HOW the codec uses hardware:
+   * - HW_DEVICE_CTX: Uses global device context (typical for decoders)
+   * - HW_FRAMES_CTX: Uses frame-level context (typical for encoders)
+   * - Both: Full hardware pipeline support
+   *
+   * @param deviceType - The hardware device type
+   * @returns Hardware methods flags or null
+   *
+   * @example
+   * ```typescript
+   * import { AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX } from 'node-av/constants';
+   *
+   * const h264 = Codec.findDecoderByName('h264');
+   * const methods = h264?.getHardwareMethod(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+   * if (methods && (methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX)) {
+   *   console.log('Uses device context');
+   * }
+   * ```
+   */
+  getHardwareMethod(deviceType: AVHWDeviceType): number | null {
+    for (let i = 0; ; i++) {
+      const config = this.getHwConfig(i);
+      if (!config) break;
+
+      if (config.deviceType === deviceType) {
+        return config.methods;
+      }
+    }
+
+    return null;
   }
 
   /**
