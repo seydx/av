@@ -251,6 +251,15 @@
                     "-lva-x11"
                   ]
                 }
+              ],
+              [
+                "target_arch=='arm64'",
+                {
+                  "libraries": [
+                    "<!@(ls /opt/ffbuild/prefix/lib/librockchip_mpp.a 2>/dev/null || echo '')",
+                    "<!@(ls /opt/ffbuild/prefix/lib/librga.a 2>/dev/null || echo '')"
+                  ]
+                }
               ]
             ]
           }
