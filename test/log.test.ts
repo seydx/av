@@ -84,7 +84,7 @@ describe('Log', () => {
   });
 
   describe('Callback Management', () => {
-    it('should set a simple callback', (t, done) => {
+    it('should set a simple callback', (_, done) => {
       const messages: { level: number; message: string }[] = [];
 
       Log.setCallback((level, message) => {
@@ -99,7 +99,7 @@ describe('Log', () => {
       }, 100);
     });
 
-    it('should set callback with error level filter', (t, done) => {
+    it('should set callback with error level filter', (_, done) => {
       const messages: { level: number; message: string }[] = [];
 
       Log.setCallback(
@@ -121,7 +121,7 @@ describe('Log', () => {
 
     it('should reset callback to null', () => {
       // Set a callback first
-      Log.setCallback((level, message) => {
+      Log.setCallback((_level, message) => {
         console.log(`Test: ${message}`);
       });
 
@@ -132,7 +132,7 @@ describe('Log', () => {
 
     it('should reset callback using resetCallback', () => {
       // Set a callback first
-      Log.setCallback((level, message) => {
+      Log.setCallback((_level, message) => {
         console.log(`Test: ${message}`);
       });
 
@@ -143,17 +143,17 @@ describe('Log', () => {
 
     it('should handle multiple callback changes', () => {
       // First callback
-      Log.setCallback((level, message) => {
+      Log.setCallback((_level, message) => {
         console.log(`Callback 1: ${message}`);
       });
 
       // Replace with second callback
-      Log.setCallback((level, message) => {
+      Log.setCallback((_level, message) => {
         console.log(`Callback 2: ${message}`);
       });
 
       // Replace with third callback
-      Log.setCallback((level, message) => {
+      Log.setCallback((_level, message) => {
         console.log(`Callback 3: ${message}`);
       });
 
@@ -199,7 +199,7 @@ describe('Log', () => {
   });
 
   describe('Performance Considerations', () => {
-    it('should handle high-frequency logging without blocking', (t, done) => {
+    it('should handle high-frequency logging without blocking', (_, done) => {
       let messageCount = 0;
 
       // Set up a callback that counts messages
@@ -224,7 +224,7 @@ describe('Log', () => {
   });
 
   describe('Message Format', () => {
-    it('should receive level as number', (t, done) => {
+    it('should receive level as number', (_, done) => {
       Log.setCallback((level) => {
         assert.equal(typeof level, 'number', 'Level should be a number');
       });
@@ -235,8 +235,8 @@ describe('Log', () => {
       }, 100);
     });
 
-    it('should receive message as string', (t, done) => {
-      Log.setCallback((level, message) => {
+    it('should receive message as string', (_, done) => {
+      Log.setCallback((_level, message) => {
         assert.equal(typeof message, 'string', 'Message should be a string');
       });
 
@@ -286,7 +286,7 @@ describe('Log', () => {
   });
 
   describe('Integration Scenarios', () => {
-    it('should work with custom logging system', (t, done) => {
+    it('should work with custom logging system', (_, done) => {
       const customLogger = {
         logs: [] as { level: number; message: string; timestamp: number }[],
         log(level: number, message: string) {
@@ -308,7 +308,7 @@ describe('Log', () => {
       }, 100);
     });
 
-    it('should work with level-based routing', (t, done) => {
+    it('should work with level-based routing', (_, done) => {
       const errorLogs: string[] = [];
       const warningLogs: string[] = [];
       const infoLogs: string[] = [];
@@ -329,8 +329,8 @@ describe('Log', () => {
       }, 100);
     });
 
-    it('should handle empty message strings', (t, done) => {
-      Log.setCallback((level, message) => {
+    it('should handle empty message strings', (_, done) => {
+      Log.setCallback((_level, message) => {
         assert.ok(typeof message === 'string', 'Message is always a string');
         // Empty strings are valid
       });
@@ -341,8 +341,8 @@ describe('Log', () => {
       }, 100);
     });
 
-    it('should handle very long message strings', (t, done) => {
-      Log.setCallback((level, message) => {
+    it('should handle very long message strings', (_, done) => {
+      Log.setCallback((_level, message) => {
         assert.ok(typeof message === 'string', 'Long message is still a string');
         assert.ok(message.length < 1000000, 'Message length is reasonable');
       });
@@ -370,7 +370,7 @@ describe('Log', () => {
       assert.ok(true, 'Multiple null/reset handled');
     });
 
-    it('should handle callback that throws', (t, done) => {
+    it('should handle callback that throws', (_, done) => {
       Log.setCallback(() => {
         // This callback throws, but it shouldn't crash the process
         // because it's called asynchronously
@@ -427,7 +427,7 @@ describe('Log', () => {
     it('should clean up on reset', () => {
       const bigArray: string[] = [];
 
-      Log.setCallback((level, message) => {
+      Log.setCallback((_level, message) => {
         bigArray.push(message);
       });
 

@@ -71,18 +71,15 @@ describe('HardwareContext', () => {
         const h264Encoder = hw.getEncoderCodec('h264');
         const hevcEncoder = hw.getEncoderCodec('hevc');
         const av1Encoder = hw.getEncoderCodec('av1');
-        
+
         console.log(`Hardware encoder codecs for ${hw.deviceTypeName}:`);
-        console.log(`  h264: ${h264Encoder || 'not supported'}`);
-        console.log(`  hevc: ${hevcEncoder || 'not supported'}`);
-        console.log(`  av1: ${av1Encoder || 'not supported'}`);
-        
+        console.log(`  h264: ${h264Encoder ?? 'not supported'}`);
+        console.log(`  hevc: ${hevcEncoder ?? 'not supported'}`);
+        console.log(`  av1: ${av1Encoder ?? 'not supported'}`);
+
         // At least one might be supported depending on hardware
-        assert.ok(
-          h264Encoder !== null || hevcEncoder !== null || av1Encoder !== null || true,
-          'Hardware might support some codecs'
-        );
-        
+        assert.ok(h264Encoder !== null || hevcEncoder !== null || av1Encoder !== null || true, 'Hardware might support some codecs');
+
         hw.dispose();
       }
     });
@@ -113,32 +110,28 @@ describe('HardwareContext', () => {
       if (hw) {
         assert.ok(hw.filterPresets, 'Should have filter presets');
         assert.ok(hw.filterPresets.support, 'Should have support information');
-        
+
         // Test building hardware filter chains using the chain builder
         const chain = hw.filterPresets.chain();
         assert.ok(chain, 'Should create chain builder');
-        
+
         // Build a hardware filter chain
-        const filterChain = chain
-          .hwupload()
-          .scale(1280, 720)
-          .hwdownload()
-          .build();
-        
+        const filterChain = chain.hwupload().scale(1280, 720).hwdownload().build();
+
         console.log(`Hardware filter chain for ${hw.deviceTypeName}: ${filterChain}`);
         assert.ok(typeof filterChain === 'string', 'Should return filter chain string');
-        
+
         // Test individual filter presets
         const scaleFilter = hw.filterPresets.scale(1280, 720);
         console.log(`  Scale filter: ${scaleFilter}`);
         assert.ok(typeof scaleFilter === 'string', 'Should return scale filter string');
-        
+
         // Check hardware filter support
         console.log(`Hardware filter support for ${hw.deviceTypeName}:`);
         console.log(`  Scale: ${hw.filterPresets.support.scale}`);
         console.log(`  Overlay: ${hw.filterPresets.support.overlay}`);
         console.log(`  Deinterlace: ${hw.filterPresets.support.deinterlace}`);
-        
+
         hw.dispose();
       }
     });
@@ -394,7 +387,7 @@ describe('HardwareContext', () => {
         // Try to create encoder with hardware
         // Use hardware-specific encoder codec
         const hwEncoderCodec = hw.getEncoderCodec('h264');
-        const encoderName = hwEncoderCodec || FF_ENCODER_LIBX264;
+        const encoderName = hwEncoderCodec ?? FF_ENCODER_LIBX264;
         const encoder = await Encoder.create(
           encoderName,
           {
@@ -429,7 +422,7 @@ describe('HardwareContext', () => {
       try {
         // Use hardware-specific encoder codec if available
         const hwEncoderCodec = hw?.getEncoderCodec('h264');
-        const encoderName = hwEncoderCodec || FF_ENCODER_LIBX264;
+        const encoderName = hwEncoderCodec ?? FF_ENCODER_LIBX264;
         const encoder = await Encoder.create(
           encoderName,
           {
@@ -484,7 +477,7 @@ describe('HardwareContext', () => {
         // Create hardware encoder
         // Use hardware-specific encoder codec
         const hwEncoderCodec = hw.getEncoderCodec('h264');
-        const encoderName = hwEncoderCodec || FF_ENCODER_LIBX264;
+        const encoderName = hwEncoderCodec ?? FF_ENCODER_LIBX264;
         let encoder;
         try {
           encoder = await Encoder.create(
@@ -640,7 +633,7 @@ describe('HardwareContext', () => {
         // Test getting hardware encoder codecs
         const h264HwCodec = hw.getEncoderCodec('h264');
         const hevcHwCodec = hw.getEncoderCodec('hevc');
-        
+
         if (h264HwCodec) {
           console.log(`  H.264 hardware encoder: ${h264HwCodec}`);
         }
