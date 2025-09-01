@@ -9,10 +9,6 @@ import {
   AV_PIX_FMT_YUV420P,
   Decoder,
   Encoder,
-  FF_ENCODER_H264_NVENC,
-  FF_ENCODER_H264_QSV,
-  FF_ENCODER_H264_VAAPI,
-  FF_ENCODER_H264_VIDEOTOOLBOX,
   FF_ENCODER_LIBX264,
   FilterAPI,
   FormatContext,
@@ -22,7 +18,7 @@ import {
 } from '../src/index.js';
 import { getInputFile, getOutputFile, prepareTestEnvironment, skipInCI } from './index.js';
 
-import type { DecoderOptions, EncoderOptions, StreamInfo } from '../src/index.js';
+import type { DecoderOptions, EncoderOptions, FFEncoderCodec, StreamInfo } from '../src/index.js';
 
 prepareTestEnvironment();
 
@@ -60,26 +56,13 @@ describe('Transcode Combinations', () => {
     const decoder = await Decoder.create(videoStream, decoderOptions);
 
     // Select encoder name based on hardware
-    let encoderName = FF_ENCODER_LIBX264;
+    let encoderName: FFEncoderCodec = FF_ENCODER_LIBX264;
     let pixelFormat = AV_PIX_FMT_YUV420P;
     if (useHwEncode && hw) {
-      switch (hw.deviceTypeName) {
-        case 'videotoolbox':
-          encoderName = FF_ENCODER_H264_VIDEOTOOLBOX;
-          pixelFormat = AV_PIX_FMT_NV12;
-          break;
-        case 'cuda':
-          encoderName = FF_ENCODER_H264_NVENC;
-          pixelFormat = AV_PIX_FMT_NV12;
-          break;
-        case 'vaapi':
-          encoderName = FF_ENCODER_H264_VAAPI;
-          pixelFormat = AV_PIX_FMT_NV12;
-          break;
-        case 'qsv':
-          encoderName = FF_ENCODER_H264_QSV;
-          pixelFormat = AV_PIX_FMT_NV12;
-          break;
+      const enc = hw.getEncoderCodec('h264');
+      if (enc) {
+        encoderName = enc;
+        pixelFormat = AV_PIX_FMT_NV12;
       }
     }
 
@@ -134,8 +117,7 @@ describe('Transcode Combinations', () => {
     try {
       if (hw && useHwDecode && !useHwEncode) {
         // HW decode + SW encode: need hwdownload
-        // For VideoToolbox, we need scale_vt before hwdownload
-        const filterChain = hw.deviceTypeName === 'videotoolbox' ? 'scale_vt,hwdownload,format=nv12,format=yuv420p' : 'hwdownload,format=nv12';
+        const filterChain = hw.filterPresets.chain().hwdownload().format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]).build();
         filter = await FilterAPI.create(filterChain, videoStream, { hardware: hw });
       } else if (hw && !useHwDecode && useHwEncode) {
         // SW decode + HW encode: need hwupload
