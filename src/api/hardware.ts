@@ -78,7 +78,7 @@ import type { HardwareBaseCodecName, HardwareOptions } from './types.js';
 export class HardwareContext implements Disposable {
   private _deviceContext: HardwareDeviceContext;
   private _deviceType: AVHWDeviceType;
-  private _deviceName?: string;
+  private _deviceTypeName: string | null;
   private _devicePixelFormat: AVPixelFormat;
   private _isDisposed = false;
 
@@ -102,7 +102,7 @@ export class HardwareContext implements Disposable {
   private constructor(deviceContext: HardwareDeviceContext, deviceType: AVHWDeviceType, deviceName?: string) {
     this._deviceContext = deviceContext;
     this._deviceType = deviceType;
-    this._deviceName = deviceName;
+    this._deviceTypeName = deviceName ?? HardwareDeviceContext.getTypeName(this._deviceType);
     this._devicePixelFormat = this.getHardwarePixelFormat();
     this.filterPresets = new HardwareFilterPresets(deviceType, deviceName);
   }
@@ -240,17 +240,8 @@ export class HardwareContext implements Disposable {
    *
    * @returns Device type name as string (e.g., 'cuda', 'videotoolbox')
    */
-  get deviceTypeName(): string {
-    return HardwareDeviceContext.getTypeName(this._deviceType) ?? 'unknown';
-  }
-
-  /**
-   * Get the device name/identifier.
-   *
-   * @returns Device name or undefined
-   */
-  get deviceName(): string | undefined {
-    return this._deviceName;
+  get deviceTypeName(): string | null {
+    return this._deviceTypeName;
   }
 
   /**
@@ -435,7 +426,7 @@ export class HardwareContext implements Disposable {
     }
 
     // Construct the encoder name
-    const encoderName = `${codecName}_${encoderSuffix}`;
+    const encoderName = `${codecName}_${encoderSuffix}` as FFEncoderCodec;
 
     const codec = Codec.findEncoderByName(encoderName);
     if (codec?.name) {
