@@ -10,7 +10,9 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { AVError, AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { AVCodecID, AVError, AVHWDeviceType, AVLogLevel, AVMediaType, AVOptionSearchFlags, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { FFDecoderCodec } from '../constants/decoders.js';
+import type { FFEncoderCodec } from '../constants/encoders.js';
 import type { PosixError } from './error.js';
 import type {
   NativeAudioFifo,
@@ -52,10 +54,10 @@ type NativeFrameConstructor = new () => NativeFrame;
 
 interface NativeCodecConstructor {
   new (): NativeCodec;
-  findDecoder(id: number): NativeCodec | null;
-  findEncoder(id: number): NativeCodec | null;
-  findDecoderByName(name: string): NativeCodec | null;
-  findEncoderByName(name: string): NativeCodec | null;
+  findDecoder(id: AVCodecID): NativeCodec | null;
+  findEncoder(id: AVCodecID): NativeCodec | null;
+  findDecoderByName(name: FFDecoderCodec): NativeCodec | null;
+  findEncoderByName(name: FFEncoderCodec): NativeCodec | null;
   getCodecList(): NativeCodec[];
   iterateCodecs(opaque?: bigint | null): { codec: NativeCodec; opaque: bigint } | null;
 }
