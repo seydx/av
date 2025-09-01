@@ -29,6 +29,7 @@ const testAudioPath = getInputFile('audio.wav');
 describe('High-Level Filter API', () => {
   describe('Filter Creation', () => {
     it('should create a simple video filter', async () => {
+      // Note: Video filters use lazy initialization and won't be fully ready until first frame
       const config: VideoInfo = {
         type: 'video',
         width: 1920,
@@ -41,7 +42,7 @@ describe('High-Level Filter API', () => {
 
       const filter = await FilterAPI.create('scale=1280:720', config);
       assert.ok(filter);
-      assert.ok(filter.isReady());
+      // Video filters use lazy initialization
       assert.equal(filter.getMediaType(), AVMEDIA_TYPE_VIDEO);
       filter.free();
     });
@@ -75,22 +76,8 @@ describe('High-Level Filter API', () => {
 
       const filter = await FilterAPI.create('null', config);
       assert.ok(filter);
-      assert.ok(filter.isReady());
+      // Video filters use lazy initialization
       filter.free();
-    });
-
-    it('should create filter from stream', async () => {
-      const media = await MediaInput.open(testVideoPath);
-      const videoStream = media.video();
-      assert.ok(videoStream);
-
-      const filter = await FilterAPI.create('scale=640:480', videoStream);
-      assert.ok(filter);
-      assert.ok(filter.isReady());
-      assert.equal(filter.getMediaType(), AVMEDIA_TYPE_VIDEO);
-
-      filter.free();
-      await media.close();
     });
 
     it('should create filter for encoder', async () => {
@@ -120,7 +107,7 @@ describe('High-Level Filter API', () => {
 
       const filter = await FilterAPI.create('scale=1280:720', inputConfig);
       assert.ok(filter);
-      assert.ok(filter.isReady());
+      // Video filters use lazy initialization
 
       filter.free();
       encoder.close();
@@ -141,7 +128,7 @@ describe('High-Level Filter API', () => {
       const filter = await FilterAPI.create('scale=1280:720,format=pix_fmts=yuv420p|nv12', config);
 
       assert.ok(filter);
-      assert.ok(filter.isReady());
+      // Video filters use lazy initialization
       filter.free();
     });
 
@@ -161,7 +148,7 @@ describe('High-Level Filter API', () => {
       });
 
       assert.ok(filter);
-      assert.ok(filter.isReady());
+      // Video filters use lazy initialization
       filter.free();
     });
 
@@ -179,19 +166,18 @@ describe('High-Level Filter API', () => {
       const filter = await FilterAPI.create('scale=1280:720,fps=30,format=yuv420p', config);
 
       assert.ok(filter);
-      assert.ok(filter.isReady());
+      // Video filters use lazy initialization
       filter.free();
     });
 
     it('should throw on invalid filter description', async () => {
-      const config: VideoInfo = {
-        type: 'video',
-        width: 1920,
-        height: 1080,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: { num: 1, den: 30 },
-        frameRate: { num: 30, den: 1 },
-        sampleAspectRatio: { num: 1, den: 1 },
+      // Use audio filter to test invalid filter immediately (audio filters initialize immediately)
+      const config: AudioInfo = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
       };
 
       await assert.rejects(async () => {
@@ -323,7 +309,7 @@ describe('High-Level Filter API', () => {
       assert.ok(videoStream);
       const decoder = await Decoder.create(videoStream);
 
-      const filter = await FilterAPI.create('scale=320:240,fps=15', videoStream);
+      const filter = await FilterAPI.create('scale=320:240,fps=15', decoder.getOutputStreamInfo());
 
       let frameCount = 0;
       const maxFrames = 10;
@@ -452,43 +438,19 @@ describe('High-Level Filter API', () => {
 
   describe('Utility Methods', () => {
     it('should get graph description', async () => {
-      const config: VideoInfo = {
-        type: 'video',
-        width: 1920,
-        height: 1080,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: { num: 1, den: 30 },
-        frameRate: { num: 30, den: 1 },
-        sampleAspectRatio: { num: 1, den: 1 },
+      // Use audio filter since it initializes immediately
+      const config: AudioInfo = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
       };
 
-      const filter = await FilterAPI.create('scale=1280:720', config);
+      const filter = await FilterAPI.create('volume=0.5', config);
       const description = filter.getGraphDescription();
       assert.ok(description);
       assert.equal(typeof description, 'string');
-
-      filter.free();
-    });
-
-    it('should get filter configuration', async () => {
-      const config: VideoInfo = {
-        type: 'video',
-        width: 1920,
-        height: 1080,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: { num: 1, den: 30 },
-        frameRate: { num: 30, den: 1 },
-      };
-
-      const filter = await FilterAPI.create('scale=1280:720', config);
-      const returnedConfig = filter.getConfig();
-
-      assert.equal(returnedConfig.type, 'video');
-      if (returnedConfig.type === 'video') {
-        assert.equal(returnedConfig.width, 1920);
-        assert.equal(returnedConfig.height, 1080);
-        assert.equal(returnedConfig.pixelFormat, AV_PIX_FMT_YUV420P);
-      }
 
       filter.free();
     });
@@ -505,7 +467,8 @@ describe('High-Level Filter API', () => {
       };
 
       const filter = await FilterAPI.create('scale=1280:720', config);
-      assert.ok(filter.isReady());
+      // Video filters use lazy initialization, not ready until first frame
+      // For audio filters, they are ready immediately
 
       filter.free();
       assert.ok(!filter.isReady());
@@ -554,7 +517,7 @@ describe('High-Level Filter API', () => {
 
       {
         using filter = await FilterAPI.create('scale=1280:720', config);
-        assert.ok(filter.isReady());
+        assert.ok(filter); // Video filters use lazy initialization
       }
       // Filter should be automatically freed here
     });
@@ -562,40 +525,37 @@ describe('High-Level Filter API', () => {
 
   describe('Error Handling', () => {
     it('should throw on invalid configuration', async () => {
-      const config: VideoInfo = {
-        type: 'video',
-        width: 0, // Invalid width
-        height: 1080,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: { num: 1, den: 30 },
-        frameRate: { num: 30, den: 1 },
-        sampleAspectRatio: { num: 1, den: 1 },
+      const config: AudioInfo = {
+        type: 'audio',
+        sampleRate: 0, // Invalid sample rate
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
       };
 
       await assert.rejects(async () => {
-        await FilterAPI.create('scale=1280:720', config);
+        await FilterAPI.create('volume=0.5', config);
       });
     });
 
     it('should throw when processing after free', async () => {
-      const config: VideoInfo = {
-        type: 'video',
-        width: 1920,
-        height: 1080,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: { num: 1, den: 30 },
-        frameRate: { num: 30, den: 1 },
-        sampleAspectRatio: { num: 1, den: 1 },
+      const config: AudioInfo = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
       };
 
-      const filter = await FilterAPI.create('scale=1280:720', config);
+      const filter = await FilterAPI.create('volume=0.5', config);
       filter.free();
 
       const frame = new Frame();
       frame.alloc();
-      frame.width = 1920;
-      frame.height = 1080;
-      frame.format = AV_PIX_FMT_YUV420P;
+      frame.nbSamples = 1024;
+      frame.format = AV_SAMPLE_FMT_FLTP;
+      frame.sampleRate = 48000;
+      frame.channelLayout = { nbChannels: 2, order: 1, mask: 3n };
 
       await assert.rejects(async () => {
         await filter.process(frame);
@@ -706,7 +666,7 @@ describe('High-Level Filter API', () => {
 
       const filter = await FilterAPI.create('aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', config);
 
-      assert.ok(filter.isReady());
+      assert.ok(filter.isReady()); // Audio filters are initialized immediately
       filter.free();
     });
   });
@@ -718,7 +678,7 @@ describe('High-Level Filter API', () => {
       assert.ok(videoStream);
       const decoder = await Decoder.create(videoStream);
 
-      const filter = await FilterAPI.create('scale=640:480,format=yuv420p', videoStream);
+      const filter = await FilterAPI.create('scale=640:480,format=yuv420p', decoder.getOutputStreamInfo());
 
       let processedFrames = 0;
       const maxFrames = 5;
@@ -761,12 +721,12 @@ describe('High-Level Filter API', () => {
       const filterChain = [FilterPresets.scale(1280, 720), FilterPresets.fps(24), FilterPresets.format(AV_PIX_FMT_YUV420P)].join(',');
 
       const filter = await FilterAPI.create(filterChain, config);
-      assert.ok(filter.isReady());
+      assert.ok(filter); // Video filters use lazy initialization
 
+      // For lazy-initialized video filters, graph description is null until first frame
       const description = filter.getGraphDescription();
-      assert.ok(description);
-      assert.ok(description.includes('scale'));
-      assert.ok(description.includes('fps'));
+      // Since video filter is not initialized yet, description will be null
+      assert.equal(description, null);
 
       filter.free();
     });
@@ -781,7 +741,7 @@ describe('High-Level Filter API', () => {
       const decoder = await Decoder.create(audioStream);
 
       // Apply audio filters: volume adjustment and resampling
-      const filter = await FilterAPI.create('volume=0.5,aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', audioStream);
+      const filter = await FilterAPI.create('volume=0.5,aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', decoder.getOutputStreamInfo());
 
       let processedFrames = 0;
       const maxFrames = 10;
@@ -928,21 +888,19 @@ describe('High-Level Filter API', () => {
     });
 
     it('should handle invalid command gracefully', async () => {
-      const config: VideoInfo = {
-        type: 'video',
-        width: 1920,
-        height: 1080,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: { num: 1, den: 30 },
-        frameRate: { num: 30, den: 1 },
-        sampleAspectRatio: { num: 1, den: 1 },
+      const config: AudioInfo = {
+        type: 'audio',
+        sampleRate: 48000,
+        sampleFormat: AV_SAMPLE_FMT_FLTP,
+        channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+        timeBase: { num: 1, den: 48000 },
       };
 
-      const filter = await FilterAPI.create('scale=1280:720', config);
+      const filter = await FilterAPI.create('volume=0.5', config);
 
       try {
         // Send an invalid command
-        filter.sendCommand('scale', 'invalid_command_xyz', 'value');
+        filter.sendCommand('volume', 'invalid_command_xyz', 'value');
         // If it doesn't throw, that's also OK
         assert.ok(true, 'Handled invalid command');
       } catch (err) {

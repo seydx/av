@@ -963,6 +963,324 @@ describe('FilterContext', () => {
     });
   });
 
+  describe('Buffersink Query Methods', () => {
+    it('should get video format properties from buffersink', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a complete video pipeline
+      const bufferFilter = Filter.getByName('buffer');
+      const sinkFilter = Filter.getByName('buffersink');
+      assert.ok(bufferFilter);
+      assert.ok(sinkFilter);
+
+      const bufferCtx = graph.createFilter(bufferFilter, 'src', 'video_size=1920x1080:pix_fmt=0:time_base=1/30:pixel_aspect=16/9');
+      const sinkCtx = graph.createFilter(sinkFilter, 'sink');
+      assert.ok(bufferCtx);
+      assert.ok(sinkCtx);
+
+      // Link and configure
+      bufferCtx.link(0, sinkCtx, 0);
+      const configRet = await graph.config();
+      assert.equal(configRet, 0);
+
+      // Get format properties from buffersink
+      const format = sinkCtx.buffersinkGetFormat();
+      assert.equal(format, AV_PIX_FMT_YUV420P, 'Should get pixel format');
+
+      const width = sinkCtx.buffersinkGetWidth();
+      assert.equal(width, 1920, 'Should get width');
+
+      const height = sinkCtx.buffersinkGetHeight();
+      assert.equal(height, 1080, 'Should get height');
+
+      const sar = sinkCtx.buffersinkGetSampleAspectRatio();
+      assert.ok(sar, 'Should get sample aspect ratio');
+      assert.equal(sar.num, 16, 'Should have correct SAR numerator');
+      assert.equal(sar.den, 9, 'Should have correct SAR denominator');
+
+      const frameRate = sinkCtx.buffersinkGetFrameRate();
+      assert.ok(frameRate, 'Should get frame rate');
+      // Frame rate might be 0/1 for simple filter graphs without explicit frame rate
+      // This is expected behavior for buffersink without frame rate constraints
+      if (frameRate.num === 0) {
+        assert.equal(frameRate.num, 0, 'Frame rate can be 0 for unconstrained buffersink');
+        assert.equal(frameRate.den, 1, 'Frame rate denominator should be 1');
+      } else {
+        assert.equal(frameRate.num, 30, 'Should have correct frame rate numerator');
+        assert.equal(frameRate.den, 1, 'Should have correct frame rate denominator');
+      }
+
+      const timeBase = sinkCtx.buffersinkGetTimeBase();
+      assert.ok(timeBase, 'Should get time base');
+      assert.equal(timeBase.num, 1, 'Should have correct time base numerator');
+      assert.equal(timeBase.den, 30, 'Should have correct time base denominator');
+
+      graph.free();
+    });
+
+    it('should get audio format properties from buffersink', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a complete audio pipeline
+      const abufferFilter = Filter.getByName('abuffer');
+      const abuffersinkFilter = Filter.getByName('abuffersink');
+      assert.ok(abufferFilter);
+      assert.ok(abuffersinkFilter);
+
+      const abufferCtx = graph.createFilter(abufferFilter, 'asrc', 'sample_rate=48000:sample_fmt=1:channel_layout=3');
+      const abuffersinkCtx = graph.createFilter(abuffersinkFilter, 'asink');
+      assert.ok(abufferCtx);
+      assert.ok(abuffersinkCtx);
+
+      // Link and configure
+      abufferCtx.link(0, abuffersinkCtx, 0);
+      const configRet = await graph.config();
+      assert.equal(configRet, 0);
+
+      // Get format properties from audio buffersink
+      const format = abuffersinkCtx.buffersinkGetFormat();
+      assert.equal(format, AV_SAMPLE_FMT_S16, 'Should get sample format');
+
+      const sampleRate = abuffersinkCtx.buffersinkGetSampleRate();
+      assert.equal(sampleRate, 48000, 'Should get sample rate');
+
+      const channelLayout = abuffersinkCtx.buffersinkGetChannelLayout();
+      assert.ok(channelLayout, 'Should get channel layout');
+      assert.equal(channelLayout.nbChannels, 2, 'Should have 2 channels');
+      assert.equal(channelLayout.mask, 3n, 'Should have stereo mask');
+
+      const timeBase = abuffersinkCtx.buffersinkGetTimeBase();
+      assert.ok(timeBase, 'Should get time base');
+      assert.equal(timeBase.num, 1, 'Should have correct time base numerator');
+      assert.equal(timeBase.den, 48000, 'Should have correct time base denominator');
+
+      graph.free();
+    });
+
+    it('should get format after filter transformation', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create pipeline with scale filter: buffer -> scale -> sink
+      const bufferFilter = Filter.getByName('buffer');
+      const scaleFilter = Filter.getByName('scale');
+      const sinkFilter = Filter.getByName('buffersink');
+      assert.ok(bufferFilter);
+      assert.ok(scaleFilter);
+      assert.ok(sinkFilter);
+
+      const bufferCtx = graph.createFilter(bufferFilter, 'src', 'video_size=1920x1080:pix_fmt=0:time_base=1/30:pixel_aspect=1/1');
+      const scaleCtx = graph.createFilter(scaleFilter, 'scale', '640:480');
+      const sinkCtx = graph.createFilter(sinkFilter, 'sink');
+      assert.ok(bufferCtx);
+      assert.ok(scaleCtx);
+      assert.ok(sinkCtx);
+
+      // Link and configure
+      bufferCtx.link(0, scaleCtx, 0);
+      scaleCtx.link(0, sinkCtx, 0);
+      const configRet = await graph.config();
+      assert.equal(configRet, 0);
+
+      // Add a frame to properly initialize the pipeline
+      const frame = new Frame();
+      frame.alloc();
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.width = 1920;
+      frame.height = 1080;
+      frame.pts = 0n;
+      frame.allocBuffer();
+
+      await bufferCtx.buffersrcAddFrame(frame);
+
+      // Get the output frame to ensure pipeline is processed
+      const outFrame = new Frame();
+      outFrame.alloc();
+      await sinkCtx.buffersinkGetFrame(outFrame);
+
+      // Get transformed dimensions from buffersink
+      const width = sinkCtx.buffersinkGetWidth();
+      assert.equal(width, 640, 'Should get scaled width');
+
+      const height = sinkCtx.buffersinkGetHeight();
+      assert.equal(height, 480, 'Should get scaled height');
+
+      // Format should remain the same
+      const format = sinkCtx.buffersinkGetFormat();
+      assert.equal(format, AV_PIX_FMT_YUV420P, 'Format should remain YUV420P');
+
+      frame.free();
+      outFrame.free();
+      graph.free();
+    });
+
+    it('should get format after audio resampling', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create pipeline with aformat filter: abuffer -> aformat -> abuffersink
+      const abufferFilter = Filter.getByName('abuffer');
+      const aformatFilter = Filter.getByName('aformat');
+      const abuffersinkFilter = Filter.getByName('abuffersink');
+      assert.ok(abufferFilter);
+      assert.ok(aformatFilter);
+      assert.ok(abuffersinkFilter);
+
+      // Start with 44100 Hz
+      const abufferCtx = graph.createFilter(abufferFilter, 'asrc', 'sample_rate=44100:sample_fmt=1:channel_layout=3:time_base=1/44100');
+      // Resample to 48000 Hz
+      const aformatCtx = graph.createFilter(aformatFilter, 'fmt', 'sample_rates=48000:sample_fmts=1:channel_layouts=3');
+      const abuffersinkCtx = graph.createFilter(abuffersinkFilter, 'asink');
+      assert.ok(abufferCtx);
+      assert.ok(aformatCtx);
+      assert.ok(abuffersinkCtx);
+
+      // Link and configure
+      abufferCtx.link(0, aformatCtx, 0);
+      aformatCtx.link(0, abuffersinkCtx, 0);
+      const configRet = await graph.config();
+      assert.equal(configRet, 0);
+
+      // Add an audio frame to initialize the pipeline
+      const audioFrame = new Frame();
+      audioFrame.alloc();
+      audioFrame.format = AV_SAMPLE_FMT_S16;
+      audioFrame.sampleRate = 44100;
+      audioFrame.nbSamples = 1024;
+      audioFrame.pts = 0n;
+      audioFrame.channelLayout = {
+        order: 0,
+        nbChannels: 2,
+        mask: 3n,
+      };
+      audioFrame.allocBuffer();
+
+      await abufferCtx.buffersrcAddFrame(audioFrame);
+
+      // Get the output frame
+      const outFrame = new Frame();
+      outFrame.alloc();
+      await abuffersinkCtx.buffersinkGetFrame(outFrame);
+
+      // Get resampled format from buffersink
+      const sampleRate = abuffersinkCtx.buffersinkGetSampleRate();
+      assert.equal(sampleRate, 48000, 'Should get resampled rate');
+
+      const format = abuffersinkCtx.buffersinkGetFormat();
+      assert.equal(format, AV_SAMPLE_FMT_S16, 'Format should remain S16');
+
+      audioFrame.free();
+      outFrame.free();
+      graph.free();
+    });
+
+    it('should handle video format with non-square pixels', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create buffer with non-square pixel aspect ratio (e.g., anamorphic)
+      const bufferFilter = Filter.getByName('buffer');
+      const sinkFilter = Filter.getByName('buffersink');
+      assert.ok(bufferFilter);
+      assert.ok(sinkFilter);
+
+      // 720x480 with 8:9 PAR (NTSC DV)
+      const bufferCtx = graph.createFilter(bufferFilter, 'src', 'video_size=720x480:pix_fmt=0:time_base=1001/30000:pixel_aspect=8/9');
+      const sinkCtx = graph.createFilter(sinkFilter, 'sink');
+      assert.ok(bufferCtx);
+      assert.ok(sinkCtx);
+
+      bufferCtx.link(0, sinkCtx, 0);
+      const configRet = await graph.config();
+      assert.equal(configRet, 0);
+
+      // Add a frame to initialize
+      const frame = new Frame();
+      frame.alloc();
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.width = 720;
+      frame.height = 480;
+      frame.pts = 0n;
+      frame.allocBuffer();
+
+      await bufferCtx.buffersrcAddFrame(frame);
+
+      const outFrame = new Frame();
+      outFrame.alloc();
+      await sinkCtx.buffersinkGetFrame(outFrame);
+
+      const sar = sinkCtx.buffersinkGetSampleAspectRatio();
+      assert.ok(sar, 'Should get sample aspect ratio');
+      assert.equal(sar.num, 8, 'Should have correct PAR numerator');
+      assert.equal(sar.den, 9, 'Should have correct PAR denominator');
+
+      const width = sinkCtx.buffersinkGetWidth();
+      assert.equal(width, 720, 'Should get correct width');
+
+      const height = sinkCtx.buffersinkGetHeight();
+      assert.equal(height, 480, 'Should get correct height');
+
+      frame.free();
+      outFrame.free();
+      graph.free();
+    });
+
+    it('should handle multichannel audio layouts', async () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const abufferFilter = Filter.getByName('abuffer');
+      const abuffersinkFilter = Filter.getByName('abuffersink');
+      assert.ok(abufferFilter);
+      assert.ok(abuffersinkFilter);
+
+      // Create 5.1 surround audio (6 channels)
+      // Channel layout mask for 5.1: FL+FR+FC+LFE+BL+BR = 0x3F
+      const abufferCtx = graph.createFilter(abufferFilter, 'asrc', 'sample_rate=48000:sample_fmt=1:channel_layout=0x3f:time_base=1/48000');
+      const abuffersinkCtx = graph.createFilter(abuffersinkFilter, 'asink');
+      assert.ok(abufferCtx);
+      assert.ok(abuffersinkCtx);
+
+      abufferCtx.link(0, abuffersinkCtx, 0);
+      const configRet = await graph.config();
+      assert.equal(configRet, 0);
+
+      // Add an audio frame
+      const audioFrame = new Frame();
+      audioFrame.alloc();
+      audioFrame.format = AV_SAMPLE_FMT_S16;
+      audioFrame.sampleRate = 48000;
+      audioFrame.nbSamples = 1024;
+      audioFrame.pts = 0n;
+      audioFrame.channelLayout = {
+        order: 0,
+        nbChannels: 6,
+        mask: 0x3fn,
+      };
+      audioFrame.allocBuffer();
+
+      await abufferCtx.buffersrcAddFrame(audioFrame);
+
+      const outFrame = new Frame();
+      outFrame.alloc();
+      await abuffersinkCtx.buffersinkGetFrame(outFrame);
+
+      const channelLayout = abuffersinkCtx.buffersinkGetChannelLayout();
+      assert.ok(channelLayout, 'Should get channel layout');
+      assert.equal(channelLayout.nbChannels, 6, 'Should have 6 channels for 5.1');
+      assert.equal(channelLayout.mask, 0x3fn, 'Should have 5.1 surround mask');
+
+      const sampleRate = abuffersinkCtx.buffersinkGetSampleRate();
+      assert.equal(sampleRate, 48000, 'Should get correct sample rate');
+
+      audioFrame.free();
+      outFrame.free();
+      graph.free();
+    });
+  });
+
   describe('Buffer Source Parameters', () => {
     it('should set buffer source parameters with buffersrcParametersSet', () => {
       const graph = new FilterGraph();

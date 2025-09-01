@@ -19,6 +19,9 @@ import {
   BitStreamFilterContext,
   Codec,
   CodecContext,
+  FF_DECODER_H264,
+  FF_ENCODER_LIBX264,
+  FF_ENCODER_MPEG4,
   Filter,
   FilterGraph,
   FormatContext,
@@ -31,7 +34,7 @@ import {
 describe('Option API', () => {
   describe('CodecContext Options', () => {
     it('should set and get options on encoder context', () => {
-      const codec = Codec.findEncoderByName('libx264');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       assert.ok(codec, 'Should find h264 encoder');
 
       const ctx = new CodecContext();
@@ -58,7 +61,7 @@ describe('Option API', () => {
     });
 
     it('should set and get options on decoder context', () => {
-      const codec = Codec.findDecoderByName('h264');
+      const codec = Codec.findDecoderByName(FF_DECODER_H264);
       assert.ok(codec, 'Should find h264 decoder');
 
       const ctx = new CodecContext();
@@ -75,7 +78,7 @@ describe('Option API', () => {
     });
 
     it('should handle invalid option names', () => {
-      const codec = Codec.findEncoderByName('libx264');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -91,7 +94,7 @@ describe('Option API', () => {
     });
 
     it('should list available options', () => {
-      const codec = Codec.findEncoderByName('libx264') ?? Codec.findEncoderByName('mpeg4');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264) ?? Codec.findEncoderByName(FF_ENCODER_MPEG4);
       assert.ok(codec, 'Should find an encoder');
 
       const ctx = new CodecContext();
@@ -326,7 +329,7 @@ describe('Option API', () => {
 
   describe('Option Types', () => {
     it('should handle different option types', () => {
-      const codec = Codec.findEncoderByName('libx264');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -375,7 +378,7 @@ describe('Option API', () => {
     });
 
     it('should handle binary data options', () => {
-      const codec = Codec.findEncoderByName('libx264');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -393,7 +396,7 @@ describe('Option API', () => {
     it('should handle integer array options', () => {
       // Integer array options are less common and not all contexts support them
       // Test with a codec context that might support array options
-      const codec = Codec.findEncoderByName('libx264') ?? Codec.findEncoderByName('mpeg4');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264) ?? Codec.findEncoderByName(FF_ENCODER_MPEG4);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -410,7 +413,7 @@ describe('Option API', () => {
     });
 
     it('should handle boolean options', () => {
-      const codec = Codec.findEncoderByName('libx264');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -433,7 +436,7 @@ describe('Option API', () => {
     });
 
     it('should handle flags options', () => {
-      const codec = Codec.findEncoderByName('libx264');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -450,7 +453,7 @@ describe('Option API', () => {
 
   describe('Search Flags', () => {
     it('should use search flags when setting options', () => {
-      const codec = Codec.findEncoderByName('libx264');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -500,7 +503,7 @@ describe('Option API', () => {
     });
 
     it('should handle type mismatches', () => {
-      const codec = Codec.findEncoderByName('libx264') ?? Codec.findEncoderByName('mpeg4');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264) ?? Codec.findEncoderByName(FF_ENCODER_MPEG4);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -527,7 +530,7 @@ describe('Option API', () => {
     });
 
     it('should handle null values gracefully', () => {
-      const codec = Codec.findEncoderByName('libx264') ?? Codec.findEncoderByName('mpeg4');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264) ?? Codec.findEncoderByName(FF_ENCODER_MPEG4);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -548,7 +551,7 @@ describe('Option API', () => {
 
   describe('Option Information', () => {
     it('should provide detailed option information', () => {
-      const codec = Codec.findEncoderByName('libx264') ?? Codec.findEncoderByName('mpeg4');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264) ?? Codec.findEncoderByName(FF_ENCODER_MPEG4);
       assert.ok(codec);
 
       const ctx = new CodecContext();
@@ -575,7 +578,7 @@ describe('Option API', () => {
     });
 
     it('should handle const options', () => {
-      const codec = Codec.findEncoderByName('libx264') ?? Codec.findEncoderByName('mpeg4');
+      const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264) ?? Codec.findEncoderByName(FF_ENCODER_MPEG4);
       assert.ok(codec);
 
       const ctx = new CodecContext();

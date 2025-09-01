@@ -177,7 +177,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Create a simple scale filter
-        using filter = await FilterAPI.create('scale=320:240', videoStream);
+        using filter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
 
         using encoder = await Encoder.create(
           FF_ENCODER_LIBX264,
@@ -431,7 +431,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using decoder = await Decoder.create(videoStream);
-        using filter = await FilterAPI.create('scale=320:240', videoStream);
+        using filter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
         using encoder = await Encoder.create(
           FF_ENCODER_LIBX264,
           {
@@ -495,7 +495,7 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       using decoder = await Decoder.create(videoStream);
-      using filter = await FilterAPI.create('scale=160:120', videoStream);
+      using filter = await FilterAPI.create('scale=160:120', decoder.getOutputStreamInfo());
 
       // Partial pipeline with filter
       const frameGenerator = pipeline(input, decoder, filter);
@@ -522,7 +522,7 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       using decoder = await Decoder.create(videoStream);
-      using filter = await FilterAPI.create('scale=320:240', videoStream);
+      using filter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
       using encoder = await Encoder.create(
         FF_ENCODER_LIBX264,
         {
@@ -611,8 +611,8 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Chain multiple filters
-        using scaleFilter = await FilterAPI.create('scale=320:240', videoStream);
-        using rotateFilter = await FilterAPI.create('transpose=1', videoStream); // 90 degree rotation
+        using scaleFilter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
+        using rotateFilter = await FilterAPI.create('transpose=1', decoder.getOutputStreamInfo()); // 90 degree rotation
 
         using encoder = await Encoder.create(
           FF_ENCODER_LIBX264,
@@ -653,8 +653,8 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Array of filters
-        const filter1 = await FilterAPI.create('scale=320:240', videoStream);
-        const filter2 = await FilterAPI.create('format=yuv420p', videoStream);
+        const filter1 = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
+        const filter2 = await FilterAPI.create('format=yuv420p', decoder.getOutputStreamInfo());
         const filters = [filter1, filter2];
 
         using encoder = await Encoder.create(
@@ -768,24 +768,6 @@ describe('Pipeline - Comprehensive Tests', () => {
         'Should throw error for closed decoder',
       );
     });
-
-    it('should handle filter creation error', async () => {
-      await using input = await MediaInput.open(inputFile);
-      const videoStream = input.video();
-
-      if (!videoStream) {
-        assert.fail('No video stream found');
-      }
-
-      // Try to create invalid filter
-      await assert.rejects(
-        async () => {
-          await FilterAPI.create('invalid_filter_that_does_not_exist', videoStream);
-        },
-        /parse|invalid|error/i,
-        'Should throw error for invalid filter',
-      );
-    });
   });
 
   describe('Hardware Acceleration', skipInCI, () => {
@@ -812,7 +794,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         using decoder = await Decoder.create(videoStream, { hardware: hw });
 
-        using filter = await FilterAPI.create('hwdownload,format=nv12', videoStream, { hardware: hw });
+        using filter = await FilterAPI.create('hwdownload,format=nv12', decoder.getOutputStreamInfo(), { hardware: hw });
 
         using encoder = await Encoder.create(
           FF_ENCODER_LIBX264,

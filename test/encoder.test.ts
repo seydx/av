@@ -1,8 +1,18 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Encoder, FF_ENCODER_AAC, FF_ENCODER_LIBX264 } from '../src/index.js';
-import { Frame } from '../src/lib/index.js';
+import {
+  AV_PIX_FMT_YUV420P,
+  AV_SAMPLE_FMT_FLTP,
+  Codec,
+  Encoder,
+  FF_ENCODER_AAC,
+  FF_ENCODER_LIBX264,
+  HardwareContext,
+  type AudioInfo,
+  type VideoInfo,
+} from '../src/index.js';
+import { avIsHardwarePixelFormat, Frame } from '../src/lib/index.js';
 
 describe('Encoder', () => {
   describe('create', () => {
@@ -555,6 +565,205 @@ describe('Encoder', () => {
       assert.equal(supportedFormats.length, 0, 'Audio encoder should have no pixel formats');
 
       encoder.close();
+    });
+  });
+
+  describe('getOutputStreamInfo', () => {
+    it('should return correct output format for video encoder', async () => {
+      const encoder = await Encoder.create(
+        FF_ENCODER_LIBX264,
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: AV_PIX_FMT_YUV420P,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {},
+      );
+
+      const outputInfo = encoder.getOutputStreamInfo() as VideoInfo;
+
+      assert.equal(outputInfo.type, 'video');
+      assert.equal(outputInfo.width, 640);
+      assert.equal(outputInfo.height, 480);
+      assert.equal(outputInfo.pixelFormat, AV_PIX_FMT_YUV420P);
+      assert.deepEqual(outputInfo.frameRate, { num: 25, den: 1 });
+      assert.deepEqual(outputInfo.timeBase, { num: 1, den: 25 });
+      assert.deepEqual(outputInfo.sampleAspectRatio, { num: 1, den: 1 });
+
+      encoder.close();
+    });
+
+    it('should return correct output format for audio encoder', async () => {
+      const encoder = await Encoder.create(
+        FF_ENCODER_AAC,
+        {
+          type: 'audio',
+          sampleRate: 44100,
+          sampleFormat: AV_SAMPLE_FMT_FLTP,
+          channelLayout: { nbChannels: 2, order: 1, mask: 3n },
+          timeBase: { num: 1, den: 44100 },
+        },
+        {},
+      );
+
+      const outputInfo = encoder.getOutputStreamInfo() as AudioInfo;
+
+      assert.equal(outputInfo.type, 'audio');
+      assert.equal(outputInfo.sampleRate, 44100);
+      assert.equal(outputInfo.sampleFormat, AV_SAMPLE_FMT_FLTP);
+      assert.deepEqual(outputInfo.channelLayout, { nbChannels: 2, order: 1, mask: 3n });
+      assert.deepEqual(outputInfo.timeBase, { num: 1, den: 44100 });
+
+      encoder.close();
+    });
+
+    it('should return hardware pixel format for hardware encoder', async () => {
+      // Try to get hardware context
+      const hw: HardwareContext | null = await HardwareContext.auto();
+      if (!hw) {
+        return;
+      }
+
+      // Get hardware encoder codec name
+      const hwEncoderCodecName = hw.getEncoderCodec('h264');
+      if (!hwEncoderCodecName) {
+        hw.dispose();
+        return;
+      }
+
+      try {
+        const encoder = await Encoder.create(
+          hwEncoderCodecName,
+          {
+            type: 'video',
+            width: 640,
+            height: 480,
+            pixelFormat: AV_PIX_FMT_YUV420P, // Will be converted to hardware format
+            frameRate: { num: 25, den: 1 },
+            timeBase: { num: 1, den: 25 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {
+            hardware: hw,
+          },
+        );
+
+        const outputInfo = encoder.getOutputStreamInfo();
+
+        assert.equal(outputInfo.type, 'video');
+
+        // For hardware encoder, output should be hardware pixel format
+        const codecObj = Codec.findEncoderByName(hwEncoderCodecName);
+        if (codecObj?.isHardwareAcceleratedEncoder()) {
+          assert.ok(avIsHardwarePixelFormat((outputInfo as VideoInfo).pixelFormat), `Expected hardware pixel format, got ${(outputInfo as VideoInfo).pixelFormat}`);
+        }
+
+        encoder.close();
+      } catch (error) {
+        // Hardware encoder creation might fail on some systems
+        console.log('Hardware encoder creation failed:', error.message);
+      }
+
+      hw.dispose();
+    });
+  });
+
+  describe('hardware encoding', () => {
+    it('should create hardware encoder with hardware context', async () => {
+      // Try to get hardware context
+      const hw: HardwareContext | null = await HardwareContext.auto();
+      if (!hw) {
+        return;
+      }
+
+      if (!hw) {
+        return;
+      }
+
+      // Get hardware encoder codec name
+      const hwEncoderCodecName = hw.getEncoderCodec('h264');
+      if (!hwEncoderCodecName) {
+        hw.dispose();
+        return;
+      }
+
+      try {
+        const encoder = await Encoder.create(
+          hwEncoderCodecName,
+          {
+            type: 'video',
+            width: 640,
+            height: 480,
+            pixelFormat: AV_PIX_FMT_YUV420P,
+            frameRate: { num: 25, den: 1 },
+            timeBase: { num: 1, den: 25 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {
+            hardware: hw,
+            bitrate: '1M',
+          },
+        );
+
+        assert.ok(encoder);
+        assert.equal(encoder.isEncoderOpen, true);
+        assert.equal(encoder.getCodecName(), hwEncoderCodecName);
+
+        encoder.close();
+      } catch (error) {
+        // Hardware encoder creation might fail on some systems
+        console.log('Hardware encoder creation failed:', error.message);
+      }
+
+      hw.dispose();
+    });
+
+    it('should throw when hardware encoder used without hardware context for encoders requiring it', async () => {
+      // Try to get hardware context to find hardware encoder names
+      const hw: HardwareContext | null = await HardwareContext.auto();
+      if (!hw) {
+        return;
+      }
+
+      // Get hardware encoder codec name
+      const hwEncoderCodecName = hw.getEncoderCodec('h264');
+      if (!hwEncoderCodecName) {
+        hw.dispose();
+        return;
+      }
+
+      hw.dispose(); // Dispose after we got the name
+
+      // Check if encoder is a hardware encoder
+      const codecObj = Codec.findEncoderByName(hwEncoderCodecName);
+      if (!codecObj?.isHardwareAcceleratedEncoder()) {
+        return;
+      }
+
+      // Try to create hardware encoder without hardware context
+      await assert.rejects(
+        async () => {
+          await Encoder.create(
+            hwEncoderCodecName,
+            {
+              type: 'video',
+              width: 640,
+              height: 480,
+              pixelFormat: AV_PIX_FMT_YUV420P,
+              frameRate: { num: 25, den: 1 },
+              timeBase: { num: 1, den: 25 },
+              sampleAspectRatio: { num: 1, den: 1 },
+            },
+            {}, // No hardware context!
+          );
+        },
+        /requires a hardware context/,
+        'Should throw when hardware encoder used without hardware context',
+      );
     });
   });
 

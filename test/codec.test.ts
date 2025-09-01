@@ -17,9 +17,31 @@ import {
   AV_CODEC_ID_VORBIS,
   AV_CODEC_ID_VP8,
   AV_CODEC_ID_VP9,
+  AV_HWDEVICE_TYPE_CUDA,
+  AV_HWDEVICE_TYPE_D3D11VA,
+  AV_HWDEVICE_TYPE_DXVA2,
+  AV_HWDEVICE_TYPE_QSV,
+  AV_HWDEVICE_TYPE_VAAPI,
+  AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
   AVMEDIA_TYPE_AUDIO,
   AVMEDIA_TYPE_VIDEO,
   Codec,
+  FF_DECODER_AAC,
+  FF_DECODER_H264,
+  FF_DECODER_H264_CUVID,
+  FF_DECODER_H264_QSV,
+  FF_DECODER_HEVC_CUVID,
+  FF_DECODER_HEVC_QSV,
+  FF_ENCODER_H264_NVENC,
+  FF_ENCODER_H264_QSV,
+  FF_ENCODER_H264_VAAPI,
+  FF_ENCODER_H264_VIDEOTOOLBOX,
+  FF_ENCODER_HEVC_NVENC,
+  FF_ENCODER_HEVC_VIDEOTOOLBOX,
+  FF_ENCODER_LIBX264,
+  type AVHWDeviceType,
+  type FFDecoderCodec,
+  type FFEncoderCodec,
 } from '../src/index.js';
 
 describe('Codec', () => {
@@ -43,15 +65,15 @@ describe('Codec', () => {
     });
 
     it('should find decoder by name', () => {
-      const decoder = Codec.findDecoderByName('h264');
+      const decoder = Codec.findDecoderByName(FF_DECODER_H264);
       assert.ok(decoder);
       assert.ok(decoder.isDecoder());
-      assert.equal(decoder.name, 'h264');
+      assert.equal(decoder.name, FF_DECODER_H264);
       assert.equal(decoder.type, AVMEDIA_TYPE_VIDEO);
     });
 
     it('should find AAC decoder by name', () => {
-      const decoder = Codec.findDecoderByName('aac');
+      const decoder = Codec.findDecoderByName(FF_DECODER_AAC);
       assert.ok(decoder);
       assert.ok(decoder.isDecoder());
       assert.equal(decoder.name, 'aac');
@@ -65,7 +87,7 @@ describe('Codec', () => {
     });
 
     it('should return null for non-existent decoder name', () => {
-      const decoder = Codec.findDecoderByName('nonexistent_codec_xyz');
+      const decoder = Codec.findDecoderByName('nonexistent_codec_xyz' as any);
       assert.equal(decoder, null);
     });
 
@@ -113,18 +135,18 @@ describe('Codec', () => {
 
     it('should find encoder by name', () => {
       // Try to find libx264 encoder (common software encoder)
-      const encoder = Codec.findEncoderByName('libx264');
+      const encoder = Codec.findEncoderByName(FF_ENCODER_LIBX264);
       // libx264 might not be available in all builds
       if (encoder) {
         assert.ok(encoder.isEncoder());
-        assert.equal(encoder.name, 'libx264');
+        assert.equal(encoder.name, FF_ENCODER_LIBX264);
         assert.equal(encoder.type, AVMEDIA_TYPE_VIDEO);
       } else {
         // Try fallback to any h264 encoder
         const fallback = Codec.findEncoder(AV_CODEC_ID_H264);
         // Skip test if no H.264 encoder is available
         if (!fallback) {
-          console.log('No H.264 encoder available, skipping test');
+          return;
         }
       }
     });
@@ -139,7 +161,7 @@ describe('Codec', () => {
     });
 
     it('should return null for non-existent encoder', () => {
-      const encoder = Codec.findEncoderByName('nonexistent_encoder_xyz');
+      const encoder = Codec.findEncoderByName('nonexistent_encoder_xyz' as any);
       assert.equal(encoder, null);
     });
 
@@ -166,7 +188,7 @@ describe('Codec', () => {
       assert.ok(decoder);
 
       // Basic properties
-      assert.equal(decoder.name, 'h264');
+      assert.equal(decoder.name, FF_DECODER_H264);
       assert.ok(decoder.longName);
       assert.ok(decoder.longName.includes('H.264') || decoder.longName.includes('AVC'));
       assert.equal(decoder.type, AVMEDIA_TYPE_VIDEO);
@@ -369,7 +391,7 @@ describe('Codec', () => {
       assert.ok(codecs.length < maxIterations, 'Iteration should terminate');
 
       // Should find common codecs
-      const h264 = codecs.find((c) => c.name === 'h264' && c.isDecoder());
+      const h264 = codecs.find((c) => c.name === FF_DECODER_H264 && c.isDecoder());
       assert.ok(h264, 'Should find H.264 decoder through iteration');
     });
 
@@ -392,8 +414,8 @@ describe('Codec', () => {
       assert.equal(iterCodecs.length, listCodecs.length);
 
       // Both should find same common codecs
-      const listH264 = listCodecs.find((c) => c.name === 'h264' && c.isDecoder());
-      const iterH264 = iterCodecs.find((c) => c.name === 'h264' && c.isDecoder());
+      const listH264 = listCodecs.find((c) => c.name === FF_DECODER_H264 && c.isDecoder());
+      const iterH264 = iterCodecs.find((c) => c.name === FF_DECODER_H264 && c.isDecoder());
       assert.ok(listH264);
       assert.ok(iterH264);
       assert.equal(listH264.id, iterH264.id);
@@ -420,17 +442,17 @@ describe('Codec', () => {
 
     it('should find different implementations of same codec', () => {
       // Try to find different H.264 decoder implementations
-      const h264 = Codec.findDecoderByName('h264');
-      const h264_cuvid = Codec.findDecoderByName('h264_cuvid');
+      const h264 = Codec.findDecoderByName(FF_DECODER_H264);
+      const h264_cuvid = Codec.findDecoderByName(FF_DECODER_H264_CUVID);
 
       if (h264) {
-        assert.equal(h264.name, 'h264');
+        assert.equal(h264.name, FF_DECODER_H264);
         assert.ok(h264.isDecoder());
       }
 
       // h264_cuvid is NVIDIA hardware decoder, might not be available
       if (h264_cuvid) {
-        assert.equal(h264_cuvid.name, 'h264_cuvid');
+        assert.equal(h264_cuvid.name, FF_DECODER_H264_CUVID);
         assert.ok(h264_cuvid.isDecoder());
         // Both decode H.264
         assert.equal(h264_cuvid.id, AV_CODEC_ID_H264);
@@ -438,10 +460,251 @@ describe('Codec', () => {
     });
   });
 
+  describe('Hardware Detection', () => {
+    it('should detect hardware acceleration with hasHardwareAcceleration()', () => {
+      // Test pure software codec
+      const libx264 = Codec.findEncoderByName(FF_ENCODER_LIBX264);
+      if (libx264) {
+        assert.strictEqual(libx264.hasHardwareAcceleration(), false, 'libx264 software encoder should not have hardware acceleration');
+      }
+
+      // Test generic decoder with hardware support (on macOS)
+      const h264 = Codec.findDecoderByName(FF_DECODER_H264);
+      if (h264) {
+        const hasHw = h264.hasHardwareAcceleration();
+        assert.ok(typeof hasHw === 'boolean');
+      }
+
+      const h264VTEnc = Codec.findEncoderByName(FF_ENCODER_H264_VIDEOTOOLBOX);
+      if (h264VTEnc) {
+        assert.strictEqual(h264VTEnc.hasHardwareAcceleration(), true, 'h264_videotoolbox encoder should have hardware acceleration');
+      }
+
+      // Test other hardware codecs if available
+      const hwDecoders: FFDecoderCodec[] = [FF_DECODER_H264_CUVID, FF_DECODER_H264_QSV, FF_DECODER_HEVC_CUVID, FF_DECODER_HEVC_QSV];
+
+      const hwEncoders: FFEncoderCodec[] = [
+        FF_ENCODER_H264_NVENC,
+        FF_ENCODER_H264_QSV,
+        FF_ENCODER_H264_VAAPI,
+        FF_ENCODER_H264_VIDEOTOOLBOX,
+        FF_ENCODER_HEVC_NVENC,
+        FF_ENCODER_HEVC_VIDEOTOOLBOX,
+      ];
+
+      for (const name of hwDecoders) {
+        const codec = Codec.findDecoderByName(name);
+        if (codec) {
+          assert.strictEqual(codec.hasHardwareAcceleration(), true, `${name} should have hardware acceleration`);
+        }
+      }
+
+      for (const name of hwEncoders) {
+        const codec = Codec.findEncoderByName(name);
+        if (codec) {
+          assert.strictEqual(codec.hasHardwareAcceleration(), true, `${name} should have hardware acceleration`);
+        }
+      }
+    });
+
+    it('should check device type support with supportsDevice()', () => {
+      // Test VideoToolbox encoder
+      const h264VTEnc = Codec.findEncoderByName(FF_ENCODER_H264_VIDEOTOOLBOX);
+      if (h264VTEnc) {
+        // VideoToolbox should support VIDEOTOOLBOX device type
+        assert.strictEqual(h264VTEnc.supportsDevice(AV_HWDEVICE_TYPE_VIDEOTOOLBOX), true, 'h264_videotoolbox encoder should support VIDEOTOOLBOX device');
+
+        // Should not support other device types
+        assert.strictEqual(h264VTEnc.supportsDevice(AV_HWDEVICE_TYPE_CUDA), false, 'h264_videotoolbox encoder should not support CUDA device');
+      }
+
+      // Test CUDA codec if available
+      const h264Cuvid = Codec.findDecoderByName(FF_DECODER_H264_CUVID);
+      if (h264Cuvid) {
+        assert.strictEqual(h264Cuvid.supportsDevice(AV_HWDEVICE_TYPE_CUDA), true, 'h264_cuvid should support CUDA device');
+        assert.strictEqual(h264Cuvid.supportsDevice(AV_HWDEVICE_TYPE_VIDEOTOOLBOX), false, 'h264_cuvid should not support VIDEOTOOLBOX device');
+      }
+
+      // Generic h264 decoder may support hardware on some platforms
+      const h264 = Codec.findDecoderByName(FF_DECODER_H264);
+      if (h264) {
+        const supportsVT = h264.supportsDevice(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+        assert.ok(typeof supportsVT === 'boolean');
+      }
+
+      // Pure software codec should not support any hardware device
+      const libx264 = Codec.findEncoderByName(FF_ENCODER_LIBX264);
+      if (libx264) {
+        const deviceTypes = [AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_QSV];
+
+        for (const deviceType of deviceTypes) {
+          assert.strictEqual(libx264.supportsDevice(deviceType), false, `libx264 should not support hardware device type ${deviceType}`);
+        }
+      }
+    });
+
+    it('should identify hardware-accelerated decoders with isHardwareAcceleratedDecoder()', () => {
+      // Generic h264 decoder may have hardware acceleration
+      const h264 = Codec.findDecoderByName(FF_DECODER_H264);
+      if (h264) {
+        const isHwAccelerated = h264.isHardwareAcceleratedDecoder();
+        assert.ok(typeof isHwAccelerated === 'boolean');
+      }
+
+      // Software encoder should return false
+      const libx264 = Codec.findEncoderByName(FF_ENCODER_LIBX264);
+      if (libx264) {
+        assert.strictEqual(libx264.isHardwareAcceleratedDecoder(), false, 'Encoder should not be hardware decoder');
+      }
+
+      // Test QSV decoder (exists as both decoder and encoder)
+      const h264QSV = Codec.findDecoderByName(FF_DECODER_H264_QSV);
+      if (h264QSV) {
+        assert.strictEqual(h264QSV.isHardwareAcceleratedDecoder(), true, 'h264_qsv should be hardware-accelerated decoder');
+        assert.strictEqual(h264QSV.isHardwareAcceleratedDecoder(AV_HWDEVICE_TYPE_QSV), true, 'h264_qsv should support QSV');
+        assert.strictEqual(h264QSV.isHardwareAcceleratedDecoder(AV_HWDEVICE_TYPE_CUDA), false, 'h264_qsv should not support CUDA');
+      }
+
+      // Test various hardware decoders
+      const hwDecoders: { name: FFDecoderCodec; device: AVHWDeviceType }[] = [
+        { name: FF_DECODER_H264_CUVID, device: AV_HWDEVICE_TYPE_CUDA },
+        { name: FF_DECODER_HEVC_CUVID, device: AV_HWDEVICE_TYPE_CUDA },
+        { name: FF_DECODER_H264_QSV, device: AV_HWDEVICE_TYPE_QSV },
+        { name: FF_DECODER_HEVC_QSV, device: AV_HWDEVICE_TYPE_QSV },
+      ];
+
+      for (const { name, device } of hwDecoders) {
+        const codec = Codec.findDecoderByName(name);
+        if (codec) {
+          assert.strictEqual(codec.isHardwareAcceleratedDecoder(), true, `${name} should be hardware-accelerated decoder`);
+          assert.strictEqual(codec.isHardwareAcceleratedDecoder(device), true, `${name} should support its device type`);
+        }
+      }
+    });
+
+    it('should identify hardware-accelerated encoders with isHardwareAcceleratedEncoder()', () => {
+      // Software encoder
+      const libx264 = Codec.findEncoderByName(FF_ENCODER_LIBX264);
+      if (libx264) {
+        assert.strictEqual(libx264.isHardwareAcceleratedEncoder(), false, 'libx264 should not be hardware-accelerated encoder');
+        assert.strictEqual(libx264.isHardwareAcceleratedEncoder(AV_HWDEVICE_TYPE_VIDEOTOOLBOX), false, 'libx264 should not support any device type');
+      }
+
+      // Decoder should return false
+      const h264 = Codec.findDecoderByName(FF_DECODER_H264);
+      if (h264) {
+        assert.strictEqual(h264.isHardwareAcceleratedEncoder(), false, 'Decoder should not be encoder');
+      }
+
+      // Hardware encoder
+      const h264VTEnc = Codec.findEncoderByName(FF_ENCODER_H264_VIDEOTOOLBOX);
+      if (h264VTEnc) {
+        assert.strictEqual(h264VTEnc.isHardwareAcceleratedEncoder(), true, 'h264_videotoolbox should be hardware-accelerated encoder');
+        assert.strictEqual(h264VTEnc.isHardwareAcceleratedEncoder(AV_HWDEVICE_TYPE_VIDEOTOOLBOX), true, 'h264_videotoolbox should support VIDEOTOOLBOX');
+        assert.strictEqual(h264VTEnc.isHardwareAcceleratedEncoder(AV_HWDEVICE_TYPE_CUDA), false, 'h264_videotoolbox should not support CUDA');
+      }
+
+      // Test various hardware encoders
+      const hwEncoders: { name: FFEncoderCodec; device: AVHWDeviceType }[] = [
+        { name: FF_ENCODER_H264_NVENC, device: AV_HWDEVICE_TYPE_CUDA },
+        { name: FF_ENCODER_HEVC_NVENC, device: AV_HWDEVICE_TYPE_CUDA },
+        { name: FF_ENCODER_H264_QSV, device: AV_HWDEVICE_TYPE_QSV },
+        { name: FF_ENCODER_H264_VAAPI, device: AV_HWDEVICE_TYPE_VAAPI },
+        { name: FF_ENCODER_HEVC_VIDEOTOOLBOX, device: AV_HWDEVICE_TYPE_VIDEOTOOLBOX },
+      ];
+
+      for (const { name, device } of hwEncoders) {
+        const codec = Codec.findEncoderByName(name);
+        if (codec) {
+          assert.strictEqual(codec.isHardwareAcceleratedEncoder(), true, `${name} should be hardware-accelerated encoder`);
+          assert.strictEqual(codec.isHardwareAcceleratedEncoder(device), true, `${name} should support its device type`);
+        }
+      }
+    });
+
+    it('should have consistent hardware detection methods', () => {
+      // Test that hardware detection methods are consistent with each other
+      const codecs = Codec.getCodecList();
+
+      for (const codec of codecs.slice(0, 100)) {
+        // Test first 100 to avoid timeout
+        const hasHwAccel = codec.hasHardwareAcceleration();
+        const isHwDec = codec.isHardwareAcceleratedDecoder();
+        const isHwEnc = codec.isHardwareAcceleratedEncoder();
+
+        // If it's a hardware-accelerated decoder or encoder, hasHardwareAcceleration should be true
+        if (isHwDec || isHwEnc) {
+          assert.strictEqual(hasHwAccel, true, `${codec.name}: If hardware-accelerated decoder/encoder, should have hardware acceleration`);
+        }
+
+        // Can't be both decoder and encoder
+        assert.ok(!(isHwDec && isHwEnc), `${codec.name}: Cannot be both decoder and encoder`);
+
+        // If it supports any hardware device, it should have hardware acceleration
+        const deviceTypes = [
+          AV_HWDEVICE_TYPE_CUDA,
+          AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+          AV_HWDEVICE_TYPE_VAAPI,
+          AV_HWDEVICE_TYPE_QSV,
+          AV_HWDEVICE_TYPE_DXVA2,
+          AV_HWDEVICE_TYPE_D3D11VA,
+        ];
+
+        let supportsAnyDevice = false;
+        for (const deviceType of deviceTypes) {
+          if (codec.supportsDevice(deviceType)) {
+            supportsAnyDevice = true;
+            break;
+          }
+        }
+
+        if (supportsAnyDevice) {
+          assert.strictEqual(hasHwAccel, true, `${codec.name}: If supports hardware device, should have hardware acceleration`);
+        }
+      }
+    });
+
+    it('should get supported device types with getSupportedDeviceTypes()', () => {
+      // Test pure software codec
+      const libx264 = Codec.findEncoderByName(FF_ENCODER_LIBX264);
+      if (libx264) {
+        const devices = libx264.getSupportedDeviceTypes();
+        assert.strictEqual(devices.length, 0, 'libx264 should not support any hardware devices');
+      }
+
+      // Test dedicated hardware codec
+      const h264QSV = Codec.findDecoderByName(FF_DECODER_H264_QSV);
+      if (h264QSV) {
+        const devices = h264QSV.getSupportedDeviceTypes();
+        assert.ok(devices.length > 0, 'h264_qsv should support at least one device');
+        assert.ok(devices.includes(AV_HWDEVICE_TYPE_QSV), 'h264_qsv should support QSV');
+      }
+
+      // Test generic decoder
+      const h264 = Codec.findDecoderByName(FF_DECODER_H264);
+      if (h264) {
+        const devices = h264.getSupportedDeviceTypes();
+        assert.ok(Array.isArray(devices), 'h264 decoder should return an array of supported devices');
+      }
+    });
+
+    it('should get hardware method with getHardwareMethod()', () => {
+      const h264VTEnc = Codec.findEncoderByName(FF_ENCODER_H264_VIDEOTOOLBOX);
+      if (h264VTEnc) {
+        const method = h264VTEnc.getHardwareMethod(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+        assert.ok(method !== null, 'h264_videotoolbox encoder should have hardware method for VideoToolbox');
+        assert.ok(method > 0, 'Hardware method should have valid flags');
+
+        const methodCuda = h264VTEnc.getHardwareMethod(AV_HWDEVICE_TYPE_CUDA);
+        assert.strictEqual(methodCuda, null, 'h264_videotoolbox encoder should not have method for CUDA');
+      }
+    });
+  });
+
   describe('Edge Cases', () => {
     it('should handle null/undefined gracefully', () => {
       // Empty string should return null
-      const decoder = Codec.findDecoderByName('');
+      const decoder = Codec.findDecoderByName('' as any);
       assert.equal(decoder, null);
     });
 

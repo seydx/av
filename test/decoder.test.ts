@@ -2,8 +2,10 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { Decoder } from '../src/api/decoder.js';
+import { HardwareContext } from '../src/api/hardware.js';
 import { MediaInput } from '../src/api/media-input.js';
-import { Packet } from '../src/lib/index.js';
+import type { AudioInfo, VideoInfo } from '../src/index.js';
+import { avIsHardwarePixelFormat, Packet } from '../src/lib/index.js';
 import { getInputFile, prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();
@@ -347,6 +349,117 @@ describe('Decoder', () => {
 
       videoDecoder.close();
       audioDecoder.close();
+      await media.close();
+    });
+  });
+
+  describe('getOutputStreamInfo', () => {
+    it('should return correct output format for software decoder', async () => {
+      const media = await MediaInput.open(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = await Decoder.create(videoStream);
+      const outputInfo = decoder.getOutputStreamInfo() as VideoInfo;
+
+      assert.equal(outputInfo.type, 'video');
+      assert.ok(outputInfo.width > 0);
+      assert.ok(outputInfo.height > 0);
+      assert.ok(outputInfo.pixelFormat !== undefined);
+      assert.ok(outputInfo.timeBase);
+      assert.ok(outputInfo.frameRate);
+
+      // For software decoder, output format should be same as stream format
+      assert.equal(avIsHardwarePixelFormat(outputInfo.pixelFormat), false);
+
+      decoder.close();
+      await media.close();
+    });
+
+    it('should return correct output format for audio decoder', async () => {
+      const media = await MediaInput.open(inputFile);
+      const audioStream = media.audio();
+      assert.ok(audioStream);
+
+      const decoder = await Decoder.create(audioStream);
+      const outputInfo = decoder.getOutputStreamInfo() as AudioInfo;
+
+      assert.equal(outputInfo.type, 'audio');
+      assert.ok(outputInfo.sampleRate > 0);
+      assert.ok(outputInfo.sampleFormat !== undefined);
+      assert.ok(outputInfo.channelLayout);
+      assert.ok(outputInfo.timeBase);
+
+      decoder.close();
+      await media.close();
+    });
+
+    it('should return hardware pixel format for hardware decoder', async () => {
+      // Try to get hardware context
+      let hw: HardwareContext | null = null;
+      try {
+        hw = await HardwareContext.auto();
+      } catch {
+        // No hardware available, skip test
+        console.log('    Skipping hardware test - no hardware context available');
+        return;
+      }
+
+      if (!hw) {
+        console.log('    Skipping hardware test - no hardware context available');
+        return;
+      }
+
+      const media = await MediaInput.open(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      try {
+        const decoder = await Decoder.create(videoStream, { hardware: hw });
+        const outputInfo = decoder.getOutputStreamInfo() as VideoInfo;
+
+        assert.equal(outputInfo.type, 'video');
+        assert.ok(outputInfo.width > 0);
+        assert.ok(outputInfo.height > 0);
+
+        // For hardware decoder, output should be hardware pixel format
+        assert.ok(avIsHardwarePixelFormat(outputInfo.pixelFormat), `Expected hardware pixel format, got ${outputInfo.pixelFormat}`);
+
+        decoder.close();
+      } catch (error) {
+        // Hardware decoder creation might fail on some systems
+        console.log('    Hardware decoder creation failed:', error.message);
+      }
+
+      await media.close();
+      hw.dispose();
+    });
+
+    it('should match actual decoded frame format', async () => {
+      const media = await MediaInput.open(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = await Decoder.create(videoStream);
+      const outputInfo = decoder.getOutputStreamInfo() as VideoInfo;
+
+      // Decode one frame and compare
+      for await (const packet of media.packets()) {
+        if (packet.streamIndex === videoStream.index) {
+          const frame = await decoder.decode(packet);
+          if (frame) {
+            // Compare output info with actual frame
+            assert.equal(outputInfo.width, frame.width);
+            assert.equal(outputInfo.height, frame.height);
+            assert.equal(outputInfo.pixelFormat, frame.format);
+
+            frame.free();
+            break;
+          }
+        }
+      }
+
+      decoder.close();
       await media.close();
     });
   });

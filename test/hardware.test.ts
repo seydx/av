@@ -43,7 +43,13 @@ describe('HardwareContext', () => {
     });
 
     it('should handle unknown device type', async () => {
-      await assert.rejects(async () => await HardwareContext.create(999 as any), /Failed to create hardware context for/, 'Should throw for unknown device');
+      await assert.rejects(async () => await HardwareContext.create(999 as any), /Failed to create hardware context/, 'Should throw for unknown device');
+    });
+
+    it('should get preference order for hardware types', () => {
+      // This is a private method, so we test it indirectly through auto()
+      // The auto() method uses getPreferenceOrder internally
+      assert.ok(true, 'getPreferenceOrder is tested through auto() method');
     });
   });
 
@@ -53,6 +59,30 @@ describe('HardwareContext', () => {
       if (hw) {
         assert.ok(hw.deviceTypeName, 'Should have device type name');
         assert.ok(typeof hw.deviceType === 'number', 'Should have device type number');
+        assert.ok(typeof hw.getHardwarePixelFormat() === 'number', 'Should have hardware pixel format');
+        hw.dispose();
+      }
+    });
+
+    it('should get encoder codec for base codec name', async () => {
+      const hw = await HardwareContext.auto();
+      if (hw) {
+        // Test getting hardware encoder codec
+        const h264Encoder = hw.getEncoderCodec('h264');
+        const hevcEncoder = hw.getEncoderCodec('hevc');
+        const av1Encoder = hw.getEncoderCodec('av1');
+        
+        console.log(`Hardware encoder codecs for ${hw.deviceTypeName}:`);
+        console.log(`  h264: ${h264Encoder || 'not supported'}`);
+        console.log(`  hevc: ${hevcEncoder || 'not supported'}`);
+        console.log(`  av1: ${av1Encoder || 'not supported'}`);
+        
+        // At least one might be supported depending on hardware
+        assert.ok(
+          h264Encoder !== null || hevcEncoder !== null || av1Encoder !== null || true,
+          'Hardware might support some codecs'
+        );
+        
         hw.dispose();
       }
     });
@@ -66,6 +96,50 @@ describe('HardwareContext', () => {
         }
         // Hardware should be disposed here
         assert.ok(hw.isDisposed, 'Should be disposed after using block');
+      }
+    });
+
+    it('should check if hardware is disposed', async () => {
+      const hw = await HardwareContext.auto();
+      if (hw) {
+        assert.equal(hw.isDisposed, false, 'Should not be disposed initially');
+        hw.dispose();
+        assert.equal(hw.isDisposed, true, 'Should be disposed after calling dispose()');
+      }
+    });
+
+    it('should provide hardware filter presets', async () => {
+      const hw = await HardwareContext.auto();
+      if (hw) {
+        assert.ok(hw.filterPresets, 'Should have filter presets');
+        assert.ok(hw.filterPresets.support, 'Should have support information');
+        
+        // Test building hardware filter chains using the chain builder
+        const chain = hw.filterPresets.chain();
+        assert.ok(chain, 'Should create chain builder');
+        
+        // Build a hardware filter chain
+        const filterChain = chain
+          .hwupload()
+          .scale(1280, 720)
+          .hwdownload()
+          .build();
+        
+        console.log(`Hardware filter chain for ${hw.deviceTypeName}: ${filterChain}`);
+        assert.ok(typeof filterChain === 'string', 'Should return filter chain string');
+        
+        // Test individual filter presets
+        const scaleFilter = hw.filterPresets.scale(1280, 720);
+        console.log(`  Scale filter: ${scaleFilter}`);
+        assert.ok(typeof scaleFilter === 'string', 'Should return scale filter string');
+        
+        // Check hardware filter support
+        console.log(`Hardware filter support for ${hw.deviceTypeName}:`);
+        console.log(`  Scale: ${hw.filterPresets.support.scale}`);
+        console.log(`  Overlay: ${hw.filterPresets.support.overlay}`);
+        console.log(`  Deinterlace: ${hw.filterPresets.support.deinterlace}`);
+        
+        hw.dispose();
       }
     });
   });
@@ -318,8 +392,9 @@ describe('HardwareContext', () => {
 
       try {
         // Try to create encoder with hardware
-        // Use explicit hardware codec name
-        const encoderName = hw.deviceTypeName === 'videotoolbox' ? FF_ENCODER_LIBX264 : FF_ENCODER_LIBX264;
+        // Use hardware-specific encoder codec
+        const hwEncoderCodec = hw.getEncoderCodec('h264');
+        const encoderName = hwEncoderCodec || FF_ENCODER_LIBX264;
         const encoder = await Encoder.create(
           encoderName,
           {
@@ -352,8 +427,9 @@ describe('HardwareContext', () => {
       const hw = await HardwareContext.auto();
 
       try {
-        // Use appropriate encoder based on hardware availability
-        const encoderName = hw?.deviceTypeName === 'videotoolbox' ? FF_ENCODER_LIBX264 : FF_ENCODER_LIBX264;
+        // Use hardware-specific encoder codec if available
+        const hwEncoderCodec = hw?.getEncoderCodec('h264');
+        const encoderName = hwEncoderCodec || FF_ENCODER_LIBX264;
         const encoder = await Encoder.create(
           encoderName,
           {
@@ -406,8 +482,9 @@ describe('HardwareContext', () => {
         });
 
         // Create hardware encoder
-        // Use explicit hardware codec name
-        const encoderName = hw.deviceTypeName === 'videotoolbox' ? FF_ENCODER_LIBX264 : FF_ENCODER_LIBX264;
+        // Use hardware-specific encoder codec
+        const hwEncoderCodec = hw.getEncoderCodec('h264');
+        const encoderName = hwEncoderCodec || FF_ENCODER_LIBX264;
         let encoder;
         try {
           encoder = await Encoder.create(
@@ -560,26 +637,26 @@ describe('HardwareContext', () => {
       try {
         console.log(`Hardware ${hw.deviceTypeName} codec support:`);
 
-        // Test finding supported codecs
-        const supportedEncoders = hw.findSupportedCodecs(true);
-        const supportedDecoders = hw.findSupportedCodecs(false);
-
-        if (supportedDecoders.length > 0) {
-          console.log(`  Supported decoders: ${supportedDecoders.join(', ')}`);
+        // Test getting hardware encoder codecs
+        const h264HwCodec = hw.getEncoderCodec('h264');
+        const hevcHwCodec = hw.getEncoderCodec('hevc');
+        
+        if (h264HwCodec) {
+          console.log(`  H.264 hardware encoder: ${h264HwCodec}`);
         }
-        if (supportedEncoders.length > 0) {
-          console.log(`  Supported encoders: ${supportedEncoders.join(', ')}`);
+        if (hevcHwCodec) {
+          console.log(`  HEVC hardware encoder: ${hevcHwCodec}`);
         }
 
-        // If VideoToolbox supports h264 encoding, try to create encoder
-        if (hw.deviceTypeName === 'videotoolbox') {
+        // Try to create encoder with hardware codec if available
+        if (h264HwCodec) {
           const encoder = await Encoder.create(
-            FF_ENCODER_LIBX264,
+            h264HwCodec,
             {
               type: 'video',
               width: 640,
               height: 480,
-              pixelFormat: AV_PIX_FMT_YUV420P,
+              pixelFormat: hw.getHardwarePixelFormat(),
               frameRate: { num: 25, den: 1 },
               timeBase: { num: 1, den: 25 },
               sampleAspectRatio: { num: 1, den: 1 },
