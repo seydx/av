@@ -10,12 +10,11 @@
  * @module api/encoder
  */
 
-import { AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX, AVERROR_EOF, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
+import { AVERROR_EOF, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import { AVERROR_EAGAIN, Codec, CodecContext, FFmpegError, Packet, Rational } from '../lib/index.js';
-import { Stream } from '../lib/stream.js';
 import { parseBitrate } from './utils.js';
 
-import type { AVCodecID, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { AVCodecID, AVPixelFormat } from '../constants/constants.js';
 import type { FFEncoderCodec } from '../constants/encoders.js';
 import type { Frame } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
@@ -83,7 +82,6 @@ export class Encoder implements Disposable {
   private supportedFormats: AVPixelFormat[] = [];
   private preferredFormat?: AVPixelFormat;
   private hardware?: HardwareContext | null; // Store reference for hardware pixel format
-  private isHardwareEncoder = false; // Track if this is a hardware encoder
 
   /**
    * Private constructor - use Encoder.create() instead.
@@ -137,7 +135,7 @@ export class Encoder implements Disposable {
    *
    * ```
    */
-  static async create(encoderCodec: FFEncoderCodec | AVCodecID | Codec, input: Stream | StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
+  static async create(encoderCodec: FFEncoderCodec | AVCodecID | Codec, input: StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
     let codec: Codec | null = null;
     let codecName = '';
 
@@ -160,82 +158,38 @@ export class Encoder implements Disposable {
     const codecContext = new CodecContext();
     codecContext.allocContext3(codec);
 
-    // Apply parameters based on input type
-    if (input instanceof Stream) {
-      // It's a Stream - copy ONLY the essential parameters
-      // DO NOT use parametersToContext as it copies everything including decoder-specific settings
+    // It's StreamInfo - apply manually
+    if (input.type === 'video' && codec.type === AVMEDIA_TYPE_VIDEO) {
+      const videoInfo = input;
+      codecContext.width = videoInfo.width;
+      codecContext.height = videoInfo.height;
+      codecContext.pixelFormat = videoInfo.pixelFormat; // Will be overwritten if it's a hardware encoder
 
-      if (codec.type === AVMEDIA_TYPE_VIDEO) {
-        // Set required video parameters from input stream
-        codecContext.width = input.codecpar.width;
-        codecContext.height = input.codecpar.height;
-        codecContext.pixelFormat = input.codecpar.format as AVPixelFormat;
+      // Set pkt_timebase and timeBase to input timebase
+      codecContext.pktTimebase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
+      codecContext.timeBase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
 
-        // Set timing information
-        codecContext.pktTimebase = input.timeBase;
-        codecContext.timeBase = input.timeBase;
+      if (videoInfo.frameRate) {
+        codecContext.framerate = new Rational(videoInfo.frameRate.num, videoInfo.frameRate.den);
+      }
+      if (videoInfo.sampleAspectRatio) {
+        codecContext.sampleAspectRatio = new Rational(videoInfo.sampleAspectRatio.num, videoInfo.sampleAspectRatio.den);
+      }
+    } else if (input.type === 'audio' && codec.type === AVMEDIA_TYPE_AUDIO) {
+      const audioInfo = input;
+      codecContext.sampleRate = audioInfo.sampleRate;
+      codecContext.sampleFormat = audioInfo.sampleFormat;
+      codecContext.channelLayout = audioInfo.channelLayout;
+      // Set both pkt_timebase and timeBase for audio
+      codecContext.pktTimebase = new Rational(audioInfo.timeBase.num, audioInfo.timeBase.den);
+      codecContext.timeBase = new Rational(audioInfo.timeBase.num, audioInfo.timeBase.den);
 
-        // Set framerate if available
-        if (input.avgFrameRate && input.avgFrameRate.num > 0 && input.avgFrameRate.den > 0) {
-          codecContext.framerate = new Rational(input.avgFrameRate.num, input.avgFrameRate.den);
-        } else if (input.rFrameRate && input.rFrameRate.num > 0 && input.rFrameRate.den > 0) {
-          codecContext.framerate = new Rational(input.rFrameRate.num, input.rFrameRate.den);
-        }
-
-        // Copy sample aspect ratio if present
-        if (input.sampleAspectRatio && input.sampleAspectRatio.num > 0) {
-          codecContext.sampleAspectRatio = new Rational(input.sampleAspectRatio.num, input.sampleAspectRatio.den);
-        }
-      } else if (codec.type === AVMEDIA_TYPE_AUDIO) {
-        // Set required audio parameters from input stream
-        codecContext.sampleRate = input.codecpar.sampleRate;
-        codecContext.sampleFormat = input.codecpar.format as AVSampleFormat;
-
-        // Copy channel layout from input
-        // NOTE: This means the encoder will use the same channel configuration as the input
-        // If you need different channels, use an audio filter or pass StreamInfo instead
-        codecContext.channelLayout = input.codecpar.channelLayout;
-
-        // Set timing information
-        codecContext.pktTimebase = input.timeBase;
-        codecContext.timeBase = input.timeBase;
-      } else {
-        codecContext.freeContext();
-        throw new Error('Unsupported codec type for encoder');
+      if (audioInfo.frameSize) {
+        codecContext.frameSize = audioInfo.frameSize;
       }
     } else {
-      // It's StreamInfo - apply manually
-      if (input.type === 'video' && codec.type === AVMEDIA_TYPE_VIDEO) {
-        const videoInfo = input;
-        codecContext.width = videoInfo.width;
-        codecContext.height = videoInfo.height;
-        codecContext.pixelFormat = videoInfo.pixelFormat;
-
-        // Set pkt_timebase and timeBase to input timebase
-        codecContext.pktTimebase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
-        codecContext.timeBase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
-
-        if (videoInfo.frameRate) {
-          codecContext.framerate = new Rational(videoInfo.frameRate.num, videoInfo.frameRate.den);
-        }
-        if (videoInfo.sampleAspectRatio) {
-          codecContext.sampleAspectRatio = new Rational(videoInfo.sampleAspectRatio.num, videoInfo.sampleAspectRatio.den);
-        }
-      } else if (input.type === 'audio' && codec.type === AVMEDIA_TYPE_AUDIO) {
-        const audioInfo = input;
-        codecContext.sampleRate = audioInfo.sampleRate;
-        codecContext.sampleFormat = audioInfo.sampleFormat;
-        codecContext.channelLayout = audioInfo.channelLayout;
-        // Set both pkt_timebase and timeBase for audio
-        codecContext.pktTimebase = new Rational(audioInfo.timeBase.num, audioInfo.timeBase.den);
-        codecContext.timeBase = new Rational(audioInfo.timeBase.num, audioInfo.timeBase.den);
-
-        if (audioInfo.frameSize) {
-          codecContext.frameSize = audioInfo.frameSize;
-        }
-      } else {
-        throw new Error(`Codec type mismatch: ${input.type} info but ${codec.type === AVMEDIA_TYPE_VIDEO ? 'video' : 'audio'} codec`);
-      }
+      codecContext.freeContext();
+      throw new Error(`Unsupported codec type for encoder! Input type: ${input.type}, Codec type: ${codec.type}`);
     }
 
     // Apply encoder-specific options
@@ -267,38 +221,10 @@ export class Encoder implements Disposable {
       }
     }
 
-    // Check if this encoder supports hardware acceleration
-    let supportsHardware = false;
-    let isHardwareEncoder = false;
-
-    // Check encoder's hardware configurations
-    for (let i = 0; ; i++) {
-      const config = codec.getHwConfig(i);
-      if (!config) break;
-
-      // Check if encoder supports HW_FRAMES_CTX method
-      if ((config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) !== 0) {
-        supportsHardware = true;
-
-        // If hardware context provided, check if it matches this encoder
-        if (options.hardware && config.deviceType === options.hardware.deviceType) {
-          isHardwareEncoder = true;
-          break;
-        }
-      }
+    const isHWEncoder = codec.isHardwareAcceleratedEncoder();
+    if (isHWEncoder && !options.hardware) {
+      throw new Error(`Hardware encoder '${codecName}' requires a hardware context`);
     }
-
-    // Validation: Hardware encoder MUST have HardwareContext
-    if (supportsHardware && !options.hardware) {
-      throw new Error(`Hardware encoder '${codecName}' requires a hardware context. ` + 'Please provide one via options.hardware');
-    }
-
-    // Apply hardware acceleration if provided and encoder supports it
-    if (options.hardware && isHardwareEncoder) {
-      // hwFramesCtx will be set later in encode() when first frame arrives
-      // DO NOT set it here - wait for first frame that contains the context!
-    }
-    // Note: Software encoder silently ignores hardware context
 
     // Open codec
     const openRet = await codecContext.open2(codec, null);
@@ -307,8 +233,7 @@ export class Encoder implements Disposable {
       FFmpegError.throwIfError(openRet, 'Failed to open encoder');
     }
 
-    const encoder = new Encoder(codecContext, codecName, isHardwareEncoder ? options.hardware : undefined);
-    encoder.isHardwareEncoder = isHardwareEncoder;
+    const encoder = new Encoder(codecContext, codecName, isHWEncoder ? options.hardware : undefined);
 
     // Get supported formats from codec (for validation and helpers)
     if (codec.pixelFormats) {
@@ -324,6 +249,44 @@ export class Encoder implements Disposable {
    */
   get isEncoderOpen(): boolean {
     return this.isOpen;
+  }
+
+  /**
+   * Get output stream information.
+   *
+   * Returns the encoder output format configuration.
+   * Useful for setting up subsequent processing stages.
+   *
+   * For hardware encoders, returns the hardware pixel format even before
+   * the first frame is encoded.
+   *
+   * @returns StreamInfo with encoder output properties
+   */
+  getOutputStreamInfo(): StreamInfo {
+    if (this.codecContext.codecType === AVMEDIA_TYPE_VIDEO) {
+      // For hardware encoders, we need to return the hardware pixel format
+      // even if it hasn't been set yet on the codec context
+      const pixelFormat = this.hardware?.getHardwarePixelFormat() ?? this.codecContext.pixelFormat;
+
+      return {
+        type: 'video',
+        width: this.codecContext.width,
+        height: this.codecContext.height,
+        pixelFormat,
+        timeBase: this.codecContext.timeBase,
+        frameRate: this.codecContext.framerate,
+        sampleAspectRatio: this.codecContext.sampleAspectRatio,
+      };
+    } else {
+      // For audio
+      return {
+        type: 'audio',
+        sampleRate: this.codecContext.sampleRate,
+        sampleFormat: this.codecContext.sampleFormat,
+        channelLayout: this.codecContext.channelLayout,
+        timeBase: this.codecContext.timeBase,
+      };
+    }
   }
 
   /**
@@ -357,14 +320,10 @@ export class Encoder implements Disposable {
 
     // Late binding of hw_frames_ctx for hardware encoders
     // Hardware encoders get hw_frames_ctx from the frames they receive
-    if (this.isHardwareEncoder && frame?.hwFramesCtx && !this.codecContext.hwFramesCtx) {
+    if (this.hardware && frame?.hwFramesCtx && !this.codecContext.hwFramesCtx) {
       // Use the hw_frames_ctx from the frame
       this.codecContext.hwFramesCtx = frame.hwFramesCtx;
-
-      // Set pixel format based on hardware type
-      if (this.hardware) {
-        this.codecContext.pixelFormat = this.hardware.getHardwarePixelFormat();
-      }
+      this.codecContext.pixelFormat = this.hardware.getHardwarePixelFormat();
     }
 
     // Send frame to encoder
