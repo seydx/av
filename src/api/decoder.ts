@@ -10,12 +10,12 @@
  * @module api/decoder
  */
 
-import { AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVERROR_EOF } from '../constants/constants.js';
+import { AVERROR_EOF, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import { AVERROR_EAGAIN, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
 
 import type { Packet, Stream } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
-import type { DecoderOptions } from './types.js';
+import type { DecoderOptions, StreamInfo } from './types.js';
 
 /**
  * High-level decoder for media streams.
@@ -142,25 +142,11 @@ export class Decoder implements Disposable {
     }
 
     // Check if this decoder supports hardware acceleration
-    let supportsHardware = false;
-    if (options.hardware) {
-      // Check decoder's hardware configurations
-      for (let i = 0; ; i++) {
-        const config = codec.getHwConfig(i);
-        if (!config) break;
-
-        // Check if decoder supports HW_DEVICE_CTX method with matching device type
-        if ((config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) !== 0 && config.deviceType === options.hardware.deviceType) {
-          supportsHardware = true;
-          break;
-        }
-      }
-
-      // Only apply hardware acceleration if the decoder supports it
-      if (supportsHardware) {
-        codecContext.hwDeviceCtx = options.hardware.deviceContext;
-      }
-      // Silently ignore hardware for software decoders
+    // Only apply hardware acceleration if the decoder supports it
+    // Silently ignore hardware for software decoders
+    const isHWDecoder = codec.isHardwareAcceleratedDecoder();
+    if (isHWDecoder && options.hardware) {
+      codecContext.hwDeviceCtx = options.hardware.deviceContext;
     }
 
     // Apply codec-specific options via AVOptions
@@ -177,7 +163,7 @@ export class Decoder implements Disposable {
       FFmpegError.throwIfError(openRet, 'Failed to open codec');
     }
 
-    const decoder = new Decoder(codecContext, stream, options.hardware);
+    const decoder = new Decoder(codecContext, stream, isHWDecoder ? options.hardware : undefined);
     return decoder;
   }
 
@@ -186,6 +172,40 @@ export class Decoder implements Disposable {
    */
   get isDecoderOpen(): boolean {
     return this.isOpen;
+  }
+
+  /**
+   * Get output stream information.
+   *
+   * Returns the actual decoder output format, which may differ from the input stream.
+   * For hardware decoders, this returns the hardware pixel format.
+   *
+   * @returns StreamInfo with decoder output properties
+   */
+  getOutputStreamInfo(): StreamInfo {
+    if (this.stream.codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
+      // For hardware decoders, the codecContext.pixelFormat is not set correctly
+      // We need to use the hardware pixel format directly
+      const pixelFormat = this.hardware ? this.hardware.getHardwarePixelFormat() : this.codecContext.pixelFormat;
+      return {
+        type: 'video',
+        width: this.codecContext.width,
+        height: this.codecContext.height,
+        pixelFormat,
+        timeBase: this.stream.timeBase,
+        frameRate: this.stream.rFrameRate,
+        sampleAspectRatio: this.codecContext.sampleAspectRatio,
+      };
+    } else {
+      // For audio
+      return {
+        type: 'audio',
+        sampleRate: this.codecContext.sampleRate,
+        sampleFormat: this.codecContext.sampleFormat,
+        channelLayout: this.codecContext.channelLayout,
+        timeBase: this.stream.timeBase,
+      };
+    }
   }
 
   /**
