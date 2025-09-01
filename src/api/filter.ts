@@ -1,7 +1,18 @@
+/**
+ * Filter - High-level wrapper for media filtering
+ *
+ * Simplifies FFmpeg's filtering API with automatic graph construction,
+ * frame buffering, and hardware acceleration support.
+ *
+ * Handles filter graph creation, frame processing, and format conversion.
+ * Supports complex filter chains and hardware-accelerated filters.
+ *
+ * @module api/filter
+ */
+
 import { AVERROR_EOF, AVFILTER_FLAG_HWDEVICE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import {
   AVERROR_EAGAIN,
-  avGetPixFmtName,
   avGetSampleFmtName,
   FFmpegError,
   Frame,
@@ -845,127 +856,5 @@ export class FilterAPI implements Disposable {
    */
   [Symbol.dispose](): void {
     this.free();
-  }
-}
-
-/**
- * Common filter presets for convenience.
- *
- * Provides pre-defined filter strings for common operations.
- * Can be used with Filter.create() for quick setup.
- *
- * @example
- * ```typescript
- * const filter = await Filter.create(
- *   FilterPresets.scale(1280, 720),
- *   config
- * );
- * ```
- */
-export class FilterPresets {
-  /**
-   * Scale video to specified dimensions.
-   */
-  static scale(width: number, height: number, flags?: string): string {
-    const base = `scale=${width}:${height}`;
-    return flags ? `${base}:flags=${flags}` : base;
-  }
-
-  /**
-   * Crop video to specified dimensions.
-   */
-  static crop(width: number, height: number, x = 0, y = 0): string {
-    return `crop=${width}:${height}:${x}:${y}`;
-  }
-
-  /**
-   * Change frame rate.
-   */
-  static fps(fps: number): string {
-    return `fps=${fps}`;
-  }
-
-  /**
-   * Convert pixel format.
-   * Can accept either format name string or AVPixelFormat enum.
-   */
-  static format(pixelFormat: string | AVPixelFormat): string {
-    const formatName = typeof pixelFormat === 'string' ? pixelFormat : (avGetPixFmtName(pixelFormat) ?? 'yuv420p');
-    return `format=${formatName}`;
-  }
-
-  /**
-   * Rotate video by angle.
-   */
-  static rotate(angle: number): string {
-    return `rotate=${angle}*PI/180`;
-  }
-
-  /**
-   * Flip video horizontally.
-   */
-  static hflip(): string {
-    return 'hflip';
-  }
-
-  /**
-   * Flip video vertically.
-   */
-  static vflip(): string {
-    return 'vflip';
-  }
-
-  /**
-   * Apply fade effect.
-   */
-  static fade(type: 'in' | 'out', start: number, duration: number): string {
-    return `fade=t=${type}:st=${start}:d=${duration}`;
-  }
-
-  /**
-   * Overlay one video on another.
-   */
-  static overlay(x = 0, y = 0): string {
-    return `overlay=${x}:${y}`;
-  }
-
-  /**
-   * Adjust audio volume.
-   */
-  static volume(factor: number): string {
-    return `volume=${factor}`;
-  }
-
-  /**
-   * Convert audio sample format.
-   * Can accept either format name string or AVSampleFormat enum.
-   */
-  static aformat(sampleFormat: string | AVSampleFormat, sampleRate?: number, channelLayout?: string): string {
-    const formatName = typeof sampleFormat === 'string' ? sampleFormat : (avGetSampleFmtName(sampleFormat) ?? 's16');
-    let filter = `aformat=sample_fmts=${formatName}`;
-    if (sampleRate) filter += `:sample_rates=${sampleRate}`;
-    if (channelLayout) filter += `:channel_layouts=${channelLayout}`;
-    return filter;
-  }
-
-  /**
-   * Change audio tempo without changing pitch.
-   */
-  static atempo(factor: number): string {
-    return `atempo=${factor}`;
-  }
-
-  /**
-   * Apply audio fade.
-   */
-  static afade(type: 'in' | 'out', start: number, duration: number): string {
-    return `afade=t=${type}:st=${start}:d=${duration}`;
-  }
-
-  /**
-   * Mix multiple audio streams.
-   */
-  static amix(inputs = 2, duration: 'first' | 'longest' | 'shortest' = 'longest'): string {
-    return `amix=inputs=${inputs}:duration=${duration}`;
   }
 }

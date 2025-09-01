@@ -41,9 +41,10 @@ import {
   AV_PIX_FMT_VULKAN,
 } from '../constants/constants.js';
 import { Codec, Dictionary, HardwareDeviceContext } from '../lib/index.js';
+import { HardwareFilterPresets } from './filter-presets.js';
 
-import type { AVCodecID, AVHWDeviceType, AVPixelFormat } from '../constants/index.js';
-import type { HardwareOptions } from './types.js';
+import type { AVCodecID, AVHWDeviceType, AVPixelFormat, FFEncoderCodec } from '../constants/index.js';
+import type { HardwareBaseCodecName, HardwareOptions } from './types.js';
 
 /**
  * HardwareContext - Simplified hardware acceleration management.
@@ -82,6 +83,12 @@ export class HardwareContext implements Disposable {
   private _isDisposed = false;
 
   /**
+   * Hardware-specific filter presets for this device.
+   * Provides convenient filter builders for hardware-accelerated operations.
+   */
+  public readonly filterPresets: HardwareFilterPresets;
+
+  /**
    * Create a new HardwareContext instance.
    *
    * Private constructor - use HardwareContext.create() or HardwareContext.auto() to create instances.
@@ -97,6 +104,7 @@ export class HardwareContext implements Disposable {
     this._deviceType = deviceType;
     this._deviceName = deviceName;
     this._devicePixelFormat = this.getHardwarePixelFormat();
+    this.filterPresets = new HardwareFilterPresets(deviceType, deviceName);
   }
 
   /**
@@ -365,6 +373,76 @@ export class HardwareContext implements Disposable {
     }
 
     return pixelFormats.some((fmt) => fmt === pixelFormat);
+  }
+
+  /**
+   * Get the appropriate hardware encoder name for a given codec.
+   *
+   * Maps generic codec names and hardware types to their specific encoder implementations.
+   * For example, 'h264' with VideoToolbox returns 'h264_videotoolbox'.
+   *
+   * @param codecName - Generic codec name (e.g., 'h264', 'hevc', 'av1')
+   *
+   * @returns Hardware encoder name or null if not supported
+   *
+   * @example
+   * ```typescript
+   * const hw = await HardwareContext.auto();
+   * const encoderName = hw.getEncoderName('h264');
+   * // Returns 'h264_videotoolbox' on macOS, 'h264_nvenc' with CUDA, etc.
+   *
+   * // Use the encoder
+   * const encoder = Codec.findEncoderByName(encoderName);
+   * ```
+   */
+  getEncoderCodec(codecName: HardwareBaseCodecName): FFEncoderCodec | null {
+    // Get the hardware device type name from FFmpeg
+    const deviceTypeName = HardwareDeviceContext.getTypeName(this._deviceType);
+    if (!deviceTypeName) return null;
+
+    // Build the encoder name
+    let encoderSuffix: string;
+
+    switch (deviceTypeName) {
+      case 'cuda':
+        // CUDA uses NVENC for encoding
+        encoderSuffix = 'nvenc';
+        break;
+
+      case 'd3d11va':
+      case 'dxva2':
+        // D3D11VA and DXVA2 are decode-only APIs
+        // Cannot encode with these hardware contexts
+        // Need nvenc, qsv or amf for encoding
+        return null;
+
+      case 'd3d12va':
+        // D3D12VA currently only supports HEVC encoding
+        if (codecName === 'hevc') {
+          encoderSuffix = 'd3d12va';
+        }
+        return null;
+
+      case 'opencl':
+      case 'vdpau':
+      case 'drm':
+        // These don't have dedicated encoders
+        return null;
+
+      default:
+        // Use the device type name as suffix
+        encoderSuffix = deviceTypeName;
+    }
+
+    // Construct the encoder name
+    const encoderName = `${codecName}_${encoderSuffix}`;
+
+    const codec = Codec.findEncoderByName(encoderName);
+    if (codec?.name) {
+      return codec.name as FFEncoderCodec;
+    }
+
+    return null;
   }
 
   /**
