@@ -34,6 +34,13 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FilterContext::BuffersinkGetFrameAsync>("buffersinkGetFrame"),
     // InstanceMethod<&FilterContext::BuffersinkSetFrameSize>("buffersinkSetFrameSize"),
     InstanceMethod<&FilterContext::BuffersinkGetTimeBase>("buffersinkGetTimeBase"),
+    InstanceMethod<&FilterContext::BuffersinkGetFormat>("buffersinkGetFormat"),
+    InstanceMethod<&FilterContext::BuffersinkGetWidth>("buffersinkGetWidth"),
+    InstanceMethod<&FilterContext::BuffersinkGetHeight>("buffersinkGetHeight"),
+    InstanceMethod<&FilterContext::BuffersinkGetSampleAspectRatio>("buffersinkGetSampleAspectRatio"),
+    InstanceMethod<&FilterContext::BuffersinkGetFrameRate>("buffersinkGetFrameRate"),
+    InstanceMethod<&FilterContext::BuffersinkGetSampleRate>("buffersinkGetSampleRate"),
+    InstanceMethod<&FilterContext::BuffersinkGetChannelLayout>("buffersinkGetChannelLayout"),
 
     // Properties
     InstanceAccessor<&FilterContext::GetName, &FilterContext::SetName>("name"),
@@ -295,14 +302,138 @@ Napi::Value FilterContext::BuffersinkGetTimeBase(const Napi::CallbackInfo& info)
     Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
     return env.Null();
   }
-  
-  // Get the timebase from buffersink
+
   AVRational tb = av_buffersink_get_time_base(ctx);
-  
-  // Return as object with num and den properties
+
   Napi::Object result = Napi::Object::New(env);
   result.Set("num", Napi::Number::New(env, tb.num));
   result.Set("den", Napi::Number::New(env, tb.den));
+  
+  return result;
+}
+
+Napi::Value FilterContext::BuffersinkGetFormat(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  int format = av_buffersink_get_format(ctx);
+  return Napi::Number::New(env, format);
+}
+
+Napi::Value FilterContext::BuffersinkGetWidth(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  int width = av_buffersink_get_w(ctx);
+  return Napi::Number::New(env, width);
+}
+
+Napi::Value FilterContext::BuffersinkGetHeight(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  int height = av_buffersink_get_h(ctx);
+  return Napi::Number::New(env, height);
+}
+
+Napi::Value FilterContext::BuffersinkGetSampleAspectRatio(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  AVRational sar = av_buffersink_get_sample_aspect_ratio(ctx);
+  
+  Napi::Object result = Napi::Object::New(env);
+  result.Set("num", Napi::Number::New(env, sar.num));
+  result.Set("den", Napi::Number::New(env, sar.den));
+  
+  return result;
+}
+
+Napi::Value FilterContext::BuffersinkGetFrameRate(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  AVRational fr = av_buffersink_get_frame_rate(ctx);
+  
+  Napi::Object result = Napi::Object::New(env);
+  result.Set("num", Napi::Number::New(env, fr.num));
+  result.Set("den", Napi::Number::New(env, fr.den));
+  
+  return result;
+}
+
+Napi::Value FilterContext::BuffersinkGetSampleRate(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  int sample_rate = av_buffersink_get_sample_rate(ctx);
+  return Napi::Number::New(env, sample_rate);
+}
+
+Napi::Value FilterContext::BuffersinkGetChannelLayout(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AVFilterContext* ctx = Get();
+  
+  if (!ctx) {
+    Napi::TypeError::New(env, "FilterContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  AVChannelLayout ch_layout;
+  av_channel_layout_default(&ch_layout, 2); // Initialize with default
+  int ret = av_buffersink_get_ch_layout(ctx, &ch_layout);
+  if (ret < 0) {
+    av_channel_layout_uninit(&ch_layout);
+    return env.Null();
+  }
+  
+  // Return complete channel layout object
+  Napi::Object result = Napi::Object::New(env);
+  result.Set("order", Napi::Number::New(env, ch_layout.order));
+  result.Set("nbChannels", Napi::Number::New(env, ch_layout.nb_channels));
+  
+  // Union field based on order
+  if (ch_layout.order == AV_CHANNEL_ORDER_NATIVE) {
+    result.Set("mask", Napi::BigInt::New(env, ch_layout.u.mask));
+  } else if (ch_layout.order == AV_CHANNEL_ORDER_CUSTOM) {
+    // For custom layout, we'd need to handle the map array
+    // For now, just set mask to 0
+    result.Set("mask", Napi::BigInt::New(env, static_cast<uint64_t>(0)));
+  } else {
+    result.Set("mask", Napi::BigInt::New(env, static_cast<uint64_t>(0)));
+  }
+  
+  av_channel_layout_uninit(&ch_layout);
   
   return result;
 }

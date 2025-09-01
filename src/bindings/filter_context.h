@@ -75,6 +75,13 @@ private:
   Napi::Value BuffersinkGetFrameAsync(const Napi::CallbackInfo& info);
   // Napi::Value BuffersinkSetFrameSize(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetTimeBase(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetFormat(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetWidth(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetHeight(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetSampleAspectRatio(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetFrameRate(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetSampleRate(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetChannelLayout(const Napi::CallbackInfo& info);
   
   // === Properties ===
   

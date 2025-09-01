@@ -783,7 +783,14 @@ export interface NativeFilterContext extends Disposable {
   }): number;
   buffersinkGetFrame(frame: NativeFrame): Promise<number>;
   // buffersinkSetFrameSize(frameSize: number): void;
-  buffersinkGetTimeBase(): { num: number; den: number };
+  buffersinkGetWidth(): number;
+  buffersinkGetHeight(): number;
+  buffersinkGetFormat(): AVPixelFormat | AVSampleFormat;
+  buffersinkGetTimeBase(): IRational;
+  buffersinkGetFrameRate(): IRational;
+  buffersinkGetSampleRate(): number;
+  buffersinkGetChannelLayout(): ChannelLayout;
+  buffersinkGetSampleAspectRatio(): IRational;
   free(): void;
 
   // ===== Properties =====

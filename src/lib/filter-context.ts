@@ -3,10 +3,11 @@ import { HardwareDeviceContext } from './hardware-device-context.js';
 import { OptionMember } from './option.js';
 import { Rational } from './rational.js';
 
+import type { AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
 import type { Frame } from './frame.js';
 import type { HardwareFramesContext } from './hardware-frames-context.js';
 import type { NativeDictionary, NativeFilterContext, NativeFilterGraph, NativeWrapper } from './native-types.js';
-import type { IRational } from './types.js';
+import type { ChannelLayout, IRational } from './types.js';
 
 /**
  * Filter context for media processing.
@@ -444,6 +445,85 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   buffersinkGetTimeBase(): Rational {
     const tb = this.native.buffersinkGetTimeBase();
     return new Rational(tb.num, tb.den);
+  }
+
+  /**
+   * Get the pixel/sample format from a buffersink filter.
+   *
+   * Direct mapping to av_buffersink_get_format()
+   *
+   * @returns The format (pixel format for video, sample format for audio)
+   */
+  buffersinkGetFormat(): AVPixelFormat | AVSampleFormat {
+    return this.native.buffersinkGetFormat();
+  }
+
+  /**
+   * Get the width from a video buffersink filter.
+   *
+   * Direct mapping to av_buffersink_get_w()
+   *
+   * @returns The video width in pixels
+   */
+  buffersinkGetWidth(): number {
+    return this.native.buffersinkGetWidth();
+  }
+
+  /**
+   * Get the height from a video buffersink filter.
+   *
+   * Direct mapping to av_buffersink_get_h()
+   *
+   * @returns The video height in pixels
+   */
+  buffersinkGetHeight(): number {
+    return this.native.buffersinkGetHeight();
+  }
+
+  /**
+   * Get the sample aspect ratio from a video buffersink filter.
+   *
+   * Direct mapping to av_buffersink_get_sample_aspect_ratio()
+   *
+   * @returns The sample aspect ratio as a Rational
+   */
+  buffersinkGetSampleAspectRatio(): Rational {
+    const sar = this.native.buffersinkGetSampleAspectRatio();
+    return new Rational(sar.num, sar.den);
+  }
+
+  /**
+   * Get the frame rate from a video buffersink filter.
+   *
+   * Direct mapping to av_buffersink_get_frame_rate()
+   *
+   * @returns The frame rate as a Rational
+   */
+  buffersinkGetFrameRate(): Rational {
+    const fr = this.native.buffersinkGetFrameRate();
+    return new Rational(fr.num, fr.den);
+  }
+
+  /**
+   * Get the sample rate from an audio buffersink filter.
+   *
+   * Direct mapping to av_buffersink_get_sample_rate()
+   *
+   * @returns The audio sample rate in Hz
+   */
+  buffersinkGetSampleRate(): number {
+    return this.native.buffersinkGetSampleRate();
+  }
+
+  /**
+   * Get the channel layout from an audio buffersink filter.
+   *
+   * Direct mapping to av_buffersink_get_ch_layout()
+   *
+   * @returns The channel layout object with order, nbChannels, and mask
+   */
+  buffersinkGetChannelLayout(): ChannelLayout {
+    return this.native.buffersinkGetChannelLayout();
   }
 
   /**
