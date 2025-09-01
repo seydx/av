@@ -24,7 +24,9 @@ import {
   AV_HWDEVICE_TYPE_VDPAU,
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
   AV_HWDEVICE_TYPE_VULKAN,
+  AVFILTER_FLAG_HWDEVICE,
 } from '../constants/constants.js';
+import { Filter } from '../lib/filter.js';
 import { avGetPixFmtName, avGetSampleFmtName } from '../lib/utilities.js';
 
 import type { AVHWDeviceType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
@@ -508,198 +510,26 @@ export class HardwareFilterPresets extends FilterPresetBase {
   }
 
   /**
+   * Check if a filter name is a hardware-accelerated filter.
+   * Uses FFmpeg's AVFILTER_FLAG_HWDEVICE flag to determine if a filter is hardware-accelerated.
+   * @param filterName - The filter name to check
+   * @returns True if it's a hardware filter, false otherwise
+   */
+  static isHardwareFilter(filterName: string): boolean {
+    const filter = Filter.getByName(filterName);
+    if (!filter) {
+      return false;
+    }
+
+    // Check if filter has hardware device flag
+    return (filter.flags & AVFILTER_FLAG_HWDEVICE) !== 0;
+  }
+
+  /**
    * Create a new hardware filter chain builder.
    */
   chain(): HardwareFilterChainBuilder {
     return new HardwareFilterChainBuilder(this);
-  }
-
-  /**
-   * Get supported filters for this hardware type.
-   */
-  private getSupport(): HardwareFilterSupport {
-    switch (this.deviceType) {
-      case AV_HWDEVICE_TYPE_CUDA:
-        return {
-          scale: true, // scale_cuda
-          overlay: true, // overlay_cuda
-          transpose: true, // transpose_cuda (patch 0054)
-          tonemap: true, // tonemap_cuda (patch 0004)
-          deinterlace: true, // bwdif_cuda, yadif_cuda
-          denoise: false,
-          flip: false,
-          blur: true, // bilateral_cuda
-          sharpen: false, // Uses NPP
-          chromakey: true, // chromakey_cuda
-          colorspace: true, // colorspace_cuda
-          pad: false,
-          stack: false,
-        };
-
-      case AV_HWDEVICE_TYPE_VAAPI:
-        return {
-          scale: true, // scale_vaapi
-          overlay: true, // overlay_vaapi
-          transpose: true, // transpose_vaapi
-          tonemap: true, // tonemap_vaapi
-          deinterlace: true, // deinterlace_vaapi
-          denoise: true, // denoise_vaapi
-          flip: false,
-          blur: false,
-          sharpen: true, // sharpness_vaapi
-          chromakey: false,
-          colorspace: false,
-          pad: true, // pad_vaapi
-          stack: true, // hstack_vaapi, vstack_vaapi, xstack_vaapi
-        };
-
-      case AV_HWDEVICE_TYPE_QSV:
-        return {
-          scale: true, // scale_qsv
-          overlay: true, // overlay_qsv
-          transpose: false,
-          tonemap: false,
-          deinterlace: true, // deinterlace_qsv
-          denoise: false,
-          flip: false,
-          blur: false,
-          sharpen: false,
-          chromakey: false,
-          colorspace: false,
-          pad: false,
-          stack: true, // hstack_qsv, vstack_qsv, xstack_qsv
-        };
-
-      case AV_HWDEVICE_TYPE_VULKAN:
-        return {
-          scale: true, // scale_vulkan
-          overlay: true, // overlay_vulkan
-          transpose: true, // transpose_vulkan
-          tonemap: false,
-          deinterlace: true, // bwdif_vulkan
-          denoise: false,
-          flip: true, // flip_vulkan, hflip_vulkan, vflip_vulkan
-          blur: true, // avgblur_vulkan, gblur_vulkan
-          sharpen: false,
-          chromakey: false,
-          colorspace: false,
-          pad: false,
-          stack: false,
-        };
-
-      case AV_HWDEVICE_TYPE_OPENCL:
-        return {
-          scale: true, // scale_opencl (patch 0006)
-          overlay: true, // overlay_opencl (+ PGS support patch 0008)
-          transpose: true, // transpose_opencl
-          tonemap: true, // tonemap_opencl (enhanced in patch 0007)
-          deinterlace: false,
-          denoise: false,
-          flip: false,
-          blur: true, // avgblur_opencl, boxblur_opencl
-          sharpen: true, // unsharp_opencl
-          chromakey: true, // colorkey_opencl
-          colorspace: false,
-          pad: true, // pad_opencl
-          stack: false,
-        };
-
-      case AV_HWDEVICE_TYPE_VIDEOTOOLBOX:
-        return {
-          scale: true, // scale_vt (patch 0047 adds format option)
-          overlay: true, // overlay_videotoolbox (patch 0048)
-          transpose: true, // transpose_vt (patch 0049, CoreImage based)
-          tonemap: true, // tonemap_videotoolbox (patch 0050)
-          deinterlace: true, // yadif_videotoolbox
-          denoise: false,
-          flip: false,
-          blur: false,
-          sharpen: false,
-          chromakey: false,
-          colorspace: false,
-          pad: false,
-          stack: false,
-        };
-
-      case AV_HWDEVICE_TYPE_MEDIACODEC:
-        // MediaCodec is Android's hardware acceleration - mainly for decode/encode
-        return {
-          scale: false,
-          overlay: false,
-          transpose: false,
-          tonemap: false,
-          deinterlace: false,
-          denoise: false,
-          flip: false,
-          blur: false,
-          sharpen: false,
-          chromakey: false,
-          colorspace: false,
-          pad: false,
-          stack: false,
-        };
-
-      case AV_HWDEVICE_TYPE_RKMPP: // Rockchip - has RGA filters via patch 0046
-        // Note: RKMPP uses separate RKRGA (Rockchip 2D Raster Graphic Acceleration)
-        // for filtering operations, configured with --enable-rkrga
-        return {
-          scale: true, // scale_rkrga (patch 0046)
-          overlay: true, // overlay_rkrga (patch 0046)
-          transpose: false,
-          tonemap: false,
-          deinterlace: false,
-          denoise: false,
-          flip: false,
-          blur: false,
-          sharpen: false,
-          chromakey: false,
-          colorspace: false,
-          pad: false,
-          stack: false,
-        };
-
-      // These hardware types don't have dedicated filters - they're mainly for decode/encode
-      case AV_HWDEVICE_TYPE_VDPAU: // Decode-only, deprecated in favor of VAAPI
-      case AV_HWDEVICE_TYPE_DXVA2: // Windows decode-only
-      case AV_HWDEVICE_TYPE_D3D11VA: // Windows decode-only
-      case AV_HWDEVICE_TYPE_D3D12VA: // Has HEVC encoder but no filters
-      case AV_HWDEVICE_TYPE_DRM: // Linux DRM buffer sharing, not processing
-        return {
-          scale: false,
-          overlay: false,
-          transpose: false,
-          tonemap: false,
-          deinterlace: false,
-          denoise: false,
-          flip: false,
-          blur: false,
-          sharpen: false,
-          chromakey: false,
-          colorspace: false,
-          pad: false,
-          stack: false,
-        };
-
-      default:
-        // Unknown hardware - no support
-        // NPP is not a separate hardware type, it's CUDA-based
-        // We handle it through CUDA with special filter names
-        return {
-          scale: false,
-          overlay: false,
-          transpose: false,
-          tonemap: false,
-          deinterlace: false,
-          denoise: false,
-          flip: false,
-          blur: false,
-          sharpen: false,
-          chromakey: false,
-          colorspace: false,
-          pad: false,
-          stack: false,
-        };
-    }
   }
 
   /**
@@ -928,6 +758,201 @@ export class HardwareFilterPresets extends FilterPresetBase {
    */
   hwmap(derive?: string): string | null {
     return derive ? `hwmap=derive_device=${derive}` : 'hwmap';
+  }
+
+  /**
+   * Get capabilities for this hardware type.
+   */
+  getCapabilities(): HardwareFilterSupport {
+    return this.support;
+  }
+
+  /**
+   * Get supported filters for this hardware type.
+   */
+  private getSupport(): HardwareFilterSupport {
+    switch (this.deviceType) {
+      case AV_HWDEVICE_TYPE_CUDA:
+        return {
+          scale: true, // scale_cuda
+          overlay: true, // overlay_cuda
+          transpose: true, // transpose_cuda (patch 0054)
+          tonemap: true, // tonemap_cuda (patch 0004)
+          deinterlace: true, // bwdif_cuda, yadif_cuda
+          denoise: false,
+          flip: false,
+          blur: true, // bilateral_cuda
+          sharpen: false, // Uses NPP
+          chromakey: true, // chromakey_cuda
+          colorspace: true, // colorspace_cuda
+          pad: false,
+          stack: false,
+        };
+
+      case AV_HWDEVICE_TYPE_VAAPI:
+        return {
+          scale: true, // scale_vaapi
+          overlay: true, // overlay_vaapi
+          transpose: true, // transpose_vaapi
+          tonemap: true, // tonemap_vaapi
+          deinterlace: true, // deinterlace_vaapi
+          denoise: true, // denoise_vaapi
+          flip: false,
+          blur: false,
+          sharpen: true, // sharpness_vaapi
+          chromakey: false,
+          colorspace: false,
+          pad: true, // pad_vaapi
+          stack: true, // hstack_vaapi, vstack_vaapi, xstack_vaapi
+        };
+
+      case AV_HWDEVICE_TYPE_QSV:
+        return {
+          scale: true, // scale_qsv
+          overlay: true, // overlay_qsv
+          transpose: false,
+          tonemap: false,
+          deinterlace: true, // deinterlace_qsv
+          denoise: false,
+          flip: false,
+          blur: false,
+          sharpen: false,
+          chromakey: false,
+          colorspace: false,
+          pad: false,
+          stack: true, // hstack_qsv, vstack_qsv, xstack_qsv
+        };
+
+      case AV_HWDEVICE_TYPE_VULKAN:
+        return {
+          scale: true, // scale_vulkan
+          overlay: true, // overlay_vulkan
+          transpose: true, // transpose_vulkan
+          tonemap: false,
+          deinterlace: true, // bwdif_vulkan
+          denoise: false,
+          flip: true, // flip_vulkan, hflip_vulkan, vflip_vulkan
+          blur: true, // avgblur_vulkan, gblur_vulkan
+          sharpen: false,
+          chromakey: false,
+          colorspace: false,
+          pad: false,
+          stack: false,
+        };
+
+      case AV_HWDEVICE_TYPE_OPENCL:
+        return {
+          scale: true, // scale_opencl (patch 0006)
+          overlay: true, // overlay_opencl (+ PGS support patch 0008)
+          transpose: true, // transpose_opencl
+          tonemap: true, // tonemap_opencl (enhanced in patch 0007)
+          deinterlace: false,
+          denoise: false,
+          flip: false,
+          blur: true, // avgblur_opencl, boxblur_opencl
+          sharpen: true, // unsharp_opencl
+          chromakey: true, // colorkey_opencl
+          colorspace: false,
+          pad: true, // pad_opencl
+          stack: false,
+        };
+
+      case AV_HWDEVICE_TYPE_VIDEOTOOLBOX:
+        return {
+          scale: true, // scale_vt (patch 0047 adds format option)
+          overlay: true, // overlay_videotoolbox (patch 0048)
+          transpose: true, // transpose_vt (patch 0049, CoreImage based)
+          tonemap: true, // tonemap_videotoolbox (patch 0050)
+          deinterlace: true, // yadif_videotoolbox
+          denoise: false,
+          flip: false,
+          blur: false,
+          sharpen: false,
+          chromakey: false,
+          colorspace: false,
+          pad: false,
+          stack: false,
+        };
+
+      case AV_HWDEVICE_TYPE_MEDIACODEC:
+        // MediaCodec is Android's hardware acceleration - mainly for decode/encode
+        return {
+          scale: false,
+          overlay: false,
+          transpose: false,
+          tonemap: false,
+          deinterlace: false,
+          denoise: false,
+          flip: false,
+          blur: false,
+          sharpen: false,
+          chromakey: false,
+          colorspace: false,
+          pad: false,
+          stack: false,
+        };
+
+      case AV_HWDEVICE_TYPE_RKMPP: // Rockchip - has RGA filters via patch 0046
+        // Note: RKMPP uses separate RKRGA (Rockchip 2D Raster Graphic Acceleration)
+        // for filtering operations, configured with --enable-rkrga
+        return {
+          scale: true, // scale_rkrga (patch 0046)
+          overlay: true, // overlay_rkrga (patch 0046)
+          transpose: false,
+          tonemap: false,
+          deinterlace: false,
+          denoise: false,
+          flip: false,
+          blur: false,
+          sharpen: false,
+          chromakey: false,
+          colorspace: false,
+          pad: false,
+          stack: false,
+        };
+
+      // These hardware types don't have dedicated filters - they're mainly for decode/encode
+      case AV_HWDEVICE_TYPE_VDPAU: // Decode-only, deprecated in favor of VAAPI
+      case AV_HWDEVICE_TYPE_DXVA2: // Windows decode-only
+      case AV_HWDEVICE_TYPE_D3D11VA: // Windows decode-only
+      case AV_HWDEVICE_TYPE_D3D12VA: // Has HEVC encoder but no filters
+      case AV_HWDEVICE_TYPE_DRM: // Linux DRM buffer sharing, not processing
+        return {
+          scale: false,
+          overlay: false,
+          transpose: false,
+          tonemap: false,
+          deinterlace: false,
+          denoise: false,
+          flip: false,
+          blur: false,
+          sharpen: false,
+          chromakey: false,
+          colorspace: false,
+          pad: false,
+          stack: false,
+        };
+
+      default:
+        // Unknown hardware - no support
+        // NPP is not a separate hardware type, it's CUDA-based
+        // We handle it through CUDA with special filter names
+        return {
+          scale: false,
+          overlay: false,
+          transpose: false,
+          tonemap: false,
+          deinterlace: false,
+          denoise: false,
+          flip: false,
+          blur: false,
+          sharpen: false,
+          chromakey: false,
+          colorspace: false,
+          pad: false,
+          stack: false,
+        };
+    }
   }
 }
 
