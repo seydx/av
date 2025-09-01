@@ -13,7 +13,7 @@
  *   --audio-channels <n>  Audio channels (default: 2)
  *
  * Examples:
- *   tsx examples/api-pipeline-raw-muxing.ts testdata/input.yuv testdata/audio.pcm examples/.tmp/muxed.mp4
+ *   tsx examples/api-pipeline-raw-muxing.ts testdata/input.yuv testdata/audio.pcm examples/.tmp/pipeline-raw-muxed.mp4
  *   tsx examples/api-pipeline-raw-muxing.ts video.yuv audio.pcm output.mp4 --video-size 1920x1080
  *   tsx examples/api-pipeline-raw-muxing.ts raw.yuv raw.pcm out.mp4 --video-fps 60 --audio-rate 44100
  */
@@ -157,7 +157,7 @@ async function main() {
 
     // Create audio filter to handle frame size and format conversion
     console.log('Creating audio filter for format conversion...');
-    using audioFilter = await FilterAPI.create('aformat=sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=0', audioStream);
+    using audioFilter = await FilterAPI.create('aformat=sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=0', audioDecoder.getOutputStreamInfo());
     console.log('  ✓ Audio filter created\n');
 
     // Process with pipeline

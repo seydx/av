@@ -116,7 +116,7 @@ async function processRtsp() {
       filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
     }
 
-    using filter = await FilterAPI.create(filterChain, videoStream, {
+    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), {
       hardware,
     });
     console.log(`  ✓ Filter created: ${filterChain}`);

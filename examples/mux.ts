@@ -240,7 +240,7 @@ function allocAudioFrame(sampleFmt: AVSampleFormat, channelLayout: ChannelLayout
 /**
  * Open audio for encoding
  */
-async function openAudio(oc: FormatContext, codec: Codec, ost: OutputStream, optArg: Dictionary | null): Promise<void> {
+async function openAudio(codec: Codec, ost: OutputStream, optArg: Dictionary | null): Promise<void> {
   const c = ost.enc!;
 
   // Open the codec
@@ -374,7 +374,7 @@ function allocVideoFrame(pixFmt: AVPixelFormat, width: number, height: number): 
 /**
  * Open video for encoding
  */
-async function openVideo(oc: FormatContext, codec: Codec, ost: OutputStream, optArg: Dictionary | null): Promise<void> {
+async function openVideo(codec: Codec, ost: OutputStream, optArg: Dictionary | null): Promise<void> {
   const c = ost.enc!;
 
   // Open the codec
@@ -562,11 +562,11 @@ async function mux(filename: string): Promise<void> {
     // Now that all the parameters are set, we can open the audio and
     // video codecs and allocate the necessary encode buffers
     if (haveVideo) {
-      await openVideo(oc, videoCodec!, videoSt, options);
+      await openVideo(videoCodec!, videoSt, options);
     }
 
     if (haveAudio) {
-      await openAudio(oc, audioCodec!, audioSt, options);
+      await openAudio(audioCodec!, audioSt, options);
     }
 
     oc.dumpFormat(0, filename, true);

@@ -57,7 +57,7 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
 
   // Create filter to upload frames to hardware
   console.log('🔧 Setting up hardware upload filter...');
-  const filter = await FilterAPI.create('hwupload', videoStream, { hardware: hw });
+  const filter = await FilterAPI.create('hwupload', decoder.getOutputStreamInfo(), { hardware: hw });
   console.log('  ✓ Hardware upload filter created (CPU→HW)');
 
   // Create hardware encoder (GPU)
@@ -70,7 +70,7 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   }
 
   // Hardware encoder needs hardware context
-  const encoder = await Encoder.create(encoderName, videoStream, {
+  const encoder = await Encoder.create(encoderName, decoder.getOutputStreamInfo(), {
     bitrate: '4M',
     gopSize: 60,
     hardware: hw,

@@ -101,7 +101,7 @@ async function processRtsp() {
 
     // Create filter
     console.log(`Creating filter: ${filterChain}`);
-    using filter = await FilterAPI.create(filterChain, videoStream, {
+    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), {
       hardware,
     });
     console.log('Filter created\n');

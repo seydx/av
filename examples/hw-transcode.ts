@@ -30,7 +30,7 @@ import {
   Rational,
 } from '../src/index.js';
 
-import type { AVCodecID, AVHWDeviceType, AVPixelFormat, Stream } from '../src/index.js';
+import type { AVHWDeviceType, AVPixelFormat, FFEncoderCodec, Stream } from '../src/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let inputCtx: FormatContext | null = null;
@@ -63,61 +63,51 @@ function getHardwarePixelFormat(deviceType: AVHWDeviceType): AVPixelFormat {
 }
 
 /**
- * Get decoder name for hardware type
- */
-function getDecoderName(codecId: AVCodecID, deviceType: AVHWDeviceType): string | null {
-  const baseCodec = Codec.findDecoder(codecId);
-  if (!baseCodec) {
-    return null;
-  }
-
-  const deviceName = HardwareDeviceContext.getTypeName(deviceType);
-  if (!deviceName) {
-    return baseCodec.name;
-  }
-
-  // Try to find hardware decoder
-  const hwDecoderNames: Record<string, string> = {
-    videotoolbox: `${baseCodec.name}_videotoolbox`,
-    vaapi: `${baseCodec.name}_vaapi`,
-    cuda: `${baseCodec.name}_cuvid`,
-    d3d11va: `${baseCodec.name}_d3d11va`,
-    dxva2: `${baseCodec.name}_dxva2`,
-    qsv: `${baseCodec.name}_qsv`,
-  };
-
-  const hwDecoderName = hwDecoderNames[deviceName];
-  if (hwDecoderName) {
-    const hwDecoder = Codec.findDecoderByName(hwDecoderName);
-    if (hwDecoder) {
-      return hwDecoderName;
-    }
-  }
-
-  // Fallback to software decoder with hardware acceleration
-  return baseCodec.name;
-}
-
-/**
  * Get encoder name for hardware type and codec
  */
-function getEncoderName(deviceType: AVHWDeviceType, codecName: string): string {
-  const deviceName = HardwareDeviceContext.getTypeName(deviceType);
-  if (!deviceName) {
-    return codecName;
+function getEncoderCodec(deviceType: AVHWDeviceType, codecName: string): Codec | null {
+  // Get the hardware device type name from FFmpeg
+  const deviceTypeName = HardwareDeviceContext.getTypeName(deviceType);
+  if (!deviceTypeName) return null;
+
+  // Build the encoder name
+  let encoderSuffix: string;
+
+  switch (deviceTypeName) {
+    case 'cuda':
+      // CUDA uses NVENC for encoding
+      encoderSuffix = 'nvenc';
+      break;
+
+    case 'd3d11va':
+    case 'dxva2':
+      // D3D11VA and DXVA2 are decode-only APIs
+      // Cannot encode with these hardware contexts
+      // Need nvenc, qsv or amf for encoding
+      return null;
+
+    case 'd3d12va':
+      // D3D12VA currently only supports HEVC encoding
+      if (codecName === 'hevc') {
+        encoderSuffix = 'd3d12va';
+      }
+      return null;
+
+    case 'opencl':
+    case 'vdpau':
+    case 'drm':
+      // These don't have dedicated encoders
+      return null;
+
+    default:
+      // Use the device type name as suffix
+      encoderSuffix = deviceTypeName;
   }
 
-  const encoderSuffixes: Record<string, string> = {
-    videotoolbox: '_videotoolbox',
-    vaapi: '_vaapi',
-    cuda: '_nvenc',
-    d3d11va: '_nvenc',
-    dxva2: '_nvenc',
-    qsv: '_qsv',
-  };
+  // Construct the encoder name
+  const encoderName = `${codecName}_${encoderSuffix}` as FFEncoderCodec;
 
-  const suffix = encoderSuffixes[deviceName] ?? '';
-  return codecName + suffix;
+  return Codec.findEncoderByName(encoderName);
 }
 
 /**
@@ -154,26 +144,12 @@ async function openInputFile(filename: string, deviceType: AVHWDeviceType): Prom
     return -1;
   }
 
-  // Try to use hardware decoder first, fall back to suggested decoder
-  const decoderName = getDecoderName(videoStream.codecpar.codecId, deviceType);
-  let decoder: Codec | null = null;
-
-  if (decoderName) {
-    decoder = Codec.findDecoderByName(decoderName);
-    if (decoder) {
-      console.log(`Using hardware decoder: ${decoder.name} (${decoder.longName})`);
-    }
-  }
-
-  // Fall back to suggested decoder if no hardware decoder found
+  const decoder = suggestedDecoder;
   if (!decoder) {
-    decoder = suggestedDecoder;
-    if (!decoder) {
-      console.error('Cannot find any suitable decoder');
-      return -1;
-    }
-    console.log(`Using suggested decoder: ${decoder.name} (${decoder.longName})`);
+    console.error('Cannot find any suitable decoder');
+    return -1;
   }
+  console.log(`Using suggested decoder: ${decoder.name} (${decoder.longName})`);
 
   // Allocate decoder context
   decoderCtx = new CodecContext();
@@ -206,7 +182,7 @@ async function openInputFile(filename: string, deviceType: AVHWDeviceType): Prom
 /**
  * Initialize encoder after receiving first frame
  */
-async function initializeEncoder(frame: Frame, encoderCodec: Codec, outputFile: string, deviceType: AVHWDeviceType): Promise<number> {
+async function initializeEncoder(encoderCodec: Codec, deviceType: AVHWDeviceType): Promise<number> {
   if (!decoderCtx?.hwFramesCtx) {
     console.error('Decoder hardware frames context not available');
     return -1;
@@ -306,7 +282,7 @@ async function encodeWrite(packet: Packet, frame: Frame | null): Promise<number>
 /**
  * Decode and encode packets
  */
-async function decodeEncode(packet: Packet | null, encoderCodec: Codec, outputFile: string, deviceType: AVHWDeviceType): Promise<number> {
+async function decodeEncode(packet: Packet | null, encoderCodec: Codec, deviceType: AVHWDeviceType): Promise<number> {
   // Send packet to decoder
   const sendRet = await decoderCtx!.sendPacket(packet);
   if (sendRet < 0 && sendRet !== AVERROR_EAGAIN && sendRet !== AVERROR_EOF) {
@@ -339,7 +315,7 @@ async function decodeEncode(packet: Packet | null, encoderCodec: Codec, outputFi
         console.log('✓ Decoder produced hardware frame (GPU memory)');
       }
 
-      const initRet = await initializeEncoder(frame, encoderCodec, outputFile, deviceType);
+      const initRet = await initializeEncoder(encoderCodec, deviceType);
       if (initRet < 0) {
         frame.free();
         return initRet;
@@ -410,11 +386,9 @@ async function main(): Promise<number> {
     }
 
     // Find encoder
-    const encoderName = getEncoderName(deviceType, codecName);
-    const encoderCodec = Codec.findEncoderByName(encoderName);
+    const encoderCodec = getEncoderCodec(deviceType, codecName);
     if (!encoderCodec) {
-      console.error(`Cannot find encoder: ${encoderName}`);
-      console.error(`Try: ${codecName}_videotoolbox, ${codecName}_vaapi, ${codecName}_nvenc, ${codecName}_qsv`);
+      console.error(`Cannot find encoder: ${codecName}`);
       return -1;
     }
 
@@ -451,7 +425,7 @@ async function main(): Promise<number> {
       if (readRet < 0) {
         if (readRet === AVERROR_EOF) {
           // Flush decoder
-          await decodeEncode(null, encoderCodec, outputFile, deviceType);
+          await decodeEncode(null, encoderCodec, deviceType);
 
           // Flush encoder
           if (initialized) {
@@ -469,7 +443,7 @@ async function main(): Promise<number> {
 
       // Process only video packets
       if (packet.streamIndex === videoStreamIndex) {
-        const ret = await decodeEncode(packet, encoderCodec, outputFile, deviceType);
+        const ret = await decodeEncode(packet, encoderCodec, deviceType);
         if (ret < 0) {
           packet.free();
           return ret;

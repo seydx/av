@@ -95,11 +95,11 @@ async function main() {
 
     if (hardware) {
       encoderName = hardware.getEncoderCodec('hevc') ?? encoderName;
-      filterChain = hardware.filterPresets.chain().scale(640, 360).custom('scale=640:360,setpts=N/FRAME_RATE/TB').build();
+      filterChain = hardware.filterPresets.chain().hwupload().scale(640, 360).custom('setpts=N/FRAME_RATE/TB').build();
     }
 
     console.log(`Creating filter: ${filterChain}`);
-    using filter = await FilterAPI.create(filterChain, videoStream, {
+    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), {
       hardware,
     });
     console.log('Filter created\n');

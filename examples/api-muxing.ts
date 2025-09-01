@@ -18,14 +18,12 @@
  */
 
 import {
-  AV_CHANNEL_LAYOUT_MONO,
   AV_CHANNEL_LAYOUT_STEREO,
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MP3,
   AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_FLTP,
-  AV_SAMPLE_FMT_S16P,
   Decoder,
   Encoder,
   FF_ENCODER_AAC,
@@ -157,17 +155,11 @@ async function main() {
     // Need to transcode audio
     audioDecoder = await Decoder.create(audioStream);
 
-    // Create filter chain that converts to the format needed by AAC encoder
-    // MP2 decoders typically output s16p format
-    const sourceFormat = {
-      type: 'audio' as const,
-      sampleRate: audioStream.codecpar.sampleRate,
-      sampleFormat: AV_SAMPLE_FMT_S16P, // MP2 decoder outputs s16p
-      channelLayout: audioStream.codecpar.channels === 1 ? AV_CHANNEL_LAYOUT_MONO : AV_CHANNEL_LAYOUT_STEREO,
-      timeBase: audioStream.timeBase,
-    };
+    // Get the actual output format from the decoder
+    const decoderOutputInfo = audioDecoder.getOutputStreamInfo();
 
-    audioFilter = await FilterAPI.create('aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=0', sourceFormat);
+    // Create filter chain that converts to the format needed by AAC encoder
+    audioFilter = await FilterAPI.create('aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=0', decoderOutputInfo);
 
     // AAC encoder
     audioEncoder = await Encoder.create(

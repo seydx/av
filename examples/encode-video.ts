@@ -27,6 +27,7 @@ import {
   Frame,
   Packet,
   Rational,
+  type FFEncoderCodec,
 } from '../src/index.js';
 
 /**
@@ -60,7 +61,7 @@ async function encode(encCtx: CodecContext, frame: Frame | null, pkt: Packet, ou
 /**
  * Main encode video function
  */
-async function encodeVideo(filename: string, codecName: string): Promise<void> {
+async function encodeVideo(filename: string, codecName: FFEncoderCodec): Promise<void> {
   let codec: Codec | null = null;
   let codecCtx: CodecContext | null = null;
   let packet: Packet | null = null;
@@ -245,7 +246,7 @@ async function main(): Promise<void> {
   const [filename, codecName] = args;
 
   try {
-    await encodeVideo(filename, codecName);
+    await encodeVideo(filename, codecName as FFEncoderCodec);
     process.exit(0);
   } catch (error) {
     if (error instanceof FFmpegError) {

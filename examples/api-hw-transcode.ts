@@ -82,7 +82,7 @@ async function main() {
     console.log(`Creating encoder: ${encoderName}...`);
 
     // Create encoder with shared decoder for zero-copy when both use hardware
-    const encoder = await Encoder.create(encoderName, videoStream, {
+    const encoder = await Encoder.create(encoderName, decoder.getOutputStreamInfo(), {
       hardware: hw,
     });
 
