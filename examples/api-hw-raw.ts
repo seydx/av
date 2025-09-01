@@ -17,19 +17,9 @@
  *   tsx examples/api-hw-raw.ts input.yuv output.mp4 --fps 60
  */
 
-import {
-  AV_PIX_FMT_YUV420P,
-  Decoder,
-  Encoder,
-  FF_ENCODER_HEVC_QSV,
-  FF_ENCODER_HEVC_VAAPI,
-  FF_ENCODER_HEVC_VIDEOTOOLBOX,
-  FF_ENCODER_LIBX265,
-  FilterAPI,
-  HardwareContext,
-  MediaInput,
-  MediaOutput,
-} from '../src/index.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
+
+import type { FFEncoderCodec } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -100,31 +90,16 @@ async function main() {
     console.log('Decoder created (software for raw video)\n');
 
     // Determine encoder based on hardware
-    let encoderName = FF_ENCODER_LIBX265; // Default software encoder
+    let encoderName: FFEncoderCodec = FF_ENCODER_LIBX265; // Default software encoder
+    let filterChain = 'scale=640:360,setpts=N/FRAME_RATE/TB';
+
     if (hardware) {
-      switch (hardware.deviceTypeName) {
-        case 'videotoolbox':
-          encoderName = FF_ENCODER_HEVC_VIDEOTOOLBOX;
-          break;
-        case 'vaapi':
-          encoderName = FF_ENCODER_HEVC_VAAPI;
-          break;
-        case 'cuda':
-          encoderName = FF_ENCODER_HEVC_QSV;
-          break;
-        case 'qsv':
-          encoderName = FF_ENCODER_HEVC_QSV;
-          break;
-      }
+      encoderName = hardware.getEncoderCodec('hevc') ?? encoderName;
+      filterChain = hardware.filterPresets.chain().scale(640, 360).custom('scale=640:360,setpts=N/FRAME_RATE/TB').build();
     }
 
-    // Create hardware filter chain
-    const filterGraph = hardware
-      ? 'hwupload,scale_vt=640:360,setpts=N/FRAME_RATE/TB' // Hardware scaling
-      : 'scale=640:360,setpts=N/FRAME_RATE/TB'; // Software scaling
-
-    console.log(`Creating filter: ${filterGraph}`);
-    using filter = await FilterAPI.create(filterGraph, videoStream, {
+    console.log(`Creating filter: ${filterChain}`);
+    using filter = await FilterAPI.create(filterChain, videoStream, {
       hardware,
     });
     console.log('Filter created\n');

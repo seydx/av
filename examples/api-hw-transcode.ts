@@ -8,8 +8,9 @@
  * Example: tsx examples/api-hw-transcode.ts testdata/video.mp4 examples/.tmp/api-hw-transcode.mp4
  */
 
-import { Decoder, Encoder, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { FF_ENCODER_H264_NVENC, FF_ENCODER_H264_QSV, FF_ENCODER_H264_VAAPI, FF_ENCODER_H264_VIDEOTOOLBOX, FF_ENCODER_LIBX264 } from '../src/index.js';
+import { Decoder, Encoder, FF_ENCODER_LIBX264, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
+
+import type { FFEncoderCodec } from '../src/index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];
@@ -72,33 +73,10 @@ async function main() {
     }
 
     // Determine encoder based on hardware availability
-    let encoderName = FF_ENCODER_LIBX264; // Default software encoder
-    let codecOptions: Record<string, string> = {
-      preset: 'fast',
-      crf: '23',
-    };
+    let encoderName: FFEncoderCodec = FF_ENCODER_LIBX264; // Default software encoder
 
     if (hw) {
-      // Use hardware-specific encoder
-      switch (hw.deviceTypeName) {
-        case 'videotoolbox':
-          encoderName = FF_ENCODER_H264_VIDEOTOOLBOX;
-          codecOptions = {
-            realtime: '1',
-          };
-          break;
-        case 'cuda':
-          encoderName = FF_ENCODER_H264_NVENC;
-          break;
-        case 'vaapi':
-          encoderName = FF_ENCODER_H264_VAAPI;
-          break;
-        case 'qsv':
-          encoderName = FF_ENCODER_H264_QSV;
-          break;
-        default:
-          console.log('⚠️  No known H.264 encoder for this hardware, using software');
-      }
+      encoderName = hw.getEncoderCodec('h264') ?? encoderName;
     }
 
     console.log(`Creating encoder: ${encoderName}...`);
@@ -106,7 +84,6 @@ async function main() {
     // Create encoder with shared decoder for zero-copy when both use hardware
     const encoder = await Encoder.create(encoderName, videoStream, {
       hardware: hw,
-      options: codecOptions,
     });
 
     // Create output using MediaOutput

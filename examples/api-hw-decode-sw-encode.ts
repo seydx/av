@@ -58,7 +58,6 @@ async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   console.log(`  ✓ Hardware decoder created (${hw.deviceTypeName})`);
 
   // Create filter to convert from hardware to software format
-  // scale_vt for videotoolbox, hwdownload to nv12, then convert to yuv420p
   console.log('🔧 Setting up format conversion filter...');
   const filter = await FilterAPI.create('scale_vt,hwdownload,format=nv12,format=yuv420p', videoStream, { hardware: hw });
   console.log('  ✓ Format conversion filter created (HW→CPU)');

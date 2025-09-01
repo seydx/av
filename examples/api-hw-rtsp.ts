@@ -16,19 +16,9 @@
  *   tsx examples/api-hw-rtsp.ts rtsp://server/live output.mp4 --scale 1280x720
  */
 
-import {
-  AV_PIX_FMT_YUV420P,
-  Decoder,
-  Encoder,
-  FF_ENCODER_HEVC_QSV,
-  FF_ENCODER_HEVC_VAAPI,
-  FF_ENCODER_HEVC_VIDEOTOOLBOX,
-  FF_ENCODER_LIBX265,
-  FilterAPI,
-  HardwareContext,
-  MediaInput,
-  MediaOutput,
-} from '../src/index.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
+
+import type { FFEncoderCodec } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -119,28 +109,12 @@ async function processRtsp() {
     console.log('Video decoder created\n');
 
     // Determine encoder based on hardware
-    let encoderName = FF_ENCODER_LIBX265; // Default software encoder
+    let encoderName: FFEncoderCodec = FF_ENCODER_LIBX265; // Default software encoder
     let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
 
     if (hardware) {
-      switch (hardware.deviceTypeName) {
-        case 'videotoolbox':
-          encoderName = FF_ENCODER_HEVC_VIDEOTOOLBOX;
-          filterChain = `scale_vt=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
-          break;
-        case 'vaapi':
-          encoderName = FF_ENCODER_HEVC_VAAPI;
-          filterChain = `scale_vaapi=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
-          break;
-        case 'cuda':
-          encoderName = FF_ENCODER_HEVC_QSV;
-          filterChain = `scale_cuda=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
-          break;
-        case 'qsv':
-          encoderName = FF_ENCODER_HEVC_QSV;
-          filterChain = `scale_qsv=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
-          break;
-      }
+      encoderName = hardware.getEncoderCodec('hevc') ?? encoderName;
+      filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
     }
 
     // Create filter

@@ -14,7 +14,6 @@
  */
 
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { FF_ENCODER_H264_NVENC, FF_ENCODER_H264_QSV, FF_ENCODER_H264_VAAPI, FF_ENCODER_H264_VIDEOTOOLBOX, type FFEncoderCodec } from '../src/index.js';
 
 async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   console.log('🎬 Software Decode + Hardware Encode Example');
@@ -65,22 +64,9 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   console.log('🔧 Setting up hardware encoder...');
 
   // Select appropriate hardware encoder based on platform
-  let encoderName: FFEncoderCodec;
-  switch (hw.deviceTypeName) {
-    case 'videotoolbox':
-      encoderName = FF_ENCODER_H264_VIDEOTOOLBOX;
-      break;
-    case 'cuda':
-      encoderName = FF_ENCODER_H264_NVENC;
-      break;
-    case 'vaapi':
-      encoderName = FF_ENCODER_H264_VAAPI;
-      break;
-    case 'qsv':
-      encoderName = FF_ENCODER_H264_QSV;
-      break;
-    default:
-      throw new Error(`Unsupported hardware type: ${hw.deviceTypeName}`);
+  const encoderName = hw.getEncoderCodec('h264');
+  if (!encoderName) {
+    throw new Error(`Unsupported hardware type: ${hw.deviceTypeName}`);
   }
 
   // Hardware encoder needs hardware context
