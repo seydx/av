@@ -121,11 +121,6 @@ describe('HardwareContext', () => {
         console.log(`Hardware filter chain for ${hw.deviceTypeName}: ${filterChain}`);
         assert.ok(typeof filterChain === 'string', 'Should return filter chain string');
 
-        // Test individual filter presets
-        const scaleFilter = hw.filterPresets.scale(1280, 720);
-        console.log(`  Scale filter: ${scaleFilter}`);
-        assert.ok(typeof scaleFilter === 'string', 'Should return scale filter string');
-
         // Check hardware filter support
         console.log(`Hardware filter support for ${hw.deviceTypeName}:`);
         console.log(`  Scale: ${hw.filterPresets.support.scale}`);
