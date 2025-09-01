@@ -50,6 +50,135 @@ export interface HardwareFilterSupport {
 }
 
 /**
+ * Base class for filter preset implementations.
+ * Provides common filter building methods that can be overridden.
+ */
+export abstract class FilterPresetBase {
+  /**
+   * Scale video to specified dimensions.
+   * @returns Filter string or null if not supported
+   */
+  scale(width: number, height: number, options?: Record<string, any>): string | null {
+    const flags = options?.flags;
+    const base = `scale=${width}:${height}`;
+    return flags ? `${base}:flags=${flags}` : base;
+  }
+
+  /**
+   * Crop video to specified dimensions.
+   */
+  crop(width: number, height: number, x = 0, y = 0): string | null {
+    return `crop=${width}:${height}:${x}:${y}`;
+  }
+
+  /**
+   * Change frame rate.
+   */
+  fps(fps: number): string | null {
+    return `fps=${fps}`;
+  }
+
+  /**
+   * Convert pixel format.
+   * Can accept a single format or an array of formats for fallback.
+   * Multiple formats will create a chain: format=fmt1,format=fmt2,...
+   */
+  format(pixelFormat: string | AVPixelFormat | (string | AVPixelFormat)[]): string | null {
+    if (Array.isArray(pixelFormat)) {
+      // Create a chain of format filters
+      const formats = pixelFormat.map((fmt) => {
+        const formatName = typeof fmt === 'string' ? fmt : (avGetPixFmtName(fmt) ?? 'yuv420p');
+        return `format=${formatName}`;
+      });
+      return formats.join(',');
+    }
+
+    const formatName = typeof pixelFormat === 'string' ? pixelFormat : (avGetPixFmtName(pixelFormat) ?? 'yuv420p');
+    return `format=${formatName}`;
+  }
+
+  /**
+   * Rotate video by angle.
+   */
+  rotate(angle: number): string | null {
+    return `rotate=${angle}*PI/180`;
+  }
+
+  /**
+   * Flip video horizontally.
+   */
+  hflip(): string | null {
+    return 'hflip';
+  }
+
+  /**
+   * Flip video vertically.
+   */
+  vflip(): string | null {
+    return 'vflip';
+  }
+
+  /**
+   * Apply fade effect.
+   */
+  fade(type: 'in' | 'out', start: number, duration: number): string | null {
+    return `fade=t=${type}:st=${start}:d=${duration}`;
+  }
+
+  /**
+   * Overlay one video on another.
+   */
+  overlay(x = 0, y = 0, options?: Record<string, string>): string | null {
+    let filter = `overlay=${x}:${y}`;
+    if (options) {
+      for (const [key, value] of Object.entries(options)) {
+        filter += `:${key}=${value}`;
+      }
+    }
+    return filter;
+  }
+
+  /**
+   * Adjust audio volume.
+   */
+  volume(factor: number): string | null {
+    return `volume=${factor}`;
+  }
+
+  /**
+   * Convert audio sample format.
+   */
+  aformat(sampleFormat: string | AVSampleFormat, sampleRate?: number, channelLayout?: string): string | null {
+    const formatName = typeof sampleFormat === 'string' ? sampleFormat : (avGetSampleFmtName(sampleFormat) ?? 's16');
+    let filter = `aformat=sample_fmts=${formatName}`;
+    if (sampleRate) filter += `:sample_rates=${sampleRate}`;
+    if (channelLayout) filter += `:channel_layouts=${channelLayout}`;
+    return filter;
+  }
+
+  /**
+   * Change audio tempo without changing pitch.
+   */
+  atempo(factor: number): string | null {
+    return `atempo=${factor}`;
+  }
+
+  /**
+   * Apply audio fade.
+   */
+  afade(type: 'in' | 'out', start: number, duration: number): string | null {
+    return `afade=t=${type}:st=${start}:d=${duration}`;
+  }
+
+  /**
+   * Mix multiple audio streams.
+   */
+  amix(inputs = 2, duration: 'first' | 'longest' | 'shortest' = 'longest'): string | null {
+    return `amix=inputs=${inputs}:duration=${duration}`;
+  }
+}
+
+/**
  * Filter chain builder for composing multiple filters.
  * Allows fluent API for building complex filter graphs.
  */
@@ -91,64 +220,148 @@ export class FilterChain {
 }
 
 /**
- * Fluent filter chain builder with preset methods.
+ * Base chain builder with common filter methods.
+ * @template T The preset type this builder uses
  */
-export class FilterChainBuilder extends FilterChain {
-  scale(width: number, height: number, flags?: string): this {
-    return this.add(FilterPresets.scale(width, height, flags));
+export abstract class ChainBuilderBase<T extends FilterPresetBase> extends FilterChain {
+  constructor(protected readonly presets: T) {
+    super();
+  }
+
+  scale(width: number, height: number, options?: Record<string, any>): this {
+    return this.add(this.presets.scale(width, height, options));
   }
 
   crop(width: number, height: number, x = 0, y = 0): this {
-    return this.add(FilterPresets.crop(width, height, x, y));
+    return this.add(this.presets.crop(width, height, x, y));
   }
 
   fps(fps: number): this {
-    return this.add(FilterPresets.fps(fps));
+    return this.add(this.presets.fps(fps));
   }
 
-  format(pixelFormat: string | AVPixelFormat): this {
-    return this.add(FilterPresets.format(pixelFormat));
+  format(pixelFormat: string | AVPixelFormat | (string | AVPixelFormat)[]): this {
+    return this.add(this.presets.format(pixelFormat));
   }
 
   rotate(angle: number): this {
-    return this.add(FilterPresets.rotate(angle));
+    return this.add(this.presets.rotate(angle));
   }
 
   hflip(): this {
-    return this.add(FilterPresets.hflip());
+    return this.add(this.presets.hflip());
   }
 
   vflip(): this {
-    return this.add(FilterPresets.vflip());
+    return this.add(this.presets.vflip());
   }
 
   fade(type: 'in' | 'out', start: number, duration: number): this {
-    return this.add(FilterPresets.fade(type, start, duration));
+    return this.add(this.presets.fade(type, start, duration));
   }
 
-  overlay(x = 0, y = 0): this {
-    return this.add(FilterPresets.overlay(x, y));
+  overlay(x = 0, y = 0, options?: Record<string, string>): this {
+    return this.add(this.presets.overlay(x, y, options));
   }
 
   volume(factor: number): this {
-    return this.add(FilterPresets.volume(factor));
+    return this.add(this.presets.volume(factor));
   }
 
   aformat(sampleFormat: string | AVSampleFormat, sampleRate?: number, channelLayout?: string): this {
-    return this.add(FilterPresets.aformat(sampleFormat, sampleRate, channelLayout));
+    return this.add(this.presets.aformat(sampleFormat, sampleRate, channelLayout));
   }
 
   atempo(factor: number): this {
-    return this.add(FilterPresets.atempo(factor));
+    return this.add(this.presets.atempo(factor));
   }
 
   afade(type: 'in' | 'out', start: number, duration: number): this {
-    return this.add(FilterPresets.afade(type, start, duration));
+    return this.add(this.presets.afade(type, start, duration));
   }
 
   amix(inputs = 2, duration: 'first' | 'longest' | 'shortest' = 'longest'): this {
-    return this.add(FilterPresets.amix(inputs, duration));
+    return this.add(this.presets.amix(inputs, duration));
   }
+
+  // Hardware-specific methods (only available if presets support them)
+  transpose(dir = 0): this {
+    if ('transpose' in this.presets) {
+      return this.add((this.presets as any).transpose(dir));
+    }
+    return this.add(null);
+  }
+
+  tonemap(options?: Record<string, string>): this {
+    if ('tonemap' in this.presets) {
+      return this.add((this.presets as any).tonemap(options));
+    }
+    return this.add(null);
+  }
+
+  deinterlace(mode?: string): this {
+    if ('deinterlace' in this.presets) {
+      return this.add((this.presets as any).deinterlace(mode));
+    }
+    return this.add(null);
+  }
+
+  flip(direction: 'h' | 'v'): this {
+    if ('flip' in this.presets) {
+      return this.add((this.presets as any).flip(direction));
+    }
+    // Fallback to hflip/vflip
+    return direction === 'h' ? this.hflip() : this.vflip();
+  }
+
+  blur(type: 'avg' | 'gaussian' | 'box' = 'avg', radius?: number): this {
+    if ('blur' in this.presets) {
+      return this.add((this.presets as any).blur(type, radius));
+    }
+    return this.add(null);
+  }
+
+  sharpen(amount?: number): this {
+    if ('sharpen' in this.presets) {
+      return this.add((this.presets as any).sharpen(amount));
+    }
+    return this.add(null);
+  }
+
+  stack(type: 'h' | 'v' | 'x', inputs = 2): this {
+    if ('stack' in this.presets) {
+      return this.add((this.presets as any).stack(type, inputs));
+    }
+    return this.add(null);
+  }
+
+  hwupload(): this {
+    if ('hwupload' in this.presets) {
+      return this.add((this.presets as any).hwupload());
+    }
+    return this.add('hwupload');
+  }
+
+  hwdownload(): this {
+    if ('hwdownload' in this.presets) {
+      return this.add((this.presets as any).hwdownload());
+    }
+    return this.add('hwdownload');
+  }
+
+  hwmap(derive?: string): this {
+    if ('hwmap' in this.presets) {
+      return this.add((this.presets as any).hwmap(derive));
+    }
+    return this.add(derive ? `hwmap=derive_device=${derive}` : 'hwmap');
+  }
+}
+
+/**
+ * Fluent filter chain builder with preset methods.
+ */
+export class FilterChainBuilder extends ChainBuilderBase<FilterPresets> {
+  // Inherits all methods from ChainBuilderBase
 }
 
 /**
@@ -172,118 +385,85 @@ export class FilterChainBuilder extends FilterChain {
  *   .build();
  * ```
  */
-export class FilterPresets {
+export class FilterPresets extends FilterPresetBase {
+  private static instance = new FilterPresets();
+
   /**
    * Create a new filter chain builder.
    */
   static chain(): FilterChainBuilder {
-    return new FilterChainBuilder();
+    return new FilterChainBuilder(FilterPresets.instance);
   }
 
-  /**
-   * Scale video to specified dimensions.
-   */
+  // Static methods that delegate to instance
   static scale(width: number, height: number, flags?: string): string {
-    const base = `scale=${width}:${height}`;
-    return flags ? `${base}:flags=${flags}` : base;
+    const result = FilterPresets.instance.scale(width, height, { flags });
+    return result ?? '';
   }
 
-  /**
-   * Crop video to specified dimensions.
-   */
   static crop(width: number, height: number, x = 0, y = 0): string {
-    return `crop=${width}:${height}:${x}:${y}`;
+    const result = FilterPresets.instance.crop(width, height, x, y);
+    return result ?? '';
   }
 
-  /**
-   * Change frame rate.
-   */
   static fps(fps: number): string {
-    return `fps=${fps}`;
+    const result = FilterPresets.instance.fps(fps);
+    return result ?? '';
   }
 
-  /**
-   * Convert pixel format.
-   * Can accept either format name string or AVPixelFormat enum.
-   */
-  static format(pixelFormat: string | AVPixelFormat): string {
-    const formatName = typeof pixelFormat === 'string' ? pixelFormat : (avGetPixFmtName(pixelFormat) ?? 'yuv420p');
-    return `format=${formatName}`;
+  static format(pixelFormat: string | AVPixelFormat | (string | AVPixelFormat)[]): string {
+    const result = FilterPresets.instance.format(pixelFormat);
+    return result ?? '';
   }
 
-  /**
-   * Rotate video by angle.
-   */
   static rotate(angle: number): string {
-    return `rotate=${angle}*PI/180`;
+    const result = FilterPresets.instance.rotate(angle);
+    return result ?? '';
   }
 
-  /**
-   * Flip video horizontally.
-   */
   static hflip(): string {
-    return 'hflip';
+    const result = FilterPresets.instance.hflip();
+    return result ?? '';
   }
 
-  /**
-   * Flip video vertically.
-   */
   static vflip(): string {
-    return 'vflip';
+    const result = FilterPresets.instance.vflip();
+    return result ?? '';
   }
 
-  /**
-   * Apply fade effect.
-   */
   static fade(type: 'in' | 'out', start: number, duration: number): string {
-    return `fade=t=${type}:st=${start}:d=${duration}`;
+    const result = FilterPresets.instance.fade(type, start, duration);
+    return result ?? '';
   }
 
-  /**
-   * Overlay one video on another.
-   */
   static overlay(x = 0, y = 0): string {
-    return `overlay=${x}:${y}`;
+    const result = FilterPresets.instance.overlay(x, y);
+    return result ?? '';
   }
 
-  /**
-   * Adjust audio volume.
-   */
   static volume(factor: number): string {
-    return `volume=${factor}`;
+    const result = FilterPresets.instance.volume(factor);
+    return result ?? '';
   }
 
-  /**
-   * Convert audio sample format.
-   * Can accept either format name string or AVSampleFormat enum.
-   */
   static aformat(sampleFormat: string | AVSampleFormat, sampleRate?: number, channelLayout?: string): string {
-    const formatName = typeof sampleFormat === 'string' ? sampleFormat : (avGetSampleFmtName(sampleFormat) ?? 's16');
-    let filter = `aformat=sample_fmts=${formatName}`;
-    if (sampleRate) filter += `:sample_rates=${sampleRate}`;
-    if (channelLayout) filter += `:channel_layouts=${channelLayout}`;
-    return filter;
+    const result = FilterPresets.instance.aformat(sampleFormat, sampleRate, channelLayout);
+    return result ?? '';
   }
 
-  /**
-   * Change audio tempo without changing pitch.
-   */
   static atempo(factor: number): string {
-    return `atempo=${factor}`;
+    const result = FilterPresets.instance.atempo(factor);
+    return result ?? '';
   }
 
-  /**
-   * Apply audio fade.
-   */
   static afade(type: 'in' | 'out', start: number, duration: number): string {
-    return `afade=t=${type}:st=${start}:d=${duration}`;
+    const result = FilterPresets.instance.afade(type, start, duration);
+    return result ?? '';
   }
 
-  /**
-   * Mix multiple audio streams.
-   */
   static amix(inputs = 2, duration: 'first' | 'longest' | 'shortest' = 'longest'): string {
-    return `amix=inputs=${inputs}:duration=${duration}`;
+    const result = FilterPresets.instance.amix(inputs, duration);
+    return result ?? '';
   }
 }
 
@@ -311,7 +491,7 @@ export class FilterPresets {
  * }
  * ```
  */
-export class HardwareFilterPresets {
+export class HardwareFilterPresets extends FilterPresetBase {
   private readonly deviceType: AVHWDeviceType;
   private readonly deviceName: string;
   public readonly support: HardwareFilterSupport;
@@ -321,6 +501,7 @@ export class HardwareFilterPresets {
    * @internal Used by HardwareContext
    */
   constructor(deviceType: AVHWDeviceType, deviceName: string | null = null) {
+    super();
     this.deviceType = deviceType;
     this.deviceName = deviceName ?? 'unknown';
     this.support = this.getSupport();
@@ -525,7 +706,7 @@ export class HardwareFilterPresets {
    * Hardware-accelerated scale filter.
    * @returns Filter string or null if not supported
    */
-  scale(width: number, height: number, options?: Record<string, string>): string | null {
+  override scale(width: number, height: number, options?: Record<string, any>): string | null {
     if (!this.support.scale) {
       return null;
     }
@@ -560,7 +741,7 @@ export class HardwareFilterPresets {
    * Hardware-accelerated overlay filter.
    * @returns Filter string or null if not supported
    */
-  overlay(x = 0, y = 0, options?: Record<string, string>): string | null {
+  override overlay(x = 0, y = 0, options?: Record<string, string>): string | null {
     if (!this.support.overlay) {
       return null;
     }
@@ -728,7 +909,7 @@ export class HardwareFilterPresets {
   /**
    * Hardware upload filter to transfer frames to GPU.
    */
-  hwupload(): string {
+  hwupload(): string | null {
     if (this.deviceType === AV_HWDEVICE_TYPE_CUDA) {
       return 'hwupload_cuda';
     }
@@ -738,14 +919,14 @@ export class HardwareFilterPresets {
   /**
    * Hardware download filter to transfer frames from GPU.
    */
-  hwdownload(): string {
+  hwdownload(): string | null {
     return 'hwdownload';
   }
 
   /**
    * Format conversion for hardware frames.
    */
-  hwmap(derive?: string): string {
+  hwmap(derive?: string): string | null {
     return derive ? `hwmap=derive_device=${derive}` : 'hwmap';
   }
 }
@@ -754,56 +935,6 @@ export class HardwareFilterPresets {
  * Hardware filter chain builder with fluent API.
  * Automatically skips unsupported filters (returns null).
  */
-export class HardwareFilterChainBuilder extends FilterChain {
-  constructor(private readonly presets: HardwareFilterPresets) {
-    super();
-  }
-
-  scale(width: number, height: number, options?: Record<string, string>): this {
-    return this.add(this.presets.scale(width, height, options));
-  }
-
-  overlay(x = 0, y = 0, options?: Record<string, string>): this {
-    return this.add(this.presets.overlay(x, y, options));
-  }
-
-  transpose(dir = 0): this {
-    return this.add(this.presets.transpose(dir));
-  }
-
-  tonemap(options?: Record<string, string>): this {
-    return this.add(this.presets.tonemap(options));
-  }
-
-  deinterlace(mode?: string): this {
-    return this.add(this.presets.deinterlace(mode));
-  }
-
-  flip(direction: 'h' | 'v'): this {
-    return this.add(this.presets.flip(direction));
-  }
-
-  blur(type: 'avg' | 'gaussian' | 'box' = 'avg', radius?: number): this {
-    return this.add(this.presets.blur(type, radius));
-  }
-
-  sharpen(amount?: number): this {
-    return this.add(this.presets.sharpen(amount));
-  }
-
-  stack(type: 'h' | 'v' | 'x', inputs = 2): this {
-    return this.add(this.presets.stack(type, inputs));
-  }
-
-  hwupload(): this {
-    return this.add(this.presets.hwupload());
-  }
-
-  hwdownload(): this {
-    return this.add(this.presets.hwdownload());
-  }
-
-  hwmap(derive?: string): this {
-    return this.add(this.presets.hwmap(derive));
-  }
+export class HardwareFilterChainBuilder extends ChainBuilderBase<HardwareFilterPresets> {
+  // Inherits all methods from ChainBuilderBase
 }
