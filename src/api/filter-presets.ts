@@ -495,17 +495,17 @@ export class FilterPresets extends FilterPresetBase {
  */
 export class HardwareFilterPresets extends FilterPresetBase {
   private readonly deviceType: AVHWDeviceType;
-  private readonly deviceName: string;
+  private readonly deviceTypeName: string;
   public readonly support: HardwareFilterSupport;
 
   /**
    * Create hardware filter presets for a specific device type.
    * @internal Used by HardwareContext
    */
-  constructor(deviceType: AVHWDeviceType, deviceName: string | null = null) {
+  constructor(deviceType: AVHWDeviceType, deviceTypeName: string) {
     super();
     this.deviceType = deviceType;
-    this.deviceName = deviceName ?? 'unknown';
+    this.deviceTypeName = deviceTypeName;
     this.support = this.getSupport();
   }
 
@@ -550,7 +550,7 @@ export class HardwareFilterPresets extends FilterPresetBase {
     } else if (this.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX) {
       filterName = 'scale_vt'; // VideoToolbox uses scale_vt
     } else {
-      filterName = `scale_${this.deviceName}`;
+      filterName = `scale_${this.deviceTypeName}`;
     }
 
     let filter = `${filterName}=${width}:${height}`;
@@ -577,7 +577,7 @@ export class HardwareFilterPresets extends FilterPresetBase {
     }
 
     // Special handling for RKMPP which uses RGA
-    const filterName = this.deviceType === AV_HWDEVICE_TYPE_RKMPP ? 'overlay_rkrga' : `overlay_${this.deviceName}`;
+    const filterName = this.deviceType === AV_HWDEVICE_TYPE_RKMPP ? 'overlay_rkrga' : `overlay_${this.deviceTypeName}`;
 
     let filter = `${filterName}=${x}:${y}`;
 
@@ -606,7 +606,7 @@ export class HardwareFilterPresets extends FilterPresetBase {
     } else if (this.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX) {
       filterName = 'transpose_vt'; // CoreImage-based transpose
     } else {
-      filterName = `transpose_${this.deviceName}`;
+      filterName = `transpose_${this.deviceTypeName}`;
     }
 
     return `${filterName}=dir=${dir}`;
@@ -622,7 +622,7 @@ export class HardwareFilterPresets extends FilterPresetBase {
     }
 
     // VideoToolbox uses different filter name
-    const filterName = this.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX ? 'tonemap_videotoolbox' : `tonemap_${this.deviceName}`;
+    const filterName = this.deviceType === AV_HWDEVICE_TYPE_VIDEOTOOLBOX ? 'tonemap_videotoolbox' : `tonemap_${this.deviceTypeName}`;
 
     let filter = filterName;
 
@@ -730,7 +730,7 @@ export class HardwareFilterPresets extends FilterPresetBase {
     }
 
     if (this.deviceType === AV_HWDEVICE_TYPE_VAAPI || this.deviceType === AV_HWDEVICE_TYPE_QSV) {
-      return `${type}stack_${this.deviceName}=inputs=${inputs}`;
+      return `${type}stack_${this.deviceTypeName}=inputs=${inputs}`;
     }
 
     return null;
