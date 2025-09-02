@@ -182,7 +182,8 @@ export class MediaOutput implements AsyncDisposable {
       // Cleanup on error
       if (output.ioContext) {
         try {
-          if (output.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) {
+          const isCustomIO = (output.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) !== 0;
+          if (isCustomIO) {
             // Clear the pb reference first
             output.formatContext.pb = null;
             // For custom IO with callbacks, free the context
@@ -469,9 +470,12 @@ export class MediaOutput implements AsyncDisposable {
       this.formatContext.pb = null;
     }
 
+    // Determine if this is custom IO before freeing format context
+    const isCustomIO = (this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) !== 0;
+
     // For file-based IO, close the file handle via closep
     // For custom IO, the context will be freed below
-    if (this.ioContext && !(this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO)) {
+    if (this.ioContext && !isCustomIO) {
       try {
         await this.ioContext.closep();
       } catch {
@@ -489,7 +493,7 @@ export class MediaOutput implements AsyncDisposable {
     }
 
     // Now free custom IO context if present
-    if (this.ioContext && this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) {
+    if (this.ioContext && isCustomIO) {
       try {
         this.ioContext.freeContext();
       } catch {
