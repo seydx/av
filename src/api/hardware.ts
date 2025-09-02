@@ -40,7 +40,7 @@ import {
   AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_VULKAN,
 } from '../constants/constants.js';
-import { Codec, Dictionary, HardwareDeviceContext } from '../lib/index.js';
+import { Codec, CodecContext, Dictionary, HardwareDeviceContext, Rational } from '../lib/index.js';
 import { HardwareFilterPresets } from './filter-presets.js';
 
 import type { AVCodecID, AVHWDeviceType, AVPixelFormat, FFEncoderCodec } from '../constants/index.js';
@@ -99,12 +99,12 @@ export class HardwareContext implements Disposable {
    * @param deviceType - Hardware device type
    * @param deviceName - Optional device name/identifier
    */
-  private constructor(deviceContext: HardwareDeviceContext, deviceType: AVHWDeviceType, deviceName?: string) {
+  private constructor(deviceContext: HardwareDeviceContext, deviceType: AVHWDeviceType, deviceTypeName: string) {
     this._deviceContext = deviceContext;
     this._deviceType = deviceType;
-    this._deviceTypeName = deviceName ?? HardwareDeviceContext.getTypeName(this._deviceType);
+    this._deviceTypeName = deviceTypeName;
     this._devicePixelFormat = this.getHardwarePixelFormat();
-    this.filterPresets = new HardwareFilterPresets(deviceType, deviceName);
+    this.filterPresets = new HardwareFilterPresets(deviceType, deviceTypeName);
   }
 
   /**
@@ -138,6 +138,11 @@ export class HardwareContext implements Disposable {
       try {
         const hw = await this.createFromType(deviceType, options.deviceName, options.options);
         if (hw) {
+          // Validate that the hardware context is actually usable
+          if (!(await this.validateHardware(hw))) {
+            hw.dispose();
+            continue;
+          }
           return hw;
         }
       } catch {
@@ -497,6 +502,40 @@ export class HardwareContext implements Disposable {
   }
 
   /**
+   * Validate that a hardware context is actually usable.
+   *
+   * Tests if we can create a hardware encoder.
+   * This helps detect cases where hardware is "available" but not functional
+   * (e.g., in VMs, containers, or with missing drivers).
+   *
+   * @param hw - Hardware context to validate
+   * @returns true if hardware is functional, false otherwise
+   */
+  private static async validateHardware(hw: HardwareContext): Promise<boolean> {
+    const encoderCodec = hw.getEncoderCodec('h264');
+    if (!encoderCodec) {
+      return false;
+    }
+
+    const codec = Codec.findEncoderByName(encoderCodec);
+    if (!codec?.pixelFormats || codec.pixelFormats.length === 0) {
+      return false;
+    }
+
+    const codecContext = new CodecContext();
+    codecContext.allocContext3(codec);
+    codecContext.hwDeviceCtx = hw.deviceContext;
+    codecContext.timeBase = new Rational(1, 30);
+    codecContext.pixelFormat = codec.pixelFormats[0];
+    codecContext.width = 100;
+    codecContext.height = 100;
+    const ret = await codecContext.open2(codec, null);
+
+    codecContext.freeContext();
+    return ret >= 0;
+  }
+
+  /**
    * Create hardware context from device type.
    *
    * Internal factory method using av_hwdevice_ctx_create().
@@ -507,8 +546,8 @@ export class HardwareContext implements Disposable {
    *
    * @returns HardwareContext or null if creation fails
    */
-  private static async createFromType(deviceType: AVHWDeviceType, deviceName?: string, options?: Record<string, string>): Promise<HardwareContext | null> {
-    const device = new HardwareDeviceContext();
+  private static async createFromType(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): Promise<HardwareContext | null> {
+    const deviceCtx = new HardwareDeviceContext();
 
     // Convert options to Dictionary if provided
     let optionsDict = null;
@@ -516,57 +555,82 @@ export class HardwareContext implements Disposable {
       optionsDict = Dictionary.fromObject(options);
     }
 
-    const ret = device.create(deviceType, deviceName ?? null, optionsDict);
+    const ret = deviceCtx.create(deviceType, device, optionsDict);
 
     // Clean up dictionary if used
     if (optionsDict) {
       optionsDict.free();
     }
 
-    if (ret < 0) {
-      device.free();
+    const deviceTypeName = HardwareDeviceContext.getTypeName(deviceType);
+
+    if (ret < 0 || !deviceTypeName) {
+      deviceCtx.free();
       return null;
     }
 
-    return new HardwareContext(device, deviceType, deviceName);
+    return new HardwareContext(deviceCtx, deviceType, deviceTypeName);
   }
 
   /**
    * Get platform-specific preference order for hardware types.
    *
-   * Returns the optimal hardware types for the current platform.
+   * Returns only the available hardware types sorted by platform-specific preference.
    *
-   * @returns Array of AVHWDeviceType values in preference order
+   * @returns Array of available AVHWDeviceType values in preference order
    */
   private static getPreferenceOrder(): AVHWDeviceType[] {
+    // Get all available hardware types on this system
+    const available = HardwareDeviceContext.iterateTypes();
+    if (available.length === 0) {
+      return [];
+    }
+
     const platform = process.platform;
+    let preferenceOrder: AVHWDeviceType[];
 
     if (platform === 'darwin') {
       // macOS: VideoToolbox is preferred
-      return [AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_OPENCL];
+      preferenceOrder = [AV_HWDEVICE_TYPE_VIDEOTOOLBOX];
     } else if (platform === 'win32') {
-      // Windows: D3D12VA (newest), D3D11VA, DXVA2, QSV, CUDA
-      return [
-        AV_HWDEVICE_TYPE_D3D12VA,
-        AV_HWDEVICE_TYPE_D3D11VA,
+      // Windows: Match FFmpeg's hw_configs order
+      // DXVA2 → D3D11VA → D3D12VA → NVDEC (CUDA)
+      preferenceOrder = [
         AV_HWDEVICE_TYPE_DXVA2,
-        AV_HWDEVICE_TYPE_QSV,
+        AV_HWDEVICE_TYPE_D3D11VA,
+        AV_HWDEVICE_TYPE_D3D12VA,
         AV_HWDEVICE_TYPE_CUDA,
+        AV_HWDEVICE_TYPE_QSV,
         AV_HWDEVICE_TYPE_VULKAN,
         AV_HWDEVICE_TYPE_OPENCL,
       ];
     } else {
-      // Linux: RKMPP (for ARM/Rockchip), VAAPI, VDPAU, CUDA, Vulkan, DRM
-      return [
-        AV_HWDEVICE_TYPE_RKMPP,
-        AV_HWDEVICE_TYPE_VAAPI,
-        AV_HWDEVICE_TYPE_VDPAU,
-        AV_HWDEVICE_TYPE_CUDA,
-        AV_HWDEVICE_TYPE_VULKAN,
-        AV_HWDEVICE_TYPE_DRM,
-        AV_HWDEVICE_TYPE_OPENCL,
-      ];
+      // Linux: Match FFmpeg's hw_configs order
+      // NVDEC (CUDA) → VAAPI → VDPAU → Vulkan
+      // RKMPP is platform-specific for ARM/Rockchip
+      const isARM = process.arch === 'arm64' || process.arch === 'arm';
+
+      if (isARM) {
+        // ARM platforms: Prioritize RKMPP for Rockchip SoCs
+        preferenceOrder = [AV_HWDEVICE_TYPE_RKMPP, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_DRM, AV_HWDEVICE_TYPE_OPENCL];
+      } else {
+        // x86_64 Linux: CUDA → VAAPI → VDPAU → Vulkan
+        preferenceOrder = [AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VDPAU, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_DRM, AV_HWDEVICE_TYPE_OPENCL];
+      }
     }
+
+    // Filter preference order to only include available types
+    const availableSet = new Set(available);
+    const sortedAvailable = preferenceOrder.filter((type) => availableSet.has(type));
+
+    // Add any available types not in our preference list at the end
+    for (const type of available) {
+      if (!preferenceOrder.includes(type)) {
+        sortedAvailable.push(type);
+      }
+    }
+
+    return sortedAvailable;
   }
 
   /**
