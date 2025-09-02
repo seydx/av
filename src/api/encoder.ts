@@ -11,7 +11,7 @@
  */
 
 import { AVERROR_EOF, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
-import { AVERROR_EAGAIN, Codec, CodecContext, FFmpegError, Packet, Rational } from '../lib/index.js';
+import { AVERROR_EAGAIN, avGetPixFmtName, avGetSampleFmtName, Codec, CodecContext, FFmpegError, Packet, Rational } from '../lib/index.js';
 import { parseBitrate } from './utils.js';
 
 import type { AVCodecID, AVPixelFormat } from '../constants/constants.js';
@@ -77,7 +77,7 @@ import type { EncoderOptions, StreamInfo } from './types.js';
 export class Encoder implements Disposable {
   private codecContext: CodecContext;
   private packet: Packet;
-  private codecName: string;
+  private codec: Codec;
   private isOpen = true;
   private supportedFormats: AVPixelFormat[] = [];
   private preferredFormat?: AVPixelFormat;
@@ -89,13 +89,15 @@ export class Encoder implements Disposable {
    * Initializes the encoder with a codec context and allocates a packet buffer.
    *
    * @param codecContext - Initialized codec context
-   * @param codecName - Name of the codec
+   * @param codec - Codec
    * @param hardware - Optional hardware context for hardware pixel format
    */
-  private constructor(codecContext: CodecContext, codecName: string, hardware?: HardwareContext | null) {
+  private constructor(codecContext: CodecContext, codec: Codec, hardware?: HardwareContext | null) {
     this.codecContext = codecContext;
-    this.codecName = codecName;
+    this.codec = codec;
     this.hardware = hardware;
+    this.supportedFormats = codec.pixelFormats ?? [];
+    this.preferredFormat = this.supportedFormats[0];
     this.packet = new Packet();
     this.packet.alloc();
   }
@@ -161,9 +163,18 @@ export class Encoder implements Disposable {
     // It's StreamInfo - apply manually
     if (input.type === 'video' && codec.type === AVMEDIA_TYPE_VIDEO) {
       const videoInfo = input;
+
+      const codecPixelformats = codec.pixelFormats;
+      if (codecPixelformats && !codecPixelformats.includes(videoInfo.pixelFormat)) {
+        codecContext.freeContext();
+        const pixelFormatName = avGetPixFmtName(videoInfo.pixelFormat) ?? 'unknown';
+        const codecPixFmtNames = codecPixelformats.map(avGetPixFmtName).filter(Boolean).join(', ');
+        throw new Error(`Unsupported pixel format for '${codecName}' encoder: ${pixelFormatName}! Supported formats: ${codecPixFmtNames}`);
+      }
+
       codecContext.width = videoInfo.width;
       codecContext.height = videoInfo.height;
-      codecContext.pixelFormat = videoInfo.pixelFormat; // Will be overwritten if it's a hardware encoder
+      codecContext.pixelFormat = videoInfo.pixelFormat;
 
       // Set pkt_timebase and timeBase to input timebase
       codecContext.pktTimebase = new Rational(videoInfo.timeBase.num, videoInfo.timeBase.den);
@@ -177,6 +188,15 @@ export class Encoder implements Disposable {
       }
     } else if (input.type === 'audio' && codec.type === AVMEDIA_TYPE_AUDIO) {
       const audioInfo = input;
+
+      const codecSampleFormats = codec.sampleFormats;
+      if (codecSampleFormats && !codecSampleFormats.includes(audioInfo.sampleFormat)) {
+        codecContext.freeContext();
+        const sampleFormatName = avGetSampleFmtName(audioInfo.sampleFormat) ?? 'unknown';
+        const supportedFormats = codecSampleFormats.map(avGetSampleFmtName).filter(Boolean).join(', ');
+        throw new Error(`Unsupported sample format for '${codecName}' encoder: ${sampleFormatName}! Supported formats: ${supportedFormats}`);
+      }
+
       codecContext.sampleRate = audioInfo.sampleRate;
       codecContext.sampleFormat = audioInfo.sampleFormat;
       codecContext.channelLayout = audioInfo.channelLayout;
@@ -223,6 +243,7 @@ export class Encoder implements Disposable {
 
     const isHWEncoder = codec.isHardwareAcceleratedEncoder();
     if (isHWEncoder && !options.hardware) {
+      codecContext.freeContext();
       throw new Error(`Hardware encoder '${codecName}' requires a hardware context`);
     }
 
@@ -233,13 +254,7 @@ export class Encoder implements Disposable {
       FFmpegError.throwIfError(openRet, 'Failed to open encoder');
     }
 
-    const encoder = new Encoder(codecContext, codecName, isHWEncoder ? options.hardware : undefined);
-
-    // Get supported formats from codec (for validation and helpers)
-    if (codec.pixelFormats) {
-      encoder.supportedFormats = codec.pixelFormats;
-      encoder.preferredFormat = encoder.supportedFormats[0];
-    }
+    const encoder = new Encoder(codecContext, codec, isHWEncoder ? options.hardware : undefined);
 
     return encoder;
   }
@@ -481,10 +496,10 @@ export class Encoder implements Disposable {
   }
 
   /**
-   * Get the codec name.
+   * Get the codec.
    */
-  getCodecName(): string {
-    return this.codecName;
+  getCodec(): Codec {
+    return this.codec;
   }
 
   /**
@@ -536,6 +551,22 @@ export class Encoder implements Disposable {
    */
   getSupportedPixelFormats(): AVPixelFormat[] {
     return this.supportedFormats;
+  }
+
+  /**
+   * Check if encoder supports a specific pixel format.
+   *
+   * @param pixelFormat - Pixel format to check
+   * @returns true if supported, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const isSupported = encoder.supportsPixelFormat(AV_PIX_FMT_YUV420P);
+   * console.log(`Encoder supports YUV420P: ${isSupported}`);
+   * ```
+   */
+  supportsPixelFormat(pixelFormat: AVPixelFormat): boolean {
+    return this.supportedFormats.includes(pixelFormat);
   }
 
   /**
