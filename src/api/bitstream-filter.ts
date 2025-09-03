@@ -86,7 +86,7 @@ export class BitStreamFilterAPI implements Disposable {
    * @param filterName - Name of the bitstream filter (e.g., 'h264_mp4toannexb')
    * @param stream - Stream to filter
    *
-   * @returns Promise resolving to configured BitStreamFilterAPI
+   * @returns Configured BitStreamFilterAPI
    *
    * @throws {Error} If filter unavailable or initialization fails
    *
@@ -94,10 +94,10 @@ export class BitStreamFilterAPI implements Disposable {
    * ```typescript
    * const media = await MediaInput.open('video.mp4');
    * const stream = media.video();
-   * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+   * const bsf = BitStreamFilterAPI.create('h264_mp4toannexb', stream);
    * ```
    */
-  static async create(filterName: string, stream: Stream): Promise<BitStreamFilterAPI> {
+  static create(filterName: string, stream: Stream): BitStreamFilterAPI {
     if (!stream) {
       throw new Error('Stream is required');
     }

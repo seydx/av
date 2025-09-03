@@ -184,20 +184,16 @@ export class Decoder implements Disposable {
    */
   getOutputStreamInfo(): StreamInfo {
     if (this.stream.codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
-      // For hardware decoders, the codecContext.pixelFormat is not set correctly
-      // We need to use the hardware pixel format directly
-      const pixelFormat = this.hardware ? this.hardware.getHardwarePixelFormat() : this.codecContext.pixelFormat;
       return {
         type: 'video',
         width: this.codecContext.width,
         height: this.codecContext.height,
-        pixelFormat,
+        pixelFormat: this.hardware?.devicePixelFormat ?? this.codecContext.pixelFormat,
         timeBase: this.stream.timeBase,
         frameRate: this.stream.rFrameRate,
         sampleAspectRatio: this.codecContext.sampleAspectRatio,
       };
     } else {
-      // For audio
       return {
         type: 'audio',
         sampleRate: this.codecContext.sampleRate,
@@ -206,6 +202,14 @@ export class Decoder implements Disposable {
         timeBase: this.stream.timeBase,
       };
     }
+  }
+
+  /**
+   * Check if decoder is hardware-accelerated.
+   * @returns True if hardware-accelerated, false otherwise.
+   */
+  isHardware(): boolean {
+    return !!this.hardware;
   }
 
   /**
@@ -393,14 +397,12 @@ export class Decoder implements Disposable {
    * Note: Does NOT dispose the HardwareContext - caller is responsible for that.
    */
   close(): void {
-    if (!this.isOpen) return;
+    if (!this.isOpen) {
+      return;
+    }
 
     this.frame.free();
     this.codecContext.freeContext();
-
-    // NOTE: We do NOT dispose the hardware context here
-    // The caller who created the HardwareContext is responsible for disposing it
-    // This allows reusing the same HardwareContext for multiple decoders
 
     this.isOpen = false;
   }

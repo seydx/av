@@ -14,7 +14,7 @@ import { AVERROR_EOF, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constant
 import { AVERROR_EAGAIN, avGetPixFmtName, avGetSampleFmtName, Codec, CodecContext, FFmpegError, Packet, Rational } from '../lib/index.js';
 import { parseBitrate } from './utils.js';
 
-import type { AVCodecID, AVPixelFormat } from '../constants/constants.js';
+import type { AVCodecID } from '../constants/constants.js';
 import type { FFEncoderCodec } from '../constants/encoders.js';
 import type { Frame } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
@@ -61,7 +61,7 @@ import type { EncoderOptions, StreamInfo } from './types.js';
  * @example
  * ```typescript
  * // With hardware acceleration
- * const hw = await HardwareContext.auto();
+ * const hw = HardwareContext.auto();
  * const encoder = await Encoder.create('h264_videotoolbox', {
  *   width: 1920,
  *   height: 1080,
@@ -71,7 +71,7 @@ import type { EncoderOptions, StreamInfo } from './types.js';
  * });
  * // ... use encoder
  * encoder.close(); // Also disposes hardware
- * hw?.dispose(); // Safe to call again (no-op)
+ * hw?.dispose();
  * ```
  */
 export class Encoder implements Disposable {
@@ -79,8 +79,6 @@ export class Encoder implements Disposable {
   private packet: Packet;
   private codec: Codec;
   private isOpen = true;
-  private supportedFormats: AVPixelFormat[] = [];
-  private preferredFormat?: AVPixelFormat;
   private hardware?: HardwareContext | null; // Store reference for hardware pixel format
 
   /**
@@ -96,8 +94,6 @@ export class Encoder implements Disposable {
     this.codecContext = codecContext;
     this.codec = codec;
     this.hardware = hardware;
-    this.supportedFormats = codec.pixelFormats ?? [];
-    this.preferredFormat = this.supportedFormats[0];
     this.packet = new Packet();
     this.packet.alloc();
   }
@@ -267,41 +263,11 @@ export class Encoder implements Disposable {
   }
 
   /**
-   * Get output stream information.
-   *
-   * Returns the encoder output format configuration.
-   * Useful for setting up subsequent processing stages.
-   *
-   * For hardware encoders, returns the hardware pixel format even before
-   * the first frame is encoded.
-   *
-   * @returns StreamInfo with encoder output properties
+   * Check if encoder is hardware-accelerated.
+   * @returns True if hardware-accelerated, false otherwise.
    */
-  getOutputStreamInfo(): StreamInfo {
-    if (this.codecContext.codecType === AVMEDIA_TYPE_VIDEO) {
-      // For hardware encoders, we need to return the hardware pixel format
-      // even if it hasn't been set yet on the codec context
-      const pixelFormat = this.hardware?.getHardwarePixelFormat() ?? this.codecContext.pixelFormat;
-
-      return {
-        type: 'video',
-        width: this.codecContext.width,
-        height: this.codecContext.height,
-        pixelFormat,
-        timeBase: this.codecContext.timeBase,
-        frameRate: this.codecContext.framerate,
-        sampleAspectRatio: this.codecContext.sampleAspectRatio,
-      };
-    } else {
-      // For audio
-      return {
-        type: 'audio',
-        sampleRate: this.codecContext.sampleRate,
-        sampleFormat: this.codecContext.sampleFormat,
-        channelLayout: this.codecContext.channelLayout,
-        timeBase: this.codecContext.timeBase,
-      };
-    }
+  isHardware(): boolean {
+    return !!this.hardware;
   }
 
   /**
@@ -338,7 +304,7 @@ export class Encoder implements Disposable {
     if (this.hardware && frame?.hwFramesCtx && !this.codecContext.hwFramesCtx) {
       // Use the hw_frames_ctx from the frame
       this.codecContext.hwFramesCtx = frame.hwFramesCtx;
-      this.codecContext.pixelFormat = this.hardware.getHardwarePixelFormat();
+      this.codecContext.pixelFormat = this.hardware.devicePixelFormat;
     }
 
     // Send frame to encoder
@@ -515,58 +481,6 @@ export class Encoder implements Disposable {
    */
   getCodecContext(): CodecContext | null {
     return this.isOpen ? this.codecContext : null;
-  }
-
-  /**
-   * Get the preferred pixel format for this encoder.
-   *
-   * Returns the first supported format, which is usually the most efficient.
-   *
-   * @returns Preferred pixel format or null if not available
-   *
-   * @example
-   * ```typescript
-   * const format = encoder.getPreferredPixelFormat();
-   * if (format) {
-   *   console.log(`Encoder prefers format: ${format}`);
-   * }
-   * ```
-   */
-  getPreferredPixelFormat(): AVPixelFormat | null {
-    return this.preferredFormat ?? null;
-  }
-
-  /**
-   * Get all supported pixel formats for this encoder.
-   *
-   * Returns a list of pixel formats that this encoder can accept.
-   *
-   * @returns Array of supported pixel formats
-   *
-   * @example
-   * ```typescript
-   * const formats = encoder.getSupportedPixelFormats();
-   * console.log(`Encoder supports: ${formats.join(', ')}`);
-   * ```
-   */
-  getSupportedPixelFormats(): AVPixelFormat[] {
-    return this.supportedFormats;
-  }
-
-  /**
-   * Check if encoder supports a specific pixel format.
-   *
-   * @param pixelFormat - Pixel format to check
-   * @returns true if supported, false otherwise
-   *
-   * @example
-   * ```typescript
-   * const isSupported = encoder.supportsPixelFormat(AV_PIX_FMT_YUV420P);
-   * console.log(`Encoder supports YUV420P: ${isSupported}`);
-   * ```
-   */
-  supportsPixelFormat(pixelFormat: AVPixelFormat): boolean {
-    return this.supportedFormats.includes(pixelFormat);
   }
 
   /**

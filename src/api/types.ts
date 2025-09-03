@@ -497,7 +497,7 @@ export interface ImageOptions {
  * Hardware accelerated codec names supported across different hardware types.
  * These are generic codec names that map to specific hardware encoder implementations.
  */
-export type HardwareBaseCodecName =
+export type BaseCodecName =
   | 'av1' // AV1 codec (amf, mediacodec, nvenc, qsv, vaapi)
   | 'h264' // H.264/AVC (amf, mediacodec, nvenc, qsv, vaapi, v4l2m2m, mf, omx, rkmpp, videotoolbox, vulkan)
   | 'hevc' // H.265/HEVC (amf, mediacodec, nvenc, qsv, vaapi, v4l2m2m, mf, rkmpp, videotoolbox, d3d12va, vulkan)
