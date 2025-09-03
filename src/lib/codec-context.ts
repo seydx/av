@@ -784,6 +784,39 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
+   * Open the codec context synchronously.
+   *
+   * Direct mapping to avcodec_open2()
+   * @param codec - The codec to open the context for (null to use already set codec_id)
+   * @param options - Dictionary of codec-specific options (null for defaults)
+   * @returns 0 on success, negative AVERROR on error
+   * @example
+   * ```typescript
+   * import { CodecContext, Codec } from 'node-av';
+   *
+   * const ctx = new CodecContext();
+   * const codec = Codec.findEncoder('libx264');
+   * ctx.allocContext3(codec);
+   *
+   * // Configure context
+   * ctx.width = 1920;
+   * ctx.height = 1080;
+   * ctx.timeBase = { num: 1, den: 30 };
+   *
+   * // Open synchronously (blocks until complete)
+   * const ret = ctx.open2Sync(codec, null);
+   * if (ret < 0) {
+   *   throw new Error(`Failed to open codec: ${ret}`);
+   * }
+   * ```
+   * @see {@link open2} For async version
+   * @see {@link allocContext3} Must be called before open2Sync()
+   */
+  open2Sync(codec: Codec | null = null, options: Dictionary | null = null): number {
+    return this.native.open2Sync(codec?.getNative() ?? null, options?.getNative() ?? null);
+  }
+
+  /**
    * Fill the codec context based on the values from the supplied codec parameters.
    *
    * Direct mapping to avcodec_parameters_to_context()

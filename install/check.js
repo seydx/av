@@ -112,7 +112,6 @@ const buildFromSource = () => {
     } else {
       // No FFmpeg found and no prebuilt available
       log('⚠️  No prebuilt binary and no system FFmpeg found');
-      log('Please install FFmpeg 7.1+ with development headers');
       log('See https://github.com/seydx/av for installation instructions');
       process.exit(1);
     }

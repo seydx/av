@@ -47,6 +47,7 @@ private:
   Napi::Value AllocContext3(const Napi::CallbackInfo& info);
   Napi::Value FreeContext(const Napi::CallbackInfo& info);
   Napi::Value Open2Async(const Napi::CallbackInfo& info);
+  Napi::Value Open2Sync(const Napi::CallbackInfo& info);
   Napi::Value ParametersToContext(const Napi::CallbackInfo& info);
   Napi::Value ParametersFromContext(const Napi::CallbackInfo& info);
   Napi::Value FlushBuffers(const Napi::CallbackInfo& info);

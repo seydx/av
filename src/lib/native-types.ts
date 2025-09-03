@@ -230,6 +230,7 @@ export interface NativeCodecContext extends Disposable {
   allocContext3(codec?: NativeCodec | null): void;
   freeContext(): void;
   open2(codec?: NativeCodec | null, options?: NativeDictionary | null): Promise<number>;
+  open2Sync(codec?: NativeCodec | null, options?: NativeDictionary | null): number;
   close(): number;
   parametersToContext(params: NativeCodecParameters): number;
   parametersFromContext(params: NativeCodecParameters): number;

@@ -25,6 +25,7 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&CodecContext::AllocContext3>("allocContext3"),
     InstanceMethod<&CodecContext::FreeContext>("freeContext"),
     InstanceMethod<&CodecContext::Open2Async>("open2"),
+    InstanceMethod<&CodecContext::Open2Sync>("open2Sync"),
     InstanceMethod<&CodecContext::ParametersToContext>("parametersToContext"),
     InstanceMethod<&CodecContext::ParametersFromContext>("parametersFromContext"),
     InstanceMethod<&CodecContext::FlushBuffers>("flushBuffers"),
@@ -152,6 +153,51 @@ Napi::Value CodecContext::FreeContext(const Napi::CallbackInfo& info) {
   is_freed_ = true;
   
   return env.Undefined();
+}
+
+Napi::Value CodecContext::Open2Sync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (!context_) {
+    Napi::Error::New(env, "CodecContext not allocated").ThrowAsJavaScriptException();
+    return Napi::Number::New(env, AVERROR(EINVAL));
+  }
+  
+  const AVCodec* codec = nullptr;
+  AVDictionary* options = nullptr;
+  
+  // Parse arguments (codec, options) - both optional
+  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
+    Napi::Object codecObj = info[0].As<Napi::Object>();
+    Codec* codecWrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
+    if (!codecWrapper) {
+      Napi::TypeError::New(env, "Invalid Codec object").ThrowAsJavaScriptException();
+      return Napi::Number::New(env, AVERROR(EINVAL));
+    }
+    codec = codecWrapper->Get();
+  }
+  
+  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
+    Napi::Object dictObj = info[1].As<Napi::Object>();
+    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, dictObj, "Dictionary");
+    if (dict) {
+      options = dict->Get();
+    }
+  }
+  
+  // Call avcodec_open2 synchronously
+  int ret = avcodec_open2(context_, codec, options ? &options : nullptr);
+  
+  if (ret >= 0) {
+    is_open_ = true;
+  }
+  
+  // Clean up options if modified
+  if (options) {
+    av_dict_free(&options);
+  }
+  
+  return Napi::Number::New(env, ret);
 }
 
 Napi::Value CodecContext::ParametersToContext(const Napi::CallbackInfo& info) {
