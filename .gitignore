@@ -60,3 +60,7 @@ ffmpeg_examples
 /docs/.vitepress/dist
 /docs/.vitepress/cache
 /docs/.vitepress/.temp
+/docs/constants
+/docs/lowlevel
+/docs/highlevel
+/docs/index.md
