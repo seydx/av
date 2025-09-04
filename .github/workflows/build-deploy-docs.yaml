@@ -11,6 +11,7 @@ on:
       - "docs/**"
       - "README.md"
       - ".github/workflows/build-deploy-docs.yaml"
+      - "!**/.*"
   workflow_dispatch:
 
 permissions:
