@@ -34,7 +34,7 @@
     "build:tsc": "rimraf dist && tsc -p tsconfig.build.json",
     "clean": "rimraf dist && node-gyp clean && npm run generate && npm run format && npm run lint:fix && npm run build:tests && npm run build:examples && npm run build:tsc",
     "docs:dev": "npm run predocs && vitepress dev docs",
-    "docs:build": "npm run predocs && vitepress build docs",
+    "docs:build": "npm run predocs && rimraf docs/.vitepress/dist && vitepress build docs && cpy --flat docs/logo.png docs/.vitepress/dist",
     "docs:preview": "npm run predocs && vitepress preview docs",
     "format": "prettier --write src/ --write test/ --write scripts/ --write examples/ --ignore-unknown --no-error-on-unmatched-pattern",
     "generate": "npm run generate:constants && npm run generate:encoders && npm run generate:decoders && npm run generate:layouts",

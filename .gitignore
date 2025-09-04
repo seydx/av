@@ -63,4 +63,5 @@ ffmpeg_examples
 /docs/constants
 /docs/lowlevel
 /docs/highlevel
+/docs/api
 /docs/index.md
