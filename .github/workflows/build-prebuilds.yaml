@@ -26,7 +26,6 @@ on:
       - "install/**"
       - "packages/**"
       - "testdata/**"
-      - "**/.*"
   pull_request:
     paths-ignore:
       - "**/*.md"
@@ -35,7 +34,6 @@ on:
       - "install/**"
       - "packages/**"
       - "testdata/**"
-      - "**/.*"
 
 jobs:
   build_windows:
