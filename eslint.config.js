@@ -1,6 +1,7 @@
 import jsLint from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
+import jsdoc from 'eslint-plugin-jsdoc';
 import globals from 'globals';
 import tsLint from 'typescript-eslint';
 
@@ -38,6 +39,36 @@ export default [
     blockSpacing: true,
     quoteProps: 'as-needed',
   }),
+  {
+    ...jsdoc.configs['flat/recommended-typescript'],
+    files: ['src/lib/*.ts', 'src/api/*.ts'],
+    rules: {
+      ...jsdoc.configs['flat/recommended-typescript'].rules,
+      'jsdoc/tag-lines': [
+        'warn',
+        'always',
+        {
+          count: 0,
+          startLines: null,
+          endLines: null,
+          applyToEndTag: false,
+          tags: {
+            param: { lines: 'always', count: 0 },
+            example: { lines: 'always', count: 1 },
+            returns: { lines: 'always', count: 1 },
+          },
+        },
+      ],
+      'jsdoc/require-returns': [
+        'warn',
+        {
+          // Require a return tag for all functions
+          checkGetters: false,
+          forceRequireReturn: false,
+        },
+      ],
+    },
+  },
   {
     languageOptions: {
       globals: { ...globals.node },
@@ -85,9 +116,9 @@ export default [
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-redundant-type-constituents': 'off',
       '@typescript-eslint/no-namespace': 'off',
-      '@stylistic/generator-star-spacing': 'off',
 
       // Stylistic specific rules
+      '@stylistic/generator-star-spacing': 'off',
       '@stylistic/max-len': ['error', { code: 170, tabWidth: 2 }],
       '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
       '@stylistic/operator-linebreak': 'off',

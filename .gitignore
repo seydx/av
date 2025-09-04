@@ -57,3 +57,5 @@ ffmpeg_examples
 /prebuilds-artifacts
 /node-av-*
 /prebuildify
+/docs/.vitepress/dist
+/docs/.vitepress/cache

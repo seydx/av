@@ -1,0 +1,15 @@
+{
+  "plugin": ["typedoc-plugin-markdown", "typedoc-vitepress-theme"],
+  "entryPoints": ["./src/lib/index.ts"],
+  "exclude": ["**/*.test.ts", "**/examples/**", "**/*.cc", "**/*.h"],
+  "externalPattern": ["**/*.test.ts", "**/examples/**", "**/*.cc", "**/*.h", "examples/*.ts", "**/externals/**"],
+  "excludeExternals": true,
+  "out": "./docs/lowlevel",
+  "docsRoot": "./docs",
+  "sidebar": {
+    "autoConfiguration": true,
+    "format": "vitepress",
+    "pretty": false,
+    "collapsed": true
+  }
+}

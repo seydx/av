@@ -28,6 +28,7 @@
     "examples",
     "scripts",
     "install",
+    "docs/.vitepress/config.ts",
   ],
   "exclude": [
     "node_modules",

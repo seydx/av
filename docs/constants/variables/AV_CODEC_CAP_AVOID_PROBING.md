@@ -1,0 +1,7 @@
+[node-av](../globals.md) / AV\_CODEC\_CAP\_AVOID\_PROBING
+
+# Variable: AV\_CODEC\_CAP\_AVOID\_PROBING
+
+> `const` **AV\_CODEC\_CAP\_AVOID\_PROBING**: [`AVCodecCap`](../type-aliases/AVCodecCap.md)
+
+Defined in: [constants.ts:1463](https://github.com/seydx/av/blob/f8631fc881b394300b1479f511d55cf1c370a87f/src/constants/constants.ts#L1463)

@@ -1,0 +1,13 @@
+[node-av](../globals.md) / AVStereo3DView
+
+# Type Alias: AVStereo3DView
+
+> **AVStereo3DView** = `number` & `object`
+
+Defined in: [constants.ts:1346](https://github.com/seydx/av/blob/f8631fc881b394300b1479f511d55cf1c370a87f/src/constants/constants.ts#L1346)
+
+## Type Declaration
+
+### \[\_\_\_ffmpeg\_brand\]
+
+> `readonly` **\[\_\_\_ffmpeg\_brand\]**: `"AVStereo3DView"`

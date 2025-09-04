@@ -1,0 +1,7 @@
+[node-av](../globals.md) / AVMEDIA\_TYPE\_SUBTITLE
+
+# Variable: AVMEDIA\_TYPE\_SUBTITLE
+
+> `const` **AVMEDIA\_TYPE\_SUBTITLE**: [`AVMediaType`](../type-aliases/AVMediaType.md)
+
+Defined in: [constants.ts:17](https://github.com/seydx/av/blob/f8631fc881b394300b1479f511d55cf1c370a87f/src/constants/constants.ts#L17)
