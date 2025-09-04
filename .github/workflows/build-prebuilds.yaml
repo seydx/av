@@ -19,21 +19,17 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "examples/**"
-      - "install/**"
-      - "packages/**"
-      - "testdata/**"
+    paths:
+      - "src/**"
+      - "test/**"
+      - "externals/jellyfin-ffmpeg/**"
+      - ".github/workflows/build-prebuilds.yaml"
   pull_request:
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "examples/**"
-      - "install/**"
-      - "packages/**"
-      - "testdata/**"
+    paths:
+      - "src/**"
+      - "test/**"
+      - "externals/jellyfin-ffmpeg/**"
+      - ".github/workflows/build-prebuilds.yaml"
 
 jobs:
   build_windows:
