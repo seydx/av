@@ -9,6 +9,7 @@ const typedocSidebarConstants = require('../constants/typedoc-sidebar.json');
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   srcDir: '.',
+  base: '/av/',
 
   title: 'NodeAV',
   description: 'FFmpeg bindings for Node.js',
