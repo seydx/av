@@ -2,9 +2,7 @@ import { createRequire } from 'node:module';
 import { defineConfig } from 'vitepress';
 
 const require = createRequire(import.meta.url);
-const typedocSidebarLowLevel = require('../lowlevel/typedoc-sidebar.json');
-const typedocSidebarHighLevel = require('../highlevel/typedoc-sidebar.json');
-const typedocSidebarConstants = require('../constants/typedoc-sidebar.json');
+const typedocSidebar = require('../api/typedoc-sidebar.json');
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -18,15 +16,15 @@ export default defineConfig({
     sidebar: [
       {
         text: 'Low Level API',
-        items: typedocSidebarLowLevel,
+        items: typedocSidebar[2].items,
       },
       {
         text: 'High Level API',
-        items: typedocSidebarHighLevel,
+        items: typedocSidebar[0].items,
       },
       {
         text: 'Constants',
-        items: typedocSidebarConstants,
+        items: typedocSidebar[1].items,
       },
     ],
 

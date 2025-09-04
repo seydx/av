@@ -21,12 +21,12 @@
   },
   "externalSymbolLinkMappings": {
     "global": {
-      "SymbolConstructor.dispose": "#",
-      "SymbolConstructor.asyncDispose": "#"
+      "SymbolConstructor.dispose": "https://tc39.es/proposal-explicit-resource-management/#sec-disposable-interface",
+      "SymbolConstructor.asyncDispose": "https://tc39.es/proposal-explicit-resource-management/#table-asyncdisposable-interface-required-properties"
     },
     "typescript": {
-      "SymbolConstructor.dispose": "#",
-      "SymbolConstructor.asyncDispose": "#"
+      "SymbolConstructor.dispose": "https://tc39.es/proposal-explicit-resource-management/#sec-disposable-interface",
+      "SymbolConstructor.asyncDispose": "https://tc39.es/proposal-explicit-resource-management/#table-asyncdisposable-interface-required-properties"
     }
   }
 }
