@@ -54,9 +54,6 @@
     "test:all": "npm run generate && npm run build:tests && npm run build:tsc && tsx --test test/*.test.ts",
     "update": "updates --update ./"
   },
-  "dependencies": {
-    "detect-libc": "^2.0.4"
-  },
   "optionalDependencies": {
     "@seydx/node-av-darwin-arm64": "^1.2.0",
     "@seydx/node-av-darwin-x64": "^1.2.0",

@@ -1,6 +1,5 @@
 // Adapted from https://github.com/lovell/sharp/blob/main/lib/libvips.js
 
-import detectLibc from 'detect-libc';
 import { spawnSync } from 'node:child_process';
 
 const spawnSyncOptions = {
@@ -14,16 +13,6 @@ export const log = (item) => {
   } else {
     console.log(`node-av: ${item}`);
   }
-};
-
-export const runtimeLibc = () => (detectLibc.isNonGlibcLinuxSync() ? detectLibc.familySync() : '');
-
-export const runtimePlatformArch = () => `${process.platform}${runtimeLibc()}-${process.arch}`;
-
-export const buildPlatformArch = () => {
-  const { npm_config_arch, npm_config_platform, npm_config_libc } = process.env;
-  const libc = typeof npm_config_libc === 'string' ? npm_config_libc : runtimeLibc();
-  return `${npm_config_platform ?? process.platform}${libc}-${npm_config_arch ?? process.arch}`;
 };
 
 export const spawnRebuild = () =>
