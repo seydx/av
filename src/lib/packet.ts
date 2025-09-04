@@ -5,64 +5,49 @@ import type { NativePacket, NativeWrapper } from './native-types.js';
 import type { IRational } from './types.js';
 
 /**
- * Packet for compressed audio/video data.
+ * Container for compressed audio/video data.
  *
- * Contains compressed audio/video data read from demuxer or to be sent to muxer.
- * Packets are the fundamental unit of data exchange between demuxers, muxers,
- * encoders, and decoders in FFmpeg. User has full control over allocation and lifecycle.
+ * Stores encoded data from demuxers or to be sent to muxers. Each packet contains
+ * a portion of compressed stream data, typically one video frame or several audio frames.
+ * Includes timing information (PTS/DTS), stream index, and flags. Essential for
+ * demuxing, muxing, and codec operations.
  *
  * Direct mapping to FFmpeg's AVPacket.
  *
  * @example
  * ```typescript
- * import { Packet, FormatContext, CodecContext, FFmpegError } from 'node-av';
+ * import { Packet, FFmpegError } from 'node-av';
+ * import { AV_PKT_FLAG_KEY } from 'node-av/constants';
  *
- * // Create and allocate packet - full control
+ * // Create and allocate packet
  * const packet = new Packet();
  * packet.alloc();
  *
- * // Read from demuxer
+ * // Read packet from format context
  * const ret = await formatContext.readFrame(packet);
  * FFmpegError.throwIfError(ret, 'readFrame');
  *
- * // Process packet
- * console.log(`Stream: ${packet.streamIndex}, PTS: ${packet.pts}`);
+ * // Check packet properties
+ * console.log(`Stream: ${packet.streamIndex}`);
+ * console.log(`PTS: ${packet.pts}`);
+ * console.log(`Size: ${packet.size} bytes`);
+ * console.log(`Keyframe: ${packet.isKeyframe}`);
  *
  * // Send to decoder
- * const sendRet = await codecContext.sendPacket(packet);
- * FFmpegError.throwIfError(sendRet, 'sendPacket');
+ * const ret2 = await codecContext.sendPacket(packet);
+ * FFmpegError.throwIfError(ret2, 'sendPacket');
  *
  * // Cleanup
- * packet.unref(); // Clear data but keep packet allocated
- * packet.free();  // Free packet completely
+ * packet.unref();
  * ```
  *
- * @see {@link CodecContext} For encoding/decoding packets
+ * @see {@link [AVPacket](https://ffmpeg.org/doxygen/trunk/structAVPacket.html)}
  * @see {@link FormatContext} For reading/writing packets
+ * @see {@link CodecContext} For encoding/decoding packets
  */
 export class Packet implements Disposable, NativeWrapper<NativePacket> {
   private native: NativePacket;
 
-  /**
-   * Create a new packet instance.
-   *
-   * The packet is uninitialized - you must call alloc() before use.
-   * No FFmpeg resources are allocated until alloc() is called.
-   *
-   * Direct wrapper around AVPacket allocation.
-   *
-   * @example
-   * ```typescript
-   * import { Packet } from 'node-av';
-   *
-   * const packet = new Packet();
-   * packet.alloc();
-   * // Packet is now ready for use
-   *
-   * // Always free when done
-   * packet.free();
-   * ```
-   */
   constructor() {
     this.native = new bindings.Packet();
   }
@@ -70,10 +55,10 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Stream index this packet belongs to.
    *
-   * Direct mapping to AVPacket->stream_index
+   * Identifies which stream in a format context this packet is from/for.
+   * Set automatically when reading, must be set manually when writing.
    *
-   * Set by demuxer to indicate which stream this packet belongs to.
-   * Must be set by user for muxing.
+   * Direct mapping to AVPacket->stream_index.
    */
   get streamIndex(): number {
     return this.native.streamIndex;
@@ -84,16 +69,12 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   }
 
   /**
-   * Presentation timestamp in AVStream->time_base units.
+   * Presentation timestamp.
    *
-   * Direct mapping to AVPacket->pts
+   * Time when the decompressed packet should be presented to the user.
+   * In stream time base units. AV_NOPTS_VALUE if unknown.
    *
-   * The time at which the decompressed packet will be presented to the user.
-   * Can be AV_NOPTS_VALUE if it is not stored in the file.
-   * pts MUST be larger or equal to dts as presentation cannot happen before
-   * decompression, unless one wants to view hex dumps. Some formats misuse
-   * the terms dts and pts/cts to mean something different. Such timestamps
-   * must be converted to true pts/dts before they are stored in AVPacket.
+   * Direct mapping to AVPacket->pts.
    */
   get pts(): bigint {
     return this.native.pts;
@@ -104,12 +85,12 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   }
 
   /**
-   * Decompression timestamp in AVStream->time_base units.
+   * Decompression timestamp.
    *
-   * Direct mapping to AVPacket->dts
+   * Time when the packet should be decompressed.
+   * In stream time base units. AV_NOPTS_VALUE if unknown.
    *
-   * The time at which the packet is decompressed.
-   * Can be AV_NOPTS_VALUE if it is not stored in the file.
+   * Direct mapping to AVPacket->dts.
    */
   get dts(): bigint {
     return this.native.dts;
@@ -120,11 +101,12 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   }
 
   /**
-   * Duration of this packet in AVStream->time_base units, 0 if unknown.
+   * Duration of this packet.
    *
-   * Direct mapping to AVPacket->duration
+   * Duration in stream time base units, 0 if unknown.
+   * Typically equal to next_pts - this_pts.
    *
-   * Equals next_pts - this_pts in presentation order.
+   * Direct mapping to AVPacket->duration.
    */
   get duration(): bigint {
     return this.native.duration;
@@ -135,11 +117,12 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   }
 
   /**
-   * Byte position in stream, -1 if unknown.
+   * Byte position in stream.
    *
-   * Direct mapping to AVPacket->pos
+   * Byte position of packet data in the input file.
+   * -1 if unknown.
    *
-   * Can be used to derive seeking positions for formats without timestamps.
+   * Direct mapping to AVPacket->pos.
    */
   get pos(): bigint {
     return this.native.pos;
@@ -152,24 +135,19 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Size of packet data in bytes.
    *
-   * Direct mapping to AVPacket->size
-   *
-   * @readonly
+   * Direct mapping to AVPacket->size.
    */
   get size(): number {
     return this.native.size;
   }
 
   /**
-   * A combination of AV_PKT_FLAG values.
+   * Packet flags.
    *
-   * Direct mapping to AVPacket->flags
+   * Combination of AV_PKT_FLAG values indicating packet properties
+   * (e.g., AV_PKT_FLAG_KEY for keyframes).
    *
-   * - AV_PKT_FLAG_KEY: The packet contains a keyframe
-   * - AV_PKT_FLAG_CORRUPT: The packet content is corrupted
-   * - AV_PKT_FLAG_DISCARD: Flag for packets that should be dropped
-   * - AV_PKT_FLAG_TRUSTED: The packet comes from a trusted source
-   * - AV_PKT_FLAG_DISPOSABLE: Flag for packets that can be dropped if needed
+   * Direct mapping to AVPacket->flags.
    */
   get flags(): AVPacketFlag {
     return this.native.flags;
@@ -182,11 +160,10 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Packet data buffer.
    *
-   * Direct mapping to AVPacket->data
+   * Contains the compressed audio/video data.
+   * May be null for packets signaling special conditions.
    *
-   * Can be null if the packet is empty or unallocated.
-   * Setting null will unref the packet data.
-   * When setting a new buffer, av_packet_from_data() is called internally.
+   * Direct mapping to AVPacket->data.
    */
   get data(): Buffer | null {
     return this.native.data;
@@ -199,7 +176,8 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Check if packet contains a keyframe.
    *
-   * This is a convenience accessor for the AV_PKT_FLAG_KEY flag.
+   * Convenience property that checks AV_PKT_FLAG_KEY flag.
+   * Keyframes can be decoded independently without reference frames.
    */
   get isKeyframe(): boolean {
     return this.native.isKeyframe;
@@ -210,28 +188,23 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   }
 
   /**
-   * Allocate an AVPacket and set its fields to default values.
+   * Allocate a new packet.
    *
-   * Allocates the AVPacket structure and initializes all fields to default values.
-   * This only allocates the packet structure itself, not the data buffers.
+   * Allocates the packet structure. Must be called before using the packet
+   * unless it was created by another function (e.g., clone()).
    *
-   * Direct mapping to av_packet_alloc()
+   * Direct mapping to av_packet_alloc().
    *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @throws {Error} If allocation fails (ENOMEM)
    *
    * @example
    * ```typescript
-   * import { Packet } from 'node-av';
-   *
    * const packet = new Packet();
    * packet.alloc();
-   * // Packet is now allocated with default values
-   * // pts = AV_NOPTS_VALUE, dts = AV_NOPTS_VALUE
-   * // size = 0, data = null
+   * // Packet is now ready for use
    * ```
    *
-   * @see {@link free} Must be called when done
-   * @see {@link unref} To clear data but keep allocation
+   * @see {@link free} To deallocate the packet
    */
   alloc(): void {
     this.native.alloc();
@@ -240,112 +213,94 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   /**
    * Free the packet.
    *
-   * Direct mapping to av_packet_free()
+   * Deallocates the packet and its data. The packet becomes invalid after this.
    *
-   * If the packet has a reference counted buffer, it will be unreferenced first.
-   * After calling this, the packet is no longer usable until alloc() is called again.
-   *
-   * @note
-   * Calling this multiple times is safe, because we check the freed state
+   * Direct mapping to av_packet_free().
    *
    * @example
    * ```typescript
    * packet.free();
-   * // packet is now invalid and should not be used
+   * // Packet is now invalid
    * ```
+   *
+   * @see {@link unref} To only free data, keeping structure
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Setup a new reference to the data described by a given packet.
+   * Create a reference to another packet.
    *
-   * If src is reference counted, increase its reference count.
-   * Otherwise allocate a new buffer for dst and copy the data from src into it.
-   * All the other fields are copied from src.
+   * Sets up this packet as a reference to the source packet's data.
+   * Both packets will share the same data buffer.
    *
-   * Direct mapping to av_packet_ref()
+   * Direct mapping to av_packet_ref().
    *
    * @param src - Source packet to reference
-   *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - AVERROR(EINVAL): Invalid parameters (null packet)
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * const src = new Packet();
-   * // ... src contains data ...
-   * const dst = new Packet();
-   * dst.alloc();
-   *
-   * const ret = dst.ref(src);
-   * FFmpegError.throwIfError(ret, 'packet.ref');
-   * // dst now references the same data as src
+   * const packet2 = new Packet();
+   * packet2.alloc();
+   * const ret = packet2.ref(packet1);
+   * FFmpegError.throwIfError(ret, 'ref');
+   * // packet2 now references packet1's data
    * ```
    *
    * @see {@link unref} To remove reference
-   * @see {@link clone} For simpler cloning
+   * @see {@link clone} To create independent copy
    */
   ref(src: Packet): number {
     return this.native.ref(src.getNative());
   }
 
   /**
-   * Wipe the packet.
+   * Unreference the packet.
    *
-   * Direct mapping to av_packet_unref()
+   * Frees the packet data if this was the last reference.
+   * The packet structure remains allocated and can be reused.
    *
-   * Unreference the buffer referenced by the packet and reset the
-   * remaining packet fields to their default values.
-   *
-   * The packet remains allocated and can be reused.
+   * Direct mapping to av_packet_unref().
    *
    * @example
    * ```typescript
    * packet.unref();
-   * // Packet data is cleared but packet remains allocated
-   * // Can reuse the packet for another read
+   * // Packet data is freed, structure can be reused
    * ```
    *
-   * @note The packet must have been allocated with alloc().
+   * @see {@link ref} To create reference
+   * @see {@link free} To free everything
    */
   unref(): void {
     this.native.unref();
   }
 
   /**
-   * Create a new packet that references the same data as this packet.
+   * Clone the packet.
    *
-   * This is a shortcut for av_packet_alloc() + av_packet_ref().
-   * The new packet shares the same data buffer through reference counting.
+   * Creates an independent copy of the packet with its own data buffer.
+   * The new packet has the same content but can be modified independently.
    *
-   * Direct mapping to av_packet_clone()
+   * Direct mapping to av_packet_clone().
    *
-   * @returns New packet referencing the same data, or null on error (ENOMEM)
+   * @returns New packet instance, or null on allocation failure
    *
    * @example
    * ```typescript
-   * import { Packet } from 'node-av';
-   *
-   * const original = new Packet();
-   * // ... original contains data ...
-   *
-   * const cloned = original.clone();
-   * if (!cloned) {
-   *   throw new Error('Failed to clone packet: Out of memory');
+   * const copy = packet.clone();
+   * if (copy) {
+   *   // Modify copy without affecting original
+   *   copy.pts = packet.pts + 1000n;
    * }
-   * // cloned references the same data as original
-   * // Both packets must be freed independently
-   * cloned.free();
-   * original.free();
    * ```
    *
-   * @see {@link ref} For manual reference setup
+   * @see {@link ref} To create reference instead of copy
    */
   clone(): Packet | null {
     const cloned = this.native.clone();
@@ -355,197 +310,184 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
 
     // Wrap the native cloned packet
     const packet = Object.create(Packet.prototype) as Packet;
-    // Need to set private property - this is safe since we control the implementation
     (packet as any).native = cloned;
     return packet;
   }
 
   /**
-   * Convert valid timing fields (timestamps / durations) in a packet from one timebase to another.
+   * Rescale packet timestamps.
    *
-   * Timestamps with unknown values (AV_NOPTS_VALUE) will be ignored.
-   * This function is useful when you need to convert packet timestamps between
-   * different contexts, for example when remuxing or when the decoder and encoder
-   * use different timebases.
+   * Converts PTS, DTS, and duration from one time base to another.
+   * Essential when moving packets between streams with different time bases.
    *
-   * Direct mapping to av_packet_rescale_ts()
+   * Direct mapping to av_packet_rescale_ts().
    *
-   * @param srcTimebase - Source timebase, in which the timestamps are expressed
-   * @param dstTimebase - Destination timebase, to which the timestamps will be converted
+   * @param srcTimebase - Source time base
+   * @param dstTimebase - Destination time base
    *
    * @example
    * ```typescript
-   * import { Packet, Rational } from 'node-av';
+   * import { Rational } from 'node-av';
    *
-   * // Convert from stream timebase to codec timebase
-   * const streamTimebase = new Rational(1, 90000); // 90kHz
-   * const codecTimebase = new Rational(1, 25); // 25 fps
-   *
-   * packet.rescaleTs(
-   *   streamTimebase,
-   *   codecTimebase
-   * );
-   * // PTS and DTS are now in codec timebase
+   * // Convert from 1/25 fps to 1/1000 (milliseconds)
+   * const src = new Rational(1, 25);
+   * const dst = new Rational(1, 1000);
+   * packet.rescaleTs(src, dst);
    * ```
-   *
-   * @see {@link Rational} For timebase representation
    */
   rescaleTs(srcTimebase: IRational, dstTimebase: IRational): void {
     this.native.rescaleTs({ num: srcTimebase.num, den: srcTimebase.den }, { num: dstTimebase.num, den: dstTimebase.den });
   }
 
   /**
-   * Ensure the data described by the packet is reference counted.
+   * Ensure packet data is reference counted.
    *
-   * Makes the packet data reference counted if it isn't already.
-   * This is useful when you need to share packet data between multiple owners.
+   * Makes sure the packet data is stored in a reference-counted buffer.
+   * If not already reference-counted, allocates a new buffer and copies data.
    *
-   * Direct mapping to av_packet_make_refcounted()
+   * Direct mapping to av_packet_make_refcounted().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success (data is now reference counted)
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_EINVAL: Invalid packet
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
    * const ret = packet.makeRefcounted();
    * FFmpegError.throwIfError(ret, 'makeRefcounted');
-   * // Packet data is now reference counted
-   * // Safe to share with multiple owners
    * ```
-   *
-   * Note: This function does not ensure that the reference will be writable.
-   * Use makeWritable() for that purpose.
-   *
-   * @see {@link makeWritable} To ensure data is writable
    */
   makeRefcounted(): number {
     return this.native.makeRefcounted();
   }
 
   /**
-   * Create a writable reference for the data described by the packet.
+   * Ensure packet data is writable.
    *
-   * If the packet data buffer is already writable, this does nothing.
-   * Otherwise, a new buffer is allocated, data is copied, and the old buffer
-   * is unreferenced. This avoids data copy if possible.
+   * Creates a private copy of the data if it's shared with other packets.
+   * Call before modifying packet data to avoid affecting other references.
    *
-   * Direct mapping to av_packet_make_writable()
+   * Direct mapping to av_packet_make_writable().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success (data is now writable)
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_EINVAL: Invalid packet
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * // Before modifying packet data
+   * // Ensure we can safely modify data
    * const ret = packet.makeWritable();
    * FFmpegError.throwIfError(ret, 'makeWritable');
-   *
-   * // Now safe to modify packet data
-   * const data = packet.data;
-   * if (data) {
-   *   // Modify data buffer directly
-   *   data[0] = 0xFF;
-   * }
+   * // Now safe to modify packet.data
    * ```
-   *
-   * @see {@link makeRefcounted} To make data reference counted
    */
   makeWritable(): number {
     return this.native.makeWritable();
   }
 
   /**
-   * Get side data from the packet.
+   * Get packet side data.
    *
-   * Direct mapping to av_packet_get_side_data()
+   * Retrieves additional data associated with the packet
+   * (e.g., palette data, quality stats, encryption info).
    *
-   * @param type - The type of side data to retrieve
-   * @returns Buffer containing the side data, or null if not found
+   * Direct mapping to av_packet_get_side_data().
+   *
+   * @param type - Type of side data to retrieve
+   * @returns Side data buffer, or null if not present
    *
    * @example
    * ```typescript
-   * import { Packet } from 'node-av';
    * import { AV_PKT_DATA_PALETTE } from 'node-av/constants';
    *
-   * const paletteData = packet.getSideData(AV_PKT_DATA_PALETTE);
-   * if (paletteData) {
-   *   console.log('Palette data size:', paletteData.length);
+   * const palette = packet.getSideData(AV_PKT_DATA_PALETTE);
+   * if (palette) {
+   *   console.log(`Palette size: ${palette.length} bytes`);
    * }
    * ```
+   *
+   * @see {@link addSideData} To add side data
+   * @see {@link newSideData} To allocate new side data
    */
   getSideData(type: AVPacketSideDataType): Buffer | null {
     return this.native.getSideData(type);
   }
 
   /**
-   * Add side data to the packet.
+   * Add side data to packet.
    *
-   * Allocates and adds side data to the packet. The data is copied.
-   * Direct mapping to av_packet_add_side_data()
+   * Attaches additional data to the packet. The data is copied.
    *
-   * @param type - The type of side data to add
-   * @param data - Buffer containing the side data
-   * @returns 0 on success, negative AVERROR on failure
+   * Direct mapping to av_packet_add_side_data().
+   *
+   * @param type - Type of side data
+   * @param data - Side data buffer
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
-   * import { Packet } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    * import { AV_PKT_DATA_NEW_EXTRADATA } from 'node-av/constants';
    *
-   * const extraData = Buffer.from([0x01, 0x02, 0x03]);
-   * const ret = packet.addSideData(AV_PKT_DATA_NEW_EXTRADATA, extraData);
-   * if (ret < 0) {
-   *   console.error('Failed to add side data');
-   * }
+   * const extradata = Buffer.from([...]);
+   * const ret = packet.addSideData(AV_PKT_DATA_NEW_EXTRADATA, extradata);
+   * FFmpegError.throwIfError(ret, 'addSideData');
    * ```
+   *
+   * @see {@link getSideData} To retrieve side data
+   * @see {@link newSideData} To allocate in-place
    */
   addSideData(type: AVPacketSideDataType, data: Buffer): number {
     return this.native.addSideData(type, data);
   }
 
   /**
-   * Allocate new side data for the packet.
+   * Allocate new side data.
    *
-   * Allocates a new side data buffer of the specified size.
-   * Returns a Buffer that references the allocated memory.
-   * Direct mapping to av_packet_new_side_data()
+   * Allocates side data buffer attached to the packet.
+   * Returns buffer that can be written to directly.
    *
-   * @param type - The type of side data to allocate
-   * @param size - Size of the side data buffer to allocate
-   * @returns Buffer referencing the allocated side data
+   * Direct mapping to av_packet_new_side_data().
+   *
+   * @param type - Type of side data
+   * @param size - Size in bytes to allocate
+   * @returns Allocated buffer for writing
+   *
    * @throws {Error} If allocation fails
    *
    * @example
    * ```typescript
-   * import { Packet } from 'node-av';
-   * import { AV_PKT_DATA_STRINGS_METADATA } from 'node-av/constants';
+   * import { AV_PKT_DATA_NEW_EXTRADATA } from 'node-av/constants';
    *
-   * // Allocate 256 bytes for metadata
-   * const metadataBuffer = packet.newSideData(AV_PKT_DATA_STRINGS_METADATA, 256);
-   * // Write metadata to the buffer
-   * metadataBuffer.write('key=value', 0, 'utf8');
+   * // Allocate and write side data directly
+   * const sideData = packet.newSideData(AV_PKT_DATA_NEW_EXTRADATA, 16);
+   * sideData.writeUInt32LE(0x12345678, 0);
    * ```
+   *
+   * @see {@link getSideData} To retrieve side data
+   * @see {@link addSideData} To add existing buffer
    */
   newSideData(type: AVPacketSideDataType, size: number): Buffer {
     return this.native.newSideData(type, size);
   }
 
   /**
-   * Free all side data from the packet.
+   * Free all side data.
    *
-   * Removes and frees all side data attached to the packet.
-   * Direct mapping to av_packet_free_side_data()
+   * Removes all side data attached to the packet.
+   *
+   * Direct mapping to av_packet_free_side_data().
    *
    * @example
    * ```typescript
-   * // Remove all side data from the packet
    * packet.freeSideData();
+   * // All side data removed
    * ```
    */
   freeSideData(): void {
@@ -553,10 +495,11 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
   }
 
   /**
-   * Get the native FFmpeg AVPacket pointer.
+   * Get the underlying native Packet object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native packet object
+   * @returns The native Packet binding object
+   *
+   * @internal
    */
   getNative(): NativePacket {
     return this.native;
@@ -570,23 +513,11 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    *
    * @example
    * ```typescript
-   * import { Packet } from 'node-av';
-   *
-   * // Using 'using' declaration for automatic cleanup
    * {
    *   using packet = new Packet();
    *   packet.alloc();
-   *   // ... use packet
+   *   // Use packet...
    * } // Automatically freed when leaving scope
-   *
-   * // Or with try-finally
-   * const packet = new Packet();
-   * try {
-   *   packet.alloc();
-   *   // ... use packet
-   * } finally {
-   *   packet[Symbol.dispose]();
-   * }
    * ```
    */
   [Symbol.dispose](): void {

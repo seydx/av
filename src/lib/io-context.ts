@@ -8,93 +8,84 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
 /**
  * I/O context for custom input/output operations.
  *
- * Provides buffered I/O and protocol handling for reading/writing data
- * from/to files, network streams, memory buffers, or custom sources.
- * Can be used with FormatContext for custom I/O or standalone for direct I/O operations.
+ * Provides an abstraction layer for all I/O operations in FFmpeg.
+ * Enables reading from and writing to various sources including files,
+ * network streams, memory buffers, and custom callbacks. Essential for
+ * implementing custom protocols or handling non-standard I/O scenarios.
  *
  * Direct mapping to FFmpeg's AVIOContext.
  *
  * @example
  * ```typescript
  * import { IOContext, FFmpegError } from 'node-av';
- * import { AVIO_FLAG_READ, AVSEEK_SET } from 'node-av/constants';
+ * import { AVIO_FLAG_READ, AVIO_FLAG_WRITE, AVSEEK_SET } from 'node-av/constants';
  *
- * // Open a file for reading
+ * // Open file for reading
  * const io = new IOContext();
  * const ret = await io.open2('input.mp4', AVIO_FLAG_READ);
  * FFmpegError.throwIfError(ret, 'open2');
  *
  * // Read data
- * const buffer = await io.read(4096);
+ * const data = await io.read(4096);
+ * if (data instanceof Buffer) {
+ *   console.log(`Read ${data.length} bytes`);
+ * }
  *
  * // Seek to position
- * const seekRet = await io.seek(1024n, AVSEEK_SET);
- * FFmpegError.throwIfError(seekRet < 0 ? -1 : 0, 'seek');
+ * const pos = await io.seek(1024n, AVSEEK_SET);
+ * console.log(`Seeked to position ${pos}`);
  *
  * // Get file size
- * const size = await io.size();
+ * const fileSize = await io.size();
+ * console.log(`File size: ${fileSize}`);
  *
- * // Clean up
+ * // Close when done
  * await io.closep();
- * ```
  *
- * @example
- * ```typescript
  * // Custom I/O with callbacks
- * const io = new IOContext();
- * io.allocContextWithCallbacks(
- *   4096,           // buffer size
- *   0,              // read mode
- *   (size) => {     // custom read function
- *     return myBuffer.slice(pos, pos + size);
+ * const customIO = new IOContext();
+ * let position = 0n;
+ * const buffer = Buffer.from('Hello World');
+ *
+ * customIO.allocContextWithCallbacks(
+ *   4096,  // Buffer size
+ *   0,     // Read mode
+ *   (size) => {
+ *     // Read callback
+ *     const end = Number(position) + size;
+ *     const chunk = buffer.subarray(Number(position), end);
+ *     position = BigInt(end);
+ *     return chunk;
  *   },
- *   null,           // no write
- *   (offset, whence) => { // custom seek function
- *     return BigInt(calculateNewPosition(offset, whence));
+ *   null,  // No write callback for read mode
+ *   (offset, whence) => {
+ *     // Seek callback
+ *     if (whence === AVSEEK_SET) position = offset;
+ *     else if (whence === AVSEEK_CUR) position += offset;
+ *     else if (whence === AVSEEK_END) position = BigInt(buffer.length) + offset;
+ *     return position;
  *   }
  * );
- *
- * // Use with FormatContext
- * const ctx = new FormatContext();
- * ctx.allocOutputContext2(null, 'mp4', null);
- * ctx.pb = io;
- * const openRet = await ctx.openInput(null, null, null);
- * FFmpegError.throwIfError(openRet, 'openInput');
  * ```
  *
- * @see {@link FormatContext} For using custom I/O with containers
+ * @see {@link [AVIOContext](https://ffmpeg.org/doxygen/trunk/structAVIOContext.html)}
+ * @see {@link FormatContext} For using with demuxing/muxing
  */
 export class IOContext extends OptionMember<NativeIOContext> implements AsyncDisposable, NativeWrapper<NativeIOContext> {
-  /**
-   * Create a new I/O context instance.
-   *
-   * The context is uninitialized - you must call allocContext() or open2() before use.
-   * No FFmpeg resources are allocated until initialization.
-   *
-   * Direct wrapper around AVIOContext allocation.
-   *
-   * @example
-   * ```typescript
-   * import { IOContext, FFmpegError, AVIO_FLAG_READ } from 'node-av';
-   *
-   * const io = new IOContext();
-   * const ret = await io.open2('file.mp4', AVIO_FLAG_READ);
-   * FFmpegError.throwIfError(ret, 'open2');
-   * // I/O context is now ready for use
-   * ```
-   */
   constructor() {
     super(new bindings.IOContext());
   }
 
   /**
-   * Create an IOContext wrapper from a native IOContext.
+   * Find input format by short name.
    *
-   * Used internally when getting IOContext from other objects.
-   * @internal
+   * Creates an IOContext instance from a native binding object.
+   * Used internally for wrapping native I/O contexts.
    *
-   * @param native - Native IOContext to wrap
+   * @param native - Native IOContext binding object
    * @returns Wrapped IOContext instance
+   *
+   * @internal
    */
   static fromNative(native: NativeIOContext): IOContext {
     const io = Object.create(IOContext.prototype) as IOContext;
@@ -103,34 +94,34 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   }
 
   /**
-   * Check if end of file reached.
+   * End of file indicator.
    *
-   * Direct mapping to avio_feof()
+   * True if end of file has been reached during reading.
    *
-   * @readonly
+   * Direct mapping to AVIOContext->eof_reached.
    */
   get eof(): boolean {
     return this.native.eof;
   }
 
   /**
-   * Error code if any.
+   * Error code.
    *
-   * Direct mapping to AVIOContext->error
+   * Contains the last error that occurred, or 0 if no error.
    *
-   * @readonly
+   * Direct mapping to AVIOContext->error.
    */
   get error(): number {
     return this.native.error;
   }
 
   /**
-   * Whether seeking is possible.
+   * Seekability indicator.
    *
-   * Direct mapping to AVIOContext->seekable
+   * Non-zero if the underlying resource supports seeking.
+   * Some protocols like pipes or network streams may not be seekable.
    *
-   * Bitmask of AVIO_SEEKABLE_* flags.
-   * @readonly
+   * Direct mapping to AVIOContext->seekable.
    */
   get seekable(): number {
     return this.native.seekable;
@@ -139,9 +130,10 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   /**
    * Maximum packet size.
    *
-   * Direct mapping to AVIOContext->max_packet_size
+   * Used to limit packet sizes in network protocols.
+   * 0 means no limit.
    *
-   * If non-zero, indicates the maximum packet size.
+   * Direct mapping to AVIOContext->max_packet_size.
    */
   get maxPacketSize(): number {
     return this.native.maxPacketSize;
@@ -152,13 +144,11 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   }
 
   /**
-   * Whether direct mode is enabled.
+   * Direct mode flag.
    *
-   * Direct mapping to AVIOContext->direct
+   * If set, the I/O context will attempt to avoid buffering.
    *
-   * avio_read and avio_write should if possible be satisfied directly
-   * instead of going through a buffer, and avio_seek will always call
-   * the underlying seek function directly.
+   * Direct mapping to AVIOContext->direct.
    */
   get direct(): number {
     return this.native.direct;
@@ -169,111 +159,105 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   }
 
   /**
-   * Get current position in the file.
+   * Current position.
    *
-   * Direct mapping to AVIOContext->pos
+   * Current byte position in the stream.
    *
-   * @readonly
+   * Direct mapping to AVIOContext->pos.
    */
   get pos(): bigint {
     return this.native.pos;
   }
 
   /**
-   * Get buffer size.
+   * Internal buffer size.
    *
-   * Direct mapping to AVIOContext->buffer_size
+   * Size of the internal buffer used for I/O operations.
    *
-   * @readonly
+   * Direct mapping to AVIOContext->buffer_size.
    */
   get bufferSize(): number {
     return this.native.bufferSize;
   }
 
   /**
-   * Check if opened for writing.
+   * Write flag.
    *
-   * Direct mapping to AVIOContext->write_flag
+   * True if opened for writing, false for reading.
    *
-   * @readonly
+   * Direct mapping to AVIOContext->write_flag.
    */
   get writeFlag(): boolean {
     return this.native.writeFlag;
   }
 
   /**
-   * Create and initialize a buffered I/O context.
+   * Allocate I/O context with buffer.
    *
-   * Allocates an I/O context with an internal buffer for efficient I/O operations.
-   * For file I/O, use open2() instead which handles allocation automatically.
+   * Allocates a basic I/O context with an internal buffer.
+   * For custom I/O, use allocContextWithCallbacks instead.
    *
-   * Direct mapping to avio_alloc_context()
+   * Direct mapping to avio_alloc_context() without callbacks.
    *
-   * @param bufferSize - Size of the internal buffer in bytes
-   * @param writeFlag - 1 for writing, 0 for reading
+   * @param bufferSize - Size of internal buffer
+   * @param writeFlag - 1 for write, 0 for read
    *
    * @example
    * ```typescript
-   * import { IOContext } from 'node-av';
-   *
    * const io = new IOContext();
    * io.allocContext(4096, 0); // 4KB buffer for reading
-   *
-   * // For writing
-   * const writeIO = new IOContext();
-   * writeIO.allocContext(8192, 1); // 8KB buffer for writing
    * ```
    *
-   * @see {@link allocContextWithCallbacks} For custom I/O callbacks
-   * @see {@link open2} For file I/O
+   * @see {@link allocContextWithCallbacks} For custom I/O
    */
   allocContext(bufferSize: number, writeFlag: number): void {
-    return this.native.allocContext(bufferSize, writeFlag);
+    this.native.allocContext(bufferSize, writeFlag);
   }
 
   /**
-   * Allocate an AVIOContext with custom callbacks.
+   * Allocate I/O context with custom callbacks.
    *
-   * Creates a custom I/O context with JavaScript callbacks for read, write, and seek operations.
+   * Creates an I/O context with custom read, write, and seek callbacks.
+   * Enables implementing custom protocols or data sources.
    *
-   * IMPORTANT: Callbacks must be synchronous! They are called from FFmpeg's thread and must
-   * return immediately. If you need async operations, buffer the data in JavaScript first.
+   * Direct mapping to avio_alloc_context() with callbacks.
    *
-   * Direct mapping to avio_alloc_context() with custom callbacks
-   *
-   * @param bufferSize - Size of the buffer in bytes
-   * @param writeFlag - 0 for read, 1 for write
-   * @param readCallback - Synchronous callback for reading data. Returns Buffer, null for EOF, or negative error code
-   * @param writeCallback - Synchronous callback for writing data. Returns bytes written or negative error code
-   * @param seekCallback - Synchronous callback for seeking. Returns new position or negative error code
+   * @param bufferSize - Size of internal buffer
+   * @param writeFlag - 1 for write mode, 0 for read mode
+   * @param readCallback - Function to read data (null for write-only)
+   * @param writeCallback - Function to write data (null for read-only)
+   * @param seekCallback - Function to seek in stream (optional)
    *
    * @example
    * ```typescript
-   * import { IOContext, AVSEEK_SET, AVSEEK_CUR, AVSEEK_END } from 'node-av';
+   * import { AVSEEK_SET, AVSEEK_CUR, AVSEEK_END, AVSEEK_SIZE } from 'node-av/constants';
    *
-   * const io = new IOContext();
+   * const data = Buffer.from('Custom data source');
    * let position = 0;
-   * const buffer = Buffer.from('example data');
    *
    * io.allocContextWithCallbacks(
    *   4096,
-   *   0,
+   *   0, // Read mode
    *   (size) => {
-   *     // Read up to 'size' bytes - MUST BE SYNCHRONOUS
-   *     return buffer.slice(position, position + size);
+   *     // Read callback
+   *     if (position >= data.length) return -541; // EOF
+   *     const chunk = data.subarray(position, position + size);
+   *     position += chunk.length;
+   *     return chunk;
    *   },
    *   null,
    *   (offset, whence) => {
-   *     // Seek to position - MUST BE SYNCHRONOUS
+   *     // Seek callback
+   *     if (whence === AVSEEK_SIZE) return BigInt(data.length);
    *     if (whence === AVSEEK_SET) position = Number(offset);
    *     else if (whence === AVSEEK_CUR) position += Number(offset);
-   *     else if (whence === AVSEEK_END) position = buffer.length + Number(offset);
+   *     else if (whence === AVSEEK_END) position = data.length + Number(offset);
    *     return BigInt(position);
    *   }
    * );
    * ```
    *
-   * @see {@link allocContext} For simple buffer allocation
+   * @see {@link allocContext} For simple allocation
    */
   allocContextWithCallbacks(
     bufferSize: number,
@@ -282,299 +266,283 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
     writeCallback?: ((buffer: Buffer) => number | void) | null,
     seekCallback?: ((offset: bigint, whence: number) => bigint | number) | null,
   ): void {
-    return this.native.allocContextWithCallbacks(bufferSize, writeFlag, readCallback ?? undefined, writeCallback ?? undefined, seekCallback ?? undefined);
+    this.native.allocContextWithCallbacks(bufferSize, writeFlag, readCallback ?? undefined, writeCallback ?? undefined, seekCallback ?? undefined);
   }
 
   /**
-   * Free the AVIOContext.
+   * Free I/O context.
    *
-   * Direct mapping to avio_context_free()
+   * Releases the I/O context and its resources.
+   * The context becomes invalid after calling this.
+   *
+   * Direct mapping to avio_context_free().
    *
    * @example
    * ```typescript
-   * import { IOContext } from 'node-av';
-   *
    * io.freeContext();
-   * // io is now invalid and should not be used
+   * // Context is now invalid
    * ```
    */
   freeContext(): void {
-    return this.native.freeContext();
+    this.native.freeContext();
   }
 
   /**
-   * Open a resource for reading or writing.
+   * Open resource for I/O.
    *
-   * Opens a URL using the appropriate protocol handler (file, http, etc.).
-   * Automatically allocates and initializes the I/O context.
+   * Opens a URL or file for reading or writing.
+   * Automatically selects the appropriate protocol handler.
    *
-   * Direct mapping to avio_open2()
+   * Direct mapping to avio_open2().
    *
-   * @param url - URL to open (file://, http://, https://, etc.)
-   * @param flags - I/O flags (AVIO_FLAG_READ, AVIO_FLAG_WRITE, etc.)
-   *
+   * @param url - URL or file path to open
+   * @param flags - Open flags (AVIO_FLAG_READ, AVIO_FLAG_WRITE, etc.)
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(ENOENT): File not found
-   *   - AVERROR(EACCES): Permission denied
-   *   - AVERROR(EIO): I/O error
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other protocol-specific errors
+   *   - AVERROR_ENOENT: File not found
+   *   - AVERROR_EACCES: Permission denied
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { IOContext, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    * import { AVIO_FLAG_READ, AVIO_FLAG_WRITE } from 'node-av/constants';
    *
-   * // Open file for reading
-   * const io = new IOContext();
+   * // Open for reading
    * const ret = await io.open2('input.mp4', AVIO_FLAG_READ);
    * FFmpegError.throwIfError(ret, 'open2');
    *
-   * // Open file for writing
-   * const writeIO = new IOContext();
-   * const writeRet = await writeIO.open2('output.mp4', AVIO_FLAG_WRITE);
-   * FFmpegError.throwIfError(writeRet, 'open2');
-   *
-   * // Open network stream
-   * const streamIO = new IOContext();
-   * const streamRet = await streamIO.open2('http://example.com/stream.m3u8', AVIO_FLAG_READ);
-   * FFmpegError.throwIfError(streamRet, 'open2');
+   * // Open for writing
+   * const ret2 = await io.open2('output.mp4', AVIO_FLAG_WRITE);
+   * FFmpegError.throwIfError(ret2, 'open2');
    * ```
    *
-   * @see {@link closep} To close and free resources
+   * @see {@link closep} To close after use
    */
   async open2(url: string, flags: AVIOFlag = AVIO_FLAG_READ): Promise<number> {
-    return this.native.open2(url, flags);
+    return await this.native.open2(url, flags);
   }
 
   /**
-   * Close the resource and free the AVIOContext.
+   * Close I/O context.
    *
-   * Direct mapping to avio_closep()
+   * Closes the I/O context and releases associated resources.
+   * Flushes any buffered data before closing.
    *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EIO): I/O error during close
-   *   - <0: Other errors
+   * Direct mapping to avio_closep().
+   *
+   * @returns 0 on success, negative AVERROR on error
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
    * const ret = await io.closep();
-   * FFmpegError.throwIfError(ret, 'closep');
-   * // I/O context is now closed and freed
-   * ```
-   */
-  async closep(): Promise<number> {
-    return this.native.closep();
-  }
-
-  /**
-   * Read size bytes from AVIOContext.
-   *
-   * Direct mapping to avio_read()
-   *
-   * @param size - Number of bytes to read
-   *
-   * @returns Buffer with data or error code if negative:
-   *   - Buffer: Successfully read data
-   *   - AVERROR_EOF: End of file reached
-   *   - AVERROR(EIO): I/O error
-   *   - <0: Other errors
-   *
-   * @example
-   * ```typescript
-   * import { FFmpegError, AVERROR_EOF } from 'node-av';
-   *
-   * const data = await io.read(1024);
-   * if (typeof data === 'number' && data < 0) {
-   *   if (data === AVERROR_EOF) {
-   *     console.log('End of file');
-   *   } else {
-   *     FFmpegError.throwIfError(data, 'read');
-   *   }
-   * } else {
-   *   // Process buffer
-   *   console.log(`Read ${data.length} bytes`);
+   * if (ret < 0) {
+   *   console.error('Error closing I/O context');
    * }
    * ```
+   *
+   * @see {@link open2} To open resources
+   */
+  async closep(): Promise<number> {
+    return await this.native.closep();
+  }
+
+  /**
+   * Read data from I/O context.
+   *
+   * Reads up to the specified number of bytes from the stream.
+   *
+   * Direct mapping to avio_read().
+   *
+   * @param size - Maximum number of bytes to read
+   * @returns Buffer with data, or error code if negative:
+   *   - AVERROR_EOF: End of file reached
+   *   - AVERROR_EIO: I/O error
+   *
+   * @example
+   * ```typescript
+   * const data = await io.read(4096);
+   * if (data instanceof Buffer) {
+   *   console.log(`Read ${data.length} bytes`);
+   * } else {
+   *   console.error(`Read error: ${data}`);
+   * }
+   * ```
+   *
+   * @see {@link write} For writing data
    */
   async read(size: number): Promise<Buffer | number> {
-    return this.native.read(size);
+    return await this.native.read(size);
   }
 
   /**
-   * Write buffer to AVIOContext.
+   * Write data to I/O context.
    *
-   * Direct mapping to avio_write()
+   * Writes buffer data to the stream.
    *
-   * @param buffer - Buffer to write
+   * Direct mapping to avio_write().
+   *
+   * @param buffer - Data to write
    *
    * @example
    * ```typescript
-   * import { IOContext } from 'node-av';
-   *
-   * const data = Buffer.from('Hello, World!');
+   * const data = Buffer.from('Hello World');
    * await io.write(data);
-   * // Data written successfully
    * ```
    *
-   * @throws {Error} If write fails
+   * @see {@link read} For reading data
+   * @see {@link flush} To flush buffers
    */
   async write(buffer: Buffer): Promise<void> {
-    return this.native.write(buffer);
+    await this.native.write(buffer);
   }
 
   /**
-   * Seek to a given offset.
+   * Seek to position in stream.
    *
-   * Direct mapping to avio_seek()
+   * Changes the current position in the stream.
+   * Not all streams support seeking.
    *
-   * @param offset - Offset to seek to
-   * @param whence - AVSEEK_SET (0), AVSEEK_CUR (1), AVSEEK_END (2), or AVSEEK_SIZE (0x10000)
+   * Direct mapping to avio_seek().
    *
-   * @returns New position or negative AVERROR:
-   *   - >=0: New position in bytes
-   *   - AVERROR(EINVAL): Invalid whence value
-   *   - AVERROR(ESPIPE): Seek not supported
-   *   - <0: Other errors
+   * @param offset - Byte offset to seek to
+   * @param whence - Seek origin (AVSEEK_SET, AVSEEK_CUR, AVSEEK_END)
+   * @returns New position, or negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid arguments
+   *   - AVERROR_ENOSYS: Seeking not supported
    *
    * @example
    * ```typescript
-   * import { FFmpegError, AVSEEK_SET, AVSEEK_END, AVSEEK_SIZE } from 'node-av';
+   * import { AVSEEK_SET, AVSEEK_CUR, AVSEEK_END } from 'node-av/constants';
    *
-   * // Seek to beginning
-   * const pos = await io.seek(0n, AVSEEK_SET);
-   * FFmpegError.throwIfError(pos < 0n ? Number(pos) : 0, 'seek');
+   * // Seek to absolute position
+   * const pos1 = await io.seek(1024n, AVSEEK_SET);
    *
-   * // Seek to end
-   * const endPos = await io.seek(0n, AVSEEK_END);
-   * FFmpegError.throwIfError(endPos < 0n ? Number(endPos) : 0, 'seek');
+   * // Seek relative to current position
+   * const pos2 = await io.seek(512n, AVSEEK_CUR);
    *
-   * // Get file size without changing position
-   * const size = await io.seek(0n, AVSEEK_SIZE);
-   * console.log(`File size: ${size} bytes`);
+   * // Seek relative to end
+   * const pos3 = await io.seek(-1024n, AVSEEK_END);
    * ```
+   *
+   * @see {@link tell} To get current position
+   * @see {@link skip} For relative seeking
    */
   async seek(offset: bigint, whence: AVSeekWhence): Promise<bigint> {
-    return this.native.seek(offset, whence);
+    return await this.native.seek(offset, whence);
   }
 
   /**
-   * Get the file size.
+   * Get stream size.
    *
-   * Direct mapping to avio_size()
+   * Returns the total size of the stream in bytes.
+   * Not all streams have a known size.
    *
-   * @returns File size or negative AVERROR:
-   *   - >=0: File size in bytes
-   *   - AVERROR(ENOSYS): Operation not supported
-   *   - <0: Other errors
+   * Direct mapping to avio_size().
+   *
+   * @returns Size in bytes, or negative AVERROR if unknown:
+   *   - AVERROR_ENOSYS: Size not available
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
    * const size = await io.size();
-   * if (size < 0n) {
-   *   // Handle unsupported or error
-   *   console.error('Cannot determine file size');
+   * if (size >= 0n) {
+   *   console.log(`Stream size: ${size} bytes`);
    * } else {
-   *   console.log(`File size: ${size} bytes`);
+   *   console.log('Stream size unknown');
    * }
    * ```
    */
   async size(): Promise<bigint> {
-    return this.native.size();
+    return await this.native.size();
   }
 
   /**
-   * Force flushing of buffered data.
+   * Flush buffered data.
    *
-   * Direct mapping to avio_flush()
+   * Forces any buffered data to be written to the underlying resource.
+   *
+   * Direct mapping to avio_flush().
    *
    * @example
    * ```typescript
-   * import { IOContext } from 'node-av';
-   *
-   * await io.flush();
-   * // All buffered data has been written
+   * await io.write(data);
+   * await io.flush(); // Ensure data is written
    * ```
+   *
+   * @see {@link write} For writing data
    */
   async flush(): Promise<void> {
-    return this.native.flush();
+    await this.native.flush();
   }
 
   /**
-   * Skip given number of bytes forward.
+   * Skip bytes in stream.
    *
-   * Direct mapping to avio_skip()
+   * Advances the position by the specified offset.
+   * More efficient than reading and discarding data.
+   *
+   * Direct mapping to avio_skip().
    *
    * @param offset - Number of bytes to skip
-   *
-   * @returns New position or negative AVERROR:
-   *   - >=0: New position in bytes
-   *   - AVERROR_EOF: End of file reached
-   *   - <0: Other errors
+   * @returns New position after skipping
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * // Skip 1024 bytes
+   * // Skip 1024 bytes forward
    * const newPos = await io.skip(1024n);
-   * FFmpegError.throwIfError(newPos < 0n ? Number(newPos) : 0, 'skip');
    * console.log(`New position: ${newPos}`);
    * ```
+   *
+   * @see {@link seek} For absolute positioning
    */
   async skip(offset: bigint): Promise<bigint> {
-    return this.native.skip(offset);
+    return await this.native.skip(offset);
   }
 
   /**
-   * Get the current position.
+   * Get current position.
    *
-   * Direct mapping to avio_tell()
+   * Returns the current byte position in the stream.
+   *
+   * Direct mapping to avio_tell().
    *
    * @returns Current position in bytes
    *
    * @example
    * ```typescript
-   * import { IOContext } from 'node-av';
-   *
    * const position = io.tell();
-   * console.log(`Current position: ${position} bytes`);
+   * console.log(`Current position: ${position}`);
    * ```
+   *
+   * @see {@link seek} To change position
    */
   tell(): bigint {
     return this.native.tell();
   }
 
   /**
-   * Get the native FFmpeg AVIOContext pointer.
+   * Get the underlying native IOContext object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native I/O context object
+   * @returns The native IOContext binding object
+   *
+   * @internal
    */
   getNative(): NativeIOContext {
     return this.native;
   }
 
   /**
-   * Dispose of the I/O context.
+   * Dispose of the I/O context asynchronously.
    *
    * Implements the AsyncDisposable interface for automatic cleanup.
-   * Equivalent to calling closep().
+   * Closes the context and releases resources.
    *
    * @example
    * ```typescript
-   * import { IOContext, AVIO_FLAG_READ } from 'node-av';
-   *
    * {
    *   await using io = new IOContext();
-   *   await io.open2('file.mp4', AVIO_FLAG_READ);
-   *   // ... use I/O context
+   *   await io.open2('input.mp4');
+   *   // Use io...
    * } // Automatically closed when leaving scope
    * ```
    */

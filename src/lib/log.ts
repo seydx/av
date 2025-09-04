@@ -4,135 +4,115 @@ import type { AVLogLevel } from '../constants/constants.js';
 import type { LogOptions } from './types.js';
 
 /**
- * FFmpeg logging system control.
+ * FFmpeg logging control and configuration.
  *
- * Controls FFmpeg's global logging behavior including log levels and message capture.
- * Provides direct access to FFmpeg's logging system with options for performance optimization.
- * FFmpeg can generate thousands of log messages per second, so filtering is important.
+ * Provides control over FFmpeg's internal logging system.
+ * Allows setting log levels, custom callbacks, and formatting options.
+ * Essential for debugging, monitoring, and error tracking in FFmpeg operations.
  *
- * Direct mapping to FFmpeg's logging API (av_log_*).
+ * Direct mapping to FFmpeg's logging API.
  *
  * @example
  * ```typescript
- * import { Log, AV_LOG_WARNING, AV_LOG_ERROR, AV_LOG_QUIET } from 'node-av';
+ * import { Log } from 'node-av';
+ * import { AV_LOG_ERROR, AV_LOG_WARNING, AV_LOG_INFO, AV_LOG_DEBUG } from 'node-av/constants';
  *
- * // Set log level (simple, no performance impact)
- * Log.setLevel(AV_LOG_WARNING);
+ * // Set log level
+ * Log.setLevel(AV_LOG_WARNING); // Only show warnings and errors
  *
- * // Capture errors only (minimal performance impact)
+ * // Get current log level
+ * const level = Log.getLevel();
+ * console.log(`Current log level: ${level}`);
+ *
+ * // Custom log callback
  * Log.setCallback((level, message) => {
- *   console.error(`FFmpeg Error: ${message}`);
- * }, { maxLevel: AV_LOG_ERROR });
- *
- * // Non-blocking callback with no performance impact
- * Log.setCallback((level, message) => {
- *   myLogger.log(level, message);
+ *   if (level <= AV_LOG_ERROR) {
+ *     console.error(`FFmpeg Error: ${message}`);
+ *   } else if (level <= AV_LOG_WARNING) {
+ *     console.warn(`FFmpeg Warning: ${message}`);
+ *   } else {
+ *     console.log(`FFmpeg: ${message}`);
+ *   }
+ * }, {
+ *   printPrefix: true,
+ *   skipRepeated: true
  * });
  *
- * // Reset to default logging
+ * // Log a custom message
+ * Log.log(AV_LOG_INFO, 'Custom log message');
+ *
+ * // Reset to default callback
  * Log.resetCallback();
  * ```
  *
- * Warning: Setting a callback can significantly impact performance!
- * FFmpeg can generate thousands of log messages per second.
- * Use maxLevel to filter messages and buffered mode for better performance.
+ * @see {@link [av_log](https://ffmpeg.org/doxygen/trunk/group__lavu__log.html)}
  */
 export class Log {
-  // Private constructor - this is a static-only class
-  private constructor() {
-    throw new Error('Log class cannot be instantiated');
-  }
-
   /**
-   * Set FFmpeg's global log level.
+   * Set global log level.
    *
-   * Lower levels mean fewer log messages and better performance.
-   * Messages above this level are not generated at all by FFmpeg.
+   * Sets the minimum log level for FFmpeg messages.
+   * Messages below this level will be suppressed.
    *
-   * Direct mapping to av_log_set_level()
+   * Direct mapping to av_log_set_level().
    *
-   * @param level - Log level (AV_LOG_* constant):
-   *   - AV_LOG_QUIET: Disable all logging
-   *   - AV_LOG_PANIC: Only extremely fatal issues
-   *   - AV_LOG_FATAL: Fatal errors only
-   *   - AV_LOG_ERROR: Errors that can't be recovered
-   *   - AV_LOG_WARNING: Warnings about potential issues
-   *   - AV_LOG_INFO: Informational messages
-   *   - AV_LOG_VERBOSE: Detailed information
-   *   - AV_LOG_DEBUG: Debug information
-   *   - AV_LOG_TRACE: Very detailed trace information
+   * @param level - Minimum log level to display
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_ERROR, AV_LOG_TRACE, AV_LOG_QUIET } from 'node-av';
+   * import { AV_LOG_QUIET, AV_LOG_ERROR, AV_LOG_WARNING, AV_LOG_INFO } from 'node-av/constants';
    *
-   * // Only show errors and fatal messages
-   * Log.setLevel(AV_LOG_ERROR);
-   *
-   * // Show everything (warning: very verbose!)
-   * Log.setLevel(AV_LOG_TRACE);
-   *
-   * // Disable all logging for maximum performance
-   * Log.setLevel(AV_LOG_QUIET);
+   * Log.setLevel(AV_LOG_QUIET);   // Disable all logging
+   * Log.setLevel(AV_LOG_ERROR);   // Only errors
+   * Log.setLevel(AV_LOG_WARNING); // Errors and warnings
+   * Log.setLevel(AV_LOG_INFO);    // Errors, warnings, and info
    * ```
-   *
-   * @see {@link getLevel} To retrieve current level
    */
   static setLevel(level: AVLogLevel): void {
     bindings.Log.setLevel(level);
   }
 
   /**
-   * Get the current global log level.
+   * Get current log level.
    *
-   * Returns the current FFmpeg log level setting.
+   * Returns the current minimum log level setting.
    *
-   * Direct mapping to av_log_get_level()
+   * Direct mapping to av_log_get_level().
    *
-   * @returns Current log level (AV_LOG_* constant)
+   * @returns Current log level
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_INFO } from 'node-av';
-   *
-   * const currentLevel = Log.getLevel();
-   * console.log(`Current log level: ${currentLevel}`);
-   *
-   * // Temporarily change log level
-   * const savedLevel = Log.getLevel();
-   * Log.setLevel(AV_LOG_INFO);
-   * // ... do something ...
-   * Log.setLevel(savedLevel); // Restore
+   * const level = Log.getLevel();
+   * if (level <= AV_LOG_WARNING) {
+   *   console.log('Logging warnings and above');
+   * }
    * ```
    *
-   * @see {@link setLevel} To change the level
+   * @see {@link setLevel} To change log level
    */
   static getLevel(): AVLogLevel {
     return bindings.Log.getLevel();
   }
 
   /**
-   * Log a message through FFmpeg's logging system.
+   * Log a message.
    *
-   * Sends a message through FFmpeg's internal logging system.
-   * The message will be processed according to the current log level and callback.
+   * Sends a log message through FFmpeg's logging system.
+   * The message will be processed according to current settings.
    *
-   * Direct mapping to av_log()
+   * Direct mapping to av_log().
    *
-   * @param level - Log level (AV_LOG_* constant)
+   * @param level - Log level for this message
    * @param message - Message to log
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_INFO, AV_LOG_ERROR, AV_LOG_WARNING } from 'node-av';
+   * import { AV_LOG_ERROR, AV_LOG_WARNING, AV_LOG_INFO } from 'node-av/constants';
    *
-   * Log.log(AV_LOG_INFO, 'Starting processing...');
-   * Log.log(AV_LOG_WARNING, 'Frame rate might be inaccurate');
-   * Log.log(AV_LOG_ERROR, 'Failed to open codec');
-   *
-   * // With formatting
-   * const frameNum = 42;
-   * Log.log(AV_LOG_INFO, `Processing frame ${frameNum}`);
+   * Log.log(AV_LOG_ERROR, 'Critical error occurred');
+   * Log.log(AV_LOG_WARNING, 'Non-fatal warning');
+   * Log.log(AV_LOG_INFO, 'Processing started');
    * ```
    */
   static log(level: AVLogLevel, message: string): void {
@@ -140,55 +120,42 @@ export class Log {
   }
 
   /**
-   * Set a callback to capture FFmpeg log messages.
+   * Set custom log callback.
    *
-   * Installs a custom callback to intercept FFmpeg's log messages.
-   * This implementation uses ThreadSafeFunction for zero-blocking operation.
-   * Messages are processed asynchronously without impacting FFmpeg performance.
-   * Use options.maxLevel to filter messages at the C level for best performance.
+   * Installs a custom callback to handle FFmpeg log messages.
+   * Allows redirecting logs to custom handlers or loggers.
    *
-   * Direct mapping to av_log_set_callback()
+   * Direct mapping to av_log_set_callback().
    *
-   * @param callback - Function to receive log messages, or null to reset
-   * @param options - Options to control performance impact:
-   *   - maxLevel: Only capture messages at or below this level (filtered in C++)
-   *   - buffered: Buffer messages for batch processing
+   * @param callback - Function to handle log messages, or null to remove
+   * @param options - Additional logging options
    *
    * @example
    * ```typescript
-   * import { Log, AV_LOG_ERROR, AV_LOG_WARNING } from 'node-av';
+   * import { AV_LOG_ERROR, AV_LOG_WARNING } from 'node-av/constants';
    *
-   * // Simple callback (warning: can be slow!)
+   * // Set custom callback with options
    * Log.setCallback((level, message) => {
-   *   console.log(`[${level}] ${message}`);
-   * });
+   *   const timestamp = new Date().toISOString();
    *
-   * // Performance-optimized callback (filters at C level)
-   * Log.setCallback((level, message) => {
-   *   errorReporter.log(message);
+   *   if (level <= AV_LOG_ERROR) {
+   *     console.error(`[${timestamp}] ERROR: ${message}`);
+   *   } else if (level <= AV_LOG_WARNING) {
+   *     console.warn(`[${timestamp}] WARN: ${message}`);
+   *   } else {
+   *     console.log(`[${timestamp}] INFO: ${message}`);
+   *   }
    * }, {
-   *   maxLevel: AV_LOG_ERROR  // Only capture errors (filtered in C++)
+   *   printPrefix: true,    // Include context prefix
+   *   skipRepeated: true,   // Skip repeated messages
+   *   level: AV_LOG_WARNING // Filter level
    * });
    *
-   * // Structured logging
-   * Log.setCallback((level, message) => {
-   *   myLogger.log({
-   *     level: level,
-   *     message: message,
-   *     timestamp: Date.now(),
-   *     source: 'ffmpeg'
-   *   });
-   * }, {
-   *   maxLevel: AV_LOG_WARNING
-   * });
-   *
-   * // Reset to default (output to stderr)
+   * // Remove custom callback
    * Log.setCallback(null);
    * ```
    *
-   * Note: Messages are processed asynchronously and non-blocking.
-   *
-   * @see {@link resetCallback} To remove callback
+   * @see {@link resetCallback} To restore default
    */
   static setCallback(callback: ((level: AVLogLevel, message: string) => void) | null, options?: LogOptions): void {
     if (callback === null) {
@@ -199,26 +166,21 @@ export class Log {
   }
 
   /**
-   * Reset logging to default behavior.
+   * Reset to default log callback.
    *
-   * Removes any custom callback and restores FFmpeg's default logging to stderr.
-   * Also clears any buffered messages from previous callbacks.
+   * Restores the default FFmpeg logging behavior.
+   * Removes any custom callback previously set.
    *
-   * Direct mapping to av_log_set_callback(av_log_default_callback)
+   * Direct mapping to av_log_set_callback() with default handler.
    *
    * @example
    * ```typescript
-   * import { Log } from 'node-av';
-   *
-   * // Remove custom callback
+   * // After using custom callback
    * Log.resetCallback();
-   * // Now logs go to stderr again
-   *
-   * // Equivalent to:
-   * Log.setCallback(null);
+   * // Now using default FFmpeg logging
    * ```
    *
-   * @see {@link setCallback} To install custom callback
+   * @see {@link setCallback} To set custom callback
    */
   static resetCallback(): void {
     bindings.Log.resetCallback();

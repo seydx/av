@@ -4,96 +4,86 @@ import type { AVCodecID, AVFormatFlag } from '../constants/constants.js';
 import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
 
 /**
- * Output format (muxer) descriptor.
+ * Output format descriptor for muxing media files.
  *
- * Describes a supported output container format for muxing.
- * Provides format information, default codecs, and capabilities.
- * These are read-only format descriptors managed by FFmpeg.
+ * Represents a muxer that can write specific media container formats.
+ * Each format handles specific file types (e.g., MP4, MKV, AVI) and knows how to
+ * combine streams and write them to output. Contains default codec suggestions
+ * for audio, video, and subtitles.
  *
  * Direct mapping to FFmpeg's AVOutputFormat.
  *
  * @example
  * ```typescript
  * import { OutputFormat, FormatContext, FFmpegError } from 'node-av';
+ * import { AV_CODEC_ID_H264, AV_CODEC_ID_AAC } from 'node-av/constants';
  *
- * // Guess output format from filename
+ * // Guess format from filename
  * const format = OutputFormat.guessFormat(null, 'output.mp4', null);
- * if (format) {
- *   console.log(`Format: ${format.longName}`);
- *   console.log(`Default video codec: ${format.videoCodec}`);
- *   console.log(`Default audio codec: ${format.audioCodec}`);
+ * if (!format) {
+ *   throw new Error('Could not determine output format');
  * }
  *
- * // Use with FormatContext
- * const ctx = new FormatContext();
- * const mp4Format = OutputFormat.guessFormat('mp4', null, null);
- * const ret = ctx.allocOutputContext2(mp4Format, null, 'output.mp4');
- * FFmpegError.throwIfError(ret, 'allocOutputContext2');
+ * console.log(`Format: ${format.name}`);
+ * console.log(`Description: ${format.longName}`);
+ * console.log(`Default video codec: ${format.videoCodec}`);
+ * console.log(`Default audio codec: ${format.audioCodec}`);
+ *
+ * // Use specific format
+ * const mkvFormat = OutputFormat.guessFormat('matroska', null, null);
+ *
+ * // Use with format context
+ * const formatContext = new FormatContext();
+ * formatContext.outputFormat = format;
+ * const ret = await formatContext.allocOutputContext('output.mp4');
+ * FFmpegError.throwIfError(ret, 'allocOutputContext');
  * ```
  *
- * @see {@link FormatContext} For using output formats
- * @see {@link InputFormat} For input formats
+ * @see {@link [AVOutputFormat](https://ffmpeg.org/doxygen/trunk/structAVOutputFormat.html)}
+ * @see {@link FormatContext} For using formats to write files
+ * @see {@link InputFormat} For demuxing formats
  */
 export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   private native: NativeOutputFormat;
 
   /**
-   * Constructor is internal - use static factory methods.
-   *
-   * OutputFormats are obtained via static methods, not created directly.
-   * FFmpeg manages these format descriptors internally.
-   *
+   * @param native - The native output format instance
    * @internal
-   *
-   * @param native - Native AVOutputFormat to wrap
-   *
-   * @example
-   * ```typescript
-   * import { OutputFormat } from 'node-av';
-   *
-   * // Don't use constructor directly
-   * // const format = new OutputFormat(); // Wrong
-   *
-   * // Use static factory methods instead
-   * const format = OutputFormat.guessFormat('mp4', null, null); // Correct
-   * ```
    */
   constructor(native: NativeOutputFormat) {
     this.native = native;
   }
 
   /**
-   * Return the output format which best matches the provided parameters.
+   * Guess output format from name, filename, or MIME type.
    *
-   * Guesses the appropriate output format based on name, filename, or MIME type.
-   * Uses the first provided parameter in order: shortName, filename extension, mimeType.
+   * Determines the appropriate output format based on provided hints.
+   * At least one parameter should be non-null.
    *
-   * Direct mapping to av_guess_format()
+   * Direct mapping to av_guess_format().
    *
-   * @param shortName - Short name of the format (e.g., 'mp4', 'mov', 'avi'), may be null
-   * @param filename - Filename to use for guessing (extension is used), may be null
-   * @param mimeType - MIME type to use for guessing, may be null
-   *
-   * @returns OutputFormat if found, null otherwise
+   * @param shortName - Format short name (e.g., 'mp4', 'mkv', null to ignore)
+   * @param filename - Output filename for extension detection (null to ignore)
+   * @param mimeType - MIME type hint (null to ignore)
+   * @returns Detected format, or null if not determined
    *
    * @example
    * ```typescript
-   * import { OutputFormat } from 'node-av';
+   * // Guess from filename extension
+   * const format1 = OutputFormat.guessFormat(null, 'video.mp4', null);
+   * // Returns MP4 format
    *
-   * // Guess by short name
-   * const mp4Format = OutputFormat.guessFormat('mp4', null, null);
-   * if (mp4Format) {
-   *   console.log(`Format: ${mp4Format.longName}`);
-   * }
+   * // Use specific format
+   * const format2 = OutputFormat.guessFormat('matroska', null, null);
+   * // Returns MKV format
    *
-   * // Guess by filename extension
-   * const format = OutputFormat.guessFormat(null, 'video.mkv', null);
-   * if (format) {
-   *   console.log(`Guessed format: ${format.name}`);
-   * }
+   * // Guess from MIME type
+   * const format3 = OutputFormat.guessFormat(null, null, 'video/mp4');
+   * // Returns MP4 format
    *
-   * // Guess by mime type
-   * const webmFormat = OutputFormat.guessFormat(null, null, 'video/webm');
+   * // Priority: shortName > filename > mimeType
+   * const format4 = OutputFormat.guessFormat('mkv', 'video.mp4', null);
+   * // Returns MKV format (shortName takes precedence)
    * ```
    */
   static guessFormat(shortName: string | null, filename: string | null, mimeType: string | null): OutputFormat | null {
@@ -105,81 +95,77 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   }
 
   /**
-   * A comma separated list of short names for the format.
+   * Format short name.
    *
-   * Direct mapping to AVOutputFormat->name
+   * Short identifier for the format (e.g., 'mp4', 'mkv').
    *
-   * @readonly
+   * Direct mapping to AVOutputFormat->name.
    */
   get name(): string | null {
     return this.native.name;
   }
 
   /**
-   * Descriptive name for the format.
+   * Format long name.
    *
-   * Direct mapping to AVOutputFormat->long_name
+   * Human-readable description of the format.
    *
-   * Meant to be more human-readable than the short name.
-   * @readonly
+   * Direct mapping to AVOutputFormat->long_name.
    */
   get longName(): string | null {
     return this.native.longName;
   }
 
   /**
-   * Comma-separated list of file extensions.
+   * File extensions.
    *
-   * Direct mapping to AVOutputFormat->extensions
+   * Comma-separated list of file extensions for this format.
    *
-   * @readonly
+   * Direct mapping to AVOutputFormat->extensions.
    */
   get extensions(): string | null {
     return this.native.extensions;
   }
 
   /**
-   * Comma-separated list of mime types.
+   * MIME type.
    *
-   * Direct mapping to AVOutputFormat->mime_type
+   * MIME type(s) associated with this format.
    *
-   * @readonly
+   * Direct mapping to AVOutputFormat->mime_type.
    */
   get mimeType(): string | null {
     return this.native.mimeType;
   }
 
   /**
-   * Default audio codec for this format.
+   * Default audio codec.
    *
-   * Direct mapping to AVOutputFormat->audio_codec
+   * Suggested audio codec for this format.
    *
-   * AV_CODEC_ID_NONE if no default.
-   * @readonly
+   * Direct mapping to AVOutputFormat->audio_codec.
    */
   get audioCodec(): AVCodecID {
     return this.native.audioCodec;
   }
 
   /**
-   * Default video codec for this format.
+   * Default video codec.
    *
-   * Direct mapping to AVOutputFormat->video_codec
+   * Suggested video codec for this format.
    *
-   * AV_CODEC_ID_NONE if no default.
-   * @readonly
+   * Direct mapping to AVOutputFormat->video_codec.
    */
   get videoCodec(): AVCodecID {
     return this.native.videoCodec;
   }
 
   /**
-   * Default subtitle codec for this format.
+   * Default subtitle codec.
    *
-   * Direct mapping to AVOutputFormat->subtitle_codec
+   * Suggested subtitle codec for this format.
    *
-   * AV_CODEC_ID_NONE if no default.
-   * @readonly
+   * Direct mapping to AVOutputFormat->subtitle_codec.
    */
   get subtitleCodec(): AVCodecID {
     return this.native.subtitleCodec;
@@ -188,30 +174,20 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
   /**
    * Format flags.
    *
-   * Direct mapping to AVOutputFormat->flags
+   * Combination of AVFMT_* flags indicating format capabilities.
    *
-   * Combination of AVFMT_* flags:
-   * - AVFMT_NOFILE: No file is opened
-   * - AVFMT_NEEDNUMBER: Needs '%d' in filename
-   * - AVFMT_GLOBALHEADER: Format wants global headers
-   * - AVFMT_NOTIMESTAMPS: Format does not need/have timestamps
-   * - AVFMT_VARIABLE_FPS: Format allows variable fps
-   * - AVFMT_NODIMENSIONS: Format does not need width/height
-   * - AVFMT_NOSTREAMS: Format does not require streams
-   * - AVFMT_ALLOW_FLUSH: Format allows flushing
-   * - AVFMT_TS_NONSTRICT: Format does not require strictly increasing timestamps
-   * - AVFMT_TS_NEGATIVE: Format allows negative timestamps
-   * @readonly
+   * Direct mapping to AVOutputFormat->flags.
    */
   get flags(): AVFormatFlag {
     return this.native.flags;
   }
 
   /**
-   * Get the native FFmpeg AVOutputFormat pointer.
+   * Get the underlying native OutputFormat object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native output format object
+   * @returns The native OutputFormat binding object
+   *
+   * @internal
    */
   getNative(): NativeOutputFormat {
     return this.native;

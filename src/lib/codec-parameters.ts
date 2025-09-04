@@ -20,77 +20,53 @@ import type { ChannelLayout } from './types.js';
 /**
  * Codec parameters for stream configuration.
  *
- * Describes the properties of an encoded media stream.
- * Used to transfer codec parameters between contexts and streams.
- * Contains essential information like codec type, dimensions, and format.
+ * Stores essential codec parameters without requiring a full codec context.
+ * Used to describe stream properties in containers, transfer codec configuration
+ * between contexts, and initialize decoders/encoders. Contains format, dimensions,
+ * sample rates, and other codec-specific parameters.
  *
  * Direct mapping to FFmpeg's AVCodecParameters.
  *
  * @example
  * ```typescript
- * import { CodecParameters, FFmpegError } from 'node-av';
- * import { AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from 'node-av/constants';
+ * import { CodecParameters, CodecContext, FFmpegError } from 'node-av';
  *
- * // Create and allocate codec parameters
+ * // Create and allocate parameters
  * const params = new CodecParameters();
  * params.alloc();
  *
- * // Copy parameters from a codec context
- * const ret = params.fromContext(codecContext);
- * FFmpegError.throwIfError(ret, 'fromContext');
+ * // Copy from stream
+ * const stream = formatContext.streams[0];
+ * const ret = stream.codecpar.copy(params);
+ * FFmpegError.throwIfError(ret, 'copy');
  *
- * // Set video parameters manually
- * params.codecType = AVMEDIA_TYPE_VIDEO;
- * params.codecId = AV_CODEC_ID_H264;
- * params.width = 1920;
- * params.height = 1080;
- * params.format = AV_PIX_FMT_YUV420P;
- *
- * // Apply parameters to another codec context
- * const ret2 = params.toContext(otherCodecContext);
+ * // Transfer to codec context
+ * const ret2 = params.toContext(codecContext);
  * FFmpegError.throwIfError(ret2, 'toContext');
  *
- * // Copy to another parameters struct
- * const params2 = new CodecParameters();
- * params2.alloc();
- * const copyRet = params.copy(params2);
- * FFmpegError.throwIfError(copyRet, 'copy');
- *
- * // Clean up
- * params.free();
- * params2.free();
+ * // Get parameters info
+ * console.log(`Codec: ${params.codecId}`);
+ * console.log(`Dimensions: ${params.width}x${params.height}`);
+ * console.log(`Bitrate: ${params.bitRate}`);
  * ```
+ *
+ * @see {@link [AVCodecParameters](https://ffmpeg.org/doxygen/trunk/structAVCodecParameters.html)}
+ * @see {@link CodecContext} For full codec operations
+ * @see {@link Stream} For stream parameters
  */
 export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   private native: NativeCodecParameters;
 
-  /**
-   * Create new codec parameters.
-   *
-   * The parameters are uninitialized - you must call alloc() before use.
-   * No FFmpeg resources are allocated until alloc() is called.
-   *
-   * Direct wrapper around AVCodecParameters.
-   *
-   * @example
-   * ```typescript
-   * import { CodecParameters } from 'node-av';
-   *
-   * const params = new CodecParameters();
-   * params.alloc();
-   * // Parameters are now ready for use
-   * ```
-   */
   constructor() {
     this.native = new bindings.CodecParameters();
   }
 
   /**
-   * General type of the encoded data.
+   * Codec type.
    *
-   * Identifies the media type (video, audio, subtitle, etc.).
+   * Media type (video, audio, subtitle, etc.).
    *
-   * Direct mapping to AVCodecParameters->codec_type
+   * Direct mapping to AVCodecParameters->codec_type.
    */
   get codecType(): AVMediaType {
     return this.native.codecType;
@@ -101,11 +77,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Specific type of the encoded data.
+   * Codec ID.
    *
-   * Identifies the exact codec (H.264, AAC, etc.).
+   * Specific codec identifier (e.g., AV_CODEC_ID_H264).
    *
-   * Direct mapping to AVCodecParameters->codec_id
+   * Direct mapping to AVCodecParameters->codec_id.
    */
   get codecId(): AVCodecID {
     return this.native.codecId;
@@ -118,8 +94,9 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   /**
    * Codec tag.
    *
-   * Direct mapping to AVCodecParameters->codec_tag
-   * Additional information about the codec (corresponds to the AVI FOURCC).
+   * Additional codec tag used by some formats.
+   *
+   * Direct mapping to AVCodecParameters->codec_tag.
    */
   get codecTag(): number {
     return this.native.codecTag;
@@ -130,13 +107,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Extra binary data needed for initializing the decoder.
+   * Extra codec data.
    *
-   * Direct mapping to AVCodecParameters->extradata
-   * The allocated memory should be AV_INPUT_BUFFER_PADDING_SIZE bytes larger
-   * than extradata_size to avoid problems if it is read with the bitstream reader.
-   * The bytewise contents of extradata must not depend on the architecture or CPU endianness.
-   * Must be allocated with the av_malloc() family of functions.
+   * Codec-specific initialization data (e.g., H.264 SPS/PPS).
+   *
+   * Direct mapping to AVCodecParameters->extradata.
    */
   get extradata(): Buffer | null {
     return this.native.extradata;
@@ -147,18 +122,22 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Size of the extradata content in bytes.
+   * Extra data size.
    *
-   * Direct mapping to AVCodecParameters->extradata_size
+   * Size of extradata buffer in bytes.
+   *
+   * Direct mapping to AVCodecParameters->extradata_size.
    */
   get extradataSize(): number {
     return this.native.extradataSize;
   }
 
   /**
-   * Format of the encoded data.
-   * - video: the pixel format (AVPixelFormat)
-   * - audio: the sample format (AVSampleFormat)
+   * Pixel or sample format.
+   *
+   * Format of video pixels or audio samples.
+   *
+   * Direct mapping to AVCodecParameters->format.
    */
   get format(): AVPixelFormat | AVSampleFormat {
     return this.native.format;
@@ -169,7 +148,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * The average bitrate of the encoded data (in bits per second).
+   * Bit rate.
+   *
+   * Average bitrate in bits per second.
+   *
+   * Direct mapping to AVCodecParameters->bit_rate.
    */
   get bitRate(): bigint {
     return this.native.bitRate;
@@ -180,8 +163,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Codec-specific bitstream restrictions that the stream conforms to.
-   * FF_PROFILE_H264_BASELINE, FF_PROFILE_H264_MAIN, etc.
+   * Codec profile.
+   *
+   * Profile level (e.g., baseline, main, high for H.264).
+   *
+   * Direct mapping to AVCodecParameters->profile.
    */
   get profile(): AVProfile {
     return this.native.profile;
@@ -192,8 +178,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Level of the bitstream.
-   * FF_LEVEL_UNKNOWN or codec-specific values.
+   * Codec level.
+   *
+   * Level within the profile.
+   *
+   * Direct mapping to AVCodecParameters->level.
    */
   get level(): number {
     return this.native.level;
@@ -204,9 +193,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Video frame width in pixels.
+   * Video width.
    *
-   * Direct mapping to AVCodecParameters->width
+   * Width of video frames in pixels.
+   *
+   * Direct mapping to AVCodecParameters->width.
    */
   get width(): number {
     return this.native.width;
@@ -217,9 +208,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Video frame height in pixels.
+   * Video height.
    *
-   * Direct mapping to AVCodecParameters->height
+   * Height of video frames in pixels.
+   *
+   * Direct mapping to AVCodecParameters->height.
    */
   get height(): number {
     return this.native.height;
@@ -230,10 +223,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * The pixel aspect ratio (width / height) which a single pixel should have when displayed.
+   * Sample aspect ratio.
    *
-   * When the aspect ratio is unknown / undefined, the numerator should be set to 0
-   * (the denominator may have any value).
+   * Pixel aspect ratio for video.
+   *
+   * Direct mapping to AVCodecParameters->sample_aspect_ratio.
    */
   get sampleAspectRatio(): Rational {
     const sar = this.native.sampleAspectRatio;
@@ -245,9 +239,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Video only. The framerate of the video.
-   * This is the fundamental unit of time (in seconds) in terms
-   * of which frame timestamps are represented.
+   * Frame rate.
+   *
+   * Video frame rate in frames per second.
+   *
+   * Direct mapping to AVCodecParameters->framerate.
    */
   get frameRate(): Rational {
     const fr = this.native.frameRate;
@@ -259,8 +255,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Video only. Additional colorspace characteristics.
-   * AVCOL_RANGE_MPEG, AVCOL_RANGE_JPEG, etc.
+   * Color range.
+   *
+   * MPEG (limited) or JPEG (full) range.
+   *
+   * Direct mapping to AVCodecParameters->color_range.
    */
   get colorRange(): AVColorRange {
     return this.native.colorRange;
@@ -271,8 +270,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Chromaticity coordinates of the source primaries.
-   * AVCOL_PRI_BT709, AVCOL_PRI_BT2020, etc.
+   * Color primaries.
+   *
+   * Chromaticity coordinates of source primaries.
+   *
+   * Direct mapping to AVCodecParameters->color_primaries.
    */
   get colorPrimaries(): AVColorPrimaries {
     return this.native.colorPrimaries;
@@ -283,8 +285,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Color Transfer Characteristic.
-   * AVCOL_TRC_BT709, AVCOL_TRC_SMPTE2084, etc.
+   * Color transfer characteristic.
+   *
+   * Color transfer function (gamma).
+   *
+   * Direct mapping to AVCodecParameters->color_trc.
    */
   get colorTrc(): AVColorTransferCharacteristic {
     return this.native.colorTrc;
@@ -295,8 +300,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
+   * Color space.
+   *
    * YUV colorspace type.
-   * AVCOL_SPC_BT709, AVCOL_SPC_BT2020_NCL, etc.
+   *
+   * Direct mapping to AVCodecParameters->color_space.
    */
   get colorSpace(): AVColorSpace {
     return this.native.colorSpace;
@@ -307,8 +315,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
+   * Chroma sample location.
+   *
    * Location of chroma samples.
-   * AVCHROMA_LOC_LEFT, AVCHROMA_LOC_CENTER, etc.
+   *
+   * Direct mapping to AVCodecParameters->chroma_location.
    */
   get chromaLocation(): AVChromaLocation {
     return this.native.chromaLocation;
@@ -320,7 +331,10 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
 
   /**
    * Audio channel layout.
-   * @deprecated use ch_layout
+   *
+   * Configuration of audio channels.
+   *
+   * Direct mapping to AVCodecParameters->ch_layout.
    */
   get channelLayout(): ChannelLayout {
     return this.native.channelLayout;
@@ -331,8 +345,11 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Audio only. The number of audio channels.
-   * @deprecated use ch_layout.nb_channels
+   * Number of audio channels.
+   *
+   * @deprecated Use channelLayout.nbChannels instead
+   *
+   * Direct mapping to AVCodecParameters->channels.
    */
   get channels(): number {
     return this.native.channels;
@@ -345,8 +362,9 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   /**
    * Audio sample rate.
    *
-   * Direct mapping to AVCodecParameters->sample_rate
-   * The number of audio samples per second.
+   * Sample rate in Hz.
+   *
+   * Direct mapping to AVCodecParameters->sample_rate.
    */
   get sampleRate(): number {
     return this.native.sampleRate;
@@ -357,176 +375,138 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
-   * Allocate a new AVCodecParameters and set its fields to default values.
+   * Allocate codec parameters.
    *
-   * Allocates the parameters structure and initializes with defaults.
-   * Must be called before using the parameters.
+   * Allocates memory for the parameters structure.
    *
-   * Direct mapping to avcodec_parameters_alloc()
+   * Direct mapping to avcodec_parameters_alloc().
    *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @throws {Error} If allocation fails (ENOMEM)
    *
    * @example
    * ```typescript
-   * import { CodecParameters } from 'node-av';
-   *
    * const params = new CodecParameters();
    * params.alloc();
-   * // Parameters are now allocated with default values
+   * // Parameters ready for use
    * ```
    *
-   * @see {@link free} To free the parameters
+   * @see {@link free} To deallocate
    */
   alloc(): void {
     this.native.alloc();
   }
 
   /**
-   * Free the codec parameters and everything associated with it.
+   * Free codec parameters.
    *
-   * Releases all resources associated with the parameters.
-   * The parameters become invalid after this call.
+   * Releases all memory associated with the parameters.
    *
-   * Direct mapping to avcodec_parameters_free()
+   * Direct mapping to avcodec_parameters_free().
    *
    * @example
    * ```typescript
    * params.free();
-   * // params is now invalid and should not be used
+   * // Parameters now invalid
    * ```
+   *
+   * @see {@link alloc} To allocate
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Copy the contents of this CodecParameters to dst.
+   * Copy parameters to destination.
    *
-   * Copies all parameter values to the destination.
-   * Any allocated fields in dst are freed and replaced with newly allocated duplicates.
+   * Copies all codec parameters to another instance.
    *
-   * Direct mapping to avcodec_parameters_copy()
+   * Direct mapping to avcodec_parameters_copy().
    *
-   * @param dst - Destination CodecParameters. Must be allocated.
-   *
+   * @param dst - Destination parameters
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { CodecParameters, FFmpegError } from 'node-av';
-   *
-   * const src = new CodecParameters();
-   * src.alloc();
-   * // ... set up src parameters ...
+   * import { FFmpegError } from 'node-av';
    *
    * const dst = new CodecParameters();
    * dst.alloc();
    * const ret = src.copy(dst);
    * FFmpegError.throwIfError(ret, 'copy');
    * ```
-   *
-   * @see {@link fromContext} To copy from codec context
-   * @see {@link toContext} To copy to codec context
    */
   copy(dst: CodecParameters): number {
     return this.native.copy(dst.getNative());
   }
 
   /**
-   * Fill this parameters struct based on the values from the supplied codec context.
+   * Fill parameters from codec context.
    *
-   * Copies codec parameters from a codec context to this parameters struct.
-   * Any allocated fields are freed and replaced with duplicates.
+   * Extracts codec parameters from a configured codec context.
    *
-   * Direct mapping to avcodec_parameters_from_context()
+   * Direct mapping to avcodec_parameters_from_context().
    *
-   * @param codecContext - Source CodecContext to copy from
-   *
+   * @param codecContext - Source codec context
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid codec context
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * // Copy encoder parameters to stream
-   * const ret = outputStream.codecpar.fromContext(encoderContext);
+   * // Extract parameters from encoder
+   * const ret = params.fromContext(encoderContext);
    * FFmpegError.throwIfError(ret, 'fromContext');
    * ```
    *
-   * @see {@link toContext} To copy in the opposite direction
+   * @see {@link toContext} To apply to context
    */
   fromContext(codecContext: CodecContext): number {
     return this.native.fromContext(codecContext.getNative());
   }
 
   /**
-   * Fill the codec context based on the values from this codec parameters.
+   * Apply parameters to codec context.
    *
-   * Copies parameters from this struct to a codec context.
-   * Any allocated fields in the codec context are freed and replaced with duplicates.
+   * Configures a codec context with these parameters.
+   * Essential for initializing decoders with stream parameters.
    *
-   * Direct mapping to avcodec_parameters_to_context()
+   * Direct mapping to avcodec_parameters_to_context().
    *
-   * @param codecContext - Destination CodecContext to copy to
-   *
+   * @param codecContext - Destination codec context
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid codec context
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * // Copy stream parameters to decoder
-   * const ret = inputStream.codecpar.toContext(decoderContext);
+   * // Configure decoder with stream parameters
+   * const stream = formatContext.streams[0];
+   * const ret = stream.codecpar.toContext(decoderContext);
    * FFmpegError.throwIfError(ret, 'toContext');
    * ```
    *
-   * @see {@link fromContext} To copy in the opposite direction
+   * @see {@link fromContext} To extract from context
    */
   toContext(codecContext: CodecContext): number {
     return this.native.toContext(codecContext.getNative());
   }
 
   /**
-   * Get the native FFmpeg AVCodecParameters pointer.
+   * Convert to JSON representation.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native codec parameters object
-   */
-  getNative(): NativeCodecParameters {
-    return this.native;
-  }
-
-  /**
-   * Convert all codec parameters to a JSON object.
+   * Returns all codec parameters as a plain object.
+   * Useful for debugging and serialization.
    *
-   * Returns all codec parameters as a plain JavaScript object.
-   * Useful for debugging, logging, or serialization.
-   *
-   * Uses native implementation to access all AVCodecParameters fields directly.
-   *
-   * @returns Object with all codec parameters
+   * @returns Object with all parameter values
    *
    * @example
    * ```typescript
-   * const params = stream.codecpar;
    * const json = params.toJSON();
    * console.log(JSON.stringify(json, null, 2));
-   * // {
-   * //   "codecType": 0,
-   * //   "codecId": 27,
-   * //   "width": 1920,
-   * //   "height": 1080,
-   * //   "format": 0,
-   * //   ...
-   * // }
    * ```
    */
   toJSON(): Record<string, any> {
@@ -534,18 +514,28 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
   }
 
   /**
+   * Get the underlying native CodecParameters object.
+   *
+   * @returns The native CodecParameters binding object
+   *
+   * @internal
+   */
+  getNative(): NativeCodecParameters {
+    return this.native;
+  }
+
+  /**
    * Dispose of the codec parameters.
    *
    * Implements the Disposable interface for automatic cleanup.
-   * Equivalent to calling free().
    *
    * @example
    * ```typescript
    * {
    *   using params = new CodecParameters();
    *   params.alloc();
-   *   // ... use parameters
-   * } // Automatically freed when leaving scope
+   *   // Use params...
+   * } // Automatically disposed when leaving scope
    * ```
    */
   [Symbol.dispose](): void {

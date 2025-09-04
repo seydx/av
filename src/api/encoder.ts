@@ -1,15 +1,3 @@
-/**
- * Encoder - High-level wrapper for media encoding
- *
- * Simplifies FFmpeg's encoding API with automatic codec selection,
- * parameter configuration, and packet management.
- *
- * Handles codec initialization, frame encoding, and packet output.
- * Supports hardware acceleration and zero-copy transcoding.
- *
- * @module api/encoder
- */
-
 import { AVERROR_EOF, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import { AVERROR_EAGAIN, avGetPixFmtName, avGetSampleFmtName, Codec, CodecContext, FFmpegError, Packet, Rational } from '../lib/index.js';
 import { parseBitrate } from './utils.js';
@@ -21,74 +9,74 @@ import type { HardwareContext } from './hardware.js';
 import type { EncoderOptions, StreamInfo } from './types.js';
 
 /**
- * High-level encoder for media streams.
+ * High-level encoder for audio and video streams.
  *
- * Handles codec initialization, frame encoding, and packet output.
- * Supports various codecs with flexible configuration options.
- *
- * Manages codec context lifecycle and provides automatic cleanup.
- * Supports hardware acceleration with shared frames context for zero-copy.
+ * Provides a simplified interface for encoding media frames to packets.
+ * Handles codec initialization, hardware acceleration setup, and packet management.
+ * Supports both synchronous frame-by-frame encoding and async iteration over packets.
+ * Essential component in media processing pipelines for converting raw frames to compressed data.
  *
  * @example
  * ```typescript
+ * import { Encoder } from '@seydx/av/api';
+ * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
+ *
  * // Create H.264 encoder
  * const encoder = await Encoder.create('libx264', {
+ *   type: 'video',
  *   width: 1920,
  *   height: 1080,
- *   pixelFormat: 'yuv420p',
+ *   pixelFormat: AV_PIX_FMT_YUV420P,
+ *   timeBase: { num: 1, den: 30 },
+ *   frameRate: { num: 30, den: 1 }
+ * }, {
  *   bitrate: '5M',
- *   gopSize: 60,
- *   options: {
- *     preset: 'fast',
- *     crf: 23
- *   }
+ *   gopSize: 60
  * });
  *
  * // Encode frames
  * const packet = await encoder.encode(frame);
  * if (packet) {
- *   // Write packet to output
+ *   await output.writePacket(packet);
+ *   packet.free();
  * }
- *
- * // Flush encoder
- * let packet;
- * while ((packet = await encoder.flush()) !== null) {
- *   // Process final packets
- * }
- * encoder.close();
  * ```
  *
  * @example
  * ```typescript
- * // With hardware acceleration
- * const hw = HardwareContext.auto();
- * const encoder = await Encoder.create('h264_videotoolbox', {
- *   width: 1920,
- *   height: 1080,
- *   pixelFormat: 'nv12',
- *   bitrate: '5M',
- *   hardware: hw
+ * // Hardware-accelerated encoding
+ * import { HardwareContext } from '@seydx/av/api';
+ * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+ *
+ * const hw = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+ * const encoder = await Encoder.create('h264_nvenc', streamInfo, {
+ *   hardware: hw,
+ *   bitrate: '10M'
  * });
- * // ... use encoder
- * encoder.close(); // Also disposes hardware
- * hw?.dispose();
+ *
+ * // Frames with hw_frames_ctx will be encoded on GPU
+ * for await (const packet of encoder.packets(frames)) {
+ *   await output.writePacket(packet);
+ *   packet.free();
+ * }
  * ```
+ *
+ * @see {@link Decoder} For decoding packets to frames
+ * @see {@link MediaOutput} For writing encoded packets
+ * @see {@link HardwareContext} For GPU acceleration
  */
 export class Encoder implements Disposable {
   private codecContext: CodecContext;
   private packet: Packet;
   private codec: Codec;
   private isOpen = true;
-  private hardware?: HardwareContext | null; // Store reference for hardware pixel format
+  private hardware?: HardwareContext | null;
 
   /**
-   * Private constructor - use Encoder.create() instead.
-   *
-   * Initializes the encoder with a codec context and allocates a packet buffer.
-   *
-   * @param codecContext - Initialized codec context
-   * @param codec - Codec
-   * @param hardware - Optional hardware context for hardware pixel format
+   * @param codecContext - Configured codec context
+   * @param codec - Encoder codec
+   * @param hardware - Optional hardware context
+   * @internal
    */
   private constructor(codecContext: CodecContext, codec: Codec, hardware?: HardwareContext | null) {
     this.codecContext = codecContext;
@@ -101,37 +89,60 @@ export class Encoder implements Disposable {
   /**
    * Create an encoder with specified codec and options.
    *
-   * Factory method that handles codec discovery, context setup,
-   * and initialization.
+   * Initializes an encoder with the appropriate codec and configuration.
+   * Automatically configures parameters based on input stream info.
+   * Handles hardware acceleration setup if provided.
    *
-   * Uses avcodec_find_encoder_by_name() to locate the codec,
-   * configures the context with provided options, and opens it.
-   * Handles hardware setup including shared frames context for zero-copy.
+   * Direct mapping to avcodec_find_encoder_by_name() or avcodec_find_encoder().
    *
-   * @param encoderCodec - Codec to use for encoding
-   * @param input - Stream or StreamInfo to copy parameters from
+   * @param encoderCodec - Codec name, ID, or instance to use for encoding
+   * @param input - Stream information to configure encoder
    * @param options - Encoder configuration options
+   * @returns Configured encoder instance
    *
-   * @returns Promise resolving to configured Encoder
-   *
-   * @throws {Error} If codec not found or configuration fails
+   * @throws {Error} If encoder not found or unsupported format
+   * @throws {FFmpegError} If codec initialization fails
    *
    * @example
    * ```typescript
-   * // Video encoder from stream
-   * const videoStream = media.video();
-   * const videoEncoder = await Encoder.create('libx264', videoStream, {
+   * // From decoder stream info
+   * const streamInfo = decoder.getOutputStreamInfo();
+   * const encoder = await Encoder.create('libx264', streamInfo, {
    *   bitrate: '5M',
-   *   gopSize: 60
+   *   gopSize: 60,
+   *   options: {
+   *     preset: 'fast',
+   *     crf: '23'
+   *   }
    * });
+   * ```
    *
-   * // Audio encoder from stream
-   * const audioStream = media.audio();
-   * const audioEncoder = await Encoder.create('aac', audioStream, {
+   * @example
+   * ```typescript
+   * // With custom stream info
+   * const encoder = await Encoder.create('aac', {
+   *   type: 'audio',
+   *   sampleRate: 48000,
+   *   sampleFormat: AV_SAMPLE_FMT_FLTP,
+   *   channelLayout: AV_CH_LAYOUT_STEREO,
+   *   timeBase: { num: 1, den: 48000 }
+   * }, {
    *   bitrate: '192k'
    * });
-   *
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Hardware encoder
+   * const hw = HardwareContext.auto();
+   * const encoder = await Encoder.create('hevc_videotoolbox', streamInfo, {
+   *   hardware: hw,
+   *   bitrate: '8M'
+   * });
+   * ```
+   *
+   * @see {@link Decoder.getOutputStreamInfo} For stream info source
+   * @see {@link EncoderOptions} For configuration options
    */
   static async create(encoderCodec: FFEncoderCodec | AVCodecID | Codec, input: StreamInfo, options: EncoderOptions = {}): Promise<Encoder> {
     let codec: Codec | null = null;
@@ -257,42 +268,76 @@ export class Encoder implements Disposable {
 
   /**
    * Check if encoder is open.
+   *
+   * @example
+   * ```typescript
+   * if (encoder.isEncoderOpen) {
+   *   const packet = await encoder.encode(frame);
+   * }
+   * ```
    */
   get isEncoderOpen(): boolean {
     return this.isOpen;
   }
 
   /**
-   * Check if encoder is hardware-accelerated.
-   * @returns True if hardware-accelerated, false otherwise.
+   * Check if encoder uses hardware acceleration.
+   *
+   * @returns true if hardware-accelerated
+   *
+   * @example
+   * ```typescript
+   * if (encoder.isHardware()) {
+   *   console.log('Using GPU acceleration');
+   * }
+   * ```
+   *
+   * @see {@link HardwareContext} For hardware setup
    */
   isHardware(): boolean {
     return !!this.hardware;
   }
 
   /**
-   * Encode a frame and return a packet if available.
+   * Encode a frame to a packet.
    *
-   * Sends frame to encoder and attempts to receive a packet.
-   * May return null if encoder needs more data.
+   * Sends a frame to the encoder and attempts to receive an encoded packet.
+   * Handles internal buffering - may return null if more frames needed.
+   * Automatically manages encoder state and hardware context binding.
    *
-   * Uses avcodec_send_frame() and avcodec_receive_packet() internally.
-   * The encoder may buffer frames before producing packets.
+   * Direct mapping to avcodec_send_frame() and avcodec_receive_packet().
    *
-   * @param frame - Frame to encode (or null to flush)
+   * @param frame - Raw frame to encode (or null to flush)
+   * @returns Encoded packet or null if more data needed
    *
-   * @returns Promise resolving to Packet or null
-   *
-   * @throws {Error} If encoder is closed or encode fails
+   * @throws {Error} If encoder is closed
+   * @throws {FFmpegError} If encoding fails
    *
    * @example
    * ```typescript
    * const packet = await encoder.encode(frame);
    * if (packet) {
-   *   // Write packet to output
+   *   console.log(`Encoded packet with PTS: ${packet.pts}`);
    *   await output.writePacket(packet);
+   *   packet.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Encode loop
+   * for await (const frame of decoder.frames(input.packets())) {
+   *   const packet = await encoder.encode(frame);
+   *   if (packet) {
+   *     await output.writePacket(packet);
+   *     packet.free();
+   *   }
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link packets} For automatic frame iteration
+   * @see {@link flush} For end-of-stream handling
    */
   async encode(frame: Frame | null): Promise<Packet | null> {
     if (!this.isOpen) {
@@ -321,34 +366,66 @@ export class Encoder implements Disposable {
     }
 
     // Try to receive packet
-    return this.receivePacket();
+    return await this.receivePacket();
   }
 
   /**
-   * Async iterator that encodes frames and yields packets.
+   * Encode frame stream to packet stream.
    *
-   * Encodes all provided frames and yields resulting packets.
-   * Automatically handles encoder flushing at the end.
-   * Input frames are automatically freed after encoding.
+   * High-level async generator for complete encoding pipeline.
+   * Automatically manages frame memory, encoder state,
+   * and flushes buffered packets at end.
+   * Primary interface for stream-based encoding.
    *
-   * Processes frames in sequence, encoding each and yielding packets.
-   * After all frames are processed, flushes the encoder for remaining packets.
-   *
-   * IMPORTANT: The yielded packets MUST be freed by the caller!
-   * Input frames are automatically freed after processing.
-   *
-   * @param frames - Async iterable of frames to encode (will be freed automatically)
-   *
-   * @yields Encoded packets (ownership transferred to caller)
+   * @param frames - Async iterable of frames (freed automatically)
+   * @yields Encoded packets (caller must free)
+   * @throws {Error} If encoder is closed
+   * @throws {FFmpegError} If encoding fails
    *
    * @example
    * ```typescript
-   * // Transcode video
-   * for await (const packet of encoder.packets(decoder.frames(media.packets()))) {
+   * // Basic encoding pipeline
+   * for await (const packet of encoder.packets(decoder.frames(input.packets()))) {
    *   await output.writePacket(packet);
-   *   packet.free(); // Must free output packet
+   *   packet.free(); // Must free output packets
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // With frame filtering
+   * async function* filteredFrames() {
+   *   for await (const frame of decoder.frames(input.packets())) {
+   *     await filter.filterFrame(frame);
+   *     const filtered = await filter.getFrame();
+   *     if (filtered) {
+   *       yield filtered;
+   *     }
+   *   }
+   * }
+   *
+   * for await (const packet of encoder.packets(filteredFrames())) {
+   *   await output.writePacket(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Pipeline integration
+   * import { pipeline } from '@seydx/av/api';
+   *
+   * const control = pipeline(
+   *   input,
+   *   decoder,
+   *   encoder,
+   *   output
+   * );
+   * await control.completion;
+   * ```
+   *
+   * @see {@link encode} For single frame encoding
+   * @see {@link Decoder.frames} For frame source
    */
   async *packets(frames: AsyncIterable<Frame>): AsyncGenerator<Packet> {
     if (!this.isOpen) {
@@ -376,27 +453,31 @@ export class Encoder implements Disposable {
   }
 
   /**
-   * Flush encoder and get remaining packets.
+   * Flush encoder and get buffered packet.
    *
-   * Sends null frame to trigger flush mode.
-   * Call repeatedly until it returns null.
+   * Signals end-of-stream and retrieves remaining packets.
+   * Call repeatedly until null to get all buffered packets.
+   * Essential for ensuring all frames are encoded.
    *
-   * Uses avcodec_send_frame(NULL) to signal end of stream.
-   * Retrieves buffered packets from the encoder.
+   * Direct mapping to avcodec_send_frame(NULL).
    *
-   * @returns Promise resolving to Packet or null
+   * @returns Buffered packet or null if none remaining
    *
    * @throws {Error} If encoder is closed
    *
    * @example
    * ```typescript
-   * // Flush all remaining packets
+   * // Flush remaining packets
    * let packet;
    * while ((packet = await encoder.flush()) !== null) {
-   *   // Write final packets
+   *   console.log('Got buffered packet');
    *   await output.writePacket(packet);
+   *   packet.free();
    * }
    * ```
+   *
+   * @see {@link flushPackets} For async iteration
+   * @see {@link packets} For complete encoding pipeline
    */
   async flush(): Promise<Packet | null> {
     if (!this.isOpen) {
@@ -407,27 +488,31 @@ export class Encoder implements Disposable {
     await this.codecContext.sendFrame(null);
 
     // Receive packet
-    return this.receivePacket();
+    return await this.receivePacket();
   }
 
   /**
-   * Flush encoder and yield all remaining packets as a generator.
+   * Flush all buffered packets as async generator.
    *
-   * More convenient than calling flush() in a loop.
-   * Automatically sends flush signal and yields all buffered packets.
+   * Convenient async iteration over remaining packets.
+   * Automatically handles repeated flush calls.
+   * Useful for end-of-stream processing.
    *
-   * @returns Async generator of remaining packets
-   *
+   * @yields Buffered packets
    * @throws {Error} If encoder is closed
    *
    * @example
    * ```typescript
-   * // Process all remaining packets with generator
+   * // Flush at end of encoding
    * for await (const packet of encoder.flushPackets()) {
-   *   await output.writePacket(packet, streamIdx);
-   *   using _ = packet; // Auto cleanup
+   *   console.log('Processing buffered packet');
+   *   await output.writePacket(packet);
+   *   packet.free();
    * }
    * ```
+   *
+   * @see {@link flush} For single packet flush
+   * @see {@link packets} For complete pipeline
    */
   async *flushPackets(): AsyncGenerator<Packet> {
     if (!this.isOpen) {
@@ -443,10 +528,22 @@ export class Encoder implements Disposable {
   /**
    * Close encoder and free resources.
    *
-   * After closing, the encoder cannot be used again.
+   * Releases codec context and internal packet buffer.
+   * Safe to call multiple times.
+   * Does NOT dispose hardware context - caller is responsible.
+   * Automatically called by Symbol.dispose.
    *
-   * Frees the packet buffer and codec context.
-   * Note: Does NOT dispose the HardwareContext - caller is responsible for that.
+   * @example
+   * ```typescript
+   * const encoder = await Encoder.create('libx264', streamInfo);
+   * try {
+   *   // Use encoder
+   * } finally {
+   *   encoder.close();
+   * }
+   * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   close(): void {
     if (!this.isOpen) return;
@@ -454,28 +551,37 @@ export class Encoder implements Disposable {
     this.packet.free();
     this.codecContext.freeContext();
 
-    // NOTE: We do NOT dispose the hardware context here anymore
-    // The caller who created the HardwareContext is responsible for disposing it
-    // This allows reusing the same HardwareContext for multiple encoders
-
     this.isOpen = false;
   }
 
   /**
-   * Get the codec.
+   * Get encoder codec.
+   *
+   * Returns the codec used by this encoder.
+   * Useful for checking codec capabilities and properties.
+   *
+   * @returns Codec instance
+   *
+   * @example
+   * ```typescript
+   * const codec = encoder.getCodec();
+   * console.log(`Using codec: ${codec.name}`);
+   * console.log(`Capabilities: ${codec.capabilities}`);
+   * ```
+   *
+   * @see {@link Codec} For codec properties
    */
   getCodec(): Codec {
     return this.codec;
   }
 
   /**
-   * Get codec context for advanced configuration.
+   * Get underlying codec context.
    *
-   * Use with caution - direct manipulation may cause issues.
+   * Returns the internal codec context for advanced operations.
+   * Returns null if encoder is closed.
    *
-   * Provides access to the underlying AVCodecContext for advanced operations.
-   *
-   * @returns CodecContext or null if closed
+   * @returns Codec context or null
    *
    * @internal
    */
@@ -484,14 +590,16 @@ export class Encoder implements Disposable {
   }
 
   /**
-   * Receive a packet from the encoder.
+   * Receive packet from encoder.
    *
-   * Internal method to receive encoded packets.
+   * Internal method to get encoded packets from codec.
+   * Handles packet cloning and error checking.
    *
-   * Uses avcodec_receive_packet() to get encoded packets from the codec.
-   * Clones the packet for the user to prevent internal buffer corruption.
+   * Direct mapping to avcodec_receive_packet().
    *
-   * @returns Packet or null if no packet available
+   * @returns Cloned packet or null
+   *
+   * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
    */
   private async receivePacket(): Promise<Packet | null> {
     // Clear previous packet data
@@ -513,10 +621,20 @@ export class Encoder implements Disposable {
   }
 
   /**
-   * Symbol.dispose for automatic cleanup.
+   * Dispose of encoder.
    *
-   * Implements the Disposable interface for automatic resource management.
-   * Calls close() to free all resources.
+   * Implements Disposable interface for automatic cleanup.
+   * Equivalent to calling close().
+   *
+   * @example
+   * ```typescript
+   * {
+   *   using encoder = await Encoder.create('libx264', streamInfo);
+   *   // Encode frames...
+   * } // Automatically closed
+   * ```
+   *
+   * @see {@link close} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.close();

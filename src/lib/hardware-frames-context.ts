@@ -8,92 +8,57 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
 /**
  * Hardware frames context for GPU memory management.
  *
- * Manages pools of hardware frames for efficient GPU memory allocation.
- * Handles format conversions and data transfers between CPU and GPU memory.
- * Required for hardware-accelerated video processing pipelines.
+ * Manages pools of hardware frames (textures/surfaces) on the GPU.
+ * Essential for zero-copy hardware acceleration, allowing frames to stay
+ * in GPU memory throughout the processing pipeline. Provides frame allocation,
+ * format conversion, and data transfer between hardware and system memory.
  *
  * Direct mapping to FFmpeg's AVHWFramesContext.
  *
  * @example
  * ```typescript
- * import { HardwareDeviceContext, HardwareFramesContext, Frame, FFmpegError } from 'node-av';
- * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from 'node-av/constants';
+ * import { HardwareFramesContext, HardwareDeviceContext, Frame, FFmpegError } from 'node-av';
+ * import { AV_PIX_FMT_NV12, AV_PIX_FMT_CUDA, AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
  *
  * // Create hardware frames context
  * const device = new HardwareDeviceContext();
- * const deviceRet = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
- * FFmpegError.throwIfError(deviceRet, 'create device');
+ * device.create(AV_HWDEVICE_TYPE_CUDA);
  *
  * const frames = new HardwareFramesContext();
- * frames.alloc(device);
- *
- * // Configure frame parameters
  * frames.format = AV_PIX_FMT_CUDA;     // Hardware format
  * frames.swFormat = AV_PIX_FMT_NV12;   // Software format
  * frames.width = 1920;
  * frames.height = 1080;
- * frames.initialPoolSize = 10;
+ * frames.initialPoolSize = 20;         // Pre-allocate 20 frames
  *
- * // Initialize the context
+ * frames.alloc(device);
  * const ret = frames.init();
- * FFmpegError.throwIfError(ret, 'init frames');
+ * FFmpegError.throwIfError(ret, 'init');
  *
  * // Allocate hardware frame
  * const hwFrame = new Frame();
- * hwFrame.alloc();
  * const ret2 = frames.getBuffer(hwFrame, 0);
  * FFmpegError.throwIfError(ret2, 'getBuffer');
  *
- * // Transfer between hardware and software
- * const swFrame = new Frame();
- * swFrame.alloc();
- * swFrame.width = 1920;
- * swFrame.height = 1080;
- * swFrame.format = AV_PIX_FMT_NV12;
- * const swRet = swFrame.getBuffer();
- * FFmpegError.throwIfError(swRet, 'getBuffer sw');
+ * // Transfer from CPU to GPU
+ * const cpuFrame = new Frame();
+ * // ... fill cpuFrame with data ...
+ * await frames.transferData(hwFrame, cpuFrame);
  *
- * // Download from hardware
- * const dlRet = await frames.transferData(swFrame, hwFrame, 0);
- * FFmpegError.throwIfError(dlRet, 'download');
- *
- * // Upload to hardware
- * const ulRet = await frames.transferData(hwFrame, swFrame, 0);
- * FFmpegError.throwIfError(ulRet, 'upload');
- *
- * // Cleanup
- * hwFrame.free();
- * swFrame.free();
- * frames.free();
- * device.free();
+ * // Map hardware frame to CPU for access
+ * const mappedFrame = new Frame();
+ * const ret3 = frames.map(mappedFrame, hwFrame, AV_HWFRAME_MAP_READ);
+ * FFmpegError.throwIfError(ret3, 'map');
  * ```
  *
+ * @see {@link [AVHWFramesContext](https://ffmpeg.org/doxygen/trunk/structAVHWFramesContext.html)}
  * @see {@link HardwareDeviceContext} For device management
- * @see {@link Frame} For frame allocation
+ * @see {@link Frame} For frame operations
  */
 export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHardwareFramesContext> {
   private native: NativeHardwareFramesContext;
   private _deviceRef?: HardwareDeviceContext | null; // Cache for device context wrapper
 
-  /**
-   * Create a new hardware frames context.
-   *
-   * The context is uninitialized - you must call alloc() before use.
-   * No FFmpeg resources are allocated until initialization.
-   *
-   * Direct wrapper around AVHWFramesContext.
-   *
-   * @example
-   * ```typescript
-   * import { HardwareFramesContext, FFmpegError } from 'node-av';
-   *
-   * const frames = new HardwareFramesContext();
-   * frames.alloc(device);
-   * // Configure parameters
-   * const ret = frames.init();
-   * FFmpegError.throwIfError(ret, 'init');
-   * ```
-   */
   constructor() {
     this.native = new bindings.HardwareFramesContext();
   }
@@ -101,9 +66,10 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Hardware pixel format.
    *
-   * The pixel format identifying the underlying HW surface type.
+   * The pixel format used for frames in GPU memory.
+   * Hardware-specific format like AV_PIX_FMT_CUDA or AV_PIX_FMT_VAAPI.
    *
-   * Direct mapping to AVHWFramesContext->format
+   * Direct mapping to AVHWFramesContext->format.
    */
   get format(): AVPixelFormat {
     return this.native.format;
@@ -116,9 +82,10 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Software pixel format.
    *
-   * The pixel format identifying the actual data layout of the hardware frames.
+   * The pixel format frames are converted to when transferred
+   * to system memory. Standard format like AV_PIX_FMT_YUV420P.
    *
-   * Direct mapping to AVHWFramesContext->sw_format
+   * Direct mapping to AVHWFramesContext->sw_format.
    */
   get swFormat(): AVPixelFormat {
     return this.native.swFormat;
@@ -131,9 +98,9 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Frame width.
    *
-   * The allocated dimensions of the frames in this pool.
+   * Width of frames in pixels.
    *
-   * Direct mapping to AVHWFramesContext->width
+   * Direct mapping to AVHWFramesContext->width.
    */
   get width(): number {
     return this.native.width;
@@ -146,9 +113,9 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Frame height.
    *
-   * The allocated dimensions of the frames in this pool.
+   * Height of frames in pixels.
    *
-   * Direct mapping to AVHWFramesContext->height
+   * Direct mapping to AVHWFramesContext->height.
    */
   get height(): number {
     return this.native.height;
@@ -161,8 +128,10 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Initial pool size.
    *
-   * Initial size of the frame pool. If a device type does not support
-   * dynamically resizing the pool, then this is also the maximum pool size.
+   * Number of frames to pre-allocate in the pool.
+   * Set before calling init() for optimal performance.
+   *
+   * Direct mapping to AVHWFramesContext->initial_pool_size.
    */
   get initialPoolSize(): number {
     return this.native.initialPoolSize;
@@ -173,11 +142,12 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
-   * Associated device context.
+   * Associated hardware device.
    *
-   * Direct mapping to AVHWFramesContext->device_ref
+   * Reference to the device context this frames context belongs to.
+   * Automatically set when calling alloc().
    *
-   * @readonly
+   * Direct mapping to AVHWFramesContext->device_ref.
    */
   get deviceRef(): HardwareDeviceContext | null {
     // Return cached wrapper if we already have one
@@ -199,153 +169,177 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
-   * Allocate an AVHWFramesContext tied to a given device context.
+   * Allocate hardware frames context.
    *
-   * Direct mapping to av_hwframe_ctx_alloc()
+   * Allocates the frames context and associates it with a device.
+   * Must be called before init().
    *
-   * @param device - Hardware device context
+   * Direct mapping to av_hwframe_ctx_alloc().
+   *
+   * @param device - Hardware device context to use
+   *
+   * @throws {Error} If allocation fails (ENOMEM)
    *
    * @example
    * ```typescript
+   * import { AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from 'node-av/constants';
+   *
    * const frames = new HardwareFramesContext();
-   * frames.alloc(device);
-   * // Set parameters before init()
    * frames.format = AV_PIX_FMT_CUDA;
    * frames.swFormat = AV_PIX_FMT_NV12;
    * frames.width = 1920;
    * frames.height = 1080;
+   * frames.alloc(device);
    * ```
    *
-   * @throws {Error} If allocation fails
+   * @see {@link init} To initialize after allocation
    */
   alloc(device: HardwareDeviceContext): void {
     this.native.alloc(device.getNative());
   }
 
   /**
-   * Finalize the context before use.
+   * Initialize hardware frames context.
    *
-   * Direct mapping to av_hwframe_ctx_init()
+   * Initializes the frame pool after configuration.
+   * Must be called after alloc() and property setup.
+   *
+   * Direct mapping to av_hwframe_ctx_init().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Device-specific errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_ENOSYS: Operation not supported
+   *   - Hardware-specific errors
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * frames.alloc(device);
    * const ret = frames.init();
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'init');
    * ```
+   *
+   * @see {@link alloc} Must be called first
    */
   init(): number {
     return this.native.init();
   }
 
   /**
-   * Free the frames context.
+   * Free hardware frames context.
    *
-   * Unreferences the AVBufferRef.
+   * Releases all frames and resources associated with the context.
+   * The context becomes invalid after calling this.
+   *
+   * Direct mapping to av_buffer_unref() on frames context.
    *
    * @example
    * ```typescript
    * frames.free();
-   * // frames is now invalid and should not be used
+   * // Frames context is now invalid
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Allocate a new frame attached to the given AVHWFramesContext.
+   * Allocate hardware frame from pool.
    *
-   * Direct mapping to av_hwframe_get_buffer()
+   * Gets a frame from the hardware frame pool.
+   * The frame will have hardware-backed storage.
    *
-   * @param frame - Frame to allocate (must be allocated but empty)
-   * @param flags - Currently unused, should be set to 0
+   * Direct mapping to av_hwframe_get_buffer().
    *
+   * @param frame - Frame to allocate buffer for
+   * @param flags - Allocation flags (usually 0)
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Device-specific errors
+   *   - AVERROR_ENOMEM: No frames available in pool
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
-   * const frame = new Frame();
-   * frame.alloc();
-   * const ret = frames.getBuffer(frame, 0);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
-   * // frame now contains a hardware frame
+   * import { Frame, FFmpegError } from 'node-av';
+   *
+   * const hwFrame = new Frame();
+   * const ret = frames.getBuffer(hwFrame, 0);
+   * FFmpegError.throwIfError(ret, 'getBuffer');
+   * // hwFrame now has GPU memory allocated
    * ```
+   *
+   * @see {@link transferData} To upload data to hardware frame
    */
   getBuffer(frame: Frame, flags?: number): number {
     return this.native.getBuffer(frame.getNative(), flags ?? 0);
   }
 
   /**
-   * Copy data to or from a hardware surface.
+   * Transfer data between hardware and system memory.
    *
-   * Direct mapping to av_hwframe_transfer_data()
+   * Copies frame data between GPU and CPU memory.
+   * Direction is determined by frame types.
+   *
+   * Direct mapping to av_hwframe_transfer_data().
    *
    * @param dst - Destination frame
    * @param src - Source frame
-   * @param flags - Currently unused, should be set to 0
-   *
-   * @returns Promise resolving to 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(ENOSYS): Transfer not supported
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   * @param flags - Transfer flags (usually 0)
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOSYS: Transfer not supported
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * // Download from hardware to software
-   * const ret = await frames.transferData(swFrame, hwFrame, 0);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * import { FFmpegError } from 'node-av';
    *
-   * // Upload from software to hardware
-   * const ret2 = await frames.transferData(hwFrame, swFrame, 0);
-   * if (ret2 < 0) {
-   *   throw new FFmpegError(ret2);
-   * }
+   * // Upload: CPU -> GPU
+   * const cpuFrame = new Frame();
+   * // ... fill cpuFrame with data ...
+   * const hwFrame = new Frame();
+   * frames.getBuffer(hwFrame, 0);
+   * const ret = await frames.transferData(hwFrame, cpuFrame);
+   * FFmpegError.throwIfError(ret, 'transferData');
+   *
+   * // Download: GPU -> CPU
+   * const downloadFrame = new Frame();
+   * const ret2 = await frames.transferData(downloadFrame, hwFrame);
+   * FFmpegError.throwIfError(ret2, 'transferData');
    * ```
+   *
+   * @see {@link getBuffer} To allocate hardware frame
+   * @see {@link map} For zero-copy access
    */
   async transferData(dst: Frame, src: Frame, flags?: number): Promise<number> {
-    return this.native.transferData(dst.getNative(), src.getNative(), flags ?? 0);
+    return await this.native.transferData(dst.getNative(), src.getNative(), flags ?? 0);
   }
 
   /**
-   * Get a list of possible source/target formats.
+   * Get supported transfer formats.
    *
-   * Direct mapping to av_hwframe_transfer_get_formats()
+   * Returns pixel formats supported for frame transfer
+   * in the specified direction.
    *
-   * @param direction - Transfer direction (AV_HWFRAME_TRANSFER_DIRECTION_*)
+   * Direct mapping to av_hwframe_transfer_get_formats().
    *
-   * @returns Array of pixel formats or error code:
-   *   - Array: List of supported formats
-   *   - <0: AVERROR on failure
+   * @param direction - Transfer direction (FROM/TO hardware)
+   * @returns Array of supported formats, or error code:
+   *   - AVERROR_ENOSYS: Query not supported
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * // Get formats for downloading from hardware
+   * import { AV_HWFRAME_TRANSFER_DIRECTION_FROM } from 'node-av/constants';
+   *
    * const formats = frames.transferGetFormats(AV_HWFRAME_TRANSFER_DIRECTION_FROM);
    * if (Array.isArray(formats)) {
    *   console.log('Supported download formats:', formats);
-   * }
-   *
-   * // Get formats for uploading to hardware
-   * const formats2 = frames.transferGetFormats(AV_HWFRAME_TRANSFER_DIRECTION_TO);
-   * if (Array.isArray(formats2)) {
-   *   console.log('Supported upload formats:', formats2);
+   * } else {
+   *   console.error('Error querying formats:', formats);
    * }
    * ```
    */
@@ -354,67 +348,67 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
-   * Map a hardware frame.
+   * Map hardware frame to system memory.
    *
-   * Direct mapping to av_hwframe_map()
+   * Creates a mapping of hardware frame data accessible from CPU.
+   * More efficient than transferData() for read-only access.
    *
-   * This has a number of different possible effects, depending on the format
-   * and origin of the src and dst frames. On input, src should be a usable
-   * frame with valid hardware/software format and allocated data.
+   * Direct mapping to av_hwframe_map().
    *
-   * @param dst - Destination frame
-   * @param src - Source frame to map
-   * @param flags - Combination of AV_HWFRAME_MAP_* flags
-   *
+   * @param dst - Destination frame for mapped data
+   * @param src - Hardware frame to map
+   * @param flags - Mapping flags (AV_HWFRAME_MAP_*)
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(ENOSYS): Mapping not supported
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOSYS: Mapping not supported
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AV_HWFRAME_MAP_READ } from 'node-av/constants';
+   *
    * const mappedFrame = new Frame();
-   * mappedFrame.alloc();
    * const ret = frames.map(mappedFrame, hwFrame, AV_HWFRAME_MAP_READ);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
-   * // mappedFrame now provides CPU access to hwFrame
+   * FFmpegError.throwIfError(ret, 'map');
+   * // Can now read hwFrame data through mappedFrame
    * ```
+   *
+   * @see {@link transferData} For full data copy
    */
   map(dst: Frame, src: Frame, flags?: number): number {
     return this.native.map(dst.getNative(), src.getNative(), flags ?? 0);
   }
 
   /**
-   * Create a new frame context derived from an existing one.
+   * Create derived frames context.
    *
-   * Direct mapping to av_hwframe_ctx_create_derived()
+   * Creates a new frames context derived from another,
+   * potentially on a different device.
    *
-   * @param format - Pixel format for the derived context
-   * @param derivedDevice - Device context for the derived frames
+   * Direct mapping to av_hwframe_ctx_create_derived().
+   *
+   * @param format - Pixel format for derived frames
+   * @param derivedDevice - Target device context
    * @param source - Source frames context
-   * @param flags - Currently unused, should be 0
-   *
+   * @param flags - Creation flags
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(ENOSYS): Derivation not supported
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOSYS: Derivation not supported
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * const derived = new HardwareFramesContext();
-   * const ret = derived.createDerived(
-   *   AV_PIX_FMT_NV12,
-   *   derivedDevice,
-   *   sourceFrames,
+   * import { FFmpegError } from 'node-av';
+   * import { AV_PIX_FMT_VULKAN } from 'node-av/constants';
+   *
+   * const derivedFrames = new HardwareFramesContext();
+   * const ret = derivedFrames.createDerived(
+   *   AV_PIX_FMT_VULKAN,
+   *   vulkanDevice,
+   *   cudaFrames,
    *   0
    * );
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'createDerived');
    * ```
    */
   createDerived(format: AVPixelFormat, derivedDevice: HardwareDeviceContext, source: HardwareFramesContext, flags?: number): number {
@@ -422,10 +416,11 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
-   * Get the native FFmpeg AVHWFramesContext pointer.
+   * Get the underlying native HardwareFramesContext object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native hardware frames context object
+   * @returns The native HardwareFramesContext binding object
+   *
+   * @internal
    */
   getNative(): NativeHardwareFramesContext {
     return this.native;
@@ -439,18 +434,13 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareFramesContext, FFmpegError } from 'node-av';
-   *
    * {
    *   using frames = new HardwareFramesContext();
    *   frames.alloc(device);
-   *   const ret = frames.init();
-   *   FFmpegError.throwIfError(ret, 'init');
-   *   // ... use frames
+   *   frames.init();
+   *   // Use frames...
    * } // Automatically freed when leaving scope
    * ```
-   *
-   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

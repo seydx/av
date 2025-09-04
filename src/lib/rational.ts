@@ -5,8 +5,6 @@
  * Used throughout FFmpeg for time bases, aspect ratios, frame rates,
  * and other fractional values that require exact precision.
  *
- * Direct mapping to FFmpeg's AVRational structure.
- *
  * @example
  * ```typescript
  * import { Rational } from 'node-av';

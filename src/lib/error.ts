@@ -1,11 +1,20 @@
 import { bindings } from './binding.js';
 
 import type { AVError } from '../constants/constants.js';
-import type { NativeFFmpegError } from './native-types.js';
+import type { NativeFFmpegError, NativeWrapper } from './native-types.js';
 
 /**
  * POSIX error names that can be converted to FFmpeg error codes.
  * These are platform-specific and resolved at runtime.
+ *
+ * @example
+ * ```typescript
+ * import { PosixError, FFmpegError } from 'node-av';
+ *
+ * // Get platform-specific error code
+ * const errorCode = FFmpegError.AVERROR(PosixError.EAGAIN);
+ * console.log(`EAGAIN on this platform: ${errorCode}`);
+ * ```
  */
 export enum PosixError {
   EAGAIN = 'EAGAIN',
@@ -31,6 +40,10 @@ const errorCache: Record<string, AVError> = {};
 
 /**
  * Get a cached FFmpeg error code by name.
+ *
+ * @param name - POSIX error name
+ * @returns FFmpeg error code
+ *
  * @internal
  */
 function getCachedError(name: PosixError): AVError {
@@ -43,75 +56,89 @@ function getCachedError(name: PosixError): AVError {
 // Platform-specific POSIX errors used by FFmpeg
 // These MUST be computed at runtime because POSIX error codes
 // differ between operating systems (e.g., EAGAIN is 35 on macOS but 11 on Linux)
+
+/** FFmpeg error code for EAGAIN (resource temporarily unavailable) */
 export const AVERROR_EAGAIN = getCachedError(PosixError.EAGAIN);
+
+/** FFmpeg error code for ENOMEM (out of memory) */
 export const AVERROR_ENOMEM = getCachedError(PosixError.ENOMEM);
+
+/** FFmpeg error code for EINVAL (invalid argument) */
 export const AVERROR_EINVAL = getCachedError(PosixError.EINVAL);
+
+/** FFmpeg error code for EIO (I/O error) */
 export const AVERROR_EIO = getCachedError(PosixError.EIO);
+
+/** FFmpeg error code for EPIPE (broken pipe) */
 export const AVERROR_EPIPE = getCachedError(PosixError.EPIPE);
+
+/** FFmpeg error code for ENOSPC (no space left on device) */
 export const AVERROR_ENOSPC = getCachedError(PosixError.ENOSPC);
+
+/** FFmpeg error code for ENOENT (no such file or directory) */
 export const AVERROR_ENOENT = getCachedError(PosixError.ENOENT);
+
+/** FFmpeg error code for EACCES (permission denied) */
 export const AVERROR_EACCES = getCachedError(PosixError.EACCES);
+
+/** FFmpeg error code for EPERM (operation not permitted) */
 export const AVERROR_EPERM = getCachedError(PosixError.EPERM);
+
+/** FFmpeg error code for EEXIST (file exists) */
 export const AVERROR_EEXIST = getCachedError(PosixError.EEXIST);
+
+/** FFmpeg error code for ENODEV (no such device) */
 export const AVERROR_ENODEV = getCachedError(PosixError.ENODEV);
+
+/** FFmpeg error code for ENOTDIR (not a directory) */
 export const AVERROR_ENOTDIR = getCachedError(PosixError.ENOTDIR);
+
+/** FFmpeg error code for EISDIR (is a directory) */
 export const AVERROR_EISDIR = getCachedError(PosixError.EISDIR);
+
+/** FFmpeg error code for EBUSY (device or resource busy) */
 export const AVERROR_EBUSY = getCachedError(PosixError.EBUSY);
+
+/** FFmpeg error code for EMFILE (too many open files) */
 export const AVERROR_EMFILE = getCachedError(PosixError.EMFILE);
+
+/** FFmpeg error code for ERANGE (result too large) */
 export const AVERROR_ERANGE = getCachedError(PosixError.ERANGE);
 
 /**
- * FFmpeg error handling.
+ * FFmpeg error handling class.
  *
- * Represents FFmpeg errors with error codes and human-readable messages.
- * Provides utilities for error checking and throwing.
- * Essential for proper error handling in FFmpeg operations.
- *
- * Direct mapping to FFmpeg's error system.
+ * Provides utilities for handling and converting FFmpeg error codes.
+ * FFmpeg uses negative values for errors, with both FFmpeg-specific codes
+ * and POSIX error codes converted to negative values. This class provides
+ * methods to check, convert, and throw errors based on FFmpeg return codes.
  *
  * @example
  * ```typescript
  * import { FFmpegError } from 'node-av';
+ * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
  *
- * // Check return codes
+ * // Check and throw errors
  * const ret = await codecContext.sendPacket(packet);
  * FFmpegError.throwIfError(ret, 'sendPacket');
  *
  * // Handle specific errors
- * try {
- *   const openRet = await formatContext.openInput('file.mp4', null, null);
- *   FFmpegError.throwIfError(openRet, 'openInput');
- * } catch (error) {
- *   if (error instanceof FFmpegError) {
- *     console.error(`Error code: ${error.code}`);
- *     console.error(`Message: ${error.message}`);
- *   }
+ * if (ret === AVERROR_EAGAIN) {
+ *   // Need to receive frames first
+ * } else if (ret === AVERROR_EOF) {
+ *   // End of stream
  * }
+ *
+ * // Get error description
+ * const errorMsg = FFmpegError.strerror(ret);
+ * console.error(`Error: ${errorMsg}`);
  * ```
+ *
+ * @see {@link [av_strerror](https://ffmpeg.org/doxygen/trunk/group__lavu__error.html#ga5792b4a2d18d7d9cb0efbcfc335dce2d)}
  */
-export class FFmpegError extends Error {
+export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegError> {
   private native: NativeFFmpegError;
 
-  /**
-   * Create a new FFmpegError instance.
-   *
-   * Wraps an FFmpeg error code with a JavaScript Error.
-   * Automatically retrieves the error message from FFmpeg.
-   *
-   * Direct wrapper around FFmpeg error codes.
-   *
-   * @param code - FFmpeg error code (negative number)
-   *
-   * @example
-   * ```typescript
-   * import { FFmpegError } from 'node-av';
-   * import { AVERROR_EOF } from 'node-av/constants';
-   *
-   * const error = new FFmpegError(AVERROR_EOF);
-   * console.log(error.message); // "End of file"
-   * console.log(error.code);    // -541478725
-   * ```
-   */
   constructor(code?: number) {
     const native = new bindings.FFmpegError(code);
     const message = code !== undefined ? native.message : 'FFmpeg Error';
@@ -127,26 +154,19 @@ export class FFmpegError extends Error {
   }
 
   /**
-   * Put a description of the AVERROR code errnum in a string.
+   * Get human-readable error message for code.
    *
-   * Converts an error code to a human-readable message.
+   * Converts an FFmpeg error code to a descriptive string.
    *
-   * Direct mapping to av_strerror()
+   * Direct mapping to av_strerror().
    *
-   * @param errnum - Error code to describe
-   *
+   * @param errnum - FFmpeg error code
    * @returns Error description string
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
-   *
-   * const message = FFmpegError.strerror(AVERROR_EAGAIN);
-   * console.log(message); // "Resource temporarily unavailable"
-   *
-   * const message2 = FFmpegError.strerror(AVERROR_EOF);
-   * console.log(message2); // "End of file"
+   * const message = FFmpegError.strerror(-22);
+   * console.log(message); // "Invalid argument"
    * ```
    */
   static strerror(errnum: number): string {
@@ -154,58 +174,42 @@ export class FFmpegError extends Error {
   }
 
   /**
-   * Get FFmpeg error code by POSIX error name dynamically.
+   * Convert POSIX error name to FFmpeg error code.
    *
-   * This method provides platform-independent access to POSIX error codes
-   * converted to FFmpeg format. The POSIX error codes are resolved at runtime
-   * to ensure correct platform-specific values.
+   * Converts platform-specific POSIX error to FFmpeg's negative error code.
    *
-   * @param errorName - POSIX error name from the PosixError enum
+   * Direct mapping to AVERROR() macro.
    *
-   * @returns FFmpeg error code (negative)
-   *
-   * @throws {TypeError} If the error name is unknown
+   * @param errorName - POSIX error name
+   * @returns FFmpeg error code
    *
    * @example
    * ```typescript
-   * import { FFmpegError, PosixError } from 'node-av';
+   * import { PosixError } from 'node-av';
    *
-   * // Get platform-specific error codes at runtime
-   * const AVERROR_EAGAIN = FFmpegError.AVERROR(PosixError.EAGAIN);
-   * const AVERROR_EIO = FFmpegError.AVERROR(PosixError.EIO);
-   *
-   * // Use in comparisons
-   * const ret = await codecContext.receiveFrame(frame);
-   * if (ret === FFmpegError.AVERROR(PosixError.EAGAIN)) {
-   *   console.log('Need more input');
-   * }
-   *
-   * // Or use the pre-cached constants
-   * import { AVERROR_EAGAIN } from 'node-av';
-   * if (ret === AVERROR_EAGAIN) {
-   *   console.log('Need more input');
-   * }
+   * const code = FFmpegError.AVERROR(PosixError.ENOMEM);
+   * // Returns platform-specific negative error code
    * ```
    *
-   * @see {@link getKnownErrors} To get all available POSIX error codes
-   * @see {@link PosixError} For the list of supported POSIX errors
+   * @see {@link PosixError} For available error names
    */
   static AVERROR(errorName: PosixError): AVError {
     return bindings.FFmpegError.getAverror(errorName);
   }
 
   /**
-   * Check if a value is an error code.
+   * Check if a code is an FFmpeg error.
    *
-   * @param code - Value to check
+   * FFmpeg errors are negative values.
    *
-   * @returns true if code is negative (error), false otherwise
+   * @param code - Return code to check
+   * @returns True if code is an error
    *
    * @example
    * ```typescript
    * const ret = await formatContext.readFrame(packet);
    * if (FFmpegError.isFFmpegError(ret)) {
-   *   console.error('Read frame failed');
+   *   console.error('Read failed');
    * }
    * ```
    */
@@ -217,21 +221,18 @@ export class FFmpegError extends Error {
   }
 
   /**
-   * Create FFmpegError from error code if it's an error.
+   * Create error from code.
    *
-   * Helper method to conditionally create error objects.
+   * Creates an FFmpegError instance if the code is an error.
    *
    * @param code - FFmpeg return code
-   *
-   * @returns FFmpegError if code < 0, null otherwise
+   * @returns Error instance or null if not an error
    *
    * @example
    * ```typescript
-   * const ret = await formatContext.openInput('video.mp4', null, null);
    * const error = FFmpegError.fromCode(ret);
    * if (error) {
-   *   console.error(`Failed: ${error.message}`);
-   *   console.error(`Code: ${error.code}`);
+   *   console.error(`Error: ${error.message}`);
    * }
    * ```
    */
@@ -243,32 +244,26 @@ export class FFmpegError extends Error {
   }
 
   /**
-   * Throw FFmpegError if code indicates error.
+   * Throw if code indicates an error.
    *
-   * Checks return code and throws an error if negative.
-   * Essential for FFmpeg error handling pattern.
+   * Checks if the code is an error and throws an FFmpegError if so.
+   * Commonly used pattern for FFmpeg API calls.
    *
    * @param code - FFmpeg return code
-   * @param operation - Optional operation name for better error messages
-   *
-   * @throws {FFmpegError} If code < 0
+   * @param operation - Optional operation name for context
+   * @throws {FFmpegError} If code is negative
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
+   * // Simple error check
+   * const ret = codecContext.open(codec);
+   * FFmpegError.throwIfError(ret);
    *
-   * const ret = await codecContext.sendPacket(packet);
-   * FFmpegError.throwIfError(ret, 'sendPacket');
-   * // Continues if successful, throws if error
-   *
-   * // With operation name for better error messages
-   * const ret2 = formatContext.allocOutputContext2(null, 'mp4', 'out.mp4');
-   * FFmpegError.throwIfError(ret2, 'allocOutputContext2');
-   * // Error message: "allocOutputContext2 failed: ..."
+   * // With operation context
+   * const ret2 = await formatContext.writeHeader();
+   * FFmpegError.throwIfError(ret2, 'writeHeader');
+   * // Throws: "writeHeader failed: [error message]"
    * ```
-   *
-   * @see {@link fromCode} To create error without throwing
-   * @see {@link isFFmpegError} To check if value is error
    */
   static throwIfError(code: number, operation?: string): void {
     if (FFmpegError.isFFmpegError(code)) {
@@ -281,26 +276,20 @@ export class FFmpegError extends Error {
   }
 
   /**
-   * Check if error code matches specific error.
+   * Check if code matches specific error.
    *
-   * Compares return code with specific error constant.
-   * Useful for handling different error conditions.
+   * Convenience method to check for specific error codes.
    *
-   * @param code - FFmpeg return code
-   * @param errorCode - Error code to check against
-   *
-   * @returns true if codes match, false otherwise
+   * @param code - Return code to check
+   * @param errorCode - Error code to compare against
+   * @returns True if codes match
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   * import { AVERROR_EOF, AVERROR_EAGAIN } from 'node-av/constants';
+   * import { AVERROR_EOF } from 'node-av/constants';
    *
-   * const ret = await codecContext.receiveFrame(frame);
    * if (FFmpegError.is(ret, AVERROR_EOF)) {
-   *   console.log('End of stream reached');
-   * } else if (FFmpegError.is(ret, AVERROR_EAGAIN)) {
-   *   console.log('Need more input');
+   *   console.log('End of file reached');
    * }
    * ```
    */
@@ -309,32 +298,29 @@ export class FFmpegError extends Error {
   }
 
   /**
-   * Get error code.
+   * Error code.
    *
-   * Direct mapping to AVERROR code
-   *
-   * FFmpeg error code (negative number).
+   * The FFmpeg error code (negative value).
    */
   get code(): number {
     return this.native.code;
   }
 
   /**
-   * Get human-readable error message.
+   * Error message.
    *
-   * Direct mapping to av_strerror() output
-   *
-   * Error description string.
+   * Human-readable description of the error.
    */
   get message(): string {
     return this.native.message;
   }
 
   /**
-   * Get the native FFmpeg error object.
+   * Get the underlying native FFmpegError object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native error object
+   * @returns The native FFmpegError binding object
+   *
+   * @internal
    */
   getNative(): NativeFFmpegError {
     return this.native;

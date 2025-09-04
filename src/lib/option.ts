@@ -1,15 +1,3 @@
-/**
- * Option - FFmpeg AVOption System Bindings
- *
- * Provides low-level access to FFmpeg's AVOption API for getting and setting
- * options on various FFmpeg objects (CodecContext, FormatContext, FilterContext, etc).
- *
- * The AVOption API is FFmpeg's unified system for runtime configuration,
- * allowing type-safe access to object properties with validation.
- *
- * @module lib/option
- */
-
 import {
   AV_OPT_SEARCH_CHILDREN,
   AV_OPT_TYPE_BINARY,
@@ -72,24 +60,38 @@ import type { NativeOption } from './native-types.js';
 import type { ChannelLayout, IRational } from './types.js';
 
 /**
- * Low-level wrapper for a single AVOption.
+ * Option information descriptor.
  *
- * Provides metadata about an option including its name, type, range, and default value.
- * Options are not created directly but retrieved through Option.next() or Option.find().
+ * Describes a single option available on an FFmpeg object.
+ * Contains metadata about the option including name, type, default value,
+ * valid range, and documentation. Used to discover and validate options.
+ *
+ * Direct mapping to FFmpeg's AVOption.
  *
  * @example
  * ```typescript
- * const opt = Option.find(codecContext, 'bitrate');
- * if (opt) {
- *   console.log(`Option ${opt.name}: ${opt.help}`);
- *   console.log(`Type: ${opt.type}, Default: ${opt.defaultValue}`);
+ * import { Option } from 'node-av';
+ *
+ * // Get option info
+ * const optInfo = Option.find(obj, 'bitrate');
+ * if (optInfo) {
+ *   console.log(`Option: ${optInfo.name}`);
+ *   console.log(`Help: ${optInfo.help}`);
+ *   console.log(`Type: ${optInfo.type}`);
+ *   console.log(`Default: ${optInfo.defaultValue}`);
+ *   console.log(`Range: ${optInfo.min} - ${optInfo.max}`);
  * }
  * ```
+ *
+ * @see {@link [AVOption](https://ffmpeg.org/doxygen/trunk/structAVOption.html)}
  */
 export class OptionInfo {
   private native: NativeOption;
 
-  /** @internal */
+  /**
+   * @param native - The native option instance
+   * @internal
+   */
   constructor(native: NativeOption) {
     this.native = native;
   }
@@ -97,7 +99,9 @@ export class OptionInfo {
   /**
    * Option name.
    *
-   * The key used to get/set this option.
+   * The name used to get/set this option.
+   *
+   * Direct mapping to AVOption->name.
    */
   get name(): string | null {
     return this.native.name;
@@ -106,7 +110,9 @@ export class OptionInfo {
   /**
    * Option help text.
    *
-   * Human-readable description of the option.
+   * Human-readable description of the option's purpose.
+   *
+   * Direct mapping to AVOption->help.
    */
   get help(): string | null {
     return this.native.help;
@@ -115,7 +121,9 @@ export class OptionInfo {
   /**
    * Option type.
    *
-   * Determines the data type and valid range of values.
+   * Data type of the option value (AV_OPT_TYPE_*).
+   *
+   * Direct mapping to AVOption->type.
    */
   get type(): AVOptionType {
     return this.native.type;
@@ -124,8 +132,10 @@ export class OptionInfo {
   /**
    * Default value.
    *
-   * The value used if not explicitly set.
+   * The default value for this option.
    * Type depends on the option type.
+   *
+   * Direct mapping to AVOption->default_val.
    */
   get defaultValue(): unknown {
     return this.native.defaultValue;
@@ -134,7 +144,9 @@ export class OptionInfo {
   /**
    * Minimum value.
    *
-   * For numeric types, the minimum allowed value.
+   * Minimum valid value for numeric options.
+   *
+   * Direct mapping to AVOption->min.
    */
   get min(): number {
     return this.native.min;
@@ -143,7 +155,9 @@ export class OptionInfo {
   /**
    * Maximum value.
    *
-   * For numeric types, the maximum allowed value.
+   * Maximum valid value for numeric options.
+   *
+   * Direct mapping to AVOption->max.
    */
   get max(): number {
     return this.native.max;
@@ -152,7 +166,9 @@ export class OptionInfo {
   /**
    * Option flags.
    *
-   * Bitfield of AV_OPT_FLAG_* values indicating option properties.
+   * Combination of AV_OPT_FLAG_* indicating option properties.
+   *
+   * Direct mapping to AVOption->flags.
    */
   get flags(): AVOptionFlag {
     return this.native.flags;
@@ -161,17 +177,20 @@ export class OptionInfo {
   /**
    * Option unit.
    *
-   * For options that are part of a named group.
+   * Unit string for grouping related options.
+   *
+   * Direct mapping to AVOption->unit.
    */
   get unit(): string | null {
     return this.native.unit;
   }
 
   /**
-   * Get the native FFmpeg AVOption pointer.
+   * Get the underlying native Option object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native option object
+   * @returns The native Option binding object
+   *
+   * @internal
    */
   getNative(): NativeOption {
     return this.native;
@@ -179,51 +198,62 @@ export class OptionInfo {
 }
 
 /**
- * Low-level FFmpeg AVOption API.
+ * FFmpeg option management utilities.
  *
- * Provides static methods for accessing and modifying options on FFmpeg objects.
- * All methods work with native objects from the low-level API.
+ * Provides static methods for getting, setting, and querying options
+ * on FFmpeg objects that support the AVOption API. Handles type conversion
+ * and validation for various option types including strings, numbers,
+ * rationals, pixel formats, and more.
  *
- * Uses av_opt_* functions internally.
+ * Direct mapping to FFmpeg's AVOption API.
  *
  * @example
  * ```typescript
- * // Set codec bitrate
- * Option.setInt(codecContext, 'b', 2000000);
+ * import { Option, FFmpegError } from 'node-av';
+ * import { AV_OPT_SEARCH_CHILDREN, AV_PIX_FMT_YUV420P } from 'node-av/constants';
  *
- * // Get current bitrate
- * const bitrate = Option.getInt(codecContext, 'b');
+ * // Set various option types
+ * let ret = Option.set(obj, 'preset', 'fast');
+ * FFmpegError.throwIfError(ret, 'set preset');
  *
- * // Iterate through all options
+ * ret = Option.setInt(obj, 'bitrate', 2000000);
+ * FFmpegError.throwIfError(ret, 'set bitrate');
+ *
+ * ret = Option.setRational(obj, 'framerate', { num: 30, den: 1 });
+ * FFmpegError.throwIfError(ret, 'set framerate');
+ *
+ * // Get option values
+ * const preset = Option.get(obj, 'preset');
+ * const bitrate = Option.getInt(obj, 'bitrate');
+ * const framerate = Option.getRational(obj, 'framerate');
+ *
+ * // List all options
  * let opt = null;
- * while ((opt = Option.next(codecContext, opt))) {
+ * while ((opt = Option.next(obj, opt))) {
  *   console.log(`${opt.name}: ${opt.help}`);
  * }
  * ```
+ *
+ * @see {@link [AVOption API](https://ffmpeg.org/doxygen/trunk/group__avoptions.html)}
+ * @see {@link OptionMember} For inherited option support
  */
 export class Option {
-  // Private constructor - static class only
-  private constructor() {
-    throw new Error('Option is a static class and cannot be instantiated');
-  }
-
-  // Static Methods - Iteration
-
   /**
-   * Iterate through options of an object.
+   * Iterate to next option.
    *
-   * Uses av_opt_next() internally.
+   * Iterates through available options on an object.
    *
-   * @param obj - Native object (CodecContext, FormatContext, FilterContext, etc.)
-   * @param prev - Previous option for iteration, or null to start
+   * Direct mapping to av_opt_next().
    *
-   * @returns Next option or null when done
+   * @param obj - Object with options
+   * @param prev - Previous option (null to get first)
+   * @returns Next option, or null if no more
    *
    * @example
    * ```typescript
    * let opt = null;
-   * while ((opt = Option.next(codecContext, opt))) {
-   *   console.log(`${opt.name}: ${opt.help}`);
+   * while ((opt = Option.next(obj, opt))) {
+   *   console.log(`Option: ${opt.name}`);
    * }
    * ```
    */
@@ -233,21 +263,22 @@ export class Option {
   }
 
   /**
-   * Find an option by name.
+   * Find option by name.
    *
-   * Uses av_opt_find() internally.
+   * Searches for an option with the specified name.
    *
-   * @param obj - Native object
-   * @param name - Option name to find
-   * @param searchFlags - Search flags (default: 0)
+   * Direct mapping to av_opt_find().
    *
-   * @returns Found option or null
+   * @param obj - Object to search
+   * @param name - Option name
+   * @param searchFlags - Search flags
+   * @returns Option info if found, null otherwise
    *
    * @example
    * ```typescript
-   * const opt = Option.find(codecContext, 'bitrate');
+   * const opt = Option.find(obj, 'bitrate');
    * if (opt) {
-   *   console.log(`Found option: ${opt.name}`);
+   *   console.log(`Found: ${opt.name}, Type: ${opt.type}`);
    * }
    * ```
    */
@@ -257,15 +288,24 @@ export class Option {
   }
 
   /**
-   * Find an option by name with target object information.
+   * Find option with target info.
    *
-   * Uses av_opt_find2() internally.
+   * Like find() but also indicates if option was found on different target.
    *
-   * @param obj - Native object
-   * @param name - Option name to find
-   * @param searchFlags - Search flags (default: 0)
+   * Direct mapping to av_opt_find2().
    *
-   * @returns Object with option and whether target differs, or null
+   * @param obj - Object to search
+   * @param name - Option name
+   * @param searchFlags - Search flags
+   * @returns Object with option and target info
+   *
+   * @example
+   * ```typescript
+   * const result = Option.find2(obj, 'bitrate', AV_OPT_SEARCH_CHILDREN);
+   * if (result?.option) {
+   *   console.log(`Found on ${result.isDifferentTarget ? 'child' : 'object'}`);
+   * }
+   * ```
    */
   static find2(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): { option: OptionInfo | null; isDifferentTarget: boolean } | null {
     const result = bindings.Option.find2(obj, name, searchFlags);
@@ -277,144 +317,126 @@ export class Option {
   }
 
   /**
-   * Get option value as string.
+   * Get string option value.
    *
-   * Uses av_opt_get() internally.
-   * Converts any option type to its string representation.
+   * Direct mapping to av_opt_get().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns Value string on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Option value as string, or null
    */
   static get(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): string | null {
     return bindings.Option.get(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as integer.
+   * Get integer option value.
    *
-   * Uses av_opt_get_int() internally.
-   * Option must be of integer type.
+   * Direct mapping to av_opt_get_int().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns Integer value on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Option value as integer, or null
    */
   static getInt(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number | null {
     return bindings.Option.getInt(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as double.
+   * Get double option value.
    *
-   * Uses av_opt_get_double() internally.
-   * Option must be of double/float type.
+   * Direct mapping to av_opt_get_double().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns Double value on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Option value as double, or null
    */
   static getDouble(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number | null {
     return bindings.Option.getDouble(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as rational.
+   * Get rational option value.
    *
-   * Uses av_opt_get_q() internally.
-   * Option must be of rational type.
+   * Direct mapping to av_opt_get_q().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns Rational object {num, den} on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Option value as rational, or null
    */
   static getRational(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): IRational | null {
     return bindings.Option.getRational(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as pixel format.
+   * Get pixel format option value.
    *
-   * Uses av_opt_get_pixel_fmt() internally.
-   * Option must be of pixel format type.
+   * Direct mapping to av_opt_get_pixel_fmt().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns AVPixelFormat enum value on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Pixel format value, or null
    */
   static getPixelFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): AVPixelFormat | null {
     return bindings.Option.getPixelFormat(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as sample format.
+   * Get sample format option value.
    *
-   * Uses av_opt_get_sample_fmt() internally.
-   * Option must be of sample format type.
+   * Direct mapping to av_opt_get_sample_fmt().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns AVSampleFormat enum value on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Sample format value, or null
    */
   static getSampleFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): AVSampleFormat | null {
     return bindings.Option.getSampleFormat(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as image size.
+   * Get image size option value.
    *
-   * Uses av_opt_get_image_size() internally.
-   * Option must be of image size type.
+   * Direct mapping to av_opt_get_image_size().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns Size object {width, height} on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Width and height, or null
    */
   static getImageSize(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): { width: number; height: number } | null {
     return bindings.Option.getImageSize(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as channel layout.
+   * Get channel layout option value.
    *
-   * Uses av_opt_get_chlayout() internally.
-   * Option must be of channel layout type.
+   * Direct mapping to av_opt_get_chlayout().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns ChannelLayout object on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Channel layout, or null
    */
   static getChannelLayout(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): ChannelLayout | null {
     return bindings.Option.getChannelLayout(obj, name, searchFlags);
   }
 
   /**
-   * Get option value as dictionary.
+   * Get dictionary option value.
    *
-   * Uses av_opt_get_dict_val() internally.
-   * Option must be of dictionary type.
+   * Direct mapping to av_opt_get_dict_val().
    *
-   * @param obj - Native object
+   * @param obj - Object to query
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns Dictionary object on success, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns Dictionary value, or null
    */
   static getDict(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): Dictionary | null {
     const native = bindings.Option.getDict(obj, name, searchFlags);
@@ -422,212 +444,193 @@ export class Option {
   }
 
   /**
-   * Set option value from string.
+   * Set string option value.
    *
-   * Uses av_opt_set() internally.
-   * Can be used for any option type - FFmpeg will parse the string.
+   * Direct mapping to av_opt_set().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - String value to set
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - String value
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static set(obj: OptionCapableObject, name: string, value: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.set(obj, name, value, searchFlags);
   }
 
   /**
-   * Set option value as integer.
+   * Set integer option value.
    *
-   * Uses av_opt_set_int() internally.
-   * More efficient than set() for numeric options.
+   * Direct mapping to av_opt_set_int().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - Number or BigInt value to set
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Integer value
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setInt(obj: OptionCapableObject, name: string, value: number | bigint, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setInt(obj, name, value, searchFlags);
   }
 
   /**
-   * Set option value as double.
+   * Set double option value.
    *
-   * Uses av_opt_set_double() internally.
-   * More efficient than set() for floating point options.
+   * Direct mapping to av_opt_set_double().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - Double value to set
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Double value
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setDouble(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setDouble(obj, name, value, searchFlags);
   }
 
   /**
-   * Set option value as rational.
+   * Set rational option value.
    *
-   * Uses av_opt_set_q() internally.
-   * For framerates, aspect ratios, time bases, etc.
+   * Direct mapping to av_opt_set_q().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - Rational object {num, den} to set
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Rational value
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setRational(obj: OptionCapableObject, name: string, value: IRational, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setRational(obj, name, value, searchFlags);
   }
 
   /**
-   * Set option value as pixel format.
+   * Set pixel format option value.
    *
-   * Uses av_opt_set_pixel_fmt() internally.
-   * More type-safe than using set() with string names.
+   * Direct mapping to av_opt_set_pixel_fmt().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - AVPixelFormat enum value
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Pixel format
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setPixelFormat(obj: OptionCapableObject, name: string, value: AVPixelFormat, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setPixelFormat(obj, name, value, searchFlags);
   }
 
   /**
-   * Set option value as sample format.
+   * Set sample format option value.
    *
-   * Uses av_opt_set_sample_fmt() internally.
-   * More type-safe than using set() with string names.
+   * Direct mapping to av_opt_set_sample_fmt().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - AVSampleFormat enum value
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Sample format
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setSampleFormat(obj: OptionCapableObject, name: string, value: AVSampleFormat, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setSampleFormat(obj, name, value, searchFlags);
   }
 
   /**
-   * Set option value as image size.
+   * Set image size option value.
    *
-   * Uses av_opt_set_image_size() internally.
-   * Convenient for setting width and height together.
+   * Direct mapping to av_opt_set_image_size().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param width - Width in pixels
-   * @param height - Height in pixels
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param width - Image width
+   * @param height - Image height
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setImageSize(obj: OptionCapableObject, name: string, width: number, height: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setImageSize(obj, name, width, height, searchFlags);
   }
 
   /**
-   * Set option value as channel layout.
+   * Set channel layout option value.
    *
-   * Uses av_opt_set_chlayout() internally.
-   * For audio channel configuration.
+   * Direct mapping to av_opt_set_chlayout().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - Channel layout mask (e.g., AV_CH_LAYOUT_STEREO)
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Channel layout
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setChannelLayout(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setChannelLayout(obj, name, value, searchFlags);
   }
 
   /**
-   * Set option value as dictionary.
+   * Set dictionary option value.
    *
-   * Uses av_opt_set_dict_val() internally.
-   * For options that accept key-value pairs.
+   * Direct mapping to av_opt_set_dict_val().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - Dictionary object
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Dictionary value
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setDict(obj: OptionCapableObject, name: string, value: Dictionary, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setDict(obj, name, value.getNative(), searchFlags);
   }
 
   /**
-   * Set option value as binary data.
+   * Set binary option value.
    *
-   * Uses av_opt_set_bin() internally.
-   * For options that accept raw binary data.
+   * Direct mapping to av_opt_set_bin().
    *
-   * @param obj - Native object
+   * @param obj - Object to modify
    * @param name - Option name
-   * @param value - Binary data as Buffer
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param value - Binary data
+   * @param searchFlags - Search flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static setBin(obj: OptionCapableObject, name: string, value: Buffer, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setBin(obj, name, value, searchFlags);
   }
 
   /**
-   * Set all options to their default values.
+   * Set defaults on object.
    *
-   * Uses av_opt_set_defaults() internally.
+   * Sets all options to their default values.
    *
-   * @param obj - Native object
+   * Direct mapping to av_opt_set_defaults().
+   *
+   * @param obj - Object to reset
    */
   static setDefaults(obj: OptionCapableObject): void {
     bindings.Option.setDefaults(obj);
   }
 
   /**
-   * Copy options from source to destination.
+   * Copy options between objects.
    *
-   * Uses av_opt_copy() internally.
-   * Copies all option values from one object to another.
+   * Copies option values from source to destination.
+   *
+   * Direct mapping to av_opt_copy().
    *
    * @param dest - Destination object
    * @param src - Source object
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @returns 0 on success, negative AVERROR on error
    */
   static copy(dest: OptionCapableObject, src: OptionCapableObject): number {
     return bindings.Option.copy(dest, src);
   }
 
   /**
-   * Check if option is set to its default value.
+   * Check if option is set to default.
    *
-   * Uses av_opt_is_set_to_default_by_name() internally.
+   * Direct mapping to av_opt_is_set_to_default().
    *
-   * @param obj - Native object
+   * @param obj - Object to check
    * @param name - Option name
-   * @param searchFlags - Search flags (default: 0)
-   *
-   * @returns true if set to default, false if not, null if option not found or on error
+   * @param searchFlags - Search flags
+   * @returns True if default, false if modified, null if not found
    */
   static isSetToDefault(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): boolean | null {
     return bindings.Option.isSetToDefault(obj, name, searchFlags);
@@ -636,43 +639,39 @@ export class Option {
   /**
    * Serialize options to string.
    *
-   * Uses av_opt_serialize() internally.
-   * Converts all non-default options to a string representation.
+   * Direct mapping to av_opt_serialize().
    *
-   * @param obj - Native object
-   * @param optFlags - Option flags to include (default: 0)
-   * @param flags - Serialization flags (default: 0)
-   * @param keyValSep - Key-value separator (default: '=')
-   * @param pairsSep - Pairs separator (default: ',')
-   *
-   * @returns Serialized string on success, null on error or if no options to serialize
+   * @param obj - Object to serialize
+   * @param optFlags - Option flags filter
+   * @param flags - Serialization flags
+   * @param keyValSep - Key-value separator
+   * @param pairsSep - Pairs separator
+   * @returns Serialized string, or null on error
    */
   static serialize(obj: OptionCapableObject, optFlags = 0, flags = 0, keyValSep = '=', pairsSep = ','): string | null {
     return bindings.Option.serialize(obj, optFlags, flags, keyValSep, pairsSep);
   }
 
   /**
-   * Free options of an object.
+   * Free option resources.
    *
-   * Uses av_opt_free() internally.
+   * Direct mapping to av_opt_free().
    *
-   * @param obj - Native object
+   * @param obj - Object to free options from
    */
   static free(obj: OptionCapableObject): void {
     bindings.Option.free(obj);
   }
 
   /**
-   * Show options to stderr for debugging.
+   * Show options for debugging.
    *
-   * Uses av_opt_show2() internally.
-   * Prints all available options to stderr.
+   * Direct mapping to av_opt_show2().
    *
-   * @param obj - Native object
-   * @param reqFlags - Required flags (default: 0)
-   * @param rejFlags - Rejected flags (default: 0)
-   *
-   * @returns 0 on success, negative AVERROR code on failure
+   * @param obj - Object to show options for
+   * @param reqFlags - Required flags
+   * @param rejFlags - Rejected flags
+   * @returns 0 on success, negative AVERROR on error
    */
   static show(obj: OptionCapableObject, reqFlags = 0, rejFlags = 0): number {
     return bindings.Option.show(obj, reqFlags, rejFlags);
@@ -693,10 +692,42 @@ export class Option {
  *
  * @example
  * ```typescript
+ * import { OptionMember, FFmpegError } from 'node-av';
+ * import { AV_OPT_TYPE_INT, AV_OPT_TYPE_STRING, AV_OPT_TYPE_RATIONAL } from 'node-av/constants';
+ *
  * class CodecContext extends OptionMember<NativeCodecContext> {
- *   // Inherits setOption, getOption, listOptions
+ *   constructor(native: NativeCodecContext) {
+ *     super(native);
+ *   }
+ * }
+ *
+ * // Use inherited methods
+ * const codec = new CodecContext(native);
+ *
+ * // Set options with automatic type handling
+ * let ret = codec.setOption('preset', 'fast');
+ * FFmpegError.throwIfError(ret, 'set preset');
+ *
+ * ret = codec.setOption('bitrate', 2000000, AV_OPT_TYPE_INT);
+ * FFmpegError.throwIfError(ret, 'set bitrate');
+ *
+ * ret = codec.setOption('framerate', { num: 30, den: 1 }, AV_OPT_TYPE_RATIONAL);
+ * FFmpegError.throwIfError(ret, 'set framerate');
+ *
+ * // Get typed options
+ * const preset = codec.getOption('preset');
+ * const bitrate = codec.getOption('bitrate', AV_OPT_TYPE_INT);
+ * const framerate = codec.getOption('framerate', AV_OPT_TYPE_RATIONAL);
+ *
+ * // List all available options
+ * const options = codec.listOptions();
+ * for (const opt of options) {
+ *   console.log(`${opt.name}: ${opt.help}`);
  * }
  * ```
+ *
+ * @see {@link Option} For static option methods
+ * @see {@link OptionInfo} For option metadata
  */
 export class OptionMember<T extends OptionCapableObject> {
   protected native: T;
@@ -740,25 +771,42 @@ export class OptionMember<T extends OptionCapableObject> {
    * Uses the AVOption API to set options.
    * Available options depend on the specific object type.
    *
+   * Direct mapping to av_opt_set* functions.
+   *
    * @param name - Option name
    * @param value - Option value
    * @param type - Option type (defaults to AV_OPT_TYPE_STRING)
    * @param searchFlags - Search flags (default: AV_OPT_SEARCH_CHILDREN)
-   * @returns 0 on success, negative AVERROR code on failure
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_ENOENT: Option not found
+   *   - AVERROR_ERANGE: Value out of range
+   *   - AVERROR_EINVAL: Invalid value
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AV_OPT_TYPE_STRING, AV_OPT_TYPE_INT64, AV_OPT_TYPE_RATIONAL, AV_OPT_TYPE_PIXEL_FMT } from 'node-av/constants';
+   *
    * // String options (default)
-   * ret = obj.setOption('preset', 'fast');
+   * let ret = obj.setOption('preset', 'fast');
+   * FFmpegError.throwIfError(ret, 'set preset');
+   *
    * ret = obj.setOption('codec', 'h264', AV_OPT_TYPE_STRING);
+   * FFmpegError.throwIfError(ret, 'set codec');
    *
    * // Integer options
    * ret = obj.setOption('bitrate', 2000000, AV_OPT_TYPE_INT64);
+   * FFmpegError.throwIfError(ret, 'set bitrate');
+   *
    * ret = obj.setOption('threads', 4, AV_OPT_TYPE_INT);
+   * FFmpegError.throwIfError(ret, 'set threads');
    *
    * // Complex types with proper types
    * ret = obj.setOption('framerate', {num: 30, den: 1}, AV_OPT_TYPE_RATIONAL);
+   * FFmpegError.throwIfError(ret, 'set framerate');
+   *
    * ret = obj.setOption('pix_fmt', AV_PIX_FMT_YUV420P, AV_OPT_TYPE_PIXEL_FMT);
+   * FFmpegError.throwIfError(ret, 'set pixel format');
    * ```
    */
   setOption(name: string, value: any, type: AVOptionType = AV_OPT_TYPE_STRING, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): number {
@@ -928,13 +976,17 @@ export class OptionMember<T extends OptionCapableObject> {
    *
    * Uses the AVOption API to retrieve options.
    *
+   * Direct mapping to av_opt_get* functions.
+   *
    * @param name - Option name
    * @param type - Option type (defaults to AV_OPT_TYPE_STRING)
    * @param searchFlags - Search flags (default: AV_OPT_SEARCH_CHILDREN)
-   * @returns Option value (type depends on type parameter)
+   * @returns Option value (type depends on type parameter), or null if not found
    *
    * @example
    * ```typescript
+   * import { AV_OPT_TYPE_STRING, AV_OPT_TYPE_RATIONAL, AV_OPT_TYPE_PIXEL_FMT, AV_OPT_TYPE_INT64 } from 'node-av/constants';
+   *
    * // String options (default)
    * const preset = obj.getOption('preset');
    * const codec = obj.getOption('codec', AV_OPT_TYPE_STRING);
@@ -942,7 +994,7 @@ export class OptionMember<T extends OptionCapableObject> {
    * // Typed options
    * const framerate = obj.getOption('framerate', AV_OPT_TYPE_RATIONAL); // Returns {num, den}
    * const pixFmt = obj.getOption('pix_fmt', AV_OPT_TYPE_PIXEL_FMT); // Returns AVPixelFormat
-   * const bitrate = obj.getOption('bitrate', AV_OPT_TYPE_INT64); // Returns number
+   * const bitrate = obj.getOption('bitrate', AV_OPT_TYPE_INT64); // Returns bigint
    * ```
    */
   getOption(name: string, type: AVOptionType = AV_OPT_TYPE_STRING, searchFlags: AVOptionSearchFlags = AV_OPT_SEARCH_CHILDREN): any {
@@ -1014,6 +1066,8 @@ export class OptionMember<T extends OptionCapableObject> {
    * Uses the AVOption API to enumerate all options.
    * Useful for discovering available settings and their types.
    *
+   * Direct mapping to av_opt_next() iteration.
+   *
    * @returns Array of option information objects
    *
    * @example
@@ -1022,8 +1076,11 @@ export class OptionMember<T extends OptionCapableObject> {
    * for (const opt of options) {
    *   console.log(`${opt.name}: ${opt.help}`);
    *   console.log(`  Type: ${opt.type}, Default: ${opt.defaultValue}`);
+   *   console.log(`  Range: ${opt.min} - ${opt.max}`);
    * }
    * ```
+   *
+   * @see {@link OptionInfo} For option metadata structure
    */
   listOptions(): OptionInfo[] {
     const options: OptionInfo[] = [];

@@ -284,6 +284,11 @@ export type OptionCapableObject =
   | NativeIOContext
   | NativeBitStreamFilterContext;
 
+/**
+ * Load the native binding
+ *
+ * @returns The loaded native binding interface
+ */
 function loadBinding(): NativeBinding {
   const require = createRequire(import.meta.url);
   const errors: Error[] = [];

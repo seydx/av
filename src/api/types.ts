@@ -1,4 +1,4 @@
-import type { AVPixelFormat, AVSampleFormat, SWSFlag } from '../constants/constants.js';
+import type { AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
 import type { ChannelLayout, IRational } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
 
@@ -8,7 +8,6 @@ import type { HardwareContext } from './hardware.js';
  * Contains all necessary parameters to describe a video stream.
  * Used for encoder and filter initialization.
  *
- * @interface VideoInfo
  */
 export interface VideoInfo {
   /** Discriminator for TypeScript type narrowing */
@@ -39,7 +38,6 @@ export interface VideoInfo {
  * Contains all necessary parameters to describe an audio stream.
  * Used for encoder and filter initialization.
  *
- * @interface AudioInfo
  */
 export interface AudioInfo {
   /** Discriminator for TypeScript type narrowing */
@@ -57,35 +55,10 @@ export interface AudioInfo {
   /** Time base (required for timing) */
   timeBase: IRational;
 
-  /**
-   * Number of samples per frame.
-   *
-   * Some encoders require specific frame sizes:
-   * - AAC: typically 1024 samples
-   * - MP3: typically 1152 samples
-   * - Opus: flexible, but often 960 or 2880
-   *
-   * If not specified, the encoder's default will be used.
-   *
-   * @example
-   * ```typescript
-   * const encoder = await Encoder.create('aac', {
-   *   type: 'audio',
-   *   sampleRate: 48000,
-   *   sampleFormat: AV_SAMPLE_FMT_FLTP,
-   *   channelLayout: AV_CHANNEL_LAYOUT_STEREO,
-   *   timeBase: { num: 1, den: 48000 },
-   *   frameSize: 1024
-   * });
-   * ```
-   */
+  /** Number of samples per frame */
   frameSize?: number;
 }
 
-/**
- * Union type for stream information.
- * Can be either video or audio stream info.
- */
 export type StreamInfo = VideoInfo | AudioInfo;
 
 /**
@@ -93,46 +66,24 @@ export type StreamInfo = VideoInfo | AudioInfo;
  *
  * Specifies parameters for opening raw video files like YUV.
  *
- * @interface VideoRawData
- *
- * @example
- * ```typescript
- * const rawVideo: VideoRawData = {
- *   type: 'video',
- *   data: 'testdata/input.yuv',
- *   width: 1280,
- *   height: 720,
- *   pixelFormat: 'yuv420p',
- *   frameRate: 30
- * };
- * const input = await MediaInput.open(rawVideo);
- * ```
  */
 export interface VideoRawData {
-  /**
-   * Type discriminator for TypeScript.
-   */
+  /** Type discriminator for TypeScript */
   type: 'video';
 
-  /**
-   * Raw audio input source (file path, Buffer, or stream).
-   */
+  /** Raw audio input source (file path, Buffer, or stream) */
   input: string | Buffer;
 
-  /**
-   * Video dimensions.
-   */
+  /** Video width */
   width: number;
+
+  /** Video height */
   height: number;
 
-  /**
-   * Pixel format (e.g., AV_PIX_FMT_YUV420P, AV_PIX_FMT_NV12, AV_PIX_FMT_RGB24).
-   */
+  /** Pixel format (e.g., AV_PIX_FMT_YUV420P, AV_PIX_FMT_NV12, AV_PIX_FMT_RGB24) */
   pixelFormat: AVPixelFormat;
 
-  /**
-   * Frame rate as a rational
-   */
+  /** Frame rate as a rational */
   frameRate: IRational;
 }
 
@@ -141,60 +92,31 @@ export interface VideoRawData {
  *
  * Specifies parameters for opening raw audio files like PCM.
  *
- * @interface AudioRawData
- *
- * @example
- * ```typescript
- * const rawAudio: AudioRawData = {
- *   type: 'audio',
- *   data: 'testdata/audio.pcm',
- *   sampleRate: 48000,
- *   channels: 2,
- *   sampleFormat: 's16le'
- * };
- * const input = await MediaInput.open(rawAudio);
- * ```
  */
 export interface AudioRawData {
-  /**
-   * Type discriminator for TypeScript.
-   */
+  /** Type discriminator for TypeScript */
   type: 'audio';
 
-  /**
-   * Raw audio input source (file path, Buffer, or stream).
-   */
+  /** Raw audio input source (file path, Buffer, or stream) */
   input: string | Buffer;
 
-  /**
-   * Sample rate in Hz (e.g., 44100, 48000).
-   */
+  /** Sample rate in Hz (e.g., 44100, 48000) */
   sampleRate: number;
 
-  /**
-   * Number of audio channels.
-   */
+  /** Number of audio channels */
   channels: number;
 
-  /**
-   * Sample format (e.g., AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLT, AV_SAMPLE_FMT_S32).
-   */
+  /** Sample format (e.g., AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLT, AV_SAMPLE_FMT_S32) */
   sampleFormat: AVSampleFormat;
 }
 
-/**
- * Raw data configuration for MediaInput.
- *
- * @type RawData
- */
 export type RawData = VideoRawData | AudioRawData;
 
 /**
  * Options for MediaInput opening.
  *
  * Configures how media files are opened and packets are read.
- *
- * @interface MediaInputOptions
+ * Supports format detection, buffering, and FFmpeg options.
  */
 export interface MediaInputOptions {
   /**
@@ -206,12 +128,6 @@ export interface MediaInputOptions {
    *
    * @default 8192
    *
-   * @example
-   * ```typescript
-   * const input = await MediaInput.open('video.m1v', {
-   *   bufferSize: 4096 // Use a smaller buffer size
-   * });
-   * ```
    */
   bufferSize?: number;
 
@@ -221,18 +137,6 @@ export interface MediaInputOptions {
    * Use this to specify the input format explicitly instead of auto-detection.
    * Useful for raw formats like 'rawvideo', 'rawaudio', etc.
    *
-   * @example
-   * ```typescript
-   * // Open raw YUV video
-   * const input = await MediaInput.open('input.yuv', {
-   *   format: 'rawvideo',
-   *   options: {
-   *     video_size: '1920x1080',
-   *     pixel_format: 'yuv420p',
-   *     framerate: '30'
-   *   }
-   * });
-   * ```
    */
   format?: string;
 
@@ -240,26 +144,6 @@ export interface MediaInputOptions {
    * FFmpeg format options passed directly to the input.
    * These are equivalent to options specified before -i in ffmpeg CLI.
    *
-   * @example
-   * ```typescript
-   * // For RTSP with low latency:
-   * const input = await MediaInput.open('rtsp://...', {
-   *   options: {
-   *     'rtsp_transport': 'tcp',
-   *     'fflags': '+discardcorrupt+nobuffer',
-   *     'flags': 'low_delay',
-   *     'analyzeduration': '0',
-   *     'probesize': '500000'
-   *   }
-   * });
-   *
-   * // For seeking in MP4:
-   * const input = await MediaInput.open('video.mp4', {
-   *   options: {
-   *     'ss': '10', // Start at 10 seconds
-   *   }
-   * });
-   * ```
    */
   options?: Record<string, string | number>;
 }
@@ -270,7 +154,6 @@ export interface MediaInputOptions {
  * Configuration parameters for initializing a media decoder.
  * Supports hardware acceleration and threading configuration.
  *
- * @interface DecoderOptions
  */
 export interface DecoderOptions {
   /** Number of threads to use (0 for auto) */
@@ -289,10 +172,8 @@ export interface DecoderOptions {
  * Encoder-specific configuration options.
  * Stream parameters (width, height, format, etc.) are taken from the provided stream.
  *
- * @interface EncoderOptions
  */
 export interface EncoderOptions {
-  // Encoder-specific options
   /** Target bitrate (number, bigint, or string like '5M') */
   bitrate?: number | bigint | string;
 
@@ -321,9 +202,7 @@ export interface EncoderOptions {
 /**
  * Options for MediaOutput creation.
  *
- * Configures output container format.
- *
- * @interface MediaOutputOptions
+ * Configures output container format and buffering.
  */
 export interface MediaOutputOptions {
   /**
@@ -332,12 +211,6 @@ export interface MediaOutputOptions {
    * If not specified, format is guessed from file extension.
    * Use this to override automatic format detection.
    *
-   * @example
-   * ```typescript
-   * const output = await MediaOutput.open('output.bin', {
-   *   format: 'mp4' // Force MP4 format despite .bin extension
-   * });
-   * ```
    */
   format?: string;
 
@@ -351,11 +224,6 @@ export interface MediaOutputOptions {
    *
    * @default 4096
    *
-   * @example
-   * ```typescript
-   * const output = await MediaOutput.open('output.mp4', {
-   *   bufferSize: 8192 // Use an 8KB buffer
-   * });
    * ```
    */
   bufferSize?: number;
@@ -363,6 +231,9 @@ export interface MediaOutputOptions {
 
 /**
  * Options for creating a filter instance.
+ *
+ * Configuration for filter graph initialization and hardware acceleration.
+ *
  */
 export interface FilterOptions {
   /**
@@ -387,19 +258,12 @@ export interface FilterOptions {
  * Parameters for configuring hardware-accelerated encoding/decoding.
  * Supports device selection and initialization options.
  *
- * @interface HardwareOptions
  */
 export interface HardwareOptions {
   /**
-   * Preferred device type (e.g., 'cuda', 'vaapi', 'videotoolbox').
-   * If not specified, auto-detection will be used.
+   * Device path or index (e.g., '0' for first GPU).
    */
   device?: string;
-
-  /**
-   * Device name or index (e.g., '0' for first GPU).
-   */
-  deviceName?: string;
 
   /**
    * Device initialization options.
@@ -413,7 +277,6 @@ export interface HardwareOptions {
  * Defines callback functions for custom read operations with FFmpeg.
  * Used by IOStream.create() for custom input protocols.
  *
- * @interface IOInputCallbacks
  */
 export interface IOInputCallbacks {
   /**
@@ -438,8 +301,6 @@ export interface IOInputCallbacks {
  * Defines callback functions for custom write operations with FFmpeg.
  * Used internally by MediaOutput for custom output protocols.
  *
- * @interface IOOutputCallbacks
- * @internal
  */
 export interface IOOutputCallbacks {
   /**
@@ -466,36 +327,7 @@ export interface IOOutputCallbacks {
 }
 
 /**
- * Options for image conversion and manipulation.
- *
- * Configuration for frame transformation operations.
- * Supports cropping, resizing, and format conversion.
- *
- * @interface ImageOptions
- */
-export interface ImageOptions {
-  /** Crop the image */
-  crop?: {
-    top: number;
-    left: number;
-    width: number;
-    height: number;
-  };
-  /** Resize the image */
-  resize?: {
-    width: number;
-    height: number;
-    algorithm?: SWSFlag;
-  };
-  /** Convert pixel format */
-  format?: {
-    to: AVPixelFormat;
-  };
-}
-
-/**
- * Hardware accelerated codec names supported across different hardware types.
- * These are generic codec names that map to specific hardware encoder implementations.
+ * Base codec names supported across different hardware types.
  */
 export type BaseCodecName =
   | 'av1' // AV1 codec (amf, mediacodec, nvenc, qsv, vaapi)

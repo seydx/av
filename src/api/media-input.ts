@@ -1,15 +1,3 @@
-/**
- * MediaInput - Unified Input Handler for FFmpeg
- *
- * Provides a high-level interface for opening and reading media from various sources.
- * Supports files, URLs, and Buffers with automatic format detection.
- *
- * Central entry point for all media input operations.
- * Manages FormatContext lifecycle and provides stream information.
- *
- * @module api/media-input
- */
-
 import { open } from 'fs/promises';
 import { resolve } from 'path';
 
@@ -22,75 +10,86 @@ import type { IOContext, Stream } from '../lib/index.js';
 import type { MediaInputOptions, RawData } from './types.js';
 
 /**
- * MediaInput - High-level media input handler.
+ * High-level media input for reading and demuxing media files.
  *
- * Opens and provides access to media streams from various sources.
- * Automatically detects format and finds stream information.
- *
- * Manages the FormatContext and provides convenient methods for
- * accessing streams, metadata, and packets.
+ * Provides simplified access to media streams, packets, and metadata.
+ * Handles file opening, format detection, and stream information extraction.
+ * Supports files, URLs, buffers, and raw data input with automatic cleanup.
+ * Essential component for media processing pipelines and transcoding.
  *
  * @example
  * ```typescript
- * import { MediaInput } from 'node-av/api';
+ * import { MediaInput } from '@seydx/av/api';
  *
- * // Open from file
- * const media = await MediaInput.open('video.mp4');
- * console.log(`Found ${media.streams.length} streams`);
- * console.log(`Duration: ${media.duration} seconds`);
+ * // Open media file
+ * await using input = await MediaInput.open('video.mp4');
+ * console.log(`Format: ${input.formatName}`);
+ * console.log(`Duration: ${input.duration}s`);
  *
- * // Open from buffer
- * const buffer = await fs.readFile('video.mp4');
- * const media = await MediaInput.open(buffer);
- *
- * // Iterate packets
- * for await (const packet of media.packets()) {
+ * // Process packets
+ * for await (const packet of input.packets()) {
  *   console.log(`Packet from stream ${packet.streamIndex}`);
+ *   packet.free();
  * }
  * ```
+ *
+ * @example
+ * ```typescript
+ * // From buffer
+ * const buffer = await fs.readFile('video.mp4');
+ * await using input = await MediaInput.open(buffer);
+ *
+ * // Access streams
+ * const videoStream = input.video();
+ * const audioStream = input.audio();
+ * ```
+ *
+ * @see {@link MediaOutput} For writing media files
+ * @see {@link Decoder} For decoding packets to frames
+ * @see {@link FormatContext} For low-level API
  */
 export class MediaInput implements AsyncDisposable {
   private formatContext: FormatContext;
   private _streams: Stream[] = [];
-  private ioContext?: IOContext; // Store IOContext for cleanup
+  private ioContext?: IOContext;
 
   /**
-   * Create a new MediaInput instance.
-   *
-   * Private constructor - use MediaInput.open() to create instances.
-   *
-   * Parses stream information immediately after construction.
-   *
-   * @param formatContext - Opened FormatContext
+   * @param formatContext - Opened format context
+   * @internal
    */
   private constructor(formatContext: FormatContext) {
     this.formatContext = formatContext;
-    // Streams will be set after findStreamInfo in the static factory
   }
 
   /**
-   * Probe the format of media without fully opening it.
+   * Probe media format without fully opening the file.
    *
-   * Detects the container format and basic information without
-   * parsing all stream information. Useful for quick format validation.
+   * Detects format by analyzing file headers and content.
+   * Useful for format validation before processing.
    *
-   * @param input - File path or Buffer to probe
+   * Direct mapping to av_probe_input_format().
    *
+   * @param input - File path or buffer to probe
    * @returns Format information or null if unrecognized
    *
    * @example
    * ```typescript
-   * // Probe a file
    * const info = await MediaInput.probeFormat('video.mp4');
    * if (info) {
    *   console.log(`Format: ${info.format}`);
    *   console.log(`Confidence: ${info.confidence}%`);
    * }
-   *
-   * // Probe a buffer
-   * const buffer = await fs.readFile('video.mp4');
-   * const info = await MediaInput.probeFormat(buffer);
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Probe from buffer
+   * const buffer = await fs.readFile('video.webm');
+   * const info = await MediaInput.probeFormat(buffer);
+   * console.log(`MIME type: ${info?.mimeType}`);
+   * ```
+   *
+   * @see {@link InputFormat.probe} For low-level probing
    */
   static async probeFormat(input: string | Buffer): Promise<{
     format: string;
@@ -150,66 +149,63 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Open a media input from various sources.
+   * Open media from file, URL, buffer, or raw data.
    *
-   * Creates a FormatContext and opens the input for reading.
-   * Automatically detects format and finds stream information.
+   * Automatically detects format and extracts stream information.
+   * Supports various input sources with flexible configuration.
+   * Creates demuxer ready for packet extraction.
    *
-   * Uses av_format_open_input() and av_find_stream_info() internally.
+   * Direct mapping to avformat_open_input() and avformat_find_stream_info().
    *
-   * @param input - File path, URL, or Buffer
-   * @param options - Optional configuration for timestamp handling
+   * @param input - File path, URL, buffer, or raw data descriptor
+   * @param options - Input configuration options
+   * @returns Opened media input instance
    *
-   * @returns Promise resolving to MediaInput instance
-   *
-   * @throws {Error} If input cannot be opened or stream info not found
+   * @throws {Error} If format not found or open fails
+   * @throws {FFmpegError} If FFmpeg operations fail
    *
    * @example
    * ```typescript
-   * // From file
-   * const media = await MediaInput.open('video.mp4');
-   *
-   * // From URL
-   * const media = await MediaInput.open('https://example.com/video.mp4');
-   *
-   * // From Buffer
-   * const buffer = await fs.readFile('video.mp4');
-   * const media = await MediaInput.open(buffer);
+   * // Open file
+   * await using input = await MediaInput.open('video.mp4');
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Open URL
+   * await using input = await MediaInput.open('http://example.com/stream.m3u8');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Open with options
+   * await using input = await MediaInput.open('rtsp://camera.local', {
+   *   format: 'rtsp',
+   *   options: {
+   *     rtsp_transport: 'tcp',
+   *     analyzeduration: '5000000'
+   *   }
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Open raw video data
+   * await using input = await MediaInput.open({
+   *   type: 'video',
+   *   input: rawBuffer,
+   *   width: 1920,
+   *   height: 1080,
+   *   pixelFormat: AV_PIX_FMT_YUV420P,
+   *   frameRate: { num: 30, den: 1 }
+   * });
+   * ```
+   *
+   * @see {@link MediaInputOptions} For configuration options
+   * @see {@link RawData} For raw data input
    */
   static async open(input: string | Buffer, options?: MediaInputOptions): Promise<MediaInput>;
-
-  /**
-   * Open raw video or audio data.
-   *
-   * @param rawData - Raw video or audio configuration
-   *
-   * @returns Promise resolving to MediaInput instance
-   *
-   * @example
-   * ```typescript
-   * // Raw video
-   * const input = await MediaInput.open({
-   *   type: 'video',
-   *   data: 'input.yuv',
-   *   width: 1280,
-   *   height: 720,
-   *   pixelFormat: 'yuv420p',
-   *   frameRate: 30
-   * });
-   *
-   * // Raw audio
-   * const input = await MediaInput.open({
-   *   type: 'audio',
-   *   data: 'input.pcm',
-   *   sampleRate: 48000,
-   *   channels: 2,
-   *   sampleFormat: 's16le'
-   * });
-   * ```
-   */
   static async open(rawData: RawData, options?: MediaInputOptions): Promise<MediaInput>;
-
   static async open(input: string | Buffer | RawData, options: MediaInputOptions = {}): Promise<MediaInput> {
     // Check if input is raw data
     if (typeof input === 'object' && 'type' in input && ('width' in input || 'sampleRate' in input)) {
@@ -321,9 +317,14 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Get all streams in the container.
+   * Get all streams in the media.
    *
-   * @returns Array of stream information
+   * @example
+   * ```typescript
+   * for (const stream of input.streams) {
+   *   console.log(`Stream ${stream.index}: ${stream.codecpar.codecType}`);
+   * }
+   * ```
    */
   get streams(): Stream[] {
     return this._streams;
@@ -332,9 +333,12 @@ export class MediaInput implements AsyncDisposable {
   /**
    * Get media duration in seconds.
    *
-   * Returns 0 if duration is not available.
+   * Returns 0 if duration is unknown or not available.
    *
-   * @returns Duration in seconds
+   * @example
+   * ```typescript
+   * console.log(`Duration: ${input.duration} seconds`);
+   * ```
    */
   get duration(): number {
     const duration = this.formatContext.duration;
@@ -344,60 +348,87 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Get overall bitrate in kilobits per second.
+   * Get media bitrate in kilobits per second.
    *
-   * Returns 0 if bitrate is not available.
+   * Returns 0 if bitrate is unknown.
    *
-   * @returns Bitrate in kbps
+   * @example
+   * ```typescript
+   * console.log(`Bitrate: ${input.bitRate} kbps`);
+   * ```
    */
   get bitRate(): number {
     const bitrate = this.formatContext.bitRate;
     if (!bitrate || bitrate <= 0) return 0;
-    // Convert from AV_TIME_BASE (bits per second) to kilobits per second
+    // Convert from bits per second to kilobits per second
     return Number(bitrate) / 1000;
   }
 
   /**
-   * Get container metadata.
+   * Get media metadata.
    *
-   * @returns Metadata key-value pairs
+   * Returns all metadata tags as key-value pairs.
+   *
+   * @example
+   * ```typescript
+   * const metadata = input.metadata;
+   * console.log(`Title: ${metadata.title}`);
+   * console.log(`Artist: ${metadata.artist}`);
+   * ```
    */
   get metadata(): Record<string, string> {
     return this.formatContext.metadata?.getAll() ?? {};
   }
 
   /**
-   * Get container format name.
+   * Get format name.
    *
-   * @returns Format name (e.g., 'mov,mp4,m4a,3gp,3g2,mj2')
+   * @example
+   * ```typescript
+   * console.log(`Format: ${input.formatName}`); // "mov,mp4,m4a,3gp,3g2,mj2"
+   * ```
    */
   get formatName(): string {
     return this.formatContext.iformat?.name ?? 'unknown';
   }
 
   /**
-   * Get container format long name.
+   * Get format long name.
    *
-   * @returns Format long name (e.g., 'QuickTime / MOV')
+   * @example
+   * ```typescript
+   * console.log(`Format: ${input.formatLongName}`); // "QuickTime / MOV"
+   * ```
    */
   get formatLongName(): string {
     return this.formatContext.iformat?.longName ?? 'Unknown Format';
   }
 
   /**
-   * Get the first video stream.
+   * Get video stream by index.
    *
-   * @param index - Video stream index (0 for first, 1 for second, etc.)
+   * Returns the nth video stream (0-based index).
+   * Returns undefined if stream doesn't exist.
    *
-   * @returns Stream info or undefined if not found
+   * @param index - Video stream index (default: 0)
+   * @returns Video stream or undefined
    *
    * @example
    * ```typescript
-   * const videoStream = media.video();
+   * const videoStream = input.video();
    * if (videoStream) {
-   *   console.log(`Video: ${videoStream.width}x${videoStream.height}`);
+   *   console.log(`Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Get second video stream
+   * const secondVideo = input.video(1);
+   * ```
+   *
+   * @see {@link audio} For audio streams
+   * @see {@link findBestStream} For automatic selection
    */
   video(index = 0): Stream | undefined {
     const streams = this._streams.filter((s) => s.codecpar.codecType === AVMEDIA_TYPE_VIDEO);
@@ -405,19 +436,30 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Get the first audio stream.
+   * Get audio stream by index.
    *
-   * @param index - Audio stream index (0 for first, 1 for second, etc.)
+   * Returns the nth audio stream (0-based index).
+   * Returns undefined if stream doesn't exist.
    *
-   * @returns Stream info or undefined if not found
+   * @param index - Audio stream index (default: 0)
+   * @returns Audio stream or undefined
    *
    * @example
    * ```typescript
-   * const audioStream = media.audio();
+   * const audioStream = input.audio();
    * if (audioStream) {
-   *   console.log(`Audio: ${audioStream.sampleRate}Hz, ${audioStream.channels}ch`);
+   *   console.log(`Audio: ${audioStream.codecpar.sampleRate}Hz`);
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Get second audio stream
+   * const secondAudio = input.audio(1);
+   * ```
+   *
+   * @see {@link video} For video streams
+   * @see {@link findBestStream} For automatic selection
    */
   audio(index = 0): Stream | undefined {
     const streams = this._streams.filter((s) => s.codecpar.codecType === AVMEDIA_TYPE_AUDIO);
@@ -427,13 +469,26 @@ export class MediaInput implements AsyncDisposable {
   /**
    * Find the best stream of a given type.
    *
-   * Uses FFmpeg's stream selection logic to find the most suitable stream.
+   * Uses FFmpeg's stream selection algorithm.
+   * Considers codec support, default flags, and quality.
    *
-   * Uses av_find_best_stream() internally for optimal stream selection.
+   * Direct mapping to av_find_best_stream().
    *
-   * @param type - Media type to search for
+   * @param type - Media type to find
+   * @returns Best stream or undefined if not found
    *
-   * @returns Stream info or undefined if not found
+   * @example
+   * ```typescript
+   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/av/constants';
+   *
+   * const bestVideo = input.findBestStream(AVMEDIA_TYPE_VIDEO);
+   * if (bestVideo) {
+   *   const decoder = await Decoder.create(bestVideo);
+   * }
+   * ```
+   *
+   * @see {@link video} For direct video stream access
+   * @see {@link audio} For direct audio stream access
    */
   findBestStream(type: AVMediaType): Stream | undefined {
     const bestStreamIndex = this.formatContext.findBestStream(type);
@@ -441,24 +496,38 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Iterate over all packets in the container.
+   * Read packets from media as async generator.
    *
-   * Allocates a single packet and reuses it for efficiency.
-   * Automatically unreferences the packet between iterations.
+   * Yields demuxed packets for processing.
+   * Automatically handles packet memory management.
+   * Optionally filters packets by stream index.
    *
-   * Uses av_read_frame() internally.
+   * Direct mapping to av_read_frame().
    *
-   * @yields Packet from the container
+   * @param index - Optional stream index to filter
+   * @yields Demuxed packets (must be freed by caller)
+   * @throws {Error} If packet cloning fails
    *
    * @example
    * ```typescript
-   * for await (const packet of media.packets()) {
-   *   if (packet.streamIndex === videoStream.index) {
-   *     // Process video packet
-   *     await decoder.decode(packet);
-   *   }
+   * // Read all packets
+   * for await (const packet of input.packets()) {
+   *   console.log(`Packet: stream=${packet.streamIndex}, pts=${packet.pts}`);
+   *   packet.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Read only video packets
+   * const videoStream = input.video();
+   * for await (const packet of input.packets(videoStream.index)) {
+   *   // Process video packet
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link Decoder.frames} For decoding packets
    */
   async *packets(index?: number): AsyncGenerator<Packet> {
     const packet = new Packet();
@@ -494,17 +563,34 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Seek to a specific timestamp.
+   * Seek to timestamp in media.
    *
-   * Uses av_seek_frame() internally.
+   * Seeks to the specified position in seconds.
+   * Can seek in specific stream or globally.
    *
-   * Converts seconds to microseconds for FFmpeg's AV_TIME_BASE.
+   * Direct mapping to av_seek_frame().
    *
-   * @param timestamp - Target timestamp in seconds
-   * @param streamIndex - Stream to seek in (-1 for default)
-   * @param flags - Seek flags (0 for default)
+   * @param timestamp - Target position in seconds
+   * @param streamIndex - Stream index or -1 for global (default: -1)
+   * @param flags - Seek flags (default: AVFLAG_NONE)
+   * @returns 0 on success, negative on error
    *
-   * @returns 0 on success, negative error code on failure
+   * @example
+   * ```typescript
+   * // Seek to 30 seconds
+   * const ret = await input.seek(30);
+   * FFmpegError.throwIfError(ret, 'seek failed');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * import { AVSEEK_FLAG_BACKWARD } from '@seydx/av/constants';
+   *
+   * // Seek to keyframe before 60 seconds
+   * await input.seek(60, -1, AVSEEK_FLAG_BACKWARD);
+   * ```
+   *
+   * @see {@link AVSeekFlag} For seek flags
    */
   async seek(timestamp: number, streamIndex = -1, flags: AVSeekFlag = AVFLAG_NONE): Promise<number> {
     // Convert seconds to AV_TIME_BASE
@@ -513,12 +599,25 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Close the input and free resources.
+   * Close media input and free resources.
    *
-   * Uses avformat_close_input() internally.
+   * Releases format context and I/O context.
+   * Safe to call multiple times.
+   * Automatically called by Symbol.asyncDispose.
    *
-   * Properly cleans up IOContext references before closing to prevent
-   * use-after-free errors.
+   * Direct mapping to avformat_close_input().
+   *
+   * @example
+   * ```typescript
+   * const input = await MediaInput.open('video.mp4');
+   * try {
+   *   // Use input
+   * } finally {
+   *   await input.close();
+   * }
+   * ```
+   *
+   * @see {@link Symbol.asyncDispose} For automatic cleanup
    */
   async close(): Promise<void> {
     // IMPORTANT: Clear pb reference FIRST to prevent use-after-free
@@ -537,13 +636,11 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Get the low-level FormatContext.
+   * Get underlying format context.
    *
-   * Internal method for advanced use cases.
+   * Returns the internal format context for advanced operations.
    *
-   * Provides direct access to the underlying AVFormatContext.
-   *
-   * @returns FFmpeg FormatContext
+   * @returns Format context
    *
    * @internal
    */
@@ -552,19 +649,20 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
-   * Async cleanup when using 'await using' statement.
+   * Dispose of media input.
    *
-   * Implements the AsyncDisposable interface for automatic cleanup.
-   *
-   * Calls close() to free all resources.
+   * Implements AsyncDisposable interface for automatic cleanup.
+   * Equivalent to calling close().
    *
    * @example
    * ```typescript
    * {
-   *   await using media = await MediaInput.open('video.mp4');
-   *   // Use media...
+   *   await using input = await MediaInput.open('video.mp4');
+   *   // Process media...
    * } // Automatically closed
    * ```
+   *
+   * @see {@link close} For manual cleanup
    */
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();

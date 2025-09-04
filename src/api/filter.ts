@@ -1,16 +1,3 @@
-/**
- * Filter - High-level wrapper for media filtering
- *
- * Implements FFmpeg CLI's filter graph behavior with proper hardware context handling.
- * Uses lazy initialization for hardware inputs: graph is built when first frame arrives
- * with hw_frames_ctx. For software inputs, initializes immediately.
- *
- * Handles filter graph creation, frame processing, and format conversion.
- * Supports complex filter chains and hardware-accelerated filters.
- *
- * @module api/filter
- */
-
 import { AVERROR_EOF, AVFILTER_FLAG_HWDEVICE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import { AVERROR_EAGAIN, avGetSampleFmtName, avIsHardwarePixelFormat, FFmpegError, Filter, FilterGraph, FilterInOut, Frame } from '../lib/index.js';
 
@@ -20,55 +7,42 @@ import type { HardwareContext } from './hardware.js';
 import type { FilterOptions, StreamInfo, VideoInfo } from './types.js';
 
 /**
- * High-level filter API for media processing.
+ * High-level filter API for audio and video processing.
  *
- * Provides a simplified interface for FFmpeg's filter system.
- * Supports both simple filter chains and complex filter graphs.
- * Handles automatic format negotiation and buffer management.
- *
- * The filter graph uses lazy initialization for hardware inputs - it's built when
- * the first frame arrives with hw_frames_ctx. This matches FFmpeg CLI behavior
- * for proper hardware context propagation.
+ * Provides simplified interface for applying FFmpeg filters to frames.
+ * Handles filter graph construction, frame buffering, and command control.
+ * Supports both software and hardware-accelerated filtering operations.
+ * Essential component for effects, transformations, and format conversions.
  *
  * @example
  * ```typescript
- * import { FilterAPI, Frame } from '@seydx/av/api';
+ * import { FilterAPI } from '@seydx/av/api';
  *
- * // Simple video filter from a stream
- * const videoStream = media.video();
- * const filter = await FilterAPI.create('scale=1280:720,format=yuv420p', videoStream);
+ * // Create video filter
+ * const filter = await FilterAPI.create('scale=1280:720', videoInfo);
  *
- * // Process frames
- * const outputFrame = await filter.process(inputFrame);
+ * // Process frame
+ * const output = await filter.process(inputFrame);
+ * if (output) {
+ *   console.log(`Filtered frame: ${output.width}x${output.height}`);
+ *   output.free();
+ * }
  * ```
  *
  * @example
  * ```typescript
- * // Hardware acceleration (decoder -> hw filter -> encoder)
+ * // Hardware-accelerated filtering
  * const hw = await HardwareContext.auto();
- * const decoder = await Decoder.create(stream, { hardware: hw });
- * const filter = await FilterAPI.create('scale_vt=640:480', decoder.getOutputStreamInfo(), {
- *   hardware: hw
- * });
+ * const filter = await FilterAPI.create(
+ *   'hwupload,scale_cuda=1920:1080,hwdownload',
+ *   videoInfo,
+ *   { hardware: hw }
+ * );
  * ```
  *
- * @example
- * ```typescript
- * // Software decode -> hardware encode pipeline with hwupload
- * const decoder = await Decoder.create(stream);
- * const hw = await HardwareContext.auto();
- * const filter = await FilterAPI.create('format=nv12,hwupload', decoder.getOutputStreamInfo(), {
- *   hardware: hw  // Required for hwupload to create hw_frames_ctx
- * });
- * ```
- *
- * @example
- * ```typescript
- * // Hardware decode -> software encode pipeline with hwdownload
- * const hw = await HardwareContext.auto();
- * const decoder = await Decoder.create(stream, { hardware: hw });
- * const filter = await FilterAPI.create('hwdownload,format=yuv420p', decoder.getOutputStreamInfo());
- * ```
+ * @see {@link FilterGraph} For low-level filter graph API
+ * @see {@link HardwareContext} For hardware acceleration
+ * @see {@link Frame} For frame operations
  */
 export class FilterAPI implements Disposable {
   private graph: FilterGraph | null = null;
@@ -82,11 +56,9 @@ export class FilterAPI implements Disposable {
   private options: FilterOptions;
 
   /**
-   * Create a new Filter instance.
-   *
-   * @param config - Stream information from input stream
-   * @param description - Filter graph description
-   * @param options - Filter options including hardware context
+   * @param config - Stream configuration
+   * @param description - Filter description string
+   * @param options - Filter options
    * @internal
    */
   private constructor(config: StreamInfo, description: string, options: FilterOptions) {
@@ -98,52 +70,48 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Create a filter from a filter description string.
+   * Create a filter with specified description and configuration.
    *
-   * Accepts either a Stream (from MediaInput/Decoder) or StreamInfo (for raw data).
-   * Automatically sets up buffer source and sink filters.
+   * Constructs filter graph from description string.
+   * Configures input/output buffers and threading.
+   * For video filters, uses lazy initialization to detect hardware frames.
    *
-   * For hardware input formats: Uses lazy initialization, waits for first frame
-   * with hw_frames_ctx before configuring the filter graph.
-   * For software formats: Initializes immediately.
+   * Direct mapping to avfilter_graph_parse_ptr() and avfilter_graph_config().
    *
-   * Hardware context handling:
-   * - hwupload: Requires hardware context, creates its own hw_frames_ctx
-   * - hwdownload: Uses hw_frames_ctx propagated from previous filters
-   * - Other HW filters: Use propagated hw_frames_ctx or hwupload's output
+   * @param description - Filter graph description
+   * @param input - Input stream configuration
+   * @param options - Filter options
+   * @returns Configured filter instance
    *
-   * @param description - Filter graph description (e.g., "scale=1280:720" or complex chains)
-   * @param input - Stream or StreamInfo describing the input
-   * @param options - Optional filter options including hardware context
-   *
-   * @returns Promise resolving to configured Filter instance
-   *
-   * @throws {FFmpegError} If filter creation or configuration fails
-   * @throws {Error} If hardware filter requires hardware context but none provided
+   * @throws {Error} If filter creation or configuration fails
+   * @throws {FFmpegError} If graph parsing or config fails
    *
    * @example
    * ```typescript
-   * // Simple filter
-   * const filter = await FilterAPI.create('scale=640:480', videoStream);
-   *
-   * // Complex filter chain with hardware
-   * const hw = await HardwareContext.auto();
-   * const decoder = await Decoder.create(stream, { hardware: hw });
-   * const filter = await FilterAPI.create(
-   *   'scale_vt=640:480,hwdownload,format=yuv420p',
-   *   decoder.getOutputStreamInfo(),
-   *   { hardware: hw }
-   * );
-   *
-   * // From StreamInfo (for raw data)
-   * const filter = await FilterAPI.create('scale=640:480', {
-   *   type: 'video',
-   *   width: 1920,
-   *   height: 1080,
-   *   pixelFormat: AV_PIX_FMT_YUV420P,
-   *   timeBase: { num: 1, den: 30 }
-   * });
+   * // Simple video filter
+   * const filter = await FilterAPI.create('scale=640:480', videoInfo);
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Complex filter chain
+   * const filter = await FilterAPI.create(
+   *   'crop=640:480:0:0,rotate=PI/4',
+   *   videoInfo
+   * );
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Audio filter
+   * const filter = await FilterAPI.create(
+   *   'volume=0.5,aecho=0.8:0.9:1000:0.3',
+   *   audioInfo
+   * );
+   * ```
+   *
+   * @see {@link process} For frame processing
+   * @see {@link FilterOptions} For configuration options
    */
   static async create(description: string, input: StreamInfo, options: FilterOptions = {}): Promise<FilterAPI> {
     let config: StreamInfo;
@@ -186,29 +154,44 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Process a single frame through the filter.
+   * Process a frame through the filter.
    *
-   * Sends a frame through the filter graph and returns the filtered result.
-   * May return null if the filter needs more input frames.
+   * Applies filter operations to input frame.
+   * May buffer frames internally before producing output.
+   * For video, performs lazy initialization on first frame.
    *
-   * On first frame with hw_frames_ctx, initializes the filter graph (lazy initialization).
-   * Subsequent frames are processed normally. FFmpeg automatically propagates
-   * hw_frames_ctx through the filter chain.
+   * Direct mapping to av_buffersrc_add_frame() and av_buffersink_get_frame().
    *
-   * @param frame - Input frame to filter
+   * @param frame - Input frame to process
+   * @returns Filtered frame or null if buffered
    *
-   * @returns Promise resolving to filtered frame or null if more input needed
-   *
+   * @throws {Error} If filter not ready
    * @throws {FFmpegError} If processing fails
-   * @throws {Error} If filter not initialized or hardware frame required but not provided
    *
    * @example
    * ```typescript
-   * const outputFrame = await filter.process(inputFrame);
-   * if (outputFrame) {
-   *   // Process the filtered frame
+   * const output = await filter.process(inputFrame);
+   * if (output) {
+   *   console.log(`Got filtered frame: pts=${output.pts}`);
+   *   output.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Process and drain
+   * const output = await filter.process(frame);
+   * if (output) yield output;
+   *
+   * // Drain buffered frames
+   * let buffered;
+   * while ((buffered = await filter.receive()) !== null) {
+   *   yield buffered;
+   * }
+   * ```
+   *
+   * @see {@link receive} For draining buffered frames
+   * @see {@link frames} For stream processing
    */
   async process(frame: Frame): Promise<Frame | null> {
     // Lazy initialization for video filters (detect hardware from first frame)
@@ -232,7 +215,7 @@ export class FilterAPI implements Disposable {
 
     if (getRet >= 0) {
       return outputFrame;
-    } else if (FFmpegError.is(getRet, AVERROR_EAGAIN)) {
+    } else if (getRet === AVERROR_EAGAIN) {
       // Need more input
       outputFrame.free();
       return null;
@@ -244,21 +227,27 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Process multiple frames through the filter.
+   * Process multiple frames at once.
    *
-   * Batch processing for better performance.
-   * Returns all available output frames.
+   * Processes batch of frames and drains all output.
+   * Useful for filters that buffer multiple frames.
    *
    * @param frames - Array of input frames
+   * @returns Array of all output frames
    *
-   * @returns Promise resolving to array of filtered frames
-   *
+   * @throws {Error} If filter not ready
    * @throws {FFmpegError} If processing fails
    *
    * @example
    * ```typescript
-   * const outputFrames = await filter.processMultiple(inputFrames);
+   * const outputs = await filter.processMultiple([frame1, frame2, frame3]);
+   * for (const output of outputs) {
+   *   console.log(`Output frame: pts=${output.pts}`);
+   *   output.free();
+   * }
    * ```
+   *
+   * @see {@link process} For single frame processing
    */
   async processMultiple(frames: Frame[]): Promise<Frame[]> {
     const outputFrames: Frame[] = [];
@@ -281,24 +270,30 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Receive a filtered frame without sending input.
+   * Receive buffered frame from filter.
    *
-   * Used to drain buffered frames from the filter.
-   * Returns null when no more frames are available.
+   * Drains frames buffered by the filter.
+   * Call repeatedly until null to get all buffered frames.
    *
-   * @returns Promise resolving to filtered frame or null
+   * Direct mapping to av_buffersink_get_frame().
    *
-   * @throws {FFmpegError} If receiving fails
+   * @returns Buffered frame or null if none available
+   *
+   * @throws {Error} If filter not ready
+   * @throws {FFmpegError} If receive fails
    *
    * @example
    * ```typescript
-   * // Drain all buffered frames
-   * while (true) {
-   *   const frame = await filter.receive();
-   *   if (!frame) break;
-   *   // Process frame
+   * // Drain buffered frames
+   * let frame;
+   * while ((frame = await filter.receive()) !== null) {
+   *   console.log(`Buffered frame: pts=${frame.pts}`);
+   *   frame.free();
    * }
    * ```
+   *
+   * @see {@link process} For input processing
+   * @see {@link flush} For end-of-stream
    */
   async receive(): Promise<Frame | null> {
     if (!this.initialized || !this.buffersinkCtx) {
@@ -314,7 +309,7 @@ export class FilterAPI implements Disposable {
       return frame;
     } else {
       frame.free();
-      if (FFmpegError.is(ret, AVERROR_EAGAIN) || FFmpegError.is(ret, AVERROR_EOF)) {
+      if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
         return null;
       }
       FFmpegError.throwIfError(ret, 'Failed to receive frame from filter');
@@ -323,25 +318,28 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Flush the filter by sending null frame.
+   * Flush filter and signal end-of-stream.
    *
-   * Signals end of stream to the filter.
-   * Use receive() to get any remaining frames.
+   * Sends null frame to flush buffered data.
+   * Must call receive() to get flushed frames.
    *
-   * @returns Promise resolving when flush is complete
+   * Direct mapping to av_buffersrc_add_frame(NULL).
    *
+   * @throws {Error} If filter not ready
    * @throws {FFmpegError} If flush fails
    *
    * @example
    * ```typescript
    * await filter.flush();
    * // Get remaining frames
-   * while (true) {
-   *   const frame = await filter.receive();
-   *   if (!frame) break;
-   *   // Process final frames
+   * let frame;
+   * while ((frame = await filter.receive()) !== null) {
+   *   frame.free();
    * }
    * ```
+   *
+   * @see {@link flushFrames} For async iteration
+   * @see {@link receive} For draining frames
    */
   async flush(): Promise<void> {
     if (!this.initialized || !this.buffersrcCtx) {
@@ -349,29 +347,31 @@ export class FilterAPI implements Disposable {
     }
 
     const ret = await this.buffersrcCtx.buffersrcAddFrame(null);
-    if (ret < 0 && !FFmpegError.is(ret, AVERROR_EOF)) {
+    if (ret < 0 && ret !== AVERROR_EOF) {
       FFmpegError.throwIfError(ret, 'Failed to flush filter');
     }
   }
 
   /**
-   * Flush filter and yield all remaining frames as a generator.
+   * Flush filter and yield remaining frames.
    *
-   * More convenient than calling flush() + receive() in a loop.
-   * Automatically sends flush signal and yields all buffered frames.
+   * Convenient async generator for flushing.
+   * Combines flush and receive operations.
    *
-   * @returns Async generator of remaining frames
-   *
-   * @throws {Error} If filter is not initialized
+   * @yields Remaining frames from filter
+   * @throws {Error} If filter not ready
+   * @throws {FFmpegError} If flush fails
    *
    * @example
    * ```typescript
-   * // Process all remaining frames with generator
    * for await (const frame of filter.flushFrames()) {
-   *   // Process final frame
-   *   using _ = frame; // Auto cleanup
+   *   console.log(`Flushed frame: pts=${frame.pts}`);
+   *   frame.free();
    * }
    * ```
+   *
+   * @see {@link flush} For manual flush
+   * @see {@link frames} For complete pipeline
    */
   async *flushFrames(): AsyncGenerator<Frame> {
     if (!this.initialized || !this.buffersrcCtx) {
@@ -389,26 +389,40 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Process frames as an async generator.
+   * Process frame stream through filter.
    *
-   * Provides a convenient iterator interface for filtering.
-   * Automatically handles buffering and draining.
-   * Input frames are automatically freed after processing.
+   * High-level async generator for filtering frame streams.
+   * Automatically handles buffering and flushing.
+   * Frees input frames after processing.
    *
-   * IMPORTANT: The yielded frames MUST be freed by the caller!
-   * Input frames are automatically freed after processing.
-   *
-   * @param frames - Async generator of input frames (will be freed automatically)
-   *
-   * @returns Async generator of filtered frames (ownership transferred to caller)
+   * @param frames - Async generator of input frames
+   * @yields Filtered frames
+   * @throws {Error} If filter not ready
+   * @throws {FFmpegError} If processing fails
    *
    * @example
    * ```typescript
-   * for await (const filtered of filter.frames(decoder.frames())) {
-   *   // Process filtered frame
-   *   using _ = filtered; // Auto cleanup with using statement
+   * // Filter decoded frames
+   * for await (const frame of filter.frames(decoder.frames(packets))) {
+   *   await encoder.encode(frame);
+   *   frame.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Chain filters
+   * const filter1 = await FilterAPI.create('scale=640:480', info);
+   * const filter2 = await FilterAPI.create('rotate=PI/4', info);
+   *
+   * for await (const frame of filter2.frames(filter1.frames(input))) {
+   *   // Process filtered frames
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link process} For single frame processing
+   * @see {@link flush} For end-of-stream handling
    */
   async *frames(frames: AsyncGenerator<Frame>): AsyncGenerator<Frame> {
     for await (const frame of frames) {
@@ -441,32 +455,30 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Send a command to a filter in the graph.
+   * Send command to filter.
    *
-   * Allows runtime modification of filter parameters without recreating the graph.
-   * Not all filters support commands - check filter documentation.
+   * Sends runtime command to specific filter in graph.
+   * Allows dynamic parameter adjustment.
    *
-   * @param target - Filter name or "all" to send to all filters
-   * @param cmd - Command name (e.g., "volume", "hue", "brightness")
-   * @param arg - Command argument value
-   * @param flags - Optional command flags
+   * Direct mapping to avfilter_graph_send_command().
    *
-   * @returns Command response
+   * @param target - Target filter name
+   * @param cmd - Command name
+   * @param arg - Command argument
+   * @param flags - Command flags
+   * @returns Response string from filter
+   *
+   * @throws {Error} If filter not ready
+   * @throws {FFmpegError} If command fails
    *
    * @example
    * ```typescript
-   * // Change volume dynamically
+   * // Change volume at runtime
    * const response = filter.sendCommand('volume', 'volume', '0.5');
-   * if (response) {
-   *   console.log('Volume changed successfully');
-   * }
+   * console.log(`Volume changed: ${response}`);
    * ```
    *
-   * @example
-   * ```typescript
-   * // Enable/disable all filters at runtime
-   * filter.sendCommand('all', 'enable', 'expr=gte(t,10)');
-   * ```
+   * @see {@link queueCommand} For delayed commands
    */
   sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): string {
     if (!this.initialized || !this.graph) {
@@ -483,24 +495,28 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Queue a command to be executed at a specific time.
+   * Queue command for later execution.
    *
-   * Commands are executed when processing frames with matching timestamps.
-   * Useful for scripted filter changes synchronized with media playback.
+   * Schedules command to execute at specific timestamp.
+   * Useful for synchronized parameter changes.
    *
-   * @param target - Filter name or "all" to send to all filters
-   * @param cmd - Command name (e.g., "volume", "hue", "brightness")
-   * @param arg - Command argument value
-   * @param ts - Timestamp when command should execute (in seconds)
-   * @param flags - Optional command flags
+   * Direct mapping to avfilter_graph_queue_command().
+   *
+   * @param target - Target filter name
+   * @param cmd - Command name
+   * @param arg - Command argument
+   * @param ts - Timestamp for execution
+   * @param flags - Command flags
+   * @throws {Error} If filter not ready
+   * @throws {FFmpegError} If queue fails
    *
    * @example
    * ```typescript
-   * // Schedule volume changes at specific times
-   * filter.queueCommand('volume', 'volume', '0.5', 5.0);  // At 5 seconds
-   * filter.queueCommand('volume', 'volume', '0.8', 10.0); // At 10 seconds
-   * filter.queueCommand('volume', 'volume', '0.2', 15.0); // At 15 seconds
+   * // Queue volume change at 10 seconds
+   * filter.queueCommand('volume', 'volume', '0.8', 10.0);
    * ```
+   *
+   * @see {@link sendCommand} For immediate commands
    */
   queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): void {
     if (!this.initialized || !this.graph) {
@@ -512,17 +528,19 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Get the filter graph description.
+   * Get filter graph description.
    *
-   * Returns a string representation of the filter graph in DOT format.
-   * Useful for debugging and visualization.
+   * Returns human-readable graph structure.
+   * Useful for debugging filter chains.
+   *
+   * Direct mapping to avfilter_graph_dump().
    *
    * @returns Graph description or null if not initialized
    *
    * @example
    * ```typescript
    * const description = filter.getGraphDescription();
-   * console.log(description);
+   * console.log('Filter graph:', description);
    * ```
    */
   getGraphDescription(): string | null {
@@ -533,34 +551,49 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Check if the filter is initialized and ready.
+   * Check if filter is ready for processing.
    *
-   * @returns true if the filter is ready for processing
+   * @returns true if initialized and ready
+   *
+   * @example
+   * ```typescript
+   * if (filter.isReady()) {
+   *   const output = await filter.process(frame);
+   * }
+   * ```
    */
   isReady(): boolean {
     return this.initialized && this.buffersrcCtx !== null && this.buffersinkCtx !== null;
   }
 
   /**
-   * Get the media type of this filter.
+   * Get media type of filter.
    *
-   * @returns The media type (video or audio)
+   * @returns AVMEDIA_TYPE_VIDEO or AVMEDIA_TYPE_AUDIO
+   *
+   * @example
+   * ```typescript
+   * if (filter.getMediaType() === AVMEDIA_TYPE_VIDEO) {
+   *   console.log('Video filter');
+   * }
+   * ```
    */
   getMediaType(): AVMediaType {
     return this.mediaType;
   }
 
   /**
-   * Free all filter resources.
+   * Free filter resources.
    *
-   * Releases the filter graph and all associated filters.
-   * The filter instance cannot be used after calling this.
+   * Releases filter graph and contexts.
+   * Safe to call multiple times.
    *
    * @example
    * ```typescript
    * filter.free();
-   * // filter is now invalid
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     if (this.graph) {
@@ -573,15 +606,14 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Initialize the filter graph.
+   * Initialize filter graph.
    *
-   * Sets up buffer source, buffer sink, and parses the filter description.
-   * Configures the graph for processing.
+   * Creates and configures filter graph components.
+   * For video, may use hardware frames context from first frame.
    *
-   * For hardware inputs: Uses hw_frames_ctx from first frame
-   * For software inputs: Initializes without hw_frames_ctx
-   *
-   * @internal
+   * @param firstFrame - First frame for hardware detection (video only)
+   * @throws {Error} If initialization fails
+   * @throws {FFmpegError} If configuration fails
    */
   private async initialize(firstFrame: Frame | null): Promise<void> {
     // Create graph
@@ -634,7 +666,9 @@ export class FilterAPI implements Disposable {
   /**
    * Create buffer source with hardware frames context.
    *
-   * @internal
+   * @param frame - Frame with hw_frames_ctx
+   * @throws {Error} If creation fails
+   * @throws {FFmpegError} If configuration fails
    */
   private createBufferSourceWithHwFrames(frame: Frame): void {
     const filterName = 'buffer';
@@ -668,9 +702,9 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Create and configure the buffer source filter without hw_frames_ctx.
+   * Create standard buffer source.
    *
-   * @internal
+   * @throws {Error} If creation fails
    */
   private createBufferSource(): void {
     const filterName = this.config.type === 'video' ? 'buffer' : 'abuffer';
@@ -706,9 +740,9 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Create and configure the buffer sink filter.
+   * Create buffer sink.
    *
-   * @internal
+   * @throws {Error} If creation fails
    */
   private createBufferSink(): void {
     if (!this.graph) {
@@ -728,9 +762,11 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Parse and connect the filter description.
+   * Parse filter description and build graph.
    *
-   * @internal
+   * @param description - Filter description string
+   * @throws {Error} If parsing fails
+   * @throws {FFmpegError} If graph construction fails
    */
   private parseFilterDescription(description: string): void {
     if (!this.graph) {
@@ -772,14 +808,11 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Check if hardware context is required for the filter chain.
+   * Check hardware requirements for filters.
    *
-   * Validates that hardware context is provided when needed:
-   * - hwupload: Always requires hardware context
-   * - Hardware filters (AVFILTER_FLAG_HWDEVICE): Recommend hardware context
-   * - hwdownload: Warns if input is not hardware format
-   *
-   * @internal
+   * @param description - Filter description
+   * @param options - Filter options
+   * @throws {Error} If hardware requirements not met
    */
   private checkHardwareRequirements(description: string, options: FilterOptions): void {
     if (this.config.type !== 'video') {
@@ -810,49 +843,24 @@ export class FilterAPI implements Disposable {
           throw new Error(`Pixel Format '${this.config.pixelFormat}' is not hardware compatible`);
         }
       }
-
-      // // Check if this is hwupload - always needs hardware context
-      // if (filterName === 'hwupload' || filterName === 'hwupload_cuda') {
-      //   if (!options.hardware) {
-      //     throw new Error(`Filter '${filterName}' requires a hardware context`);
-      //   }
-      // } else if (filterName === 'hwdownload') {
-      //   // Check if this is hwdownload - warn if input is not hardware format
-      //   if (this.config.type === 'video' && !avIsHardwarePixelFormat(this.config.pixelFormat)) {
-      //     // prettier-ignore
-      //     console.warn(
-      //       `Warning: 'hwdownload' filter used with software input format (${this.config.pixelFormat}). ` +
-      //       'This will likely fail at runtime. hwdownload expects hardware frames as input. ' +
-      //       'Consider removing hwdownload from your filter chain or ensuring hardware input.',
-      //     );
-      //   }
-      // } else if ((lowLevelFilter.flags & AVFILTER_FLAG_HWDEVICE) !== 0) {
-      //   // Check if this is a hardware filter
-      //   if (!options.hardware) {
-      //     // prettier-ignore
-      //     console.warn(
-      //       `Warning: Hardware filter '${filterName}' used without hardware context. ` +
-      //       "This may work if hw_frames_ctx is propagated from input, but it's recommended " +
-      //       'to pass { hardware: HardwareContext } in filter options.',
-      //     );
-      //   }
-      // }
     }
   }
 
   /**
-   * Dispose of the filter.
+   * Dispose of filter.
    *
-   * Implements the Disposable interface for automatic cleanup.
+   * Implements Disposable interface for automatic cleanup.
    * Equivalent to calling free().
    *
    * @example
    * ```typescript
    * {
-   *   using filter = await Filter.create('scale=1280:720', config);
-   *   // ... use filter
-   * } // Automatically freed when leaving scope
+   *   using filter = await FilterAPI.create('scale=640:480', info);
+   *   // Use filter...
+   * } // Automatically freed
    * ```
+   *
+   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.free();

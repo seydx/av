@@ -27,11 +27,12 @@ import type { Packet } from './packet.js';
 import type { ChannelLayout } from './types.js';
 
 /**
- * Codec context for encoding and decoding media.
+ * Codec context for encoding and decoding.
  *
- * Central structure for media encoding and decoding operations.
- * Manages codec state, parameters, and threading.
- * Supports both software and hardware acceleration.
+ * Main structure for codec operations, containing all codec parameters and state.
+ * Handles encoding raw frames to packets and decoding packets to frames.
+ * Supports both software and hardware-accelerated codecs.
+ * Must be configured and opened before use.
  *
  * Direct mapping to FFmpeg's AVCodecContext.
  *
@@ -40,66 +41,47 @@ import type { ChannelLayout } from './types.js';
  * import { CodecContext, Codec, FFmpegError } from 'node-av';
  * import { AV_CODEC_ID_H264, AV_PIX_FMT_YUV420P } from 'node-av/constants';
  *
- * // Create and configure decoder context
+ * // Create decoder
+ * const decoder = new CodecContext();
  * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
- * const ctx = new CodecContext();
- * ctx.allocContext3(codec);
+ * decoder.allocContext3(codec);
  *
- * // Configure parameters
- * ctx.width = 1920;
- * ctx.height = 1080;
- * ctx.pixelFormat = AV_PIX_FMT_YUV420P;
+ * // Configure from stream parameters
+ * decoder.parametersToContext(stream.codecpar);
  *
- * // Open codec
- * const ret = await ctx.open2(codec, null);
+ * // Open decoder
+ * let ret = await decoder.open2(codec);
  * FFmpegError.throwIfError(ret, 'open2');
  *
  * // Decode packets
- * const sendRet = await ctx.sendPacket(packet);
- * FFmpegError.throwIfError(sendRet, 'sendPacket');
- *
- * while (true) {
- *   const ret = await ctx.receiveFrame(frame);
- *   if (ret === AVERROR_EOF || ret === AVERROR(EAGAIN)) break;
- *   FFmpegError.throwIfError(ret, 'receiveFrame');
- *   // Process frame
+ * ret = await decoder.sendPacket(packet);
+ * if (ret >= 0) {
+ *   ret = await decoder.receiveFrame(frame);
+ *   if (ret >= 0) {
+ *     // Process decoded frame
+ *   }
  * }
  *
  * // Cleanup
- * ctx.freeContext();
+ * decoder.freeContext();
  * ```
+ *
+ * @see {@link [AVCodecContext](https://ffmpeg.org/doxygen/trunk/structAVCodecContext.html)}
+ * @see {@link Codec} For finding codecs
+ * @see {@link CodecParameters} For stream parameters
  */
 export class CodecContext extends OptionMember<NativeCodecContext> implements Disposable, NativeWrapper<NativeCodecContext> {
   private _hwDeviceCtx?: HardwareDeviceContext; // Cache for hardware device context wrapper
   private _hwFramesCtx?: HardwareFramesContext; // Cache for hardware frames context wrapper
 
-  /**
-   * Create a new codec context.
-   *
-   * The context is uninitialized - you must call allocContext3() before use.
-   * No FFmpeg resources are allocated until initialization.
-   *
-   * Direct wrapper around AVCodecContext.
-   *
-   * @example
-   * ```typescript
-   * import { CodecContext, Codec } from 'node-av';
-   *
-   * const ctx = new CodecContext();
-   * ctx.allocContext3(codec);
-   * // Context is now ready for configuration
-   * ```
-   */
   constructor() {
     super(new bindings.CodecContext());
   }
 
   /**
-   * Codec type.
+   * Type of codec (video/audio/subtitle).
    *
-   * Identifies whether this is a video, audio, subtitle, or data codec.
-   *
-   * Direct mapping to AVCodecContext->codec_type
+   * Direct mapping to AVCodecContext->codec_type.
    */
   get codecType(): AVMediaType {
     return this.native.codecType;
@@ -110,11 +92,9 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Codec ID.
+   * Codec identifier.
    *
-   * Identifies the specific codec (e.g., AV_CODEC_ID_H264, AV_CODEC_ID_AAC).
-   *
-   * Direct mapping to AVCodecContext->codec_id
+   * Direct mapping to AVCodecContext->codec_id.
    */
   get codecId(): AVCodecID {
     return this.native.codecId;
@@ -125,12 +105,12 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * The average bitrate.
+   * Average bitrate.
    *
-   * Direct mapping to AVCodecContext->bit_rate
+   * Target bitrate for encoding, detected bitrate for decoding.
+   * In bits per second.
    *
-   * - encoding: Set by user, unused for constant quantizer encoding.
-   * - decoding: Set by user, may be overwritten by libavcodec if this info is available in the stream.
+   * Direct mapping to AVCodecContext->bit_rate.
    */
   get bitRate(): bigint {
     return this.native.bitRate;
@@ -143,12 +123,9 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   /**
    * Time base for timestamps.
    *
-   * The fundamental unit of time (in seconds) for frame timestamps.
+   * Fundamental unit of time in seconds for this context.
    *
-   * Direct mapping to AVCodecContext->time_base
-   *
-   * - encoding: MUST be set by user.
-   * - decoding: the use of this field for decoding is deprecated. Use framerate instead.
+   * Direct mapping to AVCodecContext->time_base.
    */
   get timeBase(): Rational {
     const tb = this.native.timeBase;
@@ -160,9 +137,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Timebase in which pkt_dts/pts and AVPacket.dts/pts are.
-   * This is the fundamental unit of time (in seconds) in terms
-   * of which frame timestamps are represented.
+   * Packet time base.
+   *
+   * Time base of the packets from/to the demuxer/muxer.
+   *
+   * Direct mapping to AVCodecContext->pkt_timebase.
    */
   get pktTimebase(): Rational {
     const tb = this.native.pktTimebase;
@@ -175,20 +154,21 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Codec delay.
-   * - encoding: Number of frames delay there will be from the encoder input to
-   *             the decoder output. (we assume the decoder matches the spec)
-   * - decoding: Number of frames delay in addition to what a standard decoder
-   *             as specified in the spec would produce.
-   * @readonly
+   *
+   * Number of frames the decoder needs to output before first frame.
+   *
+   * Direct mapping to AVCodecContext->delay.
    */
   get delay(): number {
     return this.native.delay;
   }
 
   /**
-   * AV_CODEC_FLAG_* flags.
-   * - encoding: Set by user.
-   * - decoding: Set by user.
+   * Codec flags.
+   *
+   * Combination of AV_CODEC_FLAG_* values.
+   *
+   * Direct mapping to AVCodecContext->flags.
    */
   get flags(): AVCodecFlag {
     return this.native.flags;
@@ -199,9 +179,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * AV_CODEC_FLAG2_* flags.
-   * - encoding: Set by user.
-   * - decoding: Set by user.
+   * Additional codec flags.
+   *
+   * Combination of AV_CODEC_FLAG2_* values.
+   *
+   * Direct mapping to AVCodecContext->flags2.
    */
   get flags2(): AVCodecFlag2 {
     return this.native.flags2;
@@ -212,16 +194,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Some codecs need / can use extradata like Huffman tables.
-   * MJPEG: Huffman tables
-   * rv10: additional flags
-   * MPEG-4: global headers (they can be in the bitstream or here)
-   * The allocated memory should be AV_INPUT_BUFFER_PADDING_SIZE bytes larger
-   * than extradata_size to avoid problems if it is read with the bitstream reader.
-   * The bytewise contents of extradata must not depend on the architecture or CPU endianness.
-   * Must be allocated with the av_malloc() family of functions.
-   * - encoding: Set/allocated/freed by libavcodec.
-   * - decoding: Set/allocated/freed by user.
+   * Extra binary data for codec.
+   *
+   * Contains codec-specific initialization data.
+   *
+   * Direct mapping to AVCodecContext->extradata.
    */
   get extraData(): Buffer | null {
     return this.native.extraData;
@@ -232,9 +209,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Profile (FF_PROFILE_H264_BASELINE, FF_PROFILE_H264_MAIN, etc.)
-   * - encoding: Set by user.
-   * - decoding: Set by libavcodec.
+   * Codec profile.
+   *
+   * FF_PROFILE_* value indicating codec profile.
+   *
+   * Direct mapping to AVCodecContext->profile.
    */
   get profile(): AVProfile {
     return this.native.profile;
@@ -245,9 +224,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Level (FF_LEVEL_UNKNOWN, or codec-specific values)
-   * - encoding: Set by user.
-   * - decoding: Set by libavcodec.
+   * Codec level.
+   *
+   * Level within the specified profile.
+   *
+   * Direct mapping to AVCodecContext->level.
    */
   get level(): number {
     return this.native.level;
@@ -258,10 +239,12 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Thread count.
-   * Is used to decide how many independent tasks should be passed to execute().
-   * - encoding: Set by user.
-   * - decoding: Set by user.
+   * Thread count for codec.
+   *
+   * Number of threads to use for decoding/encoding.
+   * 0 for automatic selection.
+   *
+   * Direct mapping to AVCodecContext->thread_count.
    */
   get threadCount(): number {
     return this.native.threadCount;
@@ -272,12 +255,9 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Picture width.
-   * - encoding: MUST be set by user.
-   * - decoding: May be set by the user before opening the decoder if known e.g.
-   *             from the container. Some decoders will require the dimensions
-   *             to be set by the caller. During decoding, the decoder may
-   *             overwrite those values as required while parsing the data.
+   * Picture width in pixels.
+   *
+   * Direct mapping to AVCodecContext->width.
    */
   get width(): number {
     return this.native.width;
@@ -288,12 +268,9 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Picture height.
-   * - encoding: MUST be set by user.
-   * - decoding: May be set by the user before opening the decoder if known e.g.
-   *             from the container. Some decoders will require the dimensions
-   *             to be set by the caller. During decoding, the decoder may
-   *             overwrite those values as required while parsing the data.
+   * Picture height in pixels.
+   *
+   * Direct mapping to AVCodecContext->height.
    */
   get height(): number {
     return this.native.height;
@@ -304,9 +281,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * The number of pictures in a group of pictures, or 0 for intra_only.
-   * - encoding: Set by user.
-   * - decoding: unused
+   * Group of pictures size.
+   *
+   * Maximum number of frames between keyframes.
+   *
+   * Direct mapping to AVCodecContext->gop_size.
    */
   get gopSize(): number {
     return this.native.gopSize;
@@ -318,9 +297,10 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Pixel format.
-   * - encoding: Set by user.
-   * - decoding: Set by user if known, overridden by libavcodec while
-   *             parsing the data.
+   *
+   * Format of the video frames.
+   *
+   * Direct mapping to AVCodecContext->pix_fmt.
    */
   get pixelFormat(): AVPixelFormat {
     return this.native.pixelFormat;
@@ -331,10 +311,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Maximum number of B-frames between non-B-frames.
-   * Note: The output will be delayed by max_b_frames+1 relative to the input.
-   * - encoding: Set by user.
-   * - decoding: unused
+   * Maximum number of B-frames.
+   *
+   * B-frames between non-B-frames.
+   *
+   * Direct mapping to AVCodecContext->max_b_frames.
    */
   get maxBFrames(): number {
     return this.native.maxBFrames;
@@ -347,15 +328,9 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   /**
    * Macroblock decision mode.
    *
-   * Direct mapping to AVCodecContext->mb_decision
+   * Algorithm for macroblock decision.
    *
-   * - encoding: Set by user.
-   * - decoding: unused
-   *
-   * Values:
-   * - 0 (FF_MB_DECISION_SIMPLE): uses mb_cmp
-   * - 1 (FF_MB_DECISION_BITS): chooses the one which needs the fewest bits
-   * - 2 (FF_MB_DECISION_RD): rate distortion
+   * Direct mapping to AVCodecContext->mb_decision.
    */
   get mbDecision(): number {
     return this.native.mbDecision;
@@ -366,22 +341,22 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Size of the frame reordering buffer in the decoder.
-   * For MPEG-2 it is 1 IPB or 0 low delay IP.
-   * - encoding: Set by libavcodec.
-   * - decoding: Set by libavcodec.
-   * @readonly
+   * Number of frames delay in decoder.
+   *
+   * For codecs with B-frames.
+   *
+   * Direct mapping to AVCodecContext->has_b_frames.
    */
   get hasBFrames(): number {
     return this.native.hasBFrames;
   }
 
   /**
-   * Sample aspect ratio (0 if unknown).
-   * That is the width of a pixel divided by the height of the pixel.
-   * Numerator and denominator must be relatively prime and smaller than 256 for some video standards.
-   * - encoding: Set by user.
-   * - decoding: Set by libavcodec.
+   * Sample aspect ratio.
+   *
+   * Pixel width/height ratio.
+   *
+   * Direct mapping to AVCodecContext->sample_aspect_ratio.
    */
   get sampleAspectRatio(): Rational {
     const sar = this.native.sampleAspectRatio;
@@ -393,11 +368,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Framerate.
-   * - encoding: May be used to signal the framerate of CFR content to an encoder.
-   * - decoding: For codecs that store a framerate value in the compressed
-   *             bitstream, the decoder may export it here. { 0, 1} when
-   *             unknown.
+   * Frame rate.
+   *
+   * Frames per second for encoding.
+   *
+   * Direct mapping to AVCodecContext->framerate.
    */
   get framerate(): Rational {
     const fr = this.native.framerate;
@@ -409,9 +384,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Color range (AVCOL_RANGE_MPEG, AVCOL_RANGE_JPEG, etc.)
-   * - encoding: Set by user
-   * - decoding: Set by libavcodec
+   * Color range.
+   *
+   * MPEG (limited) or JPEG (full) range.
+   *
+   * Direct mapping to AVCodecContext->color_range.
    */
   get colorRange(): AVColorRange {
     return this.native.colorRange;
@@ -422,9 +399,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Chromaticity coordinates of the source primaries.
-   * - encoding: Set by user
-   * - decoding: Set by libavcodec
+   * Color primaries.
+   *
+   * Chromaticity coordinates of source primaries.
+   *
+   * Direct mapping to AVCodecContext->color_primaries.
    */
   get colorPrimaries(): AVColorPrimaries {
     return this.native.colorPrimaries;
@@ -435,9 +414,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Color Transfer Characteristic.
-   * - encoding: Set by user
-   * - decoding: Set by libavcodec
+   * Color transfer characteristic.
+   *
+   * Transfer function (gamma).
+   *
+   * Direct mapping to AVCodecContext->color_trc.
    */
   get colorTrc(): AVColorTransferCharacteristic {
     return this.native.colorTrc;
@@ -448,9 +429,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * YUV colorspace type.
-   * - encoding: Set by user
-   * - decoding: Set by libavcodec
+   * YUV color space.
+   *
+   * Color space for YUV content.
+   *
+   * Direct mapping to AVCodecContext->colorspace.
    */
   get colorSpace(): AVColorSpace {
     return this.native.colorSpace;
@@ -461,9 +444,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Location of chroma samples.
-   * - encoding: Set by user
-   * - decoding: Set by libavcodec
+   * Chroma sample location.
+   *
+   * Position of chroma samples.
+   *
+   * Direct mapping to AVCodecContext->chroma_sample_location.
    */
   get chromaLocation(): AVChromaLocation {
     return this.native.chromaLocation;
@@ -474,10 +459,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Sample rate of the audio data.
-   * - encoding: MUST be set by user.
-   * - decoding: May be set by the user before opening the decoder if known e.g.
-   *             from the container. The decoder can change this value.
+   * Audio sample rate.
+   *
+   * Samples per second.
+   *
+   * Direct mapping to AVCodecContext->sample_rate.
    */
   get sampleRate(): number {
     return this.native.sampleRate;
@@ -489,7 +475,8 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Number of audio channels.
-   * @deprecated use ch_layout.nb_channels
+   *
+   * Direct mapping to AVCodecContext->channels.
    */
   get channels(): number {
     return this.native.channels;
@@ -501,8 +488,10 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Audio sample format.
-   * - encoding: Set by user.
-   * - decoding: Set by libavcodec.
+   *
+   * Format of audio samples.
+   *
+   * Direct mapping to AVCodecContext->sample_fmt.
    */
   get sampleFormat(): AVSampleFormat {
     return this.native.sampleFormat;
@@ -513,12 +502,9 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Number of samples per channel in an audio frame.
-   * - encoding: Set by libavcodec in avcodec_open2(). Each submitted frame
-   *   except the last must contain exactly frame_size samples per channel.
-   *   May be 0 when the codec has AV_CODEC_CAP_VARIABLE_FRAME_SIZE set, then the
-   *   frame size is not restricted.
-   * - decoding: May be set by some decoders to indicate constant frame size.
+   * Number of samples per audio frame.
+   *
+   * Direct mapping to AVCodecContext->frame_size.
    */
   get frameSize(): number {
     return this.native.frameSize;
@@ -529,10 +515,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Frame counter, set by libavcodec.
-   * - decoding: Total number of frames returned from the decoder so far.
-   * - encoding: Total number of frames passed to the encoder so far.
-   * @readonly
+   * Current frame number.
+   *
+   * Frame counter for debugging.
+   *
+   * Direct mapping to AVCodecContext->frame_number.
    */
   get frameNumber(): number {
     return this.native.frameNumber;
@@ -540,9 +527,10 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Audio channel layout.
-   * - encoding: Set by user.
-   * - decoding: Set by user, may be overwritten by libavcodec.
-   * @deprecated use ch_layout
+   *
+   * Describes channel configuration.
+   *
+   * Direct mapping to AVCodecContext->ch_layout.
    */
   get channelLayout(): ChannelLayout {
     return this.native.channelLayout;
@@ -554,8 +542,10 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Minimum quantizer.
-   * - encoding: Set by user.
-   * - decoding: unused
+   *
+   * Minimum quantization parameter.
+   *
+   * Direct mapping to AVCodecContext->qmin.
    */
   get qMin(): number {
     return this.native.qMin;
@@ -567,8 +557,10 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Maximum quantizer.
-   * - encoding: Set by user.
-   * - decoding: unused
+   *
+   * Maximum quantization parameter.
+   *
+   * Direct mapping to AVCodecContext->qmax.
    */
   get qMax(): number {
     return this.native.qMax;
@@ -579,9 +571,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
+   * Rate control buffer size.
+   *
    * Decoder bitstream buffer size.
-   * - encoding: Set by user.
-   * - decoding: unused
+   *
+   * Direct mapping to AVCodecContext->rc_buffer_size.
    */
   get rcBufferSize(): number {
     return this.native.rcBufferSize;
@@ -593,8 +587,10 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Maximum bitrate.
-   * - encoding: Set by user.
-   * - decoding: Set by user, may be overwritten by libavcodec.
+   *
+   * Maximum bitrate in bits per second.
+   *
+   * Direct mapping to AVCodecContext->rc_max_rate.
    */
   get rcMaxRate(): bigint {
     return this.native.rcMaxRate;
@@ -606,8 +602,10 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
 
   /**
    * Minimum bitrate.
-   * - encoding: Set by user.
-   * - decoding: unused
+   *
+   * Minimum bitrate in bits per second.
+   *
+   * Direct mapping to AVCodecContext->rc_min_rate.
    */
   get rcMinRate(): bigint {
     return this.native.rcMinRate;
@@ -617,15 +615,12 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
     this.native.rcMinRate = value;
   }
 
-  // Hardware Acceleration
-
   /**
-   * Hardware device context for hardware acceleration.
+   * Hardware device context.
    *
-   * Direct mapping to AVCodecContext->hw_device_ctx
+   * Reference to hardware device for acceleration.
    *
-   * If the codec supports hardware acceleration, this should be set
-   * to the hardware device context before opening the codec.
+   * Direct mapping to AVCodecContext->hw_device_ctx.
    */
   get hwDeviceCtx(): HardwareDeviceContext | null {
     const native = this.native.hwDeviceCtx;
@@ -654,13 +649,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Hardware frames context for hardware acceleration.
+   * Hardware frames context.
    *
-   * Direct mapping to AVCodecContext->hw_frames_ctx
+   * Reference to hardware frames for GPU memory.
    *
-   * For decoders, this is an optional field that the decoder can set
-   * to provide the caller with hardware frames. For encoders, this
-   * must be set by the caller before opening the encoder.
+   * Direct mapping to AVCodecContext->hw_frames_ctx.
    */
   get hwFramesCtx(): HardwareFramesContext | null {
     const native = this.native.hwFramesCtx;
@@ -689,39 +682,30 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Check if the codec context is open.
+   * Check if codec is open.
    *
-   * Direct mapping to avcodec_is_open()
-   *
-   * @returns true if the codec is open and ready for encoding/decoding
+   * True if the codec has been opened.
    */
   get isOpen(): boolean {
     return this.native.isOpen;
   }
 
   /**
-   * Allocate an AVCodecContext and set its fields to default values.
+   * Allocate codec context.
    *
-   * Allocates the codec context and initializes with codec-specific defaults.
-   * Must be called before using the context.
+   * Allocates and initializes the context for the given codec.
    *
-   * Direct mapping to avcodec_alloc_context3()
+   * Direct mapping to avcodec_alloc_context3().
    *
-   * @param codec - If non-NULL, allocate private data and initialize defaults
-   *                for the given codec. It is illegal to then call open2()
-   *                with a different codec.
-   *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @param codec - Codec to use (null for default)
    *
    * @example
    * ```typescript
-   * import { CodecContext, Codec } from 'node-av';
+   * import { Codec } from 'node-av';
    * import { AV_CODEC_ID_H264 } from 'node-av/constants';
    *
    * const codec = Codec.findDecoder(AV_CODEC_ID_H264);
-   * const ctx = new CodecContext();
    * ctx.allocContext3(codec);
-   * // Context is now allocated with H264 defaults
    * ```
    *
    * @see {@link open2} To open the codec
@@ -732,155 +716,120 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Free the codec context and everything associated with it.
+   * Free the codec context.
    *
-   * Releases all resources associated with the codec context.
-   * The context becomes invalid after this call.
+   * Releases all resources. The context becomes invalid.
    *
-   * Direct mapping to avcodec_free_context()
+   * Direct mapping to avcodec_free_context().
    *
    * @example
    * ```typescript
    * ctx.freeContext();
-   * // ctx is now invalid and should not be used
+   * // Context is now invalid
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
+   * @see {@link allocContext3} To allocate a new context
    */
   freeContext(): void {
     this.native.freeContext();
   }
 
   /**
-   * Initialize the AVCodecContext to use the given AVCodec.
+   * Open the codec.
    *
-   * Opens the codec and prepares it for encoding or decoding.
-   * Prior to using this function the context has to be allocated with allocContext3().
+   * Initializes the codec for encoding/decoding.
+   * Must be called before processing frames/packets.
    *
-   * Direct mapping to avcodec_open2()
+   * Direct mapping to avcodec_open2().
    *
-   * @param codec - The codec to open this context for. If a non-NULL codec has been
-   *                previously passed to allocContext3() for this context, then this
-   *                parameter MUST be either NULL or equal to the previously passed codec.
-   * @param options - A dictionary filled with AVCodecContext and codec-private options.
-   *
+   * @param codec - Codec to open with (null to use already set)
+   * @param options - Codec-specific options
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters or codec not found
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other codec-specific errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * const ret = await ctx.open2(codec, null);
+   * const ret = await ctx.open2(codec);
    * FFmpegError.throwIfError(ret, 'open2');
+   * // Codec is now open and ready
    * ```
    *
-   * @see {@link close} To close the codec context
-   * @see {@link allocContext3} Must be called before open2()
+   * @see {@link allocContext3} Must be called first
+   * @see {@link isOpen} To check if open
    */
   async open2(codec: Codec | null = null, options: Dictionary | null = null): Promise<number> {
     return await this.native.open2(codec?.getNative() ?? null, options?.getNative() ?? null);
   }
 
   /**
-   * Open the codec context synchronously.
+   * Fill codec context from parameters.
    *
-   * Direct mapping to avcodec_open2()
-   * @param codec - The codec to open the context for (null to use already set codec_id)
-   * @param options - Dictionary of codec-specific options (null for defaults)
-   * @returns 0 on success, negative AVERROR on error
-   * @example
-   * ```typescript
-   * import { CodecContext, Codec } from 'node-av';
+   * Copies codec parameters from stream to context.
+   * Used when setting up decoders.
    *
-   * const ctx = new CodecContext();
-   * const codec = Codec.findEncoder('libx264');
-   * ctx.allocContext3(codec);
+   * Direct mapping to avcodec_parameters_to_context().
    *
-   * // Configure context
-   * ctx.width = 1920;
-   * ctx.height = 1080;
-   * ctx.timeBase = { num: 1, den: 30 };
-   *
-   * // Open synchronously (blocks until complete)
-   * const ret = ctx.open2Sync(codec, null);
-   * if (ret < 0) {
-   *   throw new Error(`Failed to open codec: ${ret}`);
-   * }
-   * ```
-   * @see {@link open2} For async version
-   * @see {@link allocContext3} Must be called before open2Sync()
-   */
-  open2Sync(codec: Codec | null = null, options: Dictionary | null = null): number {
-    return this.native.open2Sync(codec?.getNative() ?? null, options?.getNative() ?? null);
-  }
-
-  /**
-   * Fill the codec context based on the values from the supplied codec parameters.
-   *
-   * Direct mapping to avcodec_parameters_to_context()
-   *
-   * @param params - Codec parameters to copy from
-   *
+   * @param params - Source codec parameters
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
-   * // Copy parameters from stream to codec context
+   * import { FFmpegError } from 'node-av';
+   *
    * const ret = ctx.parametersToContext(stream.codecpar);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * FFmpegError.throwIfError(ret, 'parametersToContext');
    * ```
    *
-   * @see parametersFromContext() - To copy in the opposite direction
+   * @see {@link parametersFromContext} For the reverse
    */
   parametersToContext(params: CodecParameters): number {
     return this.native.parametersToContext(params.getNative());
   }
 
   /**
-   * Fill the parameters struct based on the values from the supplied codec context.
+   * Fill parameters from codec context.
    *
-   * Direct mapping to avcodec_parameters_from_context()
+   * Copies codec parameters from context to stream.
+   * Used when setting up encoders.
    *
-   * @param params - Codec parameters to fill
+   * Direct mapping to avcodec_parameters_from_context().
    *
+   * @param params - Destination codec parameters
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
-   * // Copy parameters from codec context to stream
-   * const ret = ctx.parametersFromContext(outputStream.codecpar);
-   * if (ret < 0) {
-   *   throw new FFmpegError(ret);
-   * }
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.parametersFromContext(stream.codecpar);
+   * FFmpegError.throwIfError(ret, 'parametersFromContext');
    * ```
    *
-   * @see parametersToContext() - To copy in the opposite direction
+   * @see {@link parametersToContext} For the reverse
    */
   parametersFromContext(params: CodecParameters): number {
     return this.native.parametersFromContext(params.getNative());
   }
 
   /**
-   * Reset the internal codec state / flush internal buffers.
-   * Should be called when seeking or switching to a different stream.
+   * Flush codec buffers.
    *
-   * Direct mapping to avcodec_flush_buffers()
+   * Resets the internal codec state.
+   * Used when seeking or switching streams.
+   *
+   * Direct mapping to avcodec_flush_buffers().
    *
    * @example
    * ```typescript
-   * // Flush buffers when seeking
-   * formatContext.seekFrame(streamIndex, timestamp, flags);
-   * codecContext.flushBuffers();
+   * // Flush when seeking
+   * ctx.flushBuffers();
+   * // Codec is now ready for new data
    * ```
    */
   flushBuffers(): void {
@@ -888,205 +837,155 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Supply raw packet data as input to a decoder.
+   * Send packet to decoder.
    *
-   * Sends compressed data to the decoder for processing.
-   * The decoder may buffer the packet internally.
+   * Submits encoded data for decoding.
+   * Call receiveFrame() to get decoded frames.
    *
-   * Direct mapping to avcodec_send_packet()
+   * Direct mapping to avcodec_send_packet().
    *
-   * @param packet - The input packet. May be NULL to signal end of stream (flush).
-   *
+   * @param packet - Packet to decode (null to flush)
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EAGAIN): Input not accepted - must read output with receiveFrame() first
-   *   - AVERROR_EOF: Decoder has been flushed, no new packets can be sent
-   *   - AVERROR(EINVAL): Codec not opened, is an encoder, or requires flush
-   *   - AVERROR(ENOMEM): Failed to add packet to internal queue
-   *   - <0: Other legitimate decoding errors
+   *   - AVERROR_EAGAIN: Must receive frames first
+   *   - AVERROR_EOF: Decoder has been flushed
+   *   - AVERROR_EINVAL: Invalid decoder state
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { FFmpegError, Frame } from 'node-av';
-   * import { AVERROR_EAGAIN } from 'node-av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av';
    *
-   * // Decode packet
-   * const ret = await decoder.sendPacket(packet);
+   * const ret = await ctx.sendPacket(packet);
    * if (ret === AVERROR_EAGAIN) {
-   *   // Need to read output first
-   *   const frame = new Frame();
-   *   frame.alloc();
-   *   const recvRet = await decoder.receiveFrame(frame);
-   *   FFmpegError.throwIfError(recvRet, 'receiveFrame');
+   *   // Need to receive frames first
    * } else {
    *   FFmpegError.throwIfError(ret, 'sendPacket');
    * }
    * ```
    *
-   * @see {@link receiveFrame} To retrieve decoded frames
+   * @see {@link receiveFrame} To get decoded frames
    */
   async sendPacket(packet: Packet | null): Promise<number> {
     return await this.native.sendPacket(packet?.getNative() ?? null);
   }
 
   /**
-   * Return decoded output data from a decoder.
+   * Receive decoded frame.
    *
-   * Retrieves decoded frames from the decoder.
-   * The frame must be allocated before calling this function.
+   * Gets a decoded frame from the decoder.
+   * Call after sendPacket().
    *
-   * Direct mapping to avcodec_receive_frame()
+   * Direct mapping to avcodec_receive_frame().
    *
-   * @param frame - Frame to receive decoded data. Must be allocated.
-   *
+   * @param frame - Frame to receive into
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success, a frame was returned
-   *   - AVERROR(EAGAIN): Output not available, must send new input
-   *   - AVERROR_EOF: Decoder fully flushed, no more frames
-   *   - AVERROR(EINVAL): Codec not opened or is an encoder
-   *   - <0: Other legitimate decoding errors
+   *   - AVERROR_EAGAIN: Need more input
+   *   - AVERROR_EOF: All frames have been output
+   *   - AVERROR_EINVAL: Invalid decoder state
    *
    * @example
    * ```typescript
-   * import { Frame, FFmpegError } from 'node-av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av';
    *
-   * // Receive all frames from decoder
-   * const frame = new Frame();
-   * frame.alloc();
-   *
-   * while (true) {
-   *   const ret = await decoder.receiveFrame(frame);
-   *   if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
-   *     break;
-   *   }
+   * const ret = await ctx.receiveFrame(frame);
+   * if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+   *   // No frame available
+   * } else {
    *   FFmpegError.throwIfError(ret, 'receiveFrame');
-   *
-   *   // Process frame
-   *   processFrame(frame);
-   *   frame.unref();
+   *   // Process decoded frame
    * }
    * ```
    *
-   * @see {@link sendPacket} To send input packets
+   * @see {@link sendPacket} To send packets for decoding
    */
   async receiveFrame(frame: Frame): Promise<number> {
     return await this.native.receiveFrame(frame.getNative());
   }
 
   /**
-   * Supply a raw video or audio frame to the encoder.
+   * Send frame to encoder.
    *
-   * Sends uncompressed frame data to the encoder.
-   * Use receivePacket() to retrieve buffered output packets.
+   * Submits raw frame for encoding.
+   * Call receivePacket() to get encoded packets.
    *
-   * Direct mapping to avcodec_send_frame()
+   * Direct mapping to avcodec_send_frame().
    *
-   * @param frame - AVFrame containing the raw audio or video frame to be encoded.
-   *                Can be NULL for flush packet (signals end of stream).
-   *
+   * @param frame - Frame to encode (null to flush)
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EAGAIN): Input not accepted - must read output with receivePacket()
-   *   - AVERROR_EOF: Encoder has been flushed, no new frames can be sent
-   *   - AVERROR(EINVAL): Codec not opened, is a decoder, or requires flush
-   *   - AVERROR(ENOMEM): Failed to add packet to internal queue
-   *   - <0: Other legitimate encoding errors
+   *   - AVERROR_EAGAIN: Must receive packets first
+   *   - AVERROR_EOF: Encoder has been flushed
+   *   - AVERROR_EINVAL: Invalid encoder state
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from 'node-av';
-   * import { AVERROR_EAGAIN } from 'node-av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av';
    *
-   * // Send frame to encoder
-   * const ret = await encoder.sendFrame(frame);
+   * const ret = await ctx.sendFrame(frame);
    * if (ret === AVERROR_EAGAIN) {
-   *   // Need to read output first
-   *   const packet = new Packet();
-   *   packet.alloc();
-   *   const recvRet = await encoder.receivePacket(packet);
-   *   FFmpegError.throwIfError(recvRet, 'receivePacket');
+   *   // Need to receive packets first
    * } else {
    *   FFmpegError.throwIfError(ret, 'sendFrame');
    * }
    * ```
    *
-   * @see {@link receivePacket} To retrieve encoded packets
-   *
-   * @note For audio: If AV_CODEC_CAP_VARIABLE_FRAME_SIZE is set, then each frame
-   * can have any number of samples. If not set, frame.nbSamples must equal
-   * avctx.frameSize for all frames except the last.
+   * @see {@link receivePacket} To get encoded packets
    */
   async sendFrame(frame: Frame | null): Promise<number> {
     return await this.native.sendFrame(frame?.getNative() ?? null);
   }
 
   /**
-   * Read encoded data from the encoder.
+   * Receive encoded packet.
    *
-   * Retrieves compressed packets from the encoder.
-   * The packet must be allocated before calling.
+   * Gets an encoded packet from the encoder.
+   * Call after sendFrame().
    *
-   * Direct mapping to avcodec_receive_packet()
+   * Direct mapping to avcodec_receive_packet().
    *
-   * @param packet - Packet to receive encoded data. Must be allocated.
-   *
+   * @param packet - Packet to receive into
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success, a packet was returned
-   *   - AVERROR(EAGAIN): Output not available, must send new input
-   *   - AVERROR_EOF: Encoder fully flushed, no more packets
-   *   - AVERROR(EINVAL): Codec not opened or is a decoder
-   *   - <0: Other legitimate encoding errors
+   *   - AVERROR_EAGAIN: Need more input
+   *   - AVERROR_EOF: All packets have been output
+   *   - AVERROR_EINVAL: Invalid encoder state
    *
    * @example
    * ```typescript
-   * import { Packet, FFmpegError } from 'node-av';
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av';
    *
-   * // Receive all packets from encoder
-   * const packet = new Packet();
-   * packet.alloc();
-   *
-   * while (true) {
-   *   const ret = await encoder.receivePacket(packet);
-   *   if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
-   *     break;
-   *   }
-   *   if (ret < 0) {
-   *     throw new FFmpegError(ret);
-   *   }
-   *   // Write packet to output
-   *   await formatContext.writeFrame(packet);
-   *   packet.unref();
+   * const ret = await ctx.receivePacket(packet);
+   * if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+   *   // No packet available
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'receivePacket');
+   *   // Process encoded packet
    * }
    * ```
    *
-   * @see sendFrame() - To send input frames
+   * @see {@link sendFrame} To send frames for encoding
    */
   async receivePacket(packet: Packet): Promise<number> {
     return await this.native.receivePacket(packet.getNative());
   }
 
   /**
-   * Set the hardware pixel format for hardware acceleration.
+   * Set hardware pixel format.
    *
-   * This configures the codec context to prefer a specific hardware pixel format
-   * when negotiating formats with FFmpeg. Optionally, a software fallback format
-   * can be specified.
+   * Configures hardware acceleration pixel formats.
+   * Used in get_format callback for hardware decoding.
    *
-   * @param hwFormat - The preferred hardware pixel format (e.g., AV_PIX_FMT_VIDEOTOOLBOX)
-   * @param swFormat - Optional software fallback format if hardware format is not available
+   * @param hwFormat - Hardware pixel format
+   * @param swFormat - Software pixel format (optional)
    *
    * @example
    * ```typescript
-   * // For VideoToolbox hardware decoding on macOS
-   * codecContext.setHardwarePixelFormat(AV_PIX_FMT_VIDEOTOOLBOX);
+   * import { AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from 'node-av/constants';
    *
-   * // With software fallback
-   * codecContext.setHardwarePixelFormat(
-   *   AV_PIX_FMT_VIDEOTOOLBOX,
-   *   AV_PIX_FMT_YUV420P // Fallback to YUV420P if hardware not available
-   * );
+   * ctx.setHardwarePixelFormat(AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12);
    * ```
    */
   setHardwarePixelFormat(hwFormat: AVPixelFormat, swFormat?: AVPixelFormat): void {
@@ -1094,10 +993,11 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
-   * Get the native FFmpeg AVCodecContext pointer.
+   * Get the underlying native CodecContext object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native codec context object
+   * @returns The native CodecContext binding object
+   *
+   * @internal
    */
   getNative(): NativeCodecContext {
     return this.native;
@@ -1114,7 +1014,8 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * {
    *   using ctx = new CodecContext();
    *   ctx.allocContext3(codec);
-   *   // ... use context
+   *   await ctx.open2();
+   *   // Use context...
    * } // Automatically freed when leaving scope
    * ```
    */

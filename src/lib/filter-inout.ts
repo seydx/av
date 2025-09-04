@@ -4,95 +4,76 @@ import { FilterContext } from './filter-context.js';
 import type { NativeFilterInOut, NativeWrapper } from './native-types.js';
 
 /**
- * Filter input/output helper for graph parsing.
+ * Filter input/output linked list structure for filter graph parsing.
  *
- * Helper structure for parsing filter graphs with named inputs and outputs.
- * Used to connect external sources/sinks to specific points in a filter graph.
- * Supports linked lists for multiple I/O points in complex graphs.
+ * Represents a linked list of labeled filter pads used during filter graph
+ * configuration. Each node contains a filter context, pad index, and optional
+ * label for connecting filters together. Used internally by avfilter_graph_parse()
+ * to track unlinked filter pads during graph construction.
  *
  * Direct mapping to FFmpeg's AVFilterInOut.
  *
  * @example
  * ```typescript
- * import { FilterInOut, FilterGraph, FFmpegError } from 'node-av';
+ * import { FilterInOut, FilterContext, FFmpegError } from 'node-av';
  *
- * // Create input/output points for filter graph
- * const inputs = new FilterInOut();
- * inputs.alloc();
- * inputs.name = 'in';
- * inputs.filterCtx = bufferSrcCtx;
- * inputs.padIdx = 0;
+ * // Create a linked list of filter inputs/outputs
+ * const inputs = FilterInOut.createList([
+ *   { name: 'in', filterCtx: bufferSrc, padIdx: 0 },
+ *   { name: 'overlay', filterCtx: overlay, padIdx: 1 }
+ * ]);
  *
- * const outputs = new FilterInOut();
- * outputs.alloc();
- * outputs.name = 'out';
- * outputs.filterCtx = bufferSinkCtx;
- * outputs.padIdx = 0;
+ * // Parse filter graph with labeled connections
+ * const ret = graph.parse(filterString, inputs, outputs);
+ * FFmpegError.throwIfError(ret, 'parse');
  *
- * // Parse filter graph string
- * const ret = filterGraph.parsePtr(
- *   '[in] scale=1280:720 [out]',
- *   inputs,
- *   outputs
- * );
- * FFmpegError.throwIfError(ret, 'parsePtr');
- *
- * // Clean up
- * inputs.free();
- * outputs.free();
+ * // Manual creation and linking
+ * const inout = new FilterInOut();
+ * inout.alloc();
+ * inout.name = 'input';
+ * inout.filterCtx = sourceFilter;
+ * inout.padIdx = 0;
  * ```
+ *
+ * @see {@link [AVFilterInOut](https://ffmpeg.org/doxygen/trunk/structAVFilterInOut.html)}
+ * @see {@link FilterGraph} For parsing filter descriptions
+ * @see {@link FilterContext} For filter instances
  */
 export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut> {
   private native: NativeFilterInOut;
 
-  /**
-   * Create a new FilterInOut instance.
-   *
-   * The structure is uninitialized - you must call alloc() before use.
-   * No FFmpeg resources are allocated until alloc() is called.
-   *
-   * Direct wrapper around AVFilterInOut.
-   *
-   * @example
-   * ```typescript
-   * import { FilterInOut } from 'node-av';
-   *
-   * const inout = new FilterInOut();
-   * inout.alloc();
-   * // Structure is now ready for use
-   * ```
-   */
   constructor() {
     this.native = new bindings.FilterInOut();
   }
 
   /**
-   * Create a linked list of FilterInOut structures.
+   * Create a linked list of filter inputs/outputs.
    *
-   * Helper method to create a chain of inputs or outputs.
-   * Useful for complex filter graphs with multiple I/O points.
+   * Convenience method to build a linked list structure from an array
+   * of filter specifications. Each item becomes a node in the list.
    *
-   * @param items - Array of {name, filterCtx, padIdx} objects
-   *
-   * @returns The head of the linked list, or null if items is empty
+   * @param items - Array of filter input/output specifications
+   * @param items[].name - Label for the filter pad
+   * @param items[].filterCtx - Filter context containing the pad
+   * @param items[].padIdx - Index of the pad in the filter
+   * @returns Head of the linked list, or null if items is empty
    *
    * @example
    * ```typescript
-   * import { FilterInOut, FilterGraph, FFmpegError } from 'node-av';
-   *
-   * // Create multiple inputs
+   * // Create inputs for a filter graph
    * const inputs = FilterInOut.createList([
-   *   { name: 'video_in', filterCtx: videoBufferCtx, padIdx: 0 },
-   *   { name: 'audio_in', filterCtx: audioBufferCtx, padIdx: 0 }
+   *   { name: 'video_in', filterCtx: videoBuffer, padIdx: 0 },
+   *   { name: 'audio_in', filterCtx: audioBuffer, padIdx: 0 }
    * ]);
    *
-   * // Use in filter graph
-   * const ret = filterGraph.parsePtr(filterString, inputs, outputs);
-   * FFmpegError.throwIfError(ret, 'parsePtr');
-   *
-   * // Free the entire list
-   * inputs?.free();
+   * // Create outputs
+   * const outputs = FilterInOut.createList([
+   *   { name: 'video_out', filterCtx: videoSink, padIdx: 0 },
+   *   { name: 'audio_out', filterCtx: audioSink, padIdx: 0 }
+   * ]);
    * ```
+   *
+   * @see {@link alloc} For manual node creation
    */
   static createList(
     items: {
@@ -126,11 +107,12 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   }
 
   /**
-   * Name of this input/output point.
+   * Label name for this filter pad.
    *
-   * Direct mapping to AVFilterInOut->name
+   * Used to reference this connection point in filter graph strings.
+   * For example, "[in]" or "[video_out]".
    *
-   * Used to reference this pad in filtergraph strings.
+   * Direct mapping to AVFilterInOut->name.
    */
   get name(): string | null {
     return this.native.name;
@@ -141,11 +123,11 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   }
 
   /**
-   * Associated filter context.
+   * Filter context this pad belongs to.
    *
-   * Direct mapping to AVFilterInOut->filter_ctx
+   * Reference to the filter instance containing this pad.
    *
-   * The filter context this pad connects to.
+   * Direct mapping to AVFilterInOut->filter_ctx.
    */
   get filterCtx(): FilterContext | null {
     const native = this.native.filterCtx;
@@ -157,11 +139,12 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   }
 
   /**
-   * Pad index.
+   * Pad index within the filter.
    *
-   * Direct mapping to AVFilterInOut->pad_idx
+   * Index of the input or output pad in the filter context.
+   * 0 for the first pad, 1 for the second, etc.
    *
-   * The input or output pad index on the filter context.
+   * Direct mapping to AVFilterInOut->pad_idx.
    */
   get padIdx(): number {
     return this.native.padIdx;
@@ -172,11 +155,11 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   }
 
   /**
-   * Next element in the linked list.
+   * Next node in the linked list.
    *
-   * Direct mapping to AVFilterInOut->next
+   * Reference to the next FilterInOut in the chain, or null for the last node.
    *
-   * Used to chain multiple inputs or outputs together.
+   * Direct mapping to AVFilterInOut->next.
    */
   get next(): FilterInOut | null {
     const native = this.native.next;
@@ -194,25 +177,26 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   }
 
   /**
-   * Allocate the FilterInOut structure.
+   * Allocate a FilterInOut structure.
    *
-   * Allocates the structure and initializes it.
-   * Must be called before setting properties or using the structure.
+   * Allocates memory for the structure. Must be called before using
+   * a manually created instance.
    *
-   * Direct mapping to avfilter_inout_alloc()
+   * Direct mapping to avfilter_inout_alloc().
    *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @throws {Error} If allocation fails (ENOMEM)
    *
    * @example
    * ```typescript
-   * import { FilterInOut } from 'node-av';
-   *
    * const inout = new FilterInOut();
    * inout.alloc();
-   * // Structure is now allocated and ready
+   * inout.name = 'input';
+   * inout.filterCtx = bufferSource;
+   * inout.padIdx = 0;
    * ```
    *
-   * @see {@link free} To free the structure
+   * @see {@link free} To deallocate
+   * @see {@link createList} For automatic allocation
    */
   alloc(): void {
     this.native.alloc();
@@ -221,32 +205,41 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   /**
    * Free the FilterInOut structure.
    *
-   * Releases all resources associated with the structure.
-   * Also frees any linked structures in the chain.
+   * Deallocates the structure and breaks the chain if part of a linked list.
+   * Only frees this node, not the entire list.
    *
-   * Direct mapping to avfilter_inout_free()
+   * Direct mapping to avfilter_inout_free().
    *
    * @example
    * ```typescript
    * inout.free();
-   * // inout is now invalid and should not be used
+   * // Structure is now invalid
    * ```
+   *
+   * @see {@link alloc} To allocate
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Count elements in the linked list.
+   * Count nodes in the linked list.
    *
-   * Helper method to count all elements starting from this one.
+   * Counts the total number of nodes starting from this node
+   * and following the next pointers.
    *
-   * @returns Number of elements including this one
+   * @returns Number of nodes in the list (including this one)
    *
    * @example
    * ```typescript
-   * const inputs = FilterInOut.createList([...]);
-   * console.log(`Total inputs: ${inputs?.count()}`); // e.g., "Total inputs: 3"
+   * const list = FilterInOut.createList([
+   *   { name: 'in1', filterCtx: filter1, padIdx: 0 },
+   *   { name: 'in2', filterCtx: filter2, padIdx: 0 },
+   *   { name: 'in3', filterCtx: filter3, padIdx: 0 }
+   * ]);
+   *
+   * console.log(`List has ${list.count()} nodes`); // 3
    * ```
    */
   count(): number {
@@ -262,10 +255,11 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
   }
 
   /**
-   * Get the native FFmpeg AVFilterInOut pointer.
+   * Get the underlying native FilterInOut object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native FilterInOut object
+   * @returns The native FilterInOut binding object
+   *
+   * @internal
    */
   getNative(): NativeFilterInOut {
     return this.native;
@@ -282,7 +276,8 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    * {
    *   using inout = new FilterInOut();
    *   inout.alloc();
-   *   // ... use structure
+   *   inout.name = 'test';
+   *   // Use inout...
    * } // Automatically freed when leaving scope
    * ```
    */

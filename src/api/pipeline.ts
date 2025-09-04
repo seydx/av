@@ -1,14 +1,7 @@
 /**
- * Pipeline - Stream-based media processing pipeline
- *
- * Provides a Node.js-style pipeline function for chaining media processing components.
- * Automatically handles type conversions, buffering, and flushing.
- *
- * Supports two modes:
- * 1. Simple: Single stream with variable parameters
- * 2. Named: Multiple streams with named routing with variable parameters
- *
- * @module api/pipeline
+ * @module pipeline
+ * High-level media processing pipeline for FFmpeg operations.
+ * Provides a fluent API for building transcoding, filtering, and stream processing pipelines.
  */
 
 import type { Frame, Packet } from '../lib/index.js';
@@ -19,10 +12,6 @@ import type { Encoder } from './encoder.js';
 import type { FilterAPI } from './filter.js';
 import type { MediaInput } from './media-input.js';
 import type { MediaOutput } from './media-output.js';
-
-// ============================================================================
-// Types
-// ============================================================================
 
 // Restrict stream names to known types
 type StreamName = 'video' | 'audio';
@@ -35,6 +24,10 @@ type NamedStages<K extends StreamName = StreamName> = Pick<
 >;
 type NamedOutputs<K extends StreamName = StreamName> = Pick<Record<StreamName, MediaOutput>, K>;
 
+/**
+ * Internal metadata for tracking stream components.
+ * @internal
+ */
 interface StreamMetadata {
   encoder?: Encoder;
   decoder?: Decoder;
@@ -45,21 +38,37 @@ interface StreamMetadata {
 }
 
 /**
- * Pipeline control interface for managing pipeline execution
+ * Pipeline control interface for managing pipeline execution.
+ * Allows graceful stopping and completion tracking of running pipelines.
+ *
+ * @example
+ * ```typescript
+ * const control = pipeline(input, decoder, encoder, output);
+ *
+ * // Stop after 10 seconds
+ * setTimeout(() => control.stop(), 10000);
+ *
+ * // Wait for completion
+ * await control.completion;
+ * ```
  */
 export interface PipelineControl {
   /**
-   * Stop the pipeline gracefully
+   * Stop the pipeline gracefully.
+   * The pipeline will stop processing after the current operation completes.
    */
   stop(): void;
 
   /**
-   * Check if the pipeline has been stopped
+   * Check if the pipeline has been stopped.
+   *
+   * @returns True if stop() has been called
    */
   isStopped(): boolean;
 
   /**
-   * Promise that resolves when the pipeline completes
+   * Promise that resolves when the pipeline completes.
+   * Resolves when all processing is finished or the pipeline is stopped.
    */
   readonly completion: Promise<void>;
 }
@@ -69,22 +78,62 @@ export interface PipelineControl {
 // ============================================================================
 
 /**
- * Full transcoding pipeline: input → decoder → encoder → output
+ * Full transcoding pipeline: input → decoder → encoder → output.
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets to frames
+ * @param encoder - Encoder for encoding frames to packets
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * const control = pipeline(input, decoder, encoder, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder, output: MediaOutput): PipelineControl;
 
 /**
- * Full transcoding pipeline with filter: input → decoder → filter → encoder → output
+ * Full transcoding pipeline with filter: input → decoder → filter → encoder → output.
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets to frames
+ * @param filter - Filter or filter chain for processing frames
+ * @param encoder - Encoder for encoding frames to packets
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * const control = pipeline(input, decoder, scaleFilter, encoder, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI | FilterAPI[], encoder: Encoder, output: MediaOutput): PipelineControl;
 
 /**
- * Transcoding with bitstream filter: input → decoder → encoder → bsf → output
+ * Transcoding with bitstream filter: input → decoder → encoder → bsf → output.
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets
+ * @param encoder - Encoder for encoding frames
+ * @param bsf - Bitstream filter for packet processing
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
  */
 export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder, bsf: BitStreamFilterAPI | BitStreamFilterAPI[], output: MediaOutput): PipelineControl;
 
 /**
- * Full pipeline with filter and bsf: input → decoder → filter → encoder → bsf → output
+ * Full pipeline with filter and bsf: input → decoder → filter → encoder → bsf → output.
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets
+ * @param filter - Filter or filter chain
+ * @param encoder - Encoder for encoding frames
+ * @param bsf - Bitstream filter
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
  */
 export function pipeline(
   source: MediaInput,
@@ -96,62 +145,130 @@ export function pipeline(
 ): PipelineControl;
 
 /**
- * Decode + multiple filters + encode: input → decoder → filter1 → filter2 → encoder → output
+ * Decode + multiple filters + encode: input → decoder → filter1 → filter2 → encoder → output.
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets
+ * @param filter1 - First filter
+ * @param filter2 - Second filter
+ * @param encoder - Encoder for encoding frames
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
  */
 export function pipeline(source: MediaInput, decoder: Decoder, filter1: FilterAPI, filter2: FilterAPI, encoder: Encoder, output: MediaOutput): PipelineControl;
 
 /**
- * Stream copy pipeline: input → output (copies all streams)
+ * Stream copy pipeline: input → output (copies all streams).
+ *
+ * @param source - Media input source
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * // Copy all streams without re-encoding
+ * const control = pipeline(input, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: MediaInput, output: MediaOutput): PipelineControl;
 
 /**
- * Stream copy with bitstream filter: input → bsf → output
+ * Stream copy with bitstream filter: input → bsf → output.
+ *
+ * @param source - Media input source
+ * @param bsf - Bitstream filter for packet processing
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
  */
 export function pipeline(source: MediaInput, bsf: BitStreamFilterAPI | BitStreamFilterAPI[], output: MediaOutput): PipelineControl;
 
 /**
- * Filter + encode + output: frames → filter → encoder → output
+ * Filter + encode + output: frames → filter → encoder → output.
+ *
+ * @param source - Frame source (async iterable)
+ * @param filter - Filter or filter chain
+ * @param encoder - Encoder for encoding frames
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
  */
 export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | FilterAPI[], encoder: Encoder, output: MediaOutput): PipelineControl;
 
 /**
- * Encode + output: frames → encoder → output
+ * Encode + output: frames → encoder → output.
+ *
+ * @param source - Frame source (async iterable)
+ * @param encoder - Encoder for encoding frames
+ * @param output - Media output destination
+ * @returns Pipeline control for managing execution
  */
 export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder, output: MediaOutput): PipelineControl;
 
 /**
- * Partial pipeline: input → decoder (returns frames)
+ * Partial pipeline: input → decoder (returns frames).
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets
+ * @returns Async generator of frames
  */
 export function pipeline(source: MediaInput, decoder: Decoder): AsyncGenerator<Frame>;
 
 /**
- * Partial pipeline: input → decoder → filter (returns frames)
+ * Partial pipeline: input → decoder → filter (returns frames).
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets
+ * @param filter - Filter or filter chain
+ * @returns Async generator of frames
  */
 export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI | FilterAPI[]): AsyncGenerator<Frame>;
 
 /**
- * Partial pipeline: input → decoder → filter → encoder (returns packets)
+ * Partial pipeline: input → decoder → filter → encoder (returns packets).
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets
+ * @param filter - Filter or filter chain
+ * @param encoder - Encoder for encoding frames
+ * @returns Async generator of packets
  */
 export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI | FilterAPI[], encoder: Encoder): AsyncGenerator<Packet>;
 
 /**
- * Partial pipeline: input → decoder → encoder (returns packets)
+ * Partial pipeline: input → decoder → encoder (returns packets).
+ *
+ * @param source - Media input source
+ * @param decoder - Decoder for decoding packets
+ * @param encoder - Encoder for encoding frames
+ * @returns Async generator of packets
  */
 export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder): AsyncGenerator<Packet>;
 
 /**
- * Partial pipeline: frames → filter (returns frames)
+ * Partial pipeline: frames → filter (returns frames).
+ *
+ * @param source - Frame source (async iterable)
+ * @param filter - Filter or filter chain
+ * @returns Async generator of filtered frames
  */
 export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | FilterAPI[]): AsyncGenerator<Frame>;
 
 /**
- * Partial pipeline: frames → encoder (returns packets)
+ * Partial pipeline: frames → encoder (returns packets).
+ *
+ * @param source - Frame source (async iterable)
+ * @param encoder - Encoder for encoding frames
+ * @returns Async generator of packets
  */
 export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder): AsyncGenerator<Packet>;
 
 /**
- * Partial pipeline: frames → filter → encoder (returns packets)
+ * Partial pipeline: frames → filter → encoder (returns packets).
+ *
+ * @param source - Frame source (async iterable)
+ * @param filter - Filter or filter chain
+ * @param encoder - Encoder for encoding frames
+ * @returns Async generator of packets
  */
 export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | FilterAPI[], encoder: Encoder): AsyncGenerator<Packet>;
 
@@ -160,17 +277,31 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
 // ============================================================================
 
 /**
- * Named pipeline with single output - all streams go to the same output
+ * Named pipeline with single output - all streams go to the same output.
+ *
+ * @param inputs - Named input sources (video/audio)
+ * @param stages - Named processing stages for each stream
+ * @param output - Single output destination for all streams
+ * @returns Pipeline control for managing execution
  */
 export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: NamedStages<K>, output: MediaOutput): PipelineControl;
 
 /**
- * Named pipeline with multiple outputs - each stream has its own output
+ * Named pipeline with multiple outputs - each stream has its own output.
+ *
+ * @param inputs - Named input sources (video/audio)
+ * @param stages - Named processing stages for each stream
+ * @param outputs - Named output destinations
+ * @returns Pipeline control for managing execution
  */
 export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: NamedStages<K>, outputs: NamedOutputs<K>): PipelineControl;
 
 /**
- * Partial named pipeline (returns generators for further processing)
+ * Partial named pipeline (returns generators for further processing).
+ *
+ * @param inputs - Named input sources
+ * @param stages - Named processing stages
+ * @returns Record of async generators for each stream
  */
 export function pipeline<K extends StreamName, T extends Packet | Frame = Packet | Frame>(inputs: NamedInputs<K>, stages: NamedStages<K>): Record<K, AsyncGenerator<T>>;
 
@@ -179,27 +310,28 @@ export function pipeline<K extends StreamName, T extends Packet | Frame = Packet
 // ============================================================================
 
 /**
- * Pipeline implementation
+ * Pipeline implementation.
  *
  * Creates a processing pipeline from media components.
  * Automatically handles type conversions and proper flushing order.
  *
  * @param args - Variable arguments depending on pipeline type
- * @returns Promise<void> if output is present, AsyncGenerator otherwise
+ * @returns PipelineControl if output is present, AsyncGenerator otherwise
  *
  * @example
  * ```typescript
  * // Simple pipeline
- * await pipeline(
+ * const control = pipeline(
  *   input,
  *   decoder,
  *   filter,
  *   encoder,
  *   output
  * );
+ * await control.completion;
  *
  * // Named pipeline for muxing
- * await pipeline(
+ * const control = pipeline(
  *   { video: videoInput, audio: audioInput },
  *   {
  *     video: [videoDecoder, scaleFilter, videoEncoder],
@@ -207,6 +339,7 @@ export function pipeline<K extends StreamName, T extends Packet | Frame = Packet
  *   },
  *   output
  * );
+ * await control.completion;
  * ```
  */
 export function pipeline(...args: any[]): PipelineControl | AsyncGenerator<Packet | Frame> | Record<StreamName, AsyncGenerator<Packet | Frame>> {
@@ -241,23 +374,42 @@ export function pipeline(...args: any[]): PipelineControl | AsyncGenerator<Packe
 // PipelineControl Implementation
 // ============================================================================
 
+/**
+ * Pipeline control implementation.
+ * @internal
+ */
 class PipelineControlImpl implements PipelineControl {
   private _stopped = false;
   private _completion: Promise<void>;
 
+  /**
+   * @param executionPromise - Promise that resolves when pipeline completes
+   * @internal
+   */
   constructor(executionPromise: Promise<void>) {
     // Don't resolve immediately on stop, wait for the actual pipeline to finish
     this._completion = executionPromise;
   }
 
+  /**
+   * Stop the pipeline.
+   */
   stop(): void {
     this._stopped = true;
   }
 
+  /**
+   * Check if pipeline is stopped.
+   *
+   * @returns True if stopped
+   */
   isStopped(): boolean {
     return this._stopped;
   }
 
+  /**
+   * Get completion promise.
+   */
   get completion(): Promise<void> {
     return this._completion;
   }
@@ -267,6 +419,15 @@ class PipelineControlImpl implements PipelineControl {
 // MediaInput Pipeline Implementation
 // ============================================================================
 
+/**
+ * Run a media input pipeline for stream copy.
+ *
+ * @param input - Media input source
+ * @param output - Media output destination
+ * @returns Pipeline control interface
+ *
+ * @internal
+ */
 function runMediaInputPipeline(input: MediaInput, output: MediaOutput): PipelineControl {
   let control: PipelineControl;
   // eslint-disable-next-line prefer-const
@@ -274,6 +435,14 @@ function runMediaInputPipeline(input: MediaInput, output: MediaOutput): Pipeline
   return control;
 }
 
+/**
+ * Run media input pipeline asynchronously.
+ *
+ * @param input - Media input source
+ * @param output - Media output destination
+ * @param shouldStop - Function to check if pipeline should stop
+ * @internal
+ */
 async function runMediaInputPipelineAsync(input: MediaInput, output: MediaOutput, shouldStop: () => boolean): Promise<void> {
   // Get all streams from input
   const videoStream = input.video();
@@ -333,6 +502,14 @@ async function runMediaInputPipelineAsync(input: MediaInput, output: MediaOutput
 // Simple Pipeline Implementation
 // ============================================================================
 
+/**
+ * Run a simple linear pipeline.
+ *
+ * @param args - Pipeline arguments
+ * @returns Pipeline control or async generator
+ *
+ * @internal
+ */
 function runSimplePipeline(args: any[]): PipelineControl | AsyncGenerator<Packet | Frame> {
   const [source, ...stages] = args;
 
@@ -397,6 +574,14 @@ function runSimplePipeline(args: any[]): PipelineControl | AsyncGenerator<Packet
   return generator;
 }
 
+/**
+ * Build a simple pipeline generator.
+ *
+ * @param source - Source of packets or frames
+ * @param stages - Processing stages
+ * @yields Processed packets or frames
+ * @internal
+ */
 async function* buildSimplePipeline(
   source: AsyncIterable<Packet | Frame>,
   stages: (Decoder | Encoder | FilterAPI | FilterAPI[] | BitStreamFilterAPI | BitStreamFilterAPI[] | MediaOutput)[],
@@ -427,6 +612,15 @@ async function* buildSimplePipeline(
   yield* stream;
 }
 
+/**
+ * Consume a simple pipeline stream and write to output.
+ *
+ * @param stream - Stream of packets or frames
+ * @param output - Media output destination
+ * @param metadata - Stream metadata
+ * @param shouldStop - Function to check if pipeline should stop
+ * @internal
+ */
 async function consumeSimplePipeline(stream: AsyncIterable<Packet | Frame>, output: MediaOutput, metadata: StreamMetadata, shouldStop: () => boolean): Promise<void> {
   // Add stream to output if we have encoder or decoder info
   let streamIndex = 0;
@@ -483,6 +677,15 @@ async function consumeSimplePipeline(stream: AsyncIterable<Packet | Frame>, outp
 // Named Pipeline Implementation
 // ============================================================================
 
+/**
+ * Run a named partial pipeline.
+ *
+ * @param inputs - Named input sources
+ * @param stages - Named processing stages
+ * @returns Record of async generators
+ *
+ * @internal
+ */
 function runNamedPartialPipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: NamedStages<K>): Record<K, AsyncGenerator<Packet | Frame>> {
   const result = {} as Record<K, AsyncGenerator<Packet | Frame>>;
 
@@ -531,6 +734,16 @@ function runNamedPartialPipeline<K extends StreamName>(inputs: NamedInputs<K>, s
   return result;
 }
 
+/**
+ * Run a named pipeline with outputs.
+ *
+ * @param inputs - Named input sources
+ * @param stages - Named processing stages
+ * @param output - Output destination(s)
+ * @returns Pipeline control interface
+ *
+ * @internal
+ */
 function runNamedPipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: NamedStages<K>, output: MediaOutput | NamedOutputs<K>): PipelineControl {
   let control: PipelineControl;
   // eslint-disable-next-line prefer-const
@@ -538,6 +751,15 @@ function runNamedPipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: 
   return control;
 }
 
+/**
+ * Run named pipeline asynchronously.
+ *
+ * @param inputs - Named input sources
+ * @param stages - Named processing stages
+ * @param output - Output destination(s)
+ * @param shouldStop - Function to check if pipeline should stop
+ * @internal
+ */
 async function runNamedPipelineAsync<K extends StreamName>(
   inputs: NamedInputs<K>,
   stages: NamedStages<K>,
@@ -649,6 +871,15 @@ async function runNamedPipelineAsync<K extends StreamName>(
   }
 }
 
+/**
+ * Build a flexible named stream pipeline.
+ *
+ * @param source - Source packets
+ * @param stages - Processing stages
+ * @param metadata - Stream metadata
+ * @yields Processed packets or frames
+ * @internal
+ */
 async function* buildFlexibleNamedStreamPipeline(
   source: AsyncIterable<Packet>,
   stages: (Decoder | FilterAPI | FilterAPI[] | Encoder | BitStreamFilterAPI | BitStreamFilterAPI[])[],
@@ -684,6 +915,15 @@ async function* buildFlexibleNamedStreamPipeline(
   yield* stream;
 }
 
+/**
+ * Build a named stream pipeline.
+ *
+ * @param source - Source packets
+ * @param stages - Processing stages
+ * @param metadata - Stream metadata
+ * @yields Processed packets
+ * @internal
+ */
 async function* buildNamedStreamPipeline(
   source: AsyncIterable<Packet>,
   stages: (Decoder | FilterAPI | FilterAPI[] | Encoder | BitStreamFilterAPI | BitStreamFilterAPI[])[],
@@ -725,6 +965,15 @@ async function* buildNamedStreamPipeline(
   }
 }
 
+/**
+ * Consume a named stream and write to output.
+ *
+ * @param stream - Stream of packets
+ * @param output - Media output destination
+ * @param metadata - Stream metadata
+ * @param shouldStop - Function to check if pipeline should stop
+ * @internal
+ */
 async function consumeNamedStream(stream: AsyncIterable<Packet>, output: MediaOutput, metadata: StreamMetadata, shouldStop: () => boolean): Promise<void> {
   // Add stream to output
   let streamIndex = 0;
@@ -777,6 +1026,15 @@ async function consumeNamedStream(stream: AsyncIterable<Packet>, output: MediaOu
   // Note: Trailer will be written by interleaveToOutput
 }
 
+/**
+ * Interleave multiple streams to a single output.
+ *
+ * @param streams - Record of packet streams
+ * @param output - Media output destination
+ * @param metadata - Stream metadata for each stream
+ * @param shouldStop - Function to check if pipeline should stop
+ * @internal
+ */
 async function interleaveToOutput(
   streams: Record<StreamName, AsyncIterable<Packet>>,
   output: MediaOutput,
@@ -928,6 +1186,14 @@ async function interleaveToOutput(
 // Stream Processing Functions
 // ============================================================================
 
+/**
+ * Decode a stream of packets to frames.
+ *
+ * @param packets - Input packets
+ * @param decoder - Decoder instance
+ * @yields Decoded frames
+ * @internal
+ */
 async function* decodeStream(packets: AsyncIterable<Packet>, decoder: Decoder): AsyncGenerator<Frame> {
   // Process all packets
   for await (const packet of packets) {
@@ -957,6 +1223,14 @@ async function* decodeStream(packets: AsyncIterable<Packet>, decoder: Decoder): 
   }
 }
 
+/**
+ * Encode a stream of frames to packets.
+ *
+ * @param frames - Input frames
+ * @param encoder - Encoder instance
+ * @yields Encoded packets
+ * @internal
+ */
 async function* encodeStream(frames: AsyncIterable<Frame>, encoder: Encoder): AsyncGenerator<Packet> {
   // Process all frames
   for await (const frame of frames) {
@@ -986,6 +1260,14 @@ async function* encodeStream(frames: AsyncIterable<Frame>, encoder: Encoder): As
   }
 }
 
+/**
+ * Filter a stream of frames.
+ *
+ * @param frames - Input frames
+ * @param filter - Filter instance
+ * @yields Filtered frames
+ * @internal
+ */
 async function* filterStream(frames: AsyncIterable<Frame>, filter: FilterAPI): AsyncGenerator<Frame> {
   // Process all frames
   for await (const frame of frames) {
@@ -1022,6 +1304,14 @@ async function* filterStream(frames: AsyncIterable<Frame>, filter: FilterAPI): A
   }
 }
 
+/**
+ * Process packets through a bitstream filter.
+ *
+ * @param packets - Input packets
+ * @param bsf - Bitstream filter instance
+ * @yields Filtered packets
+ * @internal
+ */
 async function* bitStreamFilterStream(packets: AsyncIterable<Packet>, bsf: BitStreamFilterAPI): AsyncGenerator<Packet> {
   // Process all packets through bitstream filter
   for await (const packet of packets) {
@@ -1046,38 +1336,110 @@ async function* bitStreamFilterStream(packets: AsyncIterable<Packet>, bsf: BitSt
 // Type Guards
 // ============================================================================
 
+/**
+ * Check if object is named inputs.
+ *
+ * @param obj - Object to check
+ * @returns True if object is NamedInputs
+ *
+ * @internal
+ */
 function isNamedInputs(obj: any): obj is NamedInputs<any> {
   return obj && typeof obj === 'object' && !Array.isArray(obj) && !isAsyncIterable(obj) && !isMediaInput(obj);
 }
 
+/**
+ * Check if object is async iterable.
+ *
+ * @param obj - Object to check
+ * @returns True if object is AsyncIterable
+ *
+ * @internal
+ */
 function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
   return obj && typeof obj[Symbol.asyncIterator] === 'function';
 }
 
+/**
+ * Check if object is MediaInput.
+ *
+ * @param obj - Object to check
+ * @returns True if object is MediaInput
+ *
+ * @internal
+ */
 function isMediaInput(obj: any): obj is MediaInput {
   return obj && typeof obj.packets === 'function' && typeof obj.video === 'function' && typeof obj.audio === 'function';
 }
 
+/**
+ * Check if object is Decoder.
+ *
+ * @param obj - Object to check
+ * @returns True if object is Decoder
+ *
+ * @internal
+ */
 function isDecoder(obj: any): obj is Decoder {
   return obj && typeof obj.decode === 'function' && typeof obj.flush === 'function';
 }
 
+/**
+ * Check if object is Encoder.
+ *
+ * @param obj - Object to check
+ * @returns True if object is Encoder
+ *
+ * @internal
+ */
 function isEncoder(obj: any): obj is Encoder {
   return obj && typeof obj.encode === 'function' && typeof obj.flush === 'function';
 }
 
+/**
+ * Check if object is FilterAPI.
+ *
+ * @param obj - Object to check
+ * @returns True if object is FilterAPI
+ *
+ * @internal
+ */
 function isFilterAPI(obj: any): obj is FilterAPI {
   return obj && typeof obj.process === 'function' && typeof obj.receive === 'function';
 }
 
+/**
+ * Check if object is BitStreamFilterAPI.
+ *
+ * @param obj - Object to check
+ * @returns True if object is BitStreamFilterAPI
+ *
+ * @internal
+ */
 function isBitStreamFilterAPI(obj: any): obj is BitStreamFilterAPI {
   return obj && typeof obj.process === 'function' && typeof obj.flushPackets === 'function' && typeof obj.reset === 'function';
 }
 
+/**
+ * Check if object is MediaOutput.
+ *
+ * @param obj - Object to check
+ * @returns True if object is MediaOutput
+ *
+ * @internal
+ */
 function isMediaOutput(obj: any): obj is MediaOutput {
   return obj && typeof obj.writePacket === 'function' && typeof obj.writeHeader === 'function';
 }
 
+/**
+ * Check if object is Packet.
+ *
+ * @param obj - Object to check
+ * @returns True if object is Packet
+ *
+ * @internal
+ */
 function isPacket(obj: any): obj is Packet {
   return obj && 'streamIndex' in obj && 'pts' in obj && 'dts' in obj;
 }

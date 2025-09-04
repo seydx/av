@@ -10,53 +10,47 @@ import type { NativeDictionary, NativeFilterContext, NativeFilterGraph, NativeWr
 import type { ChannelLayout, IRational } from './types.js';
 
 /**
- * Filter context for media processing.
+ * Filter instance in a filter graph.
  *
- * Represents an instance of a filter in a filter graph.
- * Manages filter configuration, parameters, and connections.
- * Must be created through FilterGraph.createFilter() and properly initialized before use.
+ * Represents an instantiated filter within a filter graph. Each context contains
+ * a specific filter configuration with its parameters, connections to other filters,
+ * and input/output pads. Supports both software and hardware filtering operations.
+ * Essential for building complex filter chains for audio/video processing.
  *
  * Direct mapping to FFmpeg's AVFilterContext.
  *
  * @example
  * ```typescript
- * import { FilterGraph, Filter, FFmpegError } from 'node-av';
+ * import { FilterContext, FilterGraph, Filter, FFmpegError } from 'node-av';
  *
- * // Create filter context through FilterGraph
- * const filterGraph = new FilterGraph();
- * filterGraph.alloc();
+ * // Create filter context in a graph
+ * const graph = new FilterGraph();
+ * const filter = Filter.getByName('scale');
+ * const context = graph.createFilter(filter, 'scaler');
  *
- * const bufferFilter = Filter.getByName('buffer');
- * const bufferCtx = filterGraph.createFilter(bufferFilter, 'in');
- * const initRet = bufferCtx.initStr('video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25:pixel_aspect=1/1');
- * FFmpegError.throwIfError(initRet, 'initStr buffer');
+ * // Initialize with parameters
+ * const ret = context.initStr('640:480');
+ * FFmpegError.throwIfError(ret, 'initStr');
  *
- * // Link filters
- * const scaleFilter = Filter.getByName('scale');
- * const scaleCtx = filterGraph.createFilter(scaleFilter, 'scale');
- * const scaleRet = scaleCtx.initStr('1280:720');
- * FFmpegError.throwIfError(scaleRet, 'initStr scale');
+ * // Link filters together
+ * const ret2 = source.link(0, context, 0);
+ * FFmpegError.throwIfError(ret2, 'link');
  *
- * const linkRet = bufferCtx.link(0, scaleCtx, 0);
- * FFmpegError.throwIfError(linkRet, 'link');
- *
- * // Configure and use the graph
- * const configRet = filterGraph.config();
- * FFmpegError.throwIfError(configRet, 'config');
+ * // For buffer source/sink
+ * const ret3 = await bufferSrc.buffersrcAddFrame(frame);
+ * FFmpegError.throwIfError(ret3, 'buffersrcAddFrame');
  * ```
+ *
+ * @see {@link [AVFilterContext](https://ffmpeg.org/doxygen/trunk/structAVFilterContext.html)}
+ * @see {@link FilterGraph} For managing filter graphs
+ * @see {@link Filter} For filter descriptors
  */
 export class FilterContext extends OptionMember<NativeFilterContext> implements Disposable, NativeWrapper<NativeFilterContext> {
   private _hwDeviceCtx?: HardwareDeviceContext; // Cache for hardware device context wrapper
 
   /**
-   * Constructor is internal - use FilterGraph.createFilter().
-   *
-   * FilterContexts are created and managed by FilterGraph.
-   * Do not instantiate directly.
-   *
+   * @param native - The native filter context instance
    * @internal
-   *
-   * @param native - Native AVFilterContext to wrap
    */
   constructor(native: NativeFilterContext) {
     super(native);
@@ -65,9 +59,10 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Filter instance name.
    *
-   * The unique name of this filter instance in the graph.
+   * User-assigned name for this filter instance in the graph.
+   * Used for identification and debugging.
    *
-   * Direct mapping to AVFilterContext->name
+   * Direct mapping to AVFilterContext->name.
    */
   get name(): string | null {
     return this.native.name;
@@ -78,13 +73,11 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
-   * The filter definition.
+   * Filter descriptor.
    *
-   * The AVFilter that this context is an instance of.
+   * Reference to the filter type this context instantiates.
    *
-   * Direct mapping to AVFilterContext->filter
-   *
-   * @readonly
+   * Direct mapping to AVFilterContext->filter.
    */
   get filter(): Filter | null {
     const native = this.native.filter;
@@ -92,13 +85,11 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
-   * The parent filter graph.
+   * Parent filter graph.
    *
-   * The filter graph that contains this filter context.
+   * Reference to the graph containing this filter context.
    *
-   * Direct mapping to AVFilterContext->graph
-   *
-   * @readonly
+   * Direct mapping to AVFilterContext->graph.
    */
   get graph(): NativeFilterGraph | null {
     return this.native.graph;
@@ -107,11 +98,9 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Number of input pads.
    *
-   * The number of input connections this filter can accept.
+   * Total number of input connections this filter can accept.
    *
-   * Direct mapping to AVFilterContext->nb_inputs
-   *
-   * @readonly
+   * Direct mapping to AVFilterContext->nb_inputs.
    */
   get nbInputs(): number {
     return this.native.nbInputs;
@@ -120,32 +109,33 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Number of output pads.
    *
-   * Direct mapping to AVFilterContext->nb_outputs
+   * Total number of output connections this filter can provide.
    *
-   * The number of output connections this filter can provide.
+   * Direct mapping to AVFilterContext->nb_outputs.
    */
   get nbOutputs(): number {
     return this.native.nbOutputs;
   }
 
   /**
-   * Filter readiness status.
+   * Filter readiness state.
    *
-   * Direct mapping to AVFilterContext->ready
+   * Indicates if the filter is ready for processing.
+   * Non-zero when ready.
    *
-   * Non-zero when the filter has been properly initialized.
+   * Direct mapping to AVFilterContext->ready.
    */
   get ready(): number {
     return this.native.ready;
   }
 
   /**
-   * Get or set the hardware device context.
+   * Hardware device context.
    *
-   * Direct mapping to AVFilterContext->hw_device_ctx
+   * Hardware acceleration context for GPU-based filtering.
+   * Set to enable hardware-accelerated filter operations.
    *
-   * Used for hardware-accelerated filters that need device context.
-   * Must be set before filter initialization for hardware filters.
+   * Direct mapping to AVFilterContext->hw_device_ctx.
    */
   get hwDeviceCtx(): HardwareDeviceContext | null {
     const native = this.native.hwDeviceCtx;
@@ -174,66 +164,60 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
-   * Initialize the filter with options.
+   * Initialize filter with dictionary options.
    *
-   * Direct mapping to avfilter_init_dict()
+   * Configures the filter with key-value option pairs.
+   * Must be called after creation and before processing.
    *
-   * @param options - Optional dictionary of filter options
+   * Direct mapping to avfilter_init_dict().
    *
+   * @param options - Dictionary of filter options
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid options
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other filter-specific errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { Dictionary, FilterContext, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * const options = new Dictionary();
-   * const ret1 = options.set('width', '1280', 0);
-   * FFmpegError.throwIfError(ret1, 'set width');
-   * const ret2 = options.set('height', '720', 0);
-   * FFmpegError.throwIfError(ret2, 'set height');
-   *
-   * const initRet = filterCtx.init(options.getNative());
-   * FFmpegError.throwIfError(initRet, 'init');
-   * options.free();
+   * const options = { width: '1920', height: '1080' };
+   * const ret = context.init(options);
+   * FFmpegError.throwIfError(ret, 'init');
    * ```
    *
-   * @see initStr() - Alternative initialization with string arguments
+   * @see {@link initStr} For string-based initialization
    */
   init(options: NativeDictionary | null = null): number {
     return this.native.init(options ?? null);
   }
 
   /**
-   * Initialize the filter with a string argument.
+   * Initialize filter with string arguments.
    *
-   * Direct mapping to avfilter_init_str()
+   * Configures the filter using a string representation of parameters.
+   * Format depends on the specific filter.
    *
-   * @param args - Filter arguments string (format is filter-specific)
+   * Direct mapping to avfilter_init_str().
    *
+   * @param args - Filter arguments string
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid arguments
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other filter-specific errors
+   *   - AVERROR_EINVAL: Invalid arguments
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * // Initialize scale filter
-   * const scaleRet = scaleCtx.initStr('1280:720');
-   * FFmpegError.throwIfError(scaleRet, 'initStr scale');
+   * // Scale filter with width:height
+   * const ret = scaleContext.initStr('1920:1080');
+   * FFmpegError.throwIfError(ret, 'initStr');
    *
-   * // Initialize buffer source
-   * const bufferRet = bufferCtx.initStr('video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25');
-   * FFmpegError.throwIfError(bufferRet, 'initStr buffer');
+   * // Crop filter with width:height:x:y
+   * const ret2 = cropContext.initStr('640:480:100:50');
+   * FFmpegError.throwIfError(ret2, 'initStr');
    * ```
    *
-   * @see init() - Alternative initialization with dictionary
+   * @see {@link init} For dictionary-based initialization
    */
   initStr(args: string | null = null): number {
     return this.native.initStr(args ?? null);
@@ -242,30 +226,32 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Link this filter's output to another filter's input.
    *
-   * Direct mapping to avfilter_link()
+   * Creates a connection between two filters in the graph.
+   * Data flows from this filter's output pad to the destination's input pad.
    *
-   * @param srcPad - Output pad index on this filter
+   * Direct mapping to avfilter_link().
+   *
+   * @param srcPad - Output pad index of this filter
    * @param dst - Destination filter context
-   * @param dstPad - Input pad index on destination filter
-   *
+   * @param dstPad - Input pad index of destination filter
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid pad indices or incompatible formats
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other linking errors
+   *   - AVERROR_EINVAL: Invalid pad indices or incompatible formats
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { FilterContext, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * // Link buffer source to scale filter
-   * const linkRet1 = bufferCtx.link(0, scaleCtx, 0);
-   * FFmpegError.throwIfError(linkRet1, 'link buffer to scale');
+   * // Link source output 0 to scale input 0
+   * const ret = source.link(0, scale, 0);
+   * FFmpegError.throwIfError(ret, 'link');
    *
-   * // Link scale to sink
-   * const linkRet2 = scaleCtx.link(0, sinkCtx, 0);
-   * FFmpegError.throwIfError(linkRet2, 'link scale to sink');
+   * // Link scale output 0 to sink input 0
+   * const ret2 = scale.link(0, sink, 0);
+   * FFmpegError.throwIfError(ret2, 'link');
    * ```
+   *
+   * @see {@link unlink} To disconnect filters
    */
   link(srcPad: number, dst: FilterContext, dstPad: number): number {
     return this.native.link(srcPad, dst.native, dstPad);
@@ -274,16 +260,20 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Unlink a filter pad.
    *
-   * Removes the connection from the specified input pad.
-   * Note: avfilter_link_free is deprecated, we set pointer to nullptr instead.
+   * Disconnects a pad from its linked filter.
+   * Used to reconfigure filter connections.
    *
-   * @param pad - Input pad index to unlink
+   * Direct mapping to avfilter_link_free().
+   *
+   * @param pad - Pad index to unlink
    *
    * @example
    * ```typescript
-   * // Unlink the first input pad
-   * filterCtx.unlink(0);
+   * // Disconnect output pad 0
+   * context.unlink(0);
    * ```
+   *
+   * @see {@link link} To connect filters
    */
   unlink(pad: number): void {
     this.native.unlink(pad);
@@ -292,55 +282,75 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Add a frame to a buffer source filter.
    *
-   * Direct mapping to av_buffersrc_add_frame()
+   * Sends a frame into the filter graph through a buffer source.
+   * Only valid for buffer source filters. Send null to signal EOF.
    *
-   * This function is specific to buffer source filters and is used
-   * to feed frames into the filter graph.
+   * Direct mapping to av_buffersrc_add_frame().
    *
-   * @param frame - The frame to add (can be null to signal EOF)
-   *
+   * @param frame - Frame to send, or null for EOF
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EAGAIN): The buffer is full, try again later
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR_EOF: The filter has been closed
+   *   - AVERROR_EAGAIN: Filter needs more output consumption
+   *   - AVERROR_EOF: Filter has been closed
+   *   - AVERROR_EINVAL: Not a buffer source filter
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { Frame, FilterContext, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av/constants';
    *
-   * // Feed a frame to the buffer source
-   * const addRet = srcCtx.buffersrcAddFrame(frame);
-   * FFmpegError.throwIfError(addRet, 'buffersrcAddFrame');
+   * // Send frame to filter graph
+   * const ret = await bufferSrc.buffersrcAddFrame(frame);
+   * if (ret === AVERROR_EAGAIN) {
+   *   // Need to consume output first
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'buffersrcAddFrame');
+   * }
    *
-   * // Signal end of stream
-   * const eofRet = srcCtx.buffersrcAddFrame(null);
-   * FFmpegError.throwIfError(eofRet, 'buffersrcAddFrame EOF');
+   * // Signal EOF
+   * await bufferSrc.buffersrcAddFrame(null);
    * ```
+   *
+   * @see {@link buffersinkGetFrame} To retrieve filtered frames
    */
   async buffersrcAddFrame(frame: Frame | null): Promise<number> {
-    return this.native.buffersrcAddFrame(frame ? frame.getNative() : null);
+    return await this.native.buffersrcAddFrame(frame ? frame.getNative() : null);
   }
 
   /**
    * Set parameters for a buffer source filter.
    *
-   * Direct mapping to av_buffersrc_parameters_set()
+   * Configures the format and properties of frames that will be sent
+   * to the buffer source. Must be called before sending frames.
    *
-   * This function configures a buffer source filter with specific parameters,
-   * including hardware frames context for hardware-accelerated filtering.
+   * Direct mapping to av_buffersrc_parameters_set().
    *
-   * @param params - Parameters for the buffer source
-   * @returns 0 on success, negative error code on failure
+   * @param params - Source parameters
+   * @param params.width - Video frame width
+   * @param params.height - Video frame height
+   * @param params.format - Pixel or sample format
+   * @param params.timeBase - Time base for timestamps
+   * @param params.frameRate - Video frame rate
+   * @param params.sampleAspectRatio - Pixel aspect ratio
+   * @param params.hwFramesCtx - Hardware frames context
+   * @param params.sampleRate - Audio sample rate
+   * @param params.channelLayout - Audio channel layout
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * const ret = srcCtx.buffersrcParametersSet({
+   * import { FFmpegError, Rational } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
+   *
+   * // Configure video buffer source
+   * const ret = bufferSrc.buffersrcParametersSet({
    *   width: 1920,
    *   height: 1080,
    *   format: AV_PIX_FMT_YUV420P,
-   *   timeBase: { num: 1, den: 30 },
-   *   hwFramesCtx: hardware.framesContext
+   *   timeBase: { num: 1, den: 25 },
+   *   frameRate: { num: 25, den: 1 }
    * });
    * FFmpegError.throwIfError(ret, 'buffersrcParametersSet');
    * ```
@@ -366,79 +376,55 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Get a frame from a buffer sink filter.
    *
-   * Direct mapping to av_buffersink_get_frame()
+   * Retrieves a filtered frame from the filter graph through a buffer sink.
+   * Only valid for buffer sink filters.
    *
-   * This function is specific to buffer sink filters and is used
-   * to retrieve filtered frames from the filter graph.
+   * Direct mapping to av_buffersink_get_frame().
    *
-   * @param frame - The frame to receive the filtered data
-   *
+   * @param frame - Frame to receive filtered data
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success, frame contains valid data
-   *   - AVERROR(EAGAIN): No frame available, need more input
-   *   - AVERROR_EOF: End of stream reached
-   *   - AVERROR(EINVAL): Invalid parameters
+   *   - AVERROR_EAGAIN: No frame available yet
+   *   - AVERROR_EOF: No more frames will be produced
+   *   - AVERROR_EINVAL: Not a buffer sink filter
    *
    * @example
    * ```typescript
-   * import { Frame, FilterContext, FFmpegError } from 'node-av';
+   * import { FFmpegError, Frame } from 'node-av';
    * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
    *
-   * // Get filtered frames
    * const frame = new Frame();
    * frame.alloc();
    *
-   * let ret = sinkCtx.buffersinkGetFrame(frame);
-   * while (ret >= 0) {
-   *   // Process the filtered frame
-   *   processFrame(frame);
-   *   frame.unref();
-   *
-   *   // Try to get another frame
-   *   ret = sinkCtx.buffersinkGetFrame(frame);
-   * }
-   *
-   * if (!FFmpegError.is(ret, AVERROR_EAGAIN) && !FFmpegError.is(ret, AVERROR_EOF)) {
+   * const ret = await bufferSink.buffersinkGetFrame(frame);
+   * if (ret === AVERROR_EAGAIN) {
+   *   // No frame available yet
+   * } else if (ret === AVERROR_EOF) {
+   *   // End of stream
+   * } else {
    *   FFmpegError.throwIfError(ret, 'buffersinkGetFrame');
+   *   // Process filtered frame
    * }
    * ```
+   *
+   * @see {@link buffersrcAddFrame} To send frames for filtering
    */
   async buffersinkGetFrame(frame: Frame): Promise<number> {
-    return this.native.buffersinkGetFrame(frame.getNative());
+    return await this.native.buffersinkGetFrame(frame.getNative());
   }
 
   /**
-   * Set the frame size for a buffersink filter.
+   * Get time base from buffer sink.
    *
-   * Direct mapping to av_buffersink_set_frame_size()
+   * Returns the time base of frames from a buffer sink filter.
+   * Only valid for buffer sink filters.
    *
-   * For audio encoders that require a specific frame size.
+   * Direct mapping to av_buffersink_get_time_base().
    *
-   * @param frameSize - The frame size to set
-   *
-   * @example
-   * ```typescript
-   * if (encCtx.frameSize > 0) {
-   *   buffersinkCtx.buffersinkSetFrameSize(encCtx.frameSize);
-   * }
-   * ```
-   */
-  // buffersinkSetFrameSize(frameSize: number): void {
-  //   this.native.buffersinkSetFrameSize(frameSize);
-  // }
-
-  /**
-   * Get the time base from a buffersink filter.
-   *
-   * Direct mapping to av_buffersink_get_time_base()
-   *
-   * Returns the time base of the buffersink filter.
-   *
-   * @returns The time base as a Rational
+   * @returns Time base as Rational
    *
    * @example
    * ```typescript
-   * const timeBase = buffersinkCtx.buffersinkGetTimeBase();
+   * const timeBase = bufferSink.buffersinkGetTimeBase();
    * console.log(`Time base: ${timeBase.num}/${timeBase.den}`);
    * ```
    */
@@ -448,44 +434,84 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
-   * Get the pixel/sample format from a buffersink filter.
+   * Get pixel/sample format from buffer sink.
    *
-   * Direct mapping to av_buffersink_get_format()
+   * Returns the format of frames from a buffer sink filter.
+   * Only valid for buffer sink filters.
    *
-   * @returns The format (pixel format for video, sample format for audio)
+   * Direct mapping to av_buffersink_get_format().
+   *
+   * @returns Pixel format for video, sample format for audio
+   *
+   * @example
+   * ```typescript
+   * import { AV_PIX_FMT_YUV420P } from 'node-av/constants';
+   *
+   * const format = bufferSink.buffersinkGetFormat();
+   * if (format === AV_PIX_FMT_YUV420P) {
+   *   console.log('Output is YUV420P');
+   * }
+   * ```
    */
   buffersinkGetFormat(): AVPixelFormat | AVSampleFormat {
     return this.native.buffersinkGetFormat();
   }
 
   /**
-   * Get the width from a video buffersink filter.
+   * Get frame width from buffer sink.
    *
-   * Direct mapping to av_buffersink_get_w()
+   * Returns the width of video frames from a buffer sink filter.
+   * Only valid for video buffer sink filters.
    *
-   * @returns The video width in pixels
+   * Direct mapping to av_buffersink_get_w().
+   *
+   * @returns Frame width in pixels
+   *
+   * @example
+   * ```typescript
+   * const width = bufferSink.buffersinkGetWidth();
+   * console.log(`Output width: ${width}px`);
+   * ```
    */
   buffersinkGetWidth(): number {
     return this.native.buffersinkGetWidth();
   }
 
   /**
-   * Get the height from a video buffersink filter.
+   * Get frame height from buffer sink.
    *
-   * Direct mapping to av_buffersink_get_h()
+   * Returns the height of video frames from a buffer sink filter.
+   * Only valid for video buffer sink filters.
    *
-   * @returns The video height in pixels
+   * Direct mapping to av_buffersink_get_h().
+   *
+   * @returns Frame height in pixels
+   *
+   * @example
+   * ```typescript
+   * const height = bufferSink.buffersinkGetHeight();
+   * console.log(`Output height: ${height}px`);
+   * ```
    */
   buffersinkGetHeight(): number {
     return this.native.buffersinkGetHeight();
   }
 
   /**
-   * Get the sample aspect ratio from a video buffersink filter.
+   * Get sample aspect ratio from buffer sink.
    *
-   * Direct mapping to av_buffersink_get_sample_aspect_ratio()
+   * Returns the pixel aspect ratio of video frames from a buffer sink filter.
+   * Only valid for video buffer sink filters.
    *
-   * @returns The sample aspect ratio as a Rational
+   * Direct mapping to av_buffersink_get_sample_aspect_ratio().
+   *
+   * @returns Sample aspect ratio as Rational
+   *
+   * @example
+   * ```typescript
+   * const sar = bufferSink.buffersinkGetSampleAspectRatio();
+   * console.log(`SAR: ${sar.num}:${sar.den}`);
+   * ```
    */
   buffersinkGetSampleAspectRatio(): Rational {
     const sar = this.native.buffersinkGetSampleAspectRatio();
@@ -493,11 +519,20 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
-   * Get the frame rate from a video buffersink filter.
+   * Get frame rate from buffer sink.
    *
-   * Direct mapping to av_buffersink_get_frame_rate()
+   * Returns the frame rate of video from a buffer sink filter.
+   * Only valid for video buffer sink filters.
    *
-   * @returns The frame rate as a Rational
+   * Direct mapping to av_buffersink_get_frame_rate().
+   *
+   * @returns Frame rate as Rational
+   *
+   * @example
+   * ```typescript
+   * const frameRate = bufferSink.buffersinkGetFrameRate();
+   * console.log(`Frame rate: ${frameRate.num}/${frameRate.den} fps`);
+   * ```
    */
   buffersinkGetFrameRate(): Rational {
     const fr = this.native.buffersinkGetFrameRate();
@@ -505,22 +540,40 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
-   * Get the sample rate from an audio buffersink filter.
+   * Get sample rate from buffer sink.
    *
-   * Direct mapping to av_buffersink_get_sample_rate()
+   * Returns the sample rate of audio from a buffer sink filter.
+   * Only valid for audio buffer sink filters.
    *
-   * @returns The audio sample rate in Hz
+   * Direct mapping to av_buffersink_get_sample_rate().
+   *
+   * @returns Sample rate in Hz
+   *
+   * @example
+   * ```typescript
+   * const sampleRate = bufferSink.buffersinkGetSampleRate();
+   * console.log(`Sample rate: ${sampleRate} Hz`);
+   * ```
    */
   buffersinkGetSampleRate(): number {
     return this.native.buffersinkGetSampleRate();
   }
 
   /**
-   * Get the channel layout from an audio buffersink filter.
+   * Get channel layout from buffer sink.
    *
-   * Direct mapping to av_buffersink_get_ch_layout()
+   * Returns the channel layout of audio from a buffer sink filter.
+   * Only valid for audio buffer sink filters.
    *
-   * @returns The channel layout object with order, nbChannels, and mask
+   * Direct mapping to av_buffersink_get_channel_layout().
+   *
+   * @returns Channel layout configuration
+   *
+   * @example
+   * ```typescript
+   * const layout = bufferSink.buffersinkGetChannelLayout();
+   * console.log(`Channels: ${layout.nbChannels}`);
+   * ```
    */
   buffersinkGetChannelLayout(): ChannelLayout {
     return this.native.buffersinkGetChannelLayout();
@@ -529,66 +582,74 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   /**
    * Free the filter context.
    *
-   * Direct mapping to avfilter_free()
+   * Releases all resources associated with the filter context.
+   * The context becomes invalid after calling this.
+   *
+   * Direct mapping to avfilter_free().
    *
    * @example
    * ```typescript
-   * filterCtx.free();
-   * // filterCtx is now invalid and should not be used
+   * context.free();
+   * // Context is now invalid
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Check if this is a source filter context.
+   * Check if filter is a source.
    *
-   * Source filters have no inputs and generate data.
+   * Source filters generate frames without input.
    *
-   * @returns true if the filter has no input pads, false otherwise
+   * @returns True if filter has no inputs
    *
    * @example
    * ```typescript
-   * if (filterCtx.isSource()) {
+   * if (context.isSource()) {
    *   console.log('This is a source filter');
    * }
    * ```
+   *
+   * @see {@link isSink} To check for sink filters
    */
   isSource(): boolean {
     return this.nbInputs === 0;
   }
 
   /**
-   * Check if this is a sink filter context.
+   * Check if filter is a sink.
    *
-   * Sink filters have no outputs and consume data.
+   * Sink filters consume frames without output.
    *
-   * @returns true if the filter has no output pads, false otherwise
+   * @returns True if filter has no outputs
    *
    * @example
    * ```typescript
-   * if (filterCtx.isSink()) {
+   * if (context.isSink()) {
    *   console.log('This is a sink filter');
    * }
    * ```
+   *
+   * @see {@link isSource} To check for source filters
    */
   isSink(): boolean {
     return this.nbOutputs === 0;
   }
 
   /**
-   * Check if the filter is ready for processing.
+   * Check if filter is ready.
    *
-   * Filters must be initialized before they can process data.
+   * Indicates whether the filter is ready for processing.
    *
-   * @returns true if the filter has been properly initialized, false otherwise
+   * @returns True if filter is ready
    *
    * @example
    * ```typescript
-   * filterCtx.initStr('1280:720');
-   * if (filterCtx.isReady()) {
-   *   console.log('Filter is ready for processing');
+   * if (context.isReady()) {
+   *   // Filter is ready for processing
    * }
    * ```
    */
@@ -597,10 +658,11 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
-   * Get the native FFmpeg AVFilterContext pointer.
+   * Get the underlying native FilterContext object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native filter context object
+   * @returns The native FilterContext binding object
+   *
+   * @internal
    */
   getNative(): NativeFilterContext {
     return this.native;
@@ -615,9 +677,9 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * @example
    * ```typescript
    * {
-   *   using filterCtx = filterGraph.createFilter(filter, 'my_filter');
-   *   filterCtx.initStr('args');
-   *   // ... use filter context
+   *   using context = graph.createFilter(filter, 'test');
+   *   context.initStr('640:480');
+   *   // Use context...
    * } // Automatically freed when leaving scope
    * ```
    */

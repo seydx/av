@@ -7,140 +7,121 @@ import type { NativeSoftwareResampleContext, NativeWrapper } from './native-type
 import type { ChannelLayout } from './types.js';
 
 /**
- * Software audio resampling context.
+ * Audio resampling and format conversion context.
  *
- * Provides high-quality audio resampling, format conversion, and channel mixing.
- * Supports sample rate conversion, channel layout remapping, and sample format conversion.
- * Uses the libswresample library for efficient audio processing.
+ * Provides comprehensive audio format conversion including sample rate conversion,
+ * channel layout remapping, and sample format conversion. Essential for audio
+ * processing pipelines where format compatibility is required between components.
+ * Supports high-quality resampling algorithms with configurable parameters.
  *
  * Direct mapping to FFmpeg's SwrContext.
  *
  * @example
  * ```typescript
- * import { SoftwareResampleContext, FFmpegError } from 'node-av';
- * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
+ * import { SoftwareResampleContext, Frame, FFmpegError } from 'node-av';
+ * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from 'node-av/constants';
  *
- * // Create and configure resample context
- * const swr = new SoftwareResampleContext();
- * const ret = swr.allocSetOpts2(
- *   { order: 0, nbChannels: 2, mask: 0x3 }, // stereo out
- *   AV_SAMPLE_FMT_S16,
- *   44100,
- *   { order: 0, nbChannels: 6, mask: 0x3f }, // 5.1 in
- *   AV_SAMPLE_FMT_FLTP,
- *   48000
+ * // Create resampler
+ * const resampler = new SoftwareResampleContext();
+ *
+ * // Configure format conversion
+ * const outLayout = { nbChannels: 2, order: 1, u: { mask: 3n } }; // Stereo
+ * const inLayout = { nbChannels: 1, order: 1, u: { mask: 1n } };  // Mono
+ *
+ * const ret = resampler.allocSetOpts2(
+ *   outLayout, AV_SAMPLE_FMT_S16, 48000,  // Output: Stereo, 16-bit, 48kHz
+ *   inLayout, AV_SAMPLE_FMT_FLTP, 44100   // Input: Mono, float, 44.1kHz
  * );
  * FFmpegError.throwIfError(ret, 'allocSetOpts2');
  *
- * // Initialize
- * const initRet = swr.init();
- * FFmpegError.throwIfError(initRet, 'init');
+ * const ret2 = resampler.init();
+ * FFmpegError.throwIfError(ret2, 'init');
  *
- * // Convert audio
- * const samplesOut = await swr.convert(outBuffers, outSamples, inBuffers, inSamples);
- * FFmpegError.throwIfError(samplesOut, 'convert');
+ * // Convert audio frame
+ * const outFrame = new Frame();
+ * outFrame.nbSamples = 1024;
+ * outFrame.format = AV_SAMPLE_FMT_S16;
+ * outFrame.channelLayout = outLayout;
+ * outFrame.sampleRate = 48000;
+ * outFrame.allocBuffer();
  *
- * // Cleanup
- * swr.free();
+ * const ret3 = resampler.convertFrame(outFrame, inFrame);
+ * FFmpegError.throwIfError(ret3, 'convertFrame');
+ *
+ * // Get conversion delay
+ * const delay = resampler.getDelay(48000n);
+ * console.log(`Resampler delay: ${delay} samples`);
+ *
+ * // Clean up
+ * resampler.free();
  * ```
+ *
+ * @see {@link [SwrContext](https://ffmpeg.org/doxygen/trunk/structSwrContext.html)}
+ * @see {@link Frame} For audio frame operations
  */
 export class SoftwareResampleContext extends OptionMember<NativeSoftwareResampleContext> implements Disposable, NativeWrapper<NativeSoftwareResampleContext> {
-  /**
-   * Create a new software resample context.
-   *
-   * The context is uninitialized - you must call alloc() or allocSetOpts2() before use.
-   * No FFmpeg resources are allocated until initialization.
-   *
-   * Direct wrapper around SwrContext.
-   *
-   * @example
-   * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from 'node-av';
-   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
-   *
-   * const swr = new SoftwareResampleContext();
-   * const ret = swr.allocSetOpts2(
-   *   { order: 0, nbChannels: 2, mask: 0x3 },
-   *   AV_SAMPLE_FMT_S16,
-   *   44100,
-   *   { order: 0, nbChannels: 6, mask: 0x3f },
-   *   AV_SAMPLE_FMT_FLTP,
-   *   48000
-   * );
-   * FFmpegError.throwIfError(ret, 'allocSetOpts2');
-   * const initRet = swr.init();
-   * FFmpegError.throwIfError(initRet, 'init');
-   * ```
-   */
   constructor() {
     super(new bindings.SoftwareResampleContext());
   }
 
   /**
-   * Allocate SwrContext.
+   * Allocate resample context.
    *
-   * Allocates an uninitialized resample context.
-   * Options must be set through the AVOptions API before calling init().
+   * Allocates memory for the resampler.
+   * Must be called before configuration.
    *
-   * Direct mapping to swr_alloc()
-   *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * Direct mapping to swr_alloc().
    *
    * @example
    * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from 'node-av';
-   *
-   * const swr = new SoftwareResampleContext();
-   * swr.alloc();
-   * // Set options via AVOptions API
-   * const ret = swr.init();
-   * FFmpegError.throwIfError(ret, 'init');
+   * const resampler = new SoftwareResampleContext();
+   * resampler.alloc();
+   * // Now configure with setOption() or allocSetOpts2()
    * ```
    *
-   * @see {@link allocSetOpts2} For one-step configuration
-   * @see {@link init} To initialize after configuration
+   * @see {@link allocSetOpts2} For combined allocation and configuration
    */
   alloc(): void {
     this.native.alloc();
   }
 
   /**
-   * Allocate SwrContext if needed and set/reset common parameters.
+   * Allocate and configure resampler.
    *
-   * One-step allocation and configuration of the resample context.
-   * Automatically allocates the context if not already allocated.
+   * Combined allocation and configuration of the resampler with
+   * input and output format specifications.
    *
-   * Direct mapping to swr_alloc_set_opts2()
+   * Direct mapping to swr_alloc_set_opts2().
    *
    * @param outChLayout - Output channel layout
    * @param outSampleFmt - Output sample format
-   * @param outSampleRate - Output sample rate (frequency in Hz)
+   * @param outSampleRate - Output sample rate in Hz
    * @param inChLayout - Input channel layout
    * @param inSampleFmt - Input sample format
-   * @param inSampleRate - Input sample rate (frequency in Hz)
-   *
+   * @param inSampleRate - Input sample rate in Hz
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from 'node-av';
-   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16 } from 'node-av/constants';
    *
-   * const ret = swr.allocSetOpts2(
-   *   { order: 0, nbChannels: 2, mask: 0x3 }, // stereo
-   *   AV_SAMPLE_FMT_S16,
-   *   44100,
-   *   { order: 0, nbChannels: 6, mask: 0x3f }, // 5.1
-   *   AV_SAMPLE_FMT_FLTP,
-   *   48000
+   * // Stereo layout
+   * const stereo = { nbChannels: 2, order: 1, u: { mask: 3n } };
+   * // 5.1 layout
+   * const surround = { nbChannels: 6, order: 1, u: { mask: 63n } };
+   *
+   * // Convert 5.1 float to stereo 16-bit
+   * const ret = resampler.allocSetOpts2(
+   *   stereo, AV_SAMPLE_FMT_S16, 48000,
+   *   surround, AV_SAMPLE_FMT_FLTP, 48000
    * );
    * FFmpegError.throwIfError(ret, 'allocSetOpts2');
    * ```
    *
-   * @see {@link init} To initialize after configuration
+   * @see {@link init} Must be called after configuration
    */
   allocSetOpts2(
     outChLayout: ChannelLayout,
@@ -154,486 +135,421 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
   }
 
   /**
-   * Initialize context after user parameters have been set.
+   * Initialize resampler.
    *
-   * Completes initialization of the resample context.
-   * Must be called after configuration and before conversion.
+   * Initializes the resampler after configuration.
+   * Must be called before any conversion operations.
    *
-   * Direct mapping to swr_init()
+   * Direct mapping to swr_init().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid configuration
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * const ret = swr.init();
+   * const ret = resampler.init();
    * FFmpegError.throwIfError(ret, 'init');
    * ```
    *
    * @see {@link allocSetOpts2} For configuration
-   * @see {@link convert} For audio conversion
+   * @see {@link isInitialized} To check initialization status
    */
   init(): number {
     return this.native.init();
   }
 
   /**
-   * Free the given SwrContext and set the pointer to NULL.
+   * Free resampler context.
    *
-   * Direct mapping to swr_free()
+   * Releases all resources associated with the resampler.
+   * The context becomes invalid after calling this.
+   *
+   * Direct mapping to swr_free().
    *
    * @example
    * ```typescript
-   * swr.free();
-   * // swr is now invalid and should not be used
+   * resampler.free();
+   * // Resampler is now invalid
    * ```
+   *
+   * @see {@link close} For closing without freeing
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Closes the context so that swr_is_initialized() returns 0.
+   * Close resampler context.
    *
-   * Direct mapping to swr_close()
+   * Closes the resampler but keeps the context allocated.
+   * Can be reconfigured and reinitialized after closing.
    *
-   * The context can be brought back to life by running swr_init(),
-   * swr_init() can also be used without swr_close().
-   * This function is mainly provided for simplifying the usecase
-   * where one tries to support libavresample and libswresample.
+   * Direct mapping to swr_close().
    *
    * @example
    * ```typescript
-   * swr.close();
-   * // Context is now closed but not freed
-   * // Can be reinitialized with swr.init()
+   * resampler.close();
+   * // Can now reconfigure and reinit
    * ```
+   *
+   * @see {@link free} For complete deallocation
    */
   close(): void {
     this.native.close();
   }
 
   /**
-   * Convert audio.
+   * Convert audio samples.
    *
-   * Converts audio between different formats, sample rates, and channel layouts.
-   * Handles buffering internally when output space is insufficient.
+   * Converts audio samples from input format to output format.
+   * Handles resampling, channel remapping, and format conversion.
    *
-   * Direct mapping to swr_convert()
+   * Direct mapping to swr_convert().
    *
-   * @param outBuffer - Output buffers, only the first one need be set in case of packed audio
-   * @param outCount - Amount of space available for output in samples per channel
-   * @param inBuffer - Input buffers, only the first one need be set in case of packed audio
-   * @param inCount - Number of input samples available in one channel
-   *
-   * @returns Number of samples output per channel, negative AVERROR on error:
-   *   - >=0: Number of samples output per channel
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   * @param outBuffer - Output sample buffers (one per channel for planar)
+   * @param outCount - Maximum output samples per channel
+   * @param inBuffer - Input sample buffers (one per channel for planar)
+   * @param inCount - Input samples per channel
+   * @returns Number of output samples per channel, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_INPUT_CHANGED: Input format changed
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * const samplesOut = await swr.convert(
-   *   outBuffers,
-   *   outSamples,
-   *   inBuffers,
-   *   inSamples
+   * // Convert audio buffers
+   * const outBuffers = [Buffer.alloc(4096), Buffer.alloc(4096)]; // Stereo
+   * const inBuffers = [inputBuffer]; // Mono
+   *
+   * const samples = await resampler.convert(
+   *   outBuffers, 1024,
+   *   inBuffers, inputSamples
    * );
-   * FFmpegError.throwIfError(samplesOut, 'convert');
-   * console.log(`Converted ${samplesOut} samples per channel`);
+   *
+   * if (samples < 0) {
+   *   FFmpegError.throwIfError(samples, 'convert');
+   * }
+   * console.log(`Converted ${samples} samples`);
    * ```
    *
-   * @see {@link getOutSamples} To calculate required output space
    * @see {@link convertFrame} For frame-based conversion
-   *
-   * @note If more input is provided than output space, then the input will be buffered.
-   * You can avoid this buffering by using swr_get_out_samples() to retrieve an
-   * upper bound on the required number of output samples for the given number of
-   * input samples. Conversion will run directly without copying whenever possible.
    */
   async convert(outBuffer: Buffer[] | null, outCount: number, inBuffer: Buffer[] | null, inCount: number): Promise<number> {
-    return this.native.convert(outBuffer, outCount, inBuffer, inCount);
+    return await this.native.convert(outBuffer, outCount, inBuffer, inCount);
   }
 
   /**
-   * Convert the samples in the input AVFrame and write them to the output AVFrame.
+   * Convert audio frame.
    *
-   * Frame-based audio conversion with automatic buffer management.
-   * Handles format, sample rate, and channel layout conversion.
+   * Converts an entire audio frame to the output format.
+   * Simpler interface than convert() for frame-based processing.
    *
-   * Direct mapping to swr_convert_frame()
+   * Direct mapping to swr_convert_frame().
    *
-   * @param outFrame - Output AVFrame (can be null for flushing)
-   * @param inFrame - Input AVFrame (can be null for draining)
-   *
+   * @param outFrame - Output frame (null to drain)
+   * @param inFrame - Input frame (null to flush)
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid frame parameters
-   *   - AVERROR(EAGAIN): Need more input or output
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_INPUT_CHANGED: Input format changed
    *
    * @example
    * ```typescript
    * import { Frame, FFmpegError } from 'node-av';
    *
-   * const ret = swr.convertFrame(outFrame, inFrame);
+   * // Convert frame
+   * const outFrame = new Frame();
+   * const ret = resampler.convertFrame(outFrame, inFrame);
    * FFmpegError.throwIfError(ret, 'convertFrame');
    *
-   * // Flush remaining samples
-   * const flushRet = swr.convertFrame(outFrame, null);
-   * FFmpegError.throwIfError(flushRet, 'flush');
+   * // Drain remaining samples
+   * const drainFrame = new Frame();
+   * const ret2 = resampler.convertFrame(drainFrame, null);
+   * if (ret2 === 0) {
+   *   // Got drained samples
+   * }
    * ```
    *
    * @see {@link convert} For buffer-based conversion
-   * @see {@link getDelay} To check buffered samples
-   *
-   * @note Input and output AVFrames must have channel_layout, sample_rate and format set.
-   * If the output AVFrame does not have the data pointers allocated the nb_samples
-   * field will be set and av_frame_get_buffer() is called to allocate the frame.
+   * @see {@link configFrame} To configure from frame
    */
   convertFrame(outFrame: Frame | null, inFrame: Frame | null): number {
     return this.native.convertFrame(outFrame?.getNative() ?? null, inFrame?.getNative() ?? null);
   }
 
   /**
-   * Configure or reconfigure the SwrContext using the information provided by the AVFrames.
+   * Configure resampler from frames.
    *
-   * Automatically configures the resample context from frame parameters.
-   * Resets the context even on failure and calls close() internally if open.
+   * Configures the resampler using format information from frames.
+   * Alternative to allocSetOpts2() for frame-based setup.
    *
-   * Direct mapping to swr_config_frame()
+   * Direct mapping to swr_config_frame().
    *
-   * @param outFrame - Output AVFrame (provides output parameters)
-   * @param inFrame - Input AVFrame (provides input parameters)
-   *
+   * @param outFrame - Frame with output format
+   * @param inFrame - Frame with input format
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid frame parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * const ret = swr.configFrame(outFrame, inFrame);
+   * // Configure from frames
+   * const ret = resampler.configFrame(outFrame, inFrame);
    * FFmpegError.throwIfError(ret, 'configFrame');
-   * const initRet = swr.init();
-   * FFmpegError.throwIfError(initRet, 'init');
+   *
+   * const ret2 = resampler.init();
+   * FFmpegError.throwIfError(ret2, 'init');
    * ```
    *
-   * @see {@link init} Must be called after configuration
+   * @see {@link allocSetOpts2} For manual configuration
    */
   configFrame(outFrame: Frame | null, inFrame: Frame | null): number {
     return this.native.configFrame(outFrame?.getNative() ?? null, inFrame?.getNative() ?? null);
   }
 
   /**
-   * Check whether an swr context has been initialized or not.
+   * Check if initialized.
    *
-   * Checks if the context is ready for audio conversion.
+   * Returns whether the resampler has been initialized.
    *
-   * Direct mapping to swr_is_initialized()
+   * Direct mapping to swr_is_initialized().
    *
    * @returns True if initialized, false otherwise
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * if (swr.isInitialized()) {
-   *   // Context is ready for conversion
-   *   const ret = await swr.convert(outBuf, outCount, inBuf, inCount);
-   *   FFmpegError.throwIfError(ret, 'convert');
+   * if (!resampler.isInitialized()) {
+   *   resampler.init();
    * }
    * ```
+   *
+   * @see {@link init} To initialize
    */
   isInitialized(): boolean {
     return this.native.isInitialized();
   }
 
   /**
-   * Gets the delay the next input sample will experience relative to the next output sample.
+   * Get resampler delay.
    *
-   * Returns the total buffering delay in the resample context.
-   * Accounts for both buffered data and sample rate conversion delays.
+   * Returns the number of samples currently buffered in the resampler.
+   * These samples will be output when flushing or with new input.
    *
-   * Direct mapping to swr_get_delay()
+   * Direct mapping to swr_get_delay().
    *
-   * @param base - Timebase in which the returned delay will be:
-   *   - 1: delay in seconds
-   *   - 1000: delay in milliseconds
-   *   - input sample rate: delay in input samples
-   *   - output sample rate: delay in output samples
-   *   - LCM of rates: exact rounding-free delay
-   *
-   * @returns The delay in 1 / base units
+   * @param base - Time base for the returned delay
+   * @returns Delay in samples at the given base rate
    *
    * @example
    * ```typescript
-   * // Get delay in milliseconds
-   * const delayMs = swr.getDelay(1000n);
-   * console.log(`Buffered: ${delayMs}ms`);
+   * // Get delay in output sample rate
+   * const delay = resampler.getDelay(48000n);
+   * console.log(`${delay} samples buffered`);
    *
-   * // Get delay in output samples
-   * const delaySamples = swr.getDelay(BigInt(outputSampleRate));
-   * console.log(`Buffered: ${delaySamples} samples`);
+   * // Get delay in microseconds
+   * const delayUs = resampler.getDelay(1000000n);
+   * console.log(`${delayUs} microseconds delay`);
    * ```
-   *
-   * @see {@link getOutSamples} To calculate output buffer size
    */
   getDelay(base: bigint): bigint {
     return this.native.getDelay(base);
   }
 
   /**
-   * Find an upper bound on the number of samples that the next swr_convert will output.
+   * Calculate output sample count.
    *
-   * Calculates maximum output samples for given input samples.
-   * Accounts for buffered data and sample rate conversion.
+   * Calculates how many output samples will be produced
+   * for a given number of input samples.
    *
-   * Direct mapping to swr_get_out_samples()
+   * Direct mapping to swr_get_out_samples().
    *
    * @param inSamples - Number of input samples
-   *
-   * @returns Upper bound on output samples or negative AVERROR:
-   *   - >=0: Upper bound on the number of samples that the next swr_convert will output
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   * @returns Number of output samples
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * const outSamples = swr.getOutSamples(inSamples);
-   * FFmpegError.throwIfError(outSamples, 'getOutSamples');
-   * // Allocate output buffer for outSamples samples
-   * const bufferSize = outSamples * bytesPerSample * channels;
+   * const outSamples = resampler.getOutSamples(1024);
+   * console.log(`1024 input samples -> ${outSamples} output samples`);
    * ```
-   *
-   * @see {@link convert} For actual conversion
-   *
-   * @note This depends on the internal state, and anything changing the internal state
-   * (like further swr_convert() calls) may change the number of samples returned.
    */
   getOutSamples(inSamples: number): number {
     return this.native.getOutSamples(inSamples);
   }
 
   /**
-   * Convert the next timestamp from input to output.
+   * Calculate next PTS.
    *
-   * Converts timestamps accounting for sample rate conversion.
-   * Timestamps are in 1/(in_sample_rate * out_sample_rate) units.
+   * Calculates the presentation timestamp for the next output sample.
    *
-   * Direct mapping to swr_next_pts()
+   * Direct mapping to swr_next_pts().
    *
-   * @param pts - Timestamp for the next input sample, INT64_MIN if unknown
-   *
-   * @returns The output timestamp for the next output sample
+   * @param pts - Current presentation timestamp
+   * @returns Next presentation timestamp
    *
    * @example
    * ```typescript
-   * const outPts = swr.nextPts(inPts);
-   * outFrame.pts = outPts;
+   * let pts = 0n;
+   * pts = resampler.nextPts(pts);
+   * console.log(`Next PTS: ${pts}`);
    * ```
-   *
-   * @see {@link setCompensation} For timestamp compensation
    */
   nextPts(pts: bigint): bigint {
     return this.native.nextPts(pts);
   }
 
   /**
-   * Activate resampling compensation ("soft" compensation).
+   * Set compensation.
    *
-   * Adjusts resampling to compensate for timestamp drift.
-   * Automatically called by nextPts() when needed.
+   * Adjusts the resampling rate to compensate for clock drift.
+   * Used for audio/video synchronization.
    *
-   * Direct mapping to swr_set_compensation()
+   * Direct mapping to swr_set_compensation().
    *
-   * @param sampleDelta - Delta in PTS per sample
-   * @param compensationDistance - Number of samples to compensate for
-   *
+   * @param sampleDelta - Sample difference to compensate
+   * @param compensationDistance - Distance over which to compensate
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters (NULL context, negative distance, etc.)
-   *   - AVERROR(ENOSYS): Compensation unsupported by resampler
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * const ret = swr.setCompensation(delta, distance);
+   * // Compensate 10 samples over 1000 samples
+   * const ret = resampler.setCompensation(10, 1000);
    * FFmpegError.throwIfError(ret, 'setCompensation');
    * ```
-   *
-   * @see {@link nextPts} For automatic compensation
    */
   setCompensation(sampleDelta: number, compensationDistance: number): number {
     return this.native.setCompensation(sampleDelta, compensationDistance);
   }
 
   /**
-   * Set a customized input channel mapping.
+   * Set channel mapping.
    *
-   * Remaps input channels to output channels.
-   * Use -1 to mute a channel.
+   * Sets custom channel mapping for remixing.
    *
-   * Direct mapping to swr_set_channel_mapping()
+   * Direct mapping to swr_set_channel_mapping().
    *
-   * @param channelMap - Customized input channel mapping (array of channel indexes, -1 for a muted channel)
-   *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   * @param channelMap - Array mapping input to output channels
+   * @returns 0 on success, negative AVERROR on error
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * // Map channels: 0->0, 1->1, mute channel 2
-   * const ret = swr.setChannelMapping([0, 1, -1]);
+   * // Map stereo to reverse stereo (swap L/R)
+   * const ret = resampler.setChannelMapping([1, 0]);
    * FFmpegError.throwIfError(ret, 'setChannelMapping');
    * ```
-   *
-   * @see {@link setMatrix} For custom mixing matrix
    */
   setChannelMapping(channelMap: number[]): number {
     return this.native.setChannelMapping(channelMap);
   }
 
   /**
-   * Set a customized remix matrix.
+   * Set mixing matrix.
    *
-   * Sets custom coefficients for channel mixing.
-   * matrix[i + stride * o] is the weight of input channel i in output channel o.
+   * Sets a custom mixing matrix for channel remapping.
    *
-   * Direct mapping to swr_set_matrix()
+   * Direct mapping to swr_set_matrix().
    *
-   * @param matrix - Remix coefficients
-   * @param stride - Offset between lines of the matrix
-   *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   * @param matrix - Mixing matrix coefficients
+   * @param stride - Matrix row stride
+   * @returns 0 on success, negative AVERROR on error
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * // Set custom mix matrix for stereo to mono
-   * const matrix = [0.5, 0.5]; // Mix both channels equally
-   * const ret = swr.setMatrix(matrix, 1);
+   * // Custom downmix matrix
+   * const matrix = [
+   *   1.0, 0.0,  // Left channel
+   *   0.0, 1.0,  // Right channel
+   * ];
+   * const ret = resampler.setMatrix(matrix, 2);
    * FFmpegError.throwIfError(ret, 'setMatrix');
    * ```
-   *
-   * @see {@link setChannelMapping} For channel remapping
    */
   setMatrix(matrix: number[], stride: number): number {
     return this.native.setMatrix(matrix, stride);
   }
 
   /**
+   * Drop output samples.
+   *
    * Drops the specified number of output samples.
+   * Used for synchronization adjustments.
    *
-   * Discards output samples for "hard" timestamp compensation.
-   * Automatically called by nextPts() when needed.
+   * Direct mapping to swr_drop_output().
    *
-   * Direct mapping to swr_drop_output()
-   *
-   * @param count - Number of samples to be dropped
-   *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   * @param count - Number of samples to drop
+   * @returns 0 on success, negative AVERROR on error
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * const ret = swr.dropOutput(100);
-   * FFmpegError.throwIfError(ret, 'dropOutput');
+   * // Drop 100 output samples
+   * const ret = resampler.dropOutput(100);
+   * if (ret >= 0) {
+   *   console.log(`Dropped ${ret} samples`);
+   * }
    * ```
-   *
-   * @see {@link injectSilence} For adding silence
-   * @see {@link nextPts} For automatic compensation
    */
   dropOutput(count: number): number {
     return this.native.dropOutput(count);
   }
 
   /**
-   * Injects the specified number of silence samples.
+   * Inject silence.
    *
-   * Inserts silent samples for "hard" timestamp compensation.
-   * Automatically called by nextPts() when needed.
+   * Injects silent samples into the output.
+   * Used for padding or synchronization.
    *
-   * Direct mapping to swr_inject_silence()
+   * Direct mapping to swr_inject_silence().
    *
-   * @param count - Number of samples to be injected
-   *
-   * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   * @param count - Number of silent samples to inject
+   * @returns 0 on success, negative AVERROR on error
    *
    * @example
    * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * const ret = swr.injectSilence(100);
-   * FFmpegError.throwIfError(ret, 'injectSilence');
+   * // Inject 100 silent samples
+   * const ret = resampler.injectSilence(100);
+   * if (ret >= 0) {
+   *   console.log(`Injected ${ret} silent samples`);
+   * }
    * ```
-   *
-   * @see {@link dropOutput} For dropping samples
-   * @see {@link nextPts} For automatic compensation
    */
   injectSilence(count: number): number {
     return this.native.injectSilence(count);
   }
 
   /**
-   * Get the native FFmpeg SwrContext pointer.
+   * Get the underlying native SoftwareResampleContext object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native resample context object
+   * @returns The native SoftwareResampleContext binding object
+   *
+   * @internal
    */
   getNative(): NativeSoftwareResampleContext {
     return this.native;
   }
 
   /**
-   * Dispose of the resample context.
+   * Dispose of the resampler context.
    *
    * Implements the Disposable interface for automatic cleanup.
    * Equivalent to calling free().
    *
    * @example
    * ```typescript
-   * import { SoftwareResampleContext, FFmpegError } from 'node-av';
-   *
    * {
-   *   using swr = new SoftwareResampleContext();
-   *   const ret = swr.allocSetOpts2(...);
-   *   FFmpegError.throwIfError(ret, 'allocSetOpts2');
-   *   const initRet = swr.init();
-   *   FFmpegError.throwIfError(initRet, 'init');
-   *   // ... use context
+   *   using resampler = new SoftwareResampleContext();
+   *   resampler.allocSetOpts2(...);
+   *   resampler.init();
+   *   // Use resampler...
    * } // Automatically freed when leaving scope
    * ```
-   *
-   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

@@ -4,11 +4,11 @@ import type { AVSampleFormat } from '../constants/constants.js';
 import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
 
 /**
- * Audio FIFO buffer for sample management.
+ * Audio FIFO (First-In-First-Out) buffer for managing audio samples.
  *
- * Provides a first-in-first-out buffer for audio samples.
- * Supports both planar and interleaved audio formats.
- * Automatically handles reallocation when needed.
+ * Provides a thread-safe buffer for audio sample data, supporting both planar and interleaved formats.
+ * Automatically handles buffer reallocation when needed. Essential for audio resampling,
+ * format conversion, and buffering operations.
  *
  * Direct mapping to FFmpeg's AVAudioFifo.
  *
@@ -17,264 +17,219 @@ import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
  * import { AudioFifo, FFmpegError } from 'node-av';
  * import { AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
  *
- * // Create audio FIFO for stereo float samples
+ * // Create FIFO for stereo float planar audio
  * const fifo = new AudioFifo();
  * fifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 4096);
  *
- * // Write samples to FIFO
- * const samplesWritten = await fifo.write(inputBuffers, frameSize);
- * FFmpegError.throwIfError(samplesWritten, 'write');
+ * // Write samples
+ * const leftChannel = Buffer.alloc(1024 * 4);  // 1024 float samples
+ * const rightChannel = Buffer.alloc(1024 * 4);
+ * const written = await fifo.write([leftChannel, rightChannel], 1024);
+ * FFmpegError.throwIfError(written, 'write');
  *
- * // Read samples from FIFO
- * const samplesRead = await fifo.read(outputBuffers, frameSize);
- * FFmpegError.throwIfError(samplesRead, 'read');
- *
- * // Check available samples
- * console.log(`Samples in FIFO: ${fifo.size}`);
+ * // Read samples when enough available
+ * if (fifo.size >= 512) {
+ *   const outLeft = Buffer.alloc(512 * 4);
+ *   const outRight = Buffer.alloc(512 * 4);
+ *   const read = await fifo.read([outLeft, outRight], 512);
+ *   FFmpegError.throwIfError(read, 'read');
+ * }
  *
  * // Cleanup
  * fifo.free();
  * ```
+ *
+ * @see {@link [AudioFifo](https://ffmpeg.org/doxygen/trunk/structAVAudioFifo.html)}
  */
 export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   private native: NativeAudioFifo;
 
-  /**
-   * Create a new audio FIFO buffer.
-   *
-   * The FIFO is uninitialized - you must call alloc() before use.
-   * No FFmpeg resources are allocated until alloc() is called.
-   *
-   * Direct wrapper around AVAudioFifo.
-   *
-   * @example
-   * ```typescript
-   * import { AudioFifo } from 'node-av';
-   * import { AV_SAMPLE_FMT_S16 } from 'node-av/constants';
-   *
-   * const fifo = new AudioFifo();
-   * fifo.alloc(AV_SAMPLE_FMT_S16, 2, 1024);
-   * // FIFO is now ready for use
-   * ```
-   */
   constructor() {
     this.native = new bindings.AudioFifo();
   }
 
   /**
-   * Get the current number of samples in the AVAudioFifo.
+   * Number of samples currently in the FIFO.
    *
-   * Returns the number of samples currently buffered in the FIFO.
-   *
-   * Direct mapping to av_audio_fifo_size()
-   *
-   * @returns Number of samples currently in the FIFO
-   *
-   * @example
-   * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * if (fifo.size >= frameSize) {
-   *   // Enough samples available for a full frame
-   *   const ret = await fifo.read(outputBuffer, frameSize);
-   *   FFmpegError.throwIfError(ret, 'read');
-   * }
-   * ```
-   *
-   * @readonly
+   * Direct mapping to av_audio_fifo_size().
    */
   get size(): number {
     return this.native.size;
   }
 
   /**
-   * Get the available space in the AVAudioFifo.
+   * Number of samples that can be written without reallocation.
    *
-   * Returns the number of samples that can be written without reallocation.
-   *
-   * Direct mapping to av_audio_fifo_space()
-   *
-   * @returns Number of samples that can be written to the FIFO
-   *
-   * @example
-   * ```typescript
-   * import { FFmpegError } from 'node-av';
-   *
-   * if (fifo.space >= frameSize) {
-   *   // Enough space for a full frame
-   *   const ret = await fifo.write(inputBuffer, frameSize);
-   *   FFmpegError.throwIfError(ret, 'write');
-   * }
-   * ```
-   *
-   * @readonly
+   * Direct mapping to av_audio_fifo_space().
    */
   get space(): number {
     return this.native.space;
   }
 
   /**
-   * Allocate an AVAudioFifo.
+   * Allocate an AVAudioFifo buffer.
    *
-   * Allocates a FIFO buffer for the specified audio format and size.
+   * Creates a FIFO buffer for the specified audio format and size.
    * The FIFO will automatically grow if more data is written than allocated.
    *
-   * Direct mapping to av_audio_fifo_alloc()
+   * Direct mapping to av_audio_fifo_alloc().
    *
    * @param sampleFmt - Sample format (e.g., AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP)
-   * @param channels - Number of channels
-   * @param nbSamples - Initial allocation size, in samples
+   * @param channels - Number of audio channels
+   * @param nbSamples - Initial buffer size in samples
    *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @throws {Error} If allocation fails (ENOMEM)
    *
    * @example
    * ```typescript
    * import { AudioFifo } from 'node-av';
-   * import { AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
+   * import { AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
    *
-   * const fifo = new AudioFifo();
-   * fifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 4096);
-   * // FIFO can now hold up to 4096 stereo float samples
+   * // For interleaved 16-bit stereo
+   * const fifo1 = new AudioFifo();
+   * fifo1.alloc(AV_SAMPLE_FMT_S16, 2, 4096);
+   *
+   * // For planar float 5.1 audio
+   * const fifo2 = new AudioFifo();
+   * fifo2.alloc(AV_SAMPLE_FMT_FLTP, 6, 8192);
    * ```
    *
    * @see {@link realloc} To resize the FIFO
+   * @see {@link free} To release the FIFO
    */
   alloc(sampleFmt: AVSampleFormat, channels: number, nbSamples: number): void {
     this.native.alloc(sampleFmt, channels, nbSamples);
   }
 
   /**
-   * Free an AVAudioFifo.
+   * Free the FIFO buffer and all associated resources.
    *
-   * Frees the FIFO buffer and all associated resources.
-   * The FIFO object becomes invalid after this call.
+   * After calling this, the FIFO is invalid and must be reallocated before use.
    *
-   * Direct mapping to av_audio_fifo_free()
+   * Direct mapping to av_audio_fifo_free().
    *
    * @example
    * ```typescript
    * fifo.free();
-   * // FIFO is now invalid and should not be used
+   * // FIFO is now invalid, must call alloc() before using again
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
+   * @see {@link alloc} To allocate
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Write data to an AVAudioFifo.
+   * Write audio samples to the FIFO.
    *
-   * Writes audio samples to the FIFO buffer.
-   * Automatically reallocates the FIFO if more space is needed.
+   * Writes samples to the FIFO buffer. Automatically reallocates if more space is needed.
+   * For planar formats, provide an array of buffers (one per channel).
+   * For interleaved formats, provide a single buffer.
    *
-   * Direct mapping to av_audio_fifo_write()
+   * Direct mapping to av_audio_fifo_write().
    *
-   * @param data - Audio buffer(s) to write from.
-   *               For planar formats: array of buffers (one per channel).
-   *               For interleaved formats: single buffer.
+   * @param data - Audio data buffer(s). Array for planar, single Buffer for interleaved
    * @param nbSamples - Number of samples to write
    *
-   * @returns Number of samples actually written, or negative AVERROR on error:
-   *   - >=0: Number of samples written
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   * @returns Number of samples written, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * // Planar format (separate buffers per channel)
-   * const leftChannel = Buffer.alloc(frameSize * 4);  // float32
-   * const rightChannel = Buffer.alloc(frameSize * 4);
-   * const written = await fifo.write([leftChannel, rightChannel], frameSize);
+   * // Planar format (e.g., FLTP) - separate buffers per channel
+   * const leftData = Buffer.alloc(1024 * 4);  // 1024 float samples
+   * const rightData = Buffer.alloc(1024 * 4);
+   * const written = await fifo.write([leftData, rightData], 1024);
    * FFmpegError.throwIfError(written, 'write');
+   * console.log(`Wrote ${written} samples`);
    *
-   * // Interleaved format (single buffer)
-   * const interleavedBuffer = Buffer.alloc(frameSize * 2 * 2); // stereo s16
-   * const written2 = await fifo.write(interleavedBuffer, frameSize);
+   * // Interleaved format (e.g., S16) - single buffer
+   * const interleavedData = Buffer.alloc(1024 * 2 * 2);  // 1024 stereo S16 samples
+   * const written2 = await fifo.write(interleavedData, 1024);
    * FFmpegError.throwIfError(written2, 'write');
    * ```
    *
-   * @see {@link read} To read samples from FIFO
+   * @see {@link read} To retrieve samples from FIFO
+   * @see {@link space} To check available space
    */
   async write(data: Buffer | Buffer[], nbSamples: number): Promise<number> {
-    return this.native.write(data, nbSamples);
+    return await this.native.write(data, nbSamples);
   }
 
   /**
-   * Read data from an AVAudioFifo.
+   * Read and remove samples from the FIFO.
    *
-   * Reads and removes samples from the FIFO buffer.
-   * Reads up to nb_samples or the available amount, whichever is less.
+   * Reads up to the specified number of samples from the FIFO.
+   * The samples are removed from the FIFO after reading.
+   * Buffers must be pre-allocated with sufficient size.
    *
-   * Direct mapping to av_audio_fifo_read()
+   * Direct mapping to av_audio_fifo_read().
    *
-   * @param data - Audio buffer(s) to read into.
-   *               For planar formats: array of buffers (one per channel).
-   *               For interleaved formats: single buffer.
-   *               Buffers must be pre-allocated with sufficient size.
-   * @param nbSamples - Number of samples to read
+   * @param data - Pre-allocated buffer(s) to read into. Array for planar, single Buffer for interleaved
+   * @param nbSamples - Maximum number of samples to read
    *
-   * @returns Number of samples actually read, or negative AVERROR on error:
-   *   - >=0: Number of samples read
-   *   - AVERROR(EINVAL): Invalid parameters
+   * @returns Number of samples read, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * // Planar format (separate buffers per channel)
-   * const leftChannel = Buffer.alloc(frameSize * 4);  // float32
-   * const rightChannel = Buffer.alloc(frameSize * 4);
-   * const read = await fifo.read([leftChannel, rightChannel], frameSize);
-   * FFmpegError.throwIfError(read, 'read');
-   *
-   * // Interleaved format (single buffer)
-   * const interleavedBuffer = Buffer.alloc(frameSize * 2 * 2); // stereo s16
-   * const read2 = await fifo.read(interleavedBuffer, frameSize);
-   * FFmpegError.throwIfError(read2, 'read');
+   * // Check available samples
+   * const available = fifo.size;
+   * if (available >= 1024) {
+   *   // Planar format
+   *   const leftOut = Buffer.alloc(1024 * 4);
+   *   const rightOut = Buffer.alloc(1024 * 4);
+   *   const read = await fifo.read([leftOut, rightOut], 1024);
+   *   FFmpegError.throwIfError(read, 'read');
+   *   console.log(`Read ${read} samples`);
+   * }
    * ```
    *
    * @see {@link peek} To read without removing
-   * @see {@link write} To write samples to FIFO
+   * @see {@link size} To check available samples
    */
   async read(data: Buffer | Buffer[], nbSamples: number): Promise<number> {
-    return this.native.read(data, nbSamples);
+    return await this.native.read(data, nbSamples);
   }
 
   /**
-   * Peek data from an AVAudioFifo.
+   * Read samples from the FIFO without removing them.
    *
-   * Reads samples from the FIFO without removing them.
-   * Useful for inspecting upcoming data.
+   * Similar to read() but leaves the samples in the FIFO.
+   * Useful for inspecting upcoming data without consuming it.
    *
-   * Direct mapping to av_audio_fifo_peek()
+   * Direct mapping to av_audio_fifo_peek().
    *
-   * @param data - Audio buffer(s) to peek into.
-   *               For planar formats: array of buffers (one per channel).
-   *               For interleaved formats: single buffer.
-   *               Buffers must be pre-allocated.
-   * @param nbSamples - Number of samples to peek
+   * @param data - Pre-allocated buffer(s) to peek into. Array for planar, single Buffer for interleaved
+   * @param nbSamples - Maximum number of samples to peek
    *
-   * @returns Number of samples actually peeked, or negative AVERROR on error:
-   *   - >=0: Number of samples peeked
-   *   - AVERROR(EINVAL): Invalid parameters
+   * @returns Number of samples peeked, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
    * // Peek at next samples without removing them
-   * const peekBuffer = Buffer.alloc(frameSize * 4);
-   * const peeked = await fifo.peek(peekBuffer, frameSize);
+   * const peekBuffer = Buffer.alloc(256 * 4);
+   * const peeked = await fifo.peek(peekBuffer, 256);
    * FFmpegError.throwIfError(peeked, 'peek');
-   * // Samples are still in FIFO after peek
+   *
+   * // Samples are still in FIFO
+   * console.log(`FIFO still has ${fifo.size} samples`);
    * ```
    *
    * @see {@link read} To read and remove samples
    */
   async peek(data: Buffer | Buffer[], nbSamples: number): Promise<number> {
-    return this.native.peek(data, nbSamples);
+    return await this.native.peek(data, nbSamples);
   }
 
   /**
@@ -283,60 +238,66 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    * Discards the specified number of samples from the FIFO.
    * Useful for skipping unwanted audio data.
    *
-   * Direct mapping to av_audio_fifo_drain()
+   * Direct mapping to av_audio_fifo_drain().
    *
-   * @param nbSamples - Number of samples to drain
+   * @param nbSamples - Number of samples to discard
    *
    * @example
    * ```typescript
-   * // Skip next 100 samples
+   * // Skip 100 samples
    * fifo.drain(100);
+   * console.log(`FIFO now has ${fifo.size} samples`);
    * ```
+   *
+   * @see {@link reset} To remove all samples
    */
   drain(nbSamples: number): void {
     this.native.drain(nbSamples);
   }
 
   /**
-   * Reset the AVAudioFifo buffer.
+   * Remove all samples from the FIFO.
    *
-   * Empties all data in the FIFO without deallocating the buffer.
-   * The FIFO remains allocated and ready for use.
+   * Empties the FIFO buffer without deallocating it.
+   * The FIFO remains allocated and ready for new data.
    *
-   * Direct mapping to av_audio_fifo_reset()
+   * Direct mapping to av_audio_fifo_reset().
    *
    * @example
    * ```typescript
    * fifo.reset();
-   * // FIFO is now empty but still allocated
+   * console.log(fifo.size);  // 0
+   * console.log(fifo.space); // Original allocation size
    * ```
+   *
+   * @see {@link drain} To remove specific number of samples
    */
   reset(): void {
     this.native.reset();
   }
 
   /**
-   * Reallocate an AVAudioFifo to a new size.
+   * Resize the FIFO buffer.
    *
-   * Changes the size of the FIFO buffer.
-   * Can be used to grow or shrink the buffer.
+   * Changes the allocated size of the FIFO. Can grow or shrink the buffer.
+   * Existing samples are preserved up to the new size.
    *
-   * Direct mapping to av_audio_fifo_realloc()
+   * Direct mapping to av_audio_fifo_realloc().
    *
-   * @param nbSamples - New allocation size, in samples
+   * @param nbSamples - New allocation size in samples
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
+   *   - AVERROR_EINVAL: Invalid size
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * // Increase FIFO capacity
-   * const ret = fifo.realloc(8192);
+   * // Grow FIFO to handle larger buffers
+   * const ret = fifo.realloc(16384);
    * FFmpegError.throwIfError(ret, 'realloc');
+   * console.log(`New space: ${fifo.space} samples`);
    * ```
    *
    * @see {@link alloc} For initial allocation
@@ -346,10 +307,11 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   }
 
   /**
-   * Get the native FFmpeg AVAudioFifo pointer.
+   * Get the underlying native AudioFifo object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native AudioFifo object
+   * @returns The native AudioFifo binding object
+   *
+   * @internal
    */
   getNative(): NativeAudioFifo {
     return this.native;
@@ -363,17 +325,12 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    *
    * @example
    * ```typescript
-   * import { AudioFifo } from 'node-av';
-   * import { AV_SAMPLE_FMT_S16 } from 'node-av/constants';
-   *
    * {
    *   using fifo = new AudioFifo();
-   *   fifo.alloc(AV_SAMPLE_FMT_S16, 2, 1024);
-   *   // ... use FIFO
+   *   fifo.alloc(AV_SAMPLE_FMT_FLTP, 2, 4096);
+   *   // Use fifo...
    * } // Automatically freed when leaving scope
    * ```
-   *
-   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

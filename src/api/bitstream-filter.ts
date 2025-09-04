@@ -1,15 +1,3 @@
-/**
- * BitStreamFilterAPI - High-level wrapper for bitstream filtering
- *
- * Simplifies FFmpeg's bitstream filter API with automatic initialization,
- * parameter configuration, and packet processing.
- *
- * Handles filter context lifecycle, packet buffering, and flushing.
- * Useful for format conversion, metadata extraction, and stream modifications.
- *
- * @module api/bitstream-filter
- */
-
 import { AVERROR_EOF } from '../constants/constants.js';
 import { AVERROR_EAGAIN, BitStreamFilter, BitStreamFilterContext, FFmpegError, Packet } from '../lib/index.js';
 
@@ -18,45 +6,40 @@ import type { Stream } from '../lib/index.js';
 /**
  * High-level bitstream filter for packet processing.
  *
- * Handles filter initialization, packet processing, and cleanup.
- * Designed for simple, efficient packet filtering workflows.
- *
- * Manages filter context lifecycle and provides automatic cleanup.
- * Supports packet-by-packet and stream processing modes.
+ * Provides simplified interface for applying bitstream filters to packets.
+ * Handles filter initialization, packet processing, and memory management.
+ * Supports filters like h264_mp4toannexb, hevc_mp4toannexb, aac_adtstoasc.
+ * Essential for format conversion and stream compatibility in transcoding pipelines.
  *
  * @example
  * ```typescript
- * // Create filter for H.264 stream
- * const media = await MediaInput.open('video.mp4');
- * const stream = media.video();
- * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+ * import { BitStreamFilterAPI } from '@seydx/av/api';
  *
- * // Process packets
- * for await (const packet of media.packets()) {
- *   if (packet.streamIndex === stream.index) {
- *     const filtered = await bsf.process(packet);
- *     for (const outPacket of filtered) {
- *       // Write to output or process further
- *       await output.writePacket(outPacket);
- *     }
- *   }
+ * // Create H.264 Annex B converter
+ * const filter = BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+ *
+ * // Process packet
+ * const outputPackets = await filter.process(inputPacket);
+ * for (const packet of outputPackets) {
+ *   await output.writePacket(packet);
+ *   packet.free();
  * }
- *
- * // Flush and cleanup
- * const remaining = await bsf.flush();
- * bsf.dispose();
  * ```
  *
  * @example
  * ```typescript
  * // Process packet stream
- * const bsf = await BitStreamFilterAPI.create('extract_extradata', stream);
+ * const filter = BitStreamFilterAPI.create('hevc_mp4toannexb', videoStream);
  *
- * for await (const filtered of bsf.packets(media.packets())) {
- *   // Filtered packets are automatically processed
- *   await output.writePacket(filtered);
+ * for await (const packet of filter.packets(input.packets())) {
+ *   await output.writePacket(packet);
+ *   packet.free();
  * }
  * ```
+ *
+ * @see {@link BitStreamFilter} For available filters
+ * @see {@link BitStreamFilterContext} For low-level API
+ * @see {@link MediaOutput} For writing filtered packets
  */
 export class BitStreamFilterAPI implements Disposable {
   private ctx: BitStreamFilterContext;
@@ -65,11 +48,10 @@ export class BitStreamFilterAPI implements Disposable {
   private isDisposed = false;
 
   /**
-   * Private constructor - use BitStreamFilterAPI.create() instead.
-   *
-   * @param filter - The bitstream filter
-   * @param ctx - Initialized filter context
-   * @param stream - The stream this filter is for
+   * @param filter - Bitstream filter instance
+   * @param ctx - Filter context
+   * @param stream - Associated stream
+   * @internal
    */
   private constructor(filter: BitStreamFilter, ctx: BitStreamFilterContext, stream: Stream) {
     this.filter = filter;
@@ -78,24 +60,39 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Create a bitstream filter for a specific stream.
+   * Create a bitstream filter for a stream.
    *
-   * Factory method that handles filter discovery, context setup,
-   * and initialization.
+   * Initializes filter with stream codec parameters.
+   * Configures time base and prepares for packet processing.
    *
-   * @param filterName - Name of the bitstream filter (e.g., 'h264_mp4toannexb')
-   * @param stream - Stream to filter
+   * Direct mapping to av_bsf_get_by_name() and av_bsf_alloc().
    *
-   * @returns Configured BitStreamFilterAPI
+   * @param filterName - Name of the bitstream filter
+   * @param stream - Stream to apply filter to
+   * @returns Configured bitstream filter
    *
-   * @throws {Error} If filter unavailable or initialization fails
+   * @throws {Error} If filter not found or initialization fails
+   * @throws {FFmpegError} If allocation or initialization fails
    *
    * @example
    * ```typescript
-   * const media = await MediaInput.open('video.mp4');
-   * const stream = media.video();
-   * const bsf = BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+   * // H.264 MP4 to Annex B conversion
+   * const filter = BitStreamFilterAPI.create('h264_mp4toannexb', videoStream);
    * ```
+   *
+   * @example
+   * ```typescript
+   * // AAC ADTS to ASC conversion
+   * const filter = BitStreamFilterAPI.create('aac_adtstoasc', audioStream);
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Remove metadata
+   * const filter = BitStreamFilterAPI.create('filter_units', stream);
+   * ```
+   *
+   * @see {@link BitStreamFilter.getByName} For filter discovery
    */
   static create(filterName: string, stream: Stream): BitStreamFilterAPI {
     if (!stream) {
@@ -136,30 +133,28 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Get the filter name.
+   * Get filter name.
    *
-   * @returns The name of the bitstream filter
+   * @example
+   * ```typescript
+   * console.log(`Using filter: ${filter.name}`);
+   * ```
    */
   get name(): string {
     return this.filter.name ?? 'unknown';
   }
 
   /**
-   * Get the associated stream.
-   *
-   * @returns The stream this filter was created for
-   */
-  get streamInfo(): Stream {
-    return this.stream;
-  }
-
-  /**
    * Get output codec parameters.
    *
-   * Returns the output codec parameters after filter initialization.
-   * These may differ from input parameters depending on the filter.
+   * Parameters after filter processing.
+   * May differ from input parameters.
    *
-   * @returns Output codec parameters, or null if not available
+   * @example
+   * ```typescript
+   * const outputParams = filter.outputCodecParameters;
+   * console.log(`Output codec: ${outputParams?.codecId}`);
+   * ```
    */
   get outputCodecParameters() {
     return this.ctx.outputCodecParameters;
@@ -168,34 +163,50 @@ export class BitStreamFilterAPI implements Disposable {
   /**
    * Get output time base.
    *
-   * Returns the output time base after filter initialization.
+   * Time base after filter processing.
    *
-   * @returns Output time base, or null if not available
+   * @example
+   * ```typescript
+   * const tb = filter.outputTimeBase;
+   * console.log(`Output timebase: ${tb?.num}/${tb?.den}`);
+   * ```
    */
   get outputTimeBase() {
     return this.ctx.outputTimeBase;
   }
 
   /**
-   * Process a single packet through the filter.
+   * Process a packet through the filter.
    *
-   * Sends a packet to the filter and retrieves all output packets.
-   * One input packet may produce zero, one, or multiple output packets.
+   * Applies bitstream filter to packet.
+   * May produce zero, one, or multiple output packets.
+   * Pass null to signal end-of-stream.
    *
-   * @param packet - Packet to filter, or null to signal EOF
+   * Direct mapping to av_bsf_send_packet() and av_bsf_receive_packet().
    *
-   * @returns Array of filtered packets (may be empty)
+   * @param packet - Packet to filter or null for EOF
+   * @returns Array of filtered packets
+   *
+   * @throws {Error} If filter is disposed
+   * @throws {FFmpegError} If filtering fails
    *
    * @example
    * ```typescript
-   * const inputPacket = await media.readPacket();
-   * const filtered = await bsf.process(inputPacket);
-   *
-   * for (const packet of filtered) {
-   *   console.log(`Filtered packet: size=${packet.size}`);
-   *   await output.writePacket(packet);
+   * const outputPackets = await filter.process(inputPacket);
+   * for (const packet of outputPackets) {
+   *   console.log(`Filtered packet: pts=${packet.pts}`);
+   *   packet.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Flush filter
+   * const remaining = await filter.process(null);
+   * ```
+   *
+   * @see {@link flush} For explicit flushing
+   * @see {@link packets} For stream processing
    */
   async process(packet: Packet | null): Promise<Packet[]> {
     if (this.isDisposed) {
@@ -234,32 +245,40 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Process a stream of packets through the filter.
+   * Process packet stream through filter.
    *
-   * Async generator that processes packets lazily and yields filtered results.
-   * Automatically handles EOF and cleanup.
+   * High-level async generator for filtering packet streams.
+   * Automatically handles flushing at end of stream.
+   * Yields filtered packets ready for output.
    *
-   * @param packets - Async iterable of packets to filter
-   *
+   * @param packets - Async iterable of packets
    * @yields Filtered packets
+   * @throws {Error} If filter is disposed
+   * @throws {FFmpegError} If filtering fails
    *
    * @example
    * ```typescript
-   * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', stream);
-   *
-   * // Filter only video packets
-   * async function* videoPackets() {
-   *   for await (const packet of media.packets()) {
-   *     if (packet.streamIndex === stream.index) {
-   *       yield packet;
-   *     }
-   *   }
-   * }
-   *
-   * for await (const filtered of bsf.packets(videoPackets())) {
-   *   await output.writePacket(filtered);
+   * // Filter entire stream
+   * for await (const packet of filter.packets(input.packets())) {
+   *   await output.writePacket(packet);
+   *   packet.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Chain with decoder
+   * const decoder = await Decoder.create(stream);
+   * const filter = BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+   *
+   * for await (const frame of decoder.frames(filter.packets(input.packets()))) {
+   *   // Process frames
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link process} For single packet filtering
+   * @see {@link flush} For end-of-stream handling
    */
   async *packets(packets: AsyncIterable<Packet>): AsyncGenerator<Packet> {
     if (this.isDisposed) {
@@ -288,21 +307,28 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Flush the filter and retrieve remaining packets.
+   * Flush filter and get remaining packets.
    *
-   * Sends EOF to the filter and retrieves any buffered packets.
-   * Should be called when all input packets have been processed.
+   * Signals end-of-stream and retrieves buffered packets.
+   * Also resets internal filter state.
    *
-   * @returns Array of remaining packets (may be empty)
+   * Direct mapping to av_bsf_flush().
+   *
+   * @returns Array of remaining packets
+   *
+   * @throws {Error} If filter is disposed
    *
    * @example
    * ```typescript
-   * // After processing all packets
-   * const remaining = await bsf.flush();
+   * const remaining = await filter.flush();
    * for (const packet of remaining) {
    *   await output.writePacket(packet);
+   *   packet.free();
    * }
    * ```
+   *
+   * @see {@link flushPackets} For async iteration
+   * @see {@link reset} For state reset only
    */
   async flush(): Promise<Packet[]> {
     if (this.isDisposed) {
@@ -319,21 +345,23 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Flush the filter and yield remaining packets.
+   * Flush filter as async generator.
    *
-   * Async generator that sends EOF to the filter and yields any buffered packets.
-   * Provides a convenient way to process all remaining packets after input is complete.
+   * Convenient async iteration over remaining packets.
+   * Combines flush and iteration.
    *
-   * @yields Remaining packets from the filter
+   * @yields Remaining packets
+   * @throws {Error} If filter is disposed
    *
    * @example
    * ```typescript
-   * // Process all remaining packets with generator
-   * for await (const packet of bsf.flushPackets()) {
+   * for await (const packet of filter.flushPackets()) {
    *   await output.writePacket(packet);
-   *   using _ = packet; // Auto cleanup
+   *   packet.free();
    * }
    * ```
+   *
+   * @see {@link flush} For array return
    */
   async *flushPackets(): AsyncGenerator<Packet> {
     if (this.isDisposed) {
@@ -347,26 +375,39 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Get the stream this filter was created for.
-   * Used for determining stream configuration in pipeline.
+   * Get associated stream.
+   *
+   * Returns the stream this filter was created for.
+   *
+   * @returns Associated stream
+   *
+   * @example
+   * ```typescript
+   * const stream = filter.getStream();
+   * console.log(`Filtering stream ${stream.index}`);
+   * ```
    */
   getStream(): Stream {
     return this.stream;
   }
 
   /**
-   * Reset the filter state.
+   * Reset filter state.
    *
-   * Clears internal buffers and resets the filter to initial state.
-   * Useful when seeking or switching between streams.
+   * Clears internal buffers and resets filter.
+   * Does not dispose resources.
+   *
+   * Direct mapping to av_bsf_flush().
+   *
+   * @throws {Error} If filter is disposed
    *
    * @example
    * ```typescript
-   * // When seeking in the input
-   * await media.seek(timestamp);
-   * bsf.reset(); // Clear filter state
-   * // Continue processing from new position
+   * // Reset for new segment
+   * filter.reset();
    * ```
+   *
+   * @see {@link flush} For reset with packet retrieval
    */
   reset(): void {
     if (this.isDisposed) {
@@ -377,18 +418,17 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Dispose of the filter resources.
+   * Dispose of filter and free resources.
    *
-   * Automatically called when using the `using` statement.
-   * Frees all associated FFmpeg resources.
+   * Releases filter context and marks as disposed.
+   * Safe to call multiple times.
    *
    * @example
    * ```typescript
-   * {
-   *   using bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', stream);
-   *   // ... use filter
-   * } // Automatically disposed when leaving scope
+   * filter.dispose();
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   dispose(): void {
     if (!this.isDisposed) {
@@ -398,7 +438,20 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
-   * Symbol.dispose implementation for using statement.
+   * Dispose of filter.
+   *
+   * Implements Disposable interface for automatic cleanup.
+   * Equivalent to calling dispose().
+   *
+   * @example
+   * ```typescript
+   * {
+   *   using filter = BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+   *   // Use filter...
+   * } // Automatically disposed
+   * ```
+   *
+   * @see {@link dispose} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.dispose();

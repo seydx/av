@@ -5,14 +5,7 @@
  * This file contains all TypeScript interfaces for the native C++ FFmpeg bindings.
  * These interfaces represent the exact API surface exposed by the C++ layer.
  *
- * IMPORTANT:
- * - These are internal interfaces - users should use the wrapper classes in lib/
- * - All interfaces map 1:1 to C++ binding implementations
- * - Properties marked as readonly only have getters in C++
- * - Resource-owning classes provide both free() and Symbol.dispose for cleanup
- *
  * @internal
- * @packageDocumentation
  */
 
 import type {
@@ -54,10 +47,6 @@ import type {
 } from '../constants/index.js';
 import type { ChannelLayout, CodecProfile, FilterPad, IRational } from './types.js';
 
-// ============================================================================
-// CORE TYPES
-// ============================================================================
-
 /**
  * Native AVPacket binding interface
  *
@@ -69,7 +58,16 @@ import type { ChannelLayout, CodecProfile, FilterPad, IRational } from './types.
 export interface NativePacket extends Disposable {
   readonly __brand: 'NativePacket';
 
-  // ===== Lifecycle Methods - Low Level API =====
+  readonly size: number;
+  streamIndex: number;
+  pts: bigint;
+  dts: bigint;
+  duration: bigint;
+  pos: bigint;
+  flags: AVPacketFlag;
+  data: Buffer | null;
+  isKeyframe: boolean;
+
   alloc(): void;
   free(): void;
   ref(src: NativePacket): number;
@@ -78,27 +76,11 @@ export interface NativePacket extends Disposable {
   rescaleTs(srcTb: IRational, dstTb: IRational): void;
   makeRefcounted(): number;
   makeWritable(): number;
-
-  // ===== Properties =====
-  streamIndex: number;
-  pts: bigint;
-  dts: bigint;
-  duration: bigint;
-  pos: bigint;
-  readonly size: number;
-  flags: AVPacketFlag;
-  data: Buffer | null;
-
-  // ===== Utility =====
-  isKeyframe: boolean;
-
-  // ===== Side Data =====
   getSideData(type: AVPacketSideDataType): Buffer | null;
   addSideData(type: AVPacketSideDataType, data: Buffer): number;
   newSideData(type: AVPacketSideDataType, size: number): Buffer;
   freeSideData(): void;
 
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
 
@@ -113,20 +95,11 @@ export interface NativePacket extends Disposable {
 export interface NativeFrame extends Disposable {
   readonly __brand: 'NativeFrame';
 
-  // ===== Lifecycle Methods - Low Level API =====
-  alloc(): void;
-  free(): void;
-  ref(src: NativeFrame): number;
-  unref(): void;
-  clone(): NativeFrame | null;
-  getBuffer(align?: number): number;
-  allocBuffer(): number;
-  makeWritable(): number;
-  copyProps(src: NativeFrame): number;
-  copy(src: NativeFrame): number;
-  fromBuffer(buffer: Buffer): number;
-
-  // ===== Properties - General =====
+  readonly channels: number;
+  readonly linesize: number[];
+  readonly data: Buffer[] | null;
+  readonly extendedData: Buffer[] | null;
+  readonly isWritable: boolean;
   format: AVPixelFormat | AVSampleFormat;
   width: number;
   height: number;
@@ -138,45 +111,35 @@ export interface NativeFrame extends Disposable {
   keyFrame: number;
   pictType: AVPictureType;
   sampleAspectRatio: IRational;
-
-  // ===== Properties - Audio specific =====
   sampleRate: number;
   channelLayout: ChannelLayout;
-  readonly channels: number;
-
-  // ===== Properties - Video specific =====
-  readonly linesize: number[];
   colorRange: AVColorRange;
   colorPrimaries: AVColorPrimaries;
   colorTrc: AVColorTransferCharacteristic;
   colorSpace: AVColorSpace;
   chromaLocation: AVChromaLocation;
-
-  // ===== Data access =====
-  readonly data: Buffer[] | null;
-  readonly extendedData: Buffer[] | null;
-
-  // ===== Hardware Acceleration =====
   hwFramesCtx: NativeHardwareFramesContext | null;
+
+  alloc(): void;
+  free(): void;
+  ref(src: NativeFrame): number;
+  unref(): void;
+  clone(): NativeFrame | null;
+  getBuffer(align?: number): number;
+  allocBuffer(): number;
+  makeWritable(): number;
+  copyProps(src: NativeFrame): number;
+  copy(src: NativeFrame): number;
+  fromBuffer(buffer: Buffer): number;
   hwframeTransferData(dst: NativeFrame, flags?: number): Promise<number>;
   isHwFrame(): boolean;
   isSwFrame(): boolean;
-
-  // ===== Utility =====
-  readonly isWritable: boolean;
-
-  // ===== Side Data =====
   getSideData(type: AVFrameSideDataType): Buffer | null;
   newSideData(type: AVFrameSideDataType, size: number): Buffer;
   removeSideData(type: AVFrameSideDataType): void;
 
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
-
-// ============================================================================
-// CODEC SYSTEM
-// ============================================================================
 
 /**
  * Native AVCodec binding interface
@@ -189,7 +152,6 @@ export interface NativeFrame extends Disposable {
 export interface NativeCodec {
   readonly __brand: 'NativeCodec';
 
-  // ===== Properties (all readonly - codec definitions are immutable) =====
   readonly name: string | null;
   readonly longName: string | null;
   readonly type: AVMediaType;
@@ -198,21 +160,16 @@ export interface NativeCodec {
   readonly maxLowres: number;
   readonly profiles: CodecProfile[] | null;
   readonly wrapper: string | null;
-
-  // ===== Supported formats =====
   readonly supportedFramerates: IRational[] | null;
   readonly pixelFormats: AVPixelFormat[] | null;
   readonly supportedSamplerates: number[] | null;
   readonly sampleFormats: AVSampleFormat[] | null;
   readonly channelLayouts: ChannelLayout[] | null;
 
-  // ===== Methods =====
   isEncoder(): boolean;
   isDecoder(): boolean;
   isExperimental(): boolean;
   getHwConfig(index: number): { pixFmt: AVPixelFormat; methods: number; deviceType: AVHWDeviceType } | null;
-
-  // Note: No Symbol.dispose - codec definitions don't need cleanup
 }
 
 /**
@@ -226,7 +183,47 @@ export interface NativeCodec {
 export interface NativeCodecContext extends Disposable {
   readonly __brand: 'NativeCodecContext';
 
-  // ===== Lifecycle Methods - Low Level API =====
+  readonly delay: number;
+  readonly hasBFrames: number;
+  readonly frameNumber: number;
+  readonly isOpen: boolean;
+  codecType: AVMediaType;
+  codecId: AVCodecID;
+  bitRate: bigint;
+  timeBase: IRational;
+  pktTimebase: IRational;
+  flags: AVCodecFlag;
+  flags2: AVCodecFlag2;
+  extraData: Buffer | null;
+  profile: AVProfile;
+  level: number;
+  threadCount: number;
+  width: number;
+  height: number;
+  gopSize: number;
+  pixelFormat: AVPixelFormat;
+  maxBFrames: number;
+  mbDecision: number;
+  sampleAspectRatio: IRational;
+  framerate: IRational;
+  colorRange: AVColorRange;
+  colorPrimaries: AVColorPrimaries;
+  colorTrc: AVColorTransferCharacteristic;
+  colorSpace: AVColorSpace;
+  chromaLocation: AVChromaLocation;
+  sampleRate: number;
+  channels: number;
+  sampleFormat: AVSampleFormat;
+  frameSize: number;
+  channelLayout: ChannelLayout;
+  qMin: number;
+  qMax: number;
+  rcBufferSize: number;
+  rcMaxRate: bigint;
+  rcMinRate: bigint;
+  hwDeviceCtx: NativeHardwareDeviceContext | null;
+  hwFramesCtx: NativeHardwareFramesContext | null;
+
   allocContext3(codec?: NativeCodec | null): void;
   freeContext(): void;
   open2(codec?: NativeCodec | null, options?: NativeDictionary | null): Promise<number>;
@@ -235,69 +232,12 @@ export interface NativeCodecContext extends Disposable {
   parametersToContext(params: NativeCodecParameters): number;
   parametersFromContext(params: NativeCodecParameters): number;
   flushBuffers(): void;
-
-  // ===== Encoding/Decoding - All Async =====
   sendPacket(packet: NativePacket | null): Promise<number>;
   receiveFrame(frame: NativeFrame): Promise<number>;
   sendFrame(frame: NativeFrame | null): Promise<number>;
   receivePacket(packet: NativePacket): Promise<number>;
-
-  // ===== Properties - General =====
-  codecType: AVMediaType;
-  codecId: AVCodecID;
-  bitRate: bigint;
-  timeBase: IRational;
-  pktTimebase: IRational;
-  readonly delay: number;
-  flags: AVCodecFlag;
-  flags2: AVCodecFlag2;
-  extraData: Buffer | null;
-  profile: AVProfile;
-  level: number;
-  threadCount: number;
-
-  // ===== Properties - Video =====
-  width: number;
-  height: number;
-  gopSize: number;
-  pixelFormat: AVPixelFormat;
-  maxBFrames: number;
-  mbDecision: number;
-  readonly hasBFrames: number;
-  sampleAspectRatio: IRational;
-  framerate: IRational;
-  colorRange: AVColorRange;
-  colorPrimaries: AVColorPrimaries;
-  colorTrc: AVColorTransferCharacteristic;
-  colorSpace: AVColorSpace;
-  chromaLocation: AVChromaLocation;
-
-  // ===== Properties - Audio =====
-  sampleRate: number;
-  channels: number;
-  sampleFormat: AVSampleFormat;
-  frameSize: number;
-  readonly frameNumber: number;
-  channelLayout: ChannelLayout;
-
-  // ===== Properties - Encoding =====
-  qMin: number;
-  qMax: number;
-  rcBufferSize: number;
-  rcMaxRate: bigint;
-  rcMinRate: bigint;
-
-  // ===== Properties - Hardware Acceleration =====
-  hwDeviceCtx: NativeHardwareDeviceContext | null;
-  hwFramesCtx: NativeHardwareFramesContext | null;
-
-  // ===== Hardware Acceleration Methods =====
   setHardwarePixelFormat(hwFormat: AVPixelFormat, swFormat?: AVPixelFormat): void;
 
-  // ===== Utility =====
-  readonly isOpen: boolean;
-
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
 
@@ -311,7 +251,7 @@ export interface NativeCodecContext extends Disposable {
  */
 export interface NativeCodecParser {
   readonly __brand: 'NativeCodecParser';
-  // ===== Lifecycle Methods =====
+
   init(codecId: AVCodecID): void;
   parse2(codecContext: NativeCodecContext, packet: NativePacket, data: Buffer, pts: bigint, dts: bigint, pos: number): number;
   close(): void;
@@ -328,26 +268,15 @@ export interface NativeCodecParser {
 export interface NativeCodecParameters extends Disposable {
   readonly __brand: 'NativeCodecParameters';
 
-  // ===== Lifecycle Methods - Low Level API =====
-  alloc(): void;
-  free(): void;
-  copy(dst: NativeCodecParameters): number;
-  fromContext(codecContext: NativeCodecContext): number;
-  toContext(codecContext: NativeCodecContext): number;
-  toJSON(): Record<string, any>;
-
-  // ===== Properties - General =====
+  readonly extradataSize: number;
   codecType: AVMediaType;
   codecId: AVCodecID;
   codecTag: number;
   extradata: Buffer | null;
-  readonly extradataSize: number;
   format: AVPixelFormat | AVSampleFormat;
   bitRate: bigint;
   profile: AVProfile;
   level: number;
-
-  // ===== Properties - Video =====
   width: number;
   height: number;
   sampleAspectRatio: IRational;
@@ -357,11 +286,16 @@ export interface NativeCodecParameters extends Disposable {
   colorTrc: AVColorTransferCharacteristic;
   colorSpace: AVColorSpace;
   chromaLocation: AVChromaLocation;
-
-  // ===== Properties - Audio =====
   channelLayout: ChannelLayout;
   channels: number;
   sampleRate: number;
+
+  alloc(): void;
+  free(): void;
+  copy(dst: NativeCodecParameters): number;
+  fromContext(codecContext: NativeCodecContext): number;
+  toContext(codecContext: NativeCodecContext): number;
+  toJSON(): Record<string, any>;
 
   // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
@@ -379,12 +313,9 @@ export interface NativeCodecParameters extends Disposable {
 export interface NativeDictionary extends Disposable {
   readonly __brand: 'NativeDictionary';
 
-  // ===== Lifecycle Methods - Low Level API =====
   alloc(): void;
   free(): void;
   copy(dst: NativeDictionary, flags: AVDictFlag): number;
-
-  // ===== Operations - Low Level API =====
   set(key: string, value: string, flags: AVDictFlag): number;
   get(key: string, flags: AVDictFlag): string | null;
   count(): number;
@@ -392,13 +323,8 @@ export interface NativeDictionary extends Disposable {
   parseString(str: string, keyValSep: string, pairsSep: string, flags: AVDictFlag): number;
   getString(keyValSep: string, pairsSep: string): string | null;
 
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
-
-// ============================================================================
-// I/O SYSTEM
-// ============================================================================
 
 /**
  * Native AVIOContext binding interface
@@ -411,7 +337,6 @@ export interface NativeDictionary extends Disposable {
 export interface NativeIOContext extends AsyncDisposable {
   readonly __brand: 'NativeIOContext';
 
-  // ===== Lifecycle Methods - Low Level API =====
   allocContext(bufferSize: number, writeFlag: number): void;
   allocContextWithCallbacks(
     bufferSize: number,
@@ -423,33 +348,26 @@ export interface NativeIOContext extends AsyncDisposable {
   freeContext(): void;
   open2(url: string, flags: AVIOFlag): Promise<number>;
   closep(): Promise<number>;
-
-  // ===== I/O Operations - Low Level API =====
   read(size: number): Promise<Buffer | number>;
   write(buffer: Buffer): Promise<void>;
   seek(offset: bigint, whence: AVSeekWhence): Promise<bigint>;
   size(): Promise<bigint>;
   flush(): Promise<void>;
   skip(offset: bigint): Promise<bigint>;
-  tell(): bigint; // Stays sync
+  tell(): bigint;
 
   // ===== Properties =====
   readonly eof: boolean;
   readonly error: number;
   readonly seekable: number;
-  maxPacketSize: number;
-  direct: number;
   readonly pos: bigint;
   readonly bufferSize: number;
   readonly writeFlag: boolean;
+  maxPacketSize: number;
+  direct: number;
 
-  // Symbol.asyncDispose for cleanup
   [Symbol.asyncDispose](): Promise<void>;
 }
-
-// ============================================================================
-// FORMAT SYSTEM
-// ============================================================================
 
 /**
  * Native AVInputFormat binding interface
@@ -462,12 +380,11 @@ export interface NativeIOContext extends AsyncDisposable {
 export interface NativeInputFormat {
   readonly __brand: 'NativeInputFormat';
 
-  // ===== Properties (all readonly - format definitions are immutable) =====
   readonly name: string | null;
   readonly longName: string | null;
   readonly extensions: string | null;
   readonly mimeType: string | null;
-  readonly flags: AVFormatFlag; // Input format flags
+  readonly flags: AVFormatFlag;
 }
 
 /**
@@ -481,7 +398,6 @@ export interface NativeInputFormat {
 export interface NativeOutputFormat {
   readonly __brand: 'NativeOutputFormat';
 
-  // ===== Properties (all readonly - format definitions are immutable) =====
   readonly name: string | null;
   readonly longName: string | null;
   readonly extensions: string | null;
@@ -489,7 +405,7 @@ export interface NativeOutputFormat {
   readonly audioCodec: AVCodecID;
   readonly videoCodec: AVCodecID;
   readonly subtitleCodec: AVCodecID;
-  readonly flags: AVFormatFlag; // Output format flags
+  readonly flags: AVFormatFlag;
 }
 
 /**
@@ -504,37 +420,20 @@ export interface NativeOutputFormat {
 export interface NativeStream {
   readonly __brand: 'NativeStream';
 
-  // ===== Properties (based on stream.h/stream.cc bindings) =====
-
-  // Basic identification
   readonly index: number;
+  readonly attachedPic: NativePacket | null;
   id: number;
-
-  // Codec parameters - THE most important property
   codecpar: NativeCodecParameters;
-
-  // Timing
   timeBase: IRational;
   startTime: bigint;
   duration: bigint;
   nbFrames: bigint;
-
-  // Stream properties
   disposition: AVDisposition;
   discard: AVDiscard;
-
-  // Video specific
   sampleAspectRatio: IRational;
   avgFrameRate: IRational;
   rFrameRate: IRational;
-
-  // Metadata
   metadata: NativeDictionary | null;
-
-  // Attached picture (e.g., album art)
-  readonly attachedPic: NativePacket | null;
-
-  // Event flags
   eventFlags: AVStreamEventFlag;
 }
 
@@ -549,20 +448,34 @@ export interface NativeStream {
 export interface NativeFormatContext extends AsyncDisposable {
   readonly __brand: 'NativeFormatContext';
 
-  // ===== Lifecycle Methods - Low Level API =====
+  readonly startTime: bigint;
+  readonly duration: bigint;
+  readonly bitRate: bigint;
+  readonly iformat: NativeInputFormat | null;
+  readonly nbStreams: number;
+  readonly streams: NativeStream[] | null;
+  readonly nbPrograms: number;
+  readonly pbBytes: bigint;
+  readonly probeScore: number;
+  url: string | null;
+  flags: AVFormatFlag;
+  probesize: bigint;
+  maxAnalyzeDuration: bigint;
+  metadata: NativeDictionary | null;
+  oformat: NativeOutputFormat | null;
+  pb: NativeIOContext | null; // setter only
+  strictStdCompliance: number;
+  maxStreams: number;
+
   allocContext(): void;
   allocOutputContext2(oformat: NativeOutputFormat | null, formatName: string | null, filename: string | null): number;
   freeContext(): void;
-
-  // ===== Input Operations - All Async =====
   openInput(url: string, fmt: NativeInputFormat | null, options: NativeDictionary | null): Promise<number>;
   closeInput(): Promise<void>;
   findStreamInfo(options: NativeDictionary[] | null): Promise<number>;
   readFrame(pkt: NativePacket): Promise<number>;
   seekFrame(streamIndex: number, timestamp: bigint, flags: AVSeekFlag): Promise<number>;
   seekFile(streamIndex: number, minTs: bigint, ts: bigint, maxTs: bigint, flags: AVSeekFlag): Promise<number>;
-
-  // ===== Output Operations - All Async =====
   openOutput(): Promise<number>;
   closeOutput(): Promise<void>;
   writeHeader(options: NativeDictionary | null): Promise<number>;
@@ -570,14 +483,8 @@ export interface NativeFormatContext extends AsyncDisposable {
   interleavedWriteFrame(pkt: NativePacket | null): Promise<number>;
   writeTrailer(): Promise<number>;
   flush(): void;
-
-  // ===== Stream Management =====
   newStream(c: NativeCodec | null): NativeStream;
-
-  // ===== Debugging =====
   dumpFormat(index: number, url: string, isOutput: boolean): void;
-
-  // ===== Stream Selection =====
   findBestStream(
     type: AVMediaType,
     wantedStreamNb: number,
@@ -586,49 +493,23 @@ export interface NativeFormatContext extends AsyncDisposable {
     flags: number,
   ): number | { streamIndex: number; decoder: NativeCodec | null };
 
-  // ===== Properties =====
-  url: string | null;
-  readonly startTime: bigint;
-  readonly duration: bigint;
-  readonly bitRate: bigint;
-  flags: AVFormatFlag;
-  probesize: bigint;
-  maxAnalyzeDuration: bigint;
-  metadata: NativeDictionary | null;
-  readonly iformat: NativeInputFormat | null;
-  oformat: NativeOutputFormat | null;
-  pb: NativeIOContext | null; // setter only
-  readonly nbStreams: number;
-  readonly streams: NativeStream[] | null;
-  strictStdCompliance: number;
-  maxStreams: number;
-  readonly nbPrograms: number;
-  readonly pbBytes: bigint;
-  readonly probeScore: number;
-
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
-
-// ============================================================================
-// ERROR HANDLING
-// ============================================================================
 
 /**
  * Native FFmpegError binding interface
  *
  * Provides error code translation and string representation.
  * Maps FFmpeg error codes to human-readable messages.
+ *
+ * @internal
  */
 export interface NativeFFmpegError {
-  // ===== Properties =====
-  readonly code: number; // FFmpeg error code (negative)
-  readonly message: string; // Human-readable error message from av_strerror()
-}
+  readonly __brand: 'NativeFFmpegError';
 
-// ============================================================================
-// PROCESSING
-// ============================================================================
+  readonly code: number;
+  readonly message: string;
+}
 
 /**
  * Native AudioFifo binding interface
@@ -640,23 +521,18 @@ export interface NativeFFmpegError {
  */
 export interface NativeAudioFifo extends Disposable {
   readonly __brand: 'NativeAudioFifo';
-  // ===== Lifecycle Methods - Low Level API =====
+
+  readonly size: number;
+  readonly space: number;
+
   alloc(sampleFmt: AVSampleFormat, channels: number, nbSamples: number): void;
   free(): void;
-
-  // ===== I/O Operations (Async) - Low Level API =====
   write(data: Buffer | Buffer[], nbSamples: number): Promise<number>;
   read(data: Buffer | Buffer[], nbSamples: number): Promise<number>;
   peek(data: Buffer | Buffer[], nbSamples: number): Promise<number>;
-
-  // ===== Sync Operations - Low Level API =====
   drain(nbSamples: number): void;
   reset(): void;
   realloc(nbSamples: number): number;
-
-  // ===== Properties =====
-  readonly size: number;
-  readonly space: number;
 }
 
 /**
@@ -670,17 +546,13 @@ export interface NativeAudioFifo extends Disposable {
 export interface NativeSoftwareScaleContext extends Disposable {
   readonly __brand: 'NativeSoftwareScaleContext';
 
-  // ===== Lifecycle Methods - Low Level API =====
   allocContext(): void;
   getContext(srcW: number, srcH: number, srcFormat: AVPixelFormat, dstW: number, dstH: number, dstFormat: AVPixelFormat, flags: SWSFlag): void;
   initContext(): number;
   freeContext(): void;
-
-  // ===== Operations =====
   scale(srcSlice: Buffer[], srcStride: number[], srcSliceY: number, srcSliceH: number, dst: Buffer[], dstStride: number[]): Promise<number>;
   scaleFrame(dst: NativeFrame, src: NativeFrame): Promise<number>;
 
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
 
@@ -695,7 +567,6 @@ export interface NativeSoftwareScaleContext extends Disposable {
 export interface NativeSoftwareResampleContext extends Disposable {
   readonly __brand: 'NativeSoftwareResampleContext';
 
-  // ===== Lifecycle Methods - Low Level API =====
   alloc(): void;
   allocSetOpts2(
     outChLayout: ChannelLayout,
@@ -708,32 +579,21 @@ export interface NativeSoftwareResampleContext extends Disposable {
   init(): number;
   free(): void;
   close(): void;
-
-  // ===== Operations =====
   convert(outBuffer: Buffer[] | null, outCount: number, inBuffer: Buffer[] | null, inCount: number): Promise<number>;
   convertFrame(outFrame: NativeFrame | null, inFrame: NativeFrame | null): number;
   configFrame(outFrame: NativeFrame | null, inFrame: NativeFrame | null): number;
-
-  // ===== Query =====
   isInitialized(): boolean;
   getDelay(base: bigint): bigint;
   getOutSamples(inSamples: number): number;
   nextPts(pts: bigint): bigint;
-
-  // ===== Configuration =====
   setCompensation(sampleDelta: number, compensationDistance: number): number;
   setChannelMapping(channelMap: number[]): number;
   setMatrix(matrix: number[], stride: number): number;
   dropOutput(count: number): number;
   injectSilence(count: number): number;
 
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
-
-// ============================================================================
-// FILTER SYSTEM
-// ============================================================================
 
 /**
  * Native AVFilter binding interface
@@ -746,7 +606,6 @@ export interface NativeSoftwareResampleContext extends Disposable {
 export interface NativeFilter {
   readonly __brand: 'NativeFilter';
 
-  // ===== Properties (all readonly - filter definitions are immutable) =====
   readonly name: string | null;
   readonly description: string | null;
   readonly inputs: FilterPad[];
@@ -765,7 +624,14 @@ export interface NativeFilter {
 export interface NativeFilterContext extends Disposable {
   readonly __brand: 'NativeFilterContext';
 
-  // ===== Methods - Low Level API =====
+  readonly filter: NativeFilter | null;
+  readonly graph: NativeFilterGraph | null;
+  readonly nbInputs: number;
+  readonly nbOutputs: number;
+  readonly ready: number;
+  name: string | null;
+  hwDeviceCtx: NativeHardwareDeviceContext | null;
+
   init(options?: NativeDictionary | null): number;
   initStr(args?: string | null): number;
   link(srcPad: number, dst: NativeFilterContext, dstPad: number): number;
@@ -794,16 +660,6 @@ export interface NativeFilterContext extends Disposable {
   buffersinkGetSampleAspectRatio(): IRational;
   free(): void;
 
-  // ===== Properties =====
-  name: string | null;
-  readonly filter: NativeFilter | null;
-  readonly graph: NativeFilterGraph | null;
-  readonly nbInputs: number;
-  readonly nbOutputs: number;
-  readonly ready: number;
-  hwDeviceCtx: NativeHardwareDeviceContext | null;
-
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
 
@@ -818,38 +674,27 @@ export interface NativeFilterContext extends Disposable {
 export interface NativeFilterGraph extends Disposable {
   readonly __brand: 'NativeFilterGraph';
 
-  // ===== Lifecycle Methods - Low Level API =====
-  alloc(): void;
-  free(): void;
-
-  // ===== Filter Management =====
-  createFilter(filter: NativeFilter, name: string, args?: string | null): NativeFilterContext | null;
-  allocFilter(filter: NativeFilter, name: string): NativeFilterContext | null;
-  getFilter(name: string): NativeFilterContext | null;
-
-  // ===== Configuration =====
-  config(): Promise<number>;
-  parse(filters: string, inputs: NativeFilterInOut | null, outputs: NativeFilterInOut | null): number;
-  parse2(filters: string): number;
-  parsePtr(filters: string, inputs?: NativeFilterInOut | null, outputs?: NativeFilterInOut | null): number;
-  validate(): number;
-
-  // ===== Execution =====
-  requestOldest(): Promise<number>;
-  dump(): string | null;
-
-  // ===== Command Interface =====
-  sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): number | { response: string | null };
-  queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): number;
-
-  // ===== Properties =====
   readonly nbFilters: number;
   readonly filters: NativeFilterContext[] | null;
   threadType: AVFilterConstants;
   nbThreads: number;
   scaleSwsOpts: string | null;
 
-  // Symbol.dispose for cleanup
+  alloc(): void;
+  free(): void;
+  createFilter(filter: NativeFilter, name: string, args?: string | null): NativeFilterContext | null;
+  allocFilter(filter: NativeFilter, name: string): NativeFilterContext | null;
+  getFilter(name: string): NativeFilterContext | null;
+  config(): Promise<number>;
+  parse(filters: string, inputs: NativeFilterInOut | null, outputs: NativeFilterInOut | null): number;
+  parse2(filters: string): number;
+  parsePtr(filters: string, inputs?: NativeFilterInOut | null, outputs?: NativeFilterInOut | null): number;
+  validate(): number;
+  requestOldest(): Promise<number>;
+  dump(): string | null;
+  sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): number | { response: string | null };
+  queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): number;
+
   [Symbol.dispose](): void;
 }
 
@@ -864,34 +709,31 @@ export interface NativeFilterGraph extends Disposable {
 export interface NativeFilterInOut extends Disposable {
   readonly __brand: 'NativeFilterInOut';
 
-  // ===== Lifecycle Methods - Low Level API =====
-  alloc(): void;
-  free(): void;
-
-  // ===== Properties =====
   name: string | null;
   filterCtx: NativeFilterContext | null;
   padIdx: number;
   next: NativeFilterInOut | null;
 
-  // Symbol.dispose for cleanup
+  alloc(): void;
+  free(): void;
+
   [Symbol.dispose](): void;
 }
-
-// ============================================================================
-// HARDWARE ACCELERATION
-// ============================================================================
 
 /**
  * Native AVHWDeviceContext binding interface
  *
  * Hardware device context for hardware acceleration.
  * Direct mapping to FFmpeg's AVHWDeviceContext.
+ *
+ * @internal
  */
 export interface NativeHardwareDeviceContext extends Disposable {
   readonly __brand: 'NativeHardwareDeviceContext';
 
-  // ===== Methods - Low Level API =====
+  readonly type: AVHWDeviceType;
+  readonly hwctx: bigint | null;
+
   alloc(type: AVHWDeviceType): void;
   init(): number;
   create(type: AVHWDeviceType, device: string | null, options: any | null): number;
@@ -907,11 +749,6 @@ export interface NativeHardwareDeviceContext extends Disposable {
   } | null;
   free(): void;
 
-  // ===== Properties =====
-  readonly type: AVHWDeviceType;
-  readonly hwctx: bigint | null;
-
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
 
@@ -920,11 +757,19 @@ export interface NativeHardwareDeviceContext extends Disposable {
  *
  * Hardware frames context for hardware acceleration.
  * Direct mapping to FFmpeg's AVHWFramesContext.
+ *
+ * @internal
  */
 export interface NativeHardwareFramesContext extends Disposable {
   readonly __brand: 'NativeHardwareFramesContext';
 
-  // ===== Methods - Low Level API =====
+  readonly deviceRef: NativeHardwareDeviceContext | null;
+  format: AVPixelFormat;
+  swFormat: AVPixelFormat;
+  width: number;
+  height: number;
+  initialPoolSize: number;
+
   alloc(device: NativeHardwareDeviceContext): void;
   init(): number;
   getBuffer(frame: NativeFrame, flags?: number): number;
@@ -934,66 +779,54 @@ export interface NativeHardwareFramesContext extends Disposable {
   createDerived(format: AVPixelFormat, derivedDevice: NativeHardwareDeviceContext, source: NativeHardwareFramesContext, flags?: number): number;
   free(): void;
 
-  // ===== Properties =====
-  format: AVPixelFormat;
-  swFormat: AVPixelFormat;
-  width: number;
-  height: number;
-  initialPoolSize: number;
-  readonly deviceRef: NativeHardwareDeviceContext | null;
-
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
 
-// ============================================================================
-// BITSTREAM FILTERS
-// ============================================================================
-
 /**
- * Native BitStreamFilter (avcodec)
+ * Native AVBitStreamFilter binding interface
+ *
+ * Represents a bitstream filter definition for modifying packet data.
+ * This is an immutable descriptor - actual filtering happens via BitStreamFilterContext.
+ * Used for tasks like H.264 annexb conversion, adding/removing metadata, or format adjustments.
+ *
  * @internal
  */
 export interface NativeBitStreamFilter {
   readonly __brand: 'NativeBitStreamFilter';
 
-  // ===== Properties (all readonly - filter definitions are immutable) =====
   readonly name: string | null;
   readonly codecIds: number[] | null;
 }
 
 /**
- * Native BitStreamFilterContext (avcodec)
+ * Native AVBSFContext binding interface
+ *
+ * The main interface for bitstream filtering operations.
+ * Processes packets without full decode/encode, modifying headers, metadata, or format.
+ * Must be allocated with a filter, initialized, and properly disposed after use.
+ *
  * @internal
  */
 export interface NativeBitStreamFilterContext extends Disposable {
   readonly __brand: 'NativeBitStreamFilterContext';
 
-  // ===== Lifecycle Methods - Low Level API =====
+  // ===== Properties =====
+  readonly inputCodecParameters: NativeCodecParameters | null;
+  readonly outputCodecParameters: NativeCodecParameters | null;
+  readonly outputTimeBase: IRational | null;
+  readonly filter: NativeBitStreamFilter | null;
+  inputTimeBase: IRational;
+
   alloc(filter: NativeBitStreamFilter): number;
   init(): number;
   free(): void;
   flush(): void;
-  // ===== Operations =====
   sendPacket(packet: NativePacket | null): Promise<number>;
   receivePacket(packet: NativePacket): Promise<number>;
-  // ===== Utility =====
   isInitialized(): boolean;
 
-  // ===== Properties =====
-  readonly inputCodecParameters: NativeCodecParameters | null;
-  readonly outputCodecParameters: NativeCodecParameters | null;
-  inputTimeBase: IRational;
-  readonly outputTimeBase: IRational | null;
-  readonly filter: NativeBitStreamFilter | null;
-
-  // Symbol.dispose for cleanup
   [Symbol.dispose](): void;
 }
-
-// ============================================================================
-// LOGGING
-// ============================================================================
 
 /**
  * Native Log binding interface
@@ -1018,7 +851,6 @@ export interface NativeLog {
 export interface NativeOption {
   readonly __brand: 'NativeOption';
 
-  // ===== Properties =====
   readonly name: string | null;
   readonly help: string | null;
   readonly type: AVOptionType;
@@ -1028,10 +860,6 @@ export interface NativeOption {
   readonly flags: AVOptionFlag;
   readonly unit: string | null;
 }
-
-// ============================================================================
-// TYPE GUARDS AND UTILITIES
-// ============================================================================
 
 /**
  * Interface for classes that wrap native objects

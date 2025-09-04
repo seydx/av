@@ -4,11 +4,12 @@ import type { AVFormatFlag } from '../constants/constants.js';
 import type { NativeInputFormat, NativeIOContext, NativeWrapper } from './native-types.js';
 
 /**
- * Input format (demuxer) descriptor.
+ * Input format descriptor for demuxing media files.
  *
- * Describes a supported input container format for demuxing.
- * Provides format information like name, extensions, and capabilities.
- * These are read-only format descriptors managed by FFmpeg.
+ * Represents a demuxer that can read and parse specific media container formats.
+ * Each format handles specific file types (e.g., MP4, MKV, AVI) and knows how to
+ * extract streams and packets from them. Used to identify and open media files
+ * for reading.
  *
  * Direct mapping to FFmpeg's AVInputFormat.
  *
@@ -16,84 +17,67 @@ import type { NativeInputFormat, NativeIOContext, NativeWrapper } from './native
  * ```typescript
  * import { InputFormat, FormatContext, FFmpegError } from 'node-av';
  *
- * // Find a specific input format
+ * // Find format by name
  * const mp4Format = InputFormat.findInputFormat('mp4');
  * if (mp4Format) {
- *   console.log(`Format: ${mp4Format.longName}`);
+ *   console.log(`Format: ${mp4Format.name}`);
+ *   console.log(`Description: ${mp4Format.longName}`);
  *   console.log(`Extensions: ${mp4Format.extensions}`);
  * }
  *
- * // Use with FormatContext
- * const ctx = new FormatContext();
- * ctx.allocContext();
+ * // Probe format from file data
+ * const fileData = Buffer.from([...]); // First few KB of file
+ * const detectedFormat = InputFormat.probe(fileData, 'video.mp4');
+ * if (detectedFormat) {
+ *   console.log(`Detected: ${detectedFormat.name}`);
+ * }
  *
- * // Force a specific input format
- * const movFormat = InputFormat.findInputFormat('mov');
- * const ret = await ctx.openInput('video.dat', movFormat, null);
+ * // Use with format context
+ * const formatContext = new FormatContext();
+ * formatContext.inputFormat = mp4Format;
+ * const ret = await formatContext.openInput('video.mp4');
  * FFmpegError.throwIfError(ret, 'openInput');
  * ```
  *
- * @see {@link FormatContext} For using input formats
- * @see {@link OutputFormat} For output formats
+ * @see {@link [AVInputFormat](https://ffmpeg.org/doxygen/trunk/structAVInputFormat.html)}
+ * @see {@link FormatContext} For using formats to open files
+ * @see {@link OutputFormat} For muxing formats
  */
 export class InputFormat implements NativeWrapper<NativeInputFormat> {
   private native: NativeInputFormat;
 
   /**
-   * Constructor is internal - use static factory methods.
-   *
-   * InputFormats are obtained via static methods, not created directly.
-   * FFmpeg manages these format descriptors internally.
-   *
+   * @param native - The native input format instance
    * @internal
-   *
-   * @param native - Native AVInputFormat to wrap
-   *
-   * @example
-   * ```typescript
-   * import { InputFormat } from 'node-av';
-   *
-   * // Don't use constructor directly
-   * // const format = new InputFormat(); // Wrong
-   *
-   * // Use static factory methods instead
-   * const format = InputFormat.findInputFormat('mp4'); // Correct
-   * ```
    */
   constructor(native: NativeInputFormat) {
     this.native = native;
   }
 
   /**
-   * Find a registered input format with matching name.
+   * Find input format by short name.
    *
-   * Searches FFmpeg's registered demuxers by short name.
-   * Useful for forcing a specific format when auto-detection fails.
+   * Searches for a demuxer by its short name identifier.
    *
-   * Direct mapping to av_find_input_format()
+   * Direct mapping to av_find_input_format().
    *
-   * @param shortName - Short name of the format (e.g., 'mp4', 'mov', 'avi')
-   *
-   * @returns InputFormat if found, null otherwise
+   * @param shortName - Format short name (e.g., 'mp4', 'mkv', 'avi')
+   * @returns Input format if found, null otherwise
    *
    * @example
    * ```typescript
-   * import { InputFormat, FormatContext, FFmpegError } from 'node-av';
+   * // Find specific formats
+   * const mp4 = InputFormat.findInputFormat('mp4');
+   * const mkv = InputFormat.findInputFormat('matroska');
+   * const avi = InputFormat.findInputFormat('avi');
    *
-   * const format = InputFormat.findInputFormat('mp4');
-   * if (format) {
-   *   console.log(`Found: ${format.longName}`);
-   * }
-   *
-   * // Force specific format when opening
-   * const movFormat = InputFormat.findInputFormat('mov');
-   * if (movFormat) {
-   *   const ctx = new FormatContext();
-   *   ctx.allocContext();
-   *   const ret = await ctx.openInput('video.dat', movFormat, null);
-   *   FFmpegError.throwIfError(ret, 'openInput');
+   * // Check if format is available
+   * if (!mp4) {
+   *   console.error('MP4 format not available');
    * }
    * ```
+   *
+   * @see {@link probe} To auto-detect format
    */
   static findInputFormat(shortName: string): InputFormat | null {
     const native = bindings.InputFormat.findInputFormat(shortName);
@@ -104,31 +88,34 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   }
 
   /**
-   * Probe input format from buffer data.
+   * Probe format from buffer data.
    *
-   * Attempts to detect the input format based on buffer contents.
-   * This is a synchronous operation that analyzes buffer data to identify the format.
+   * Analyzes buffer content to determine the media format.
+   * Optionally uses filename for additional format hints.
    *
-   * Direct mapping to av_probe_input_format3()
+   * Direct mapping to av_probe_input_format2().
    *
-   * @param buffer - Buffer containing media data to probe
-   * @param filename - Optional filename hint to aid detection
-   *
-   * @returns InputFormat if detected, null otherwise
+   * @param buffer - Buffer containing file header/start
+   * @param filename - Optional filename for format hints
+   * @returns Detected format, or null if not recognized
    *
    * @example
    * ```typescript
-   * import { InputFormat } from 'node-av';
    * import { readFileSync } from 'fs';
    *
-   * // Read first few KB of a media file
-   * const buffer = readFileSync('video.mp4', { length: 4096 });
-   * const format = InputFormat.probe(buffer, 'video.mp4');
+   * // Read first 4KB for probing
+   * const data = readFileSync('video.mp4').subarray(0, 4096);
+   * const format = InputFormat.probe(data, 'video.mp4');
    *
    * if (format) {
-   *   console.log(`Detected format: ${format.longName}`);
+   *   console.log(`Detected format: ${format.name}`);
+   * } else {
+   *   console.error('Unknown format');
    * }
    * ```
+   *
+   * @see {@link probeBuffer} For IO context probing
+   * @see {@link findInputFormat} To get format by name
    */
   static probe(buffer: Buffer, filename?: string): InputFormat | null {
     const native = bindings.InputFormat.probe(buffer, filename);
@@ -139,36 +126,34 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   }
 
   /**
-   * Probe input format from IOContext buffer.
+   * Probe format from IO context.
    *
-   * Attempts to detect the input format by reading from an IOContext.
-   * This is an asynchronous operation that reads data from the IOContext to identify the format.
-   * The IOContext position may be changed during probing.
+   * Reads data from an IO context to determine format.
+   * Useful for custom IO scenarios and network streams.
    *
-   * Direct mapping to av_probe_input_buffer2()
+   * Direct mapping to av_probe_input_buffer2().
    *
-   * @param ioContext - IOContext to read data from for probing
-   * @param maxProbeSize - Maximum bytes to read for probing (0 for default)
-   *
-   * @returns Promise resolving to InputFormat if detected, null otherwise
+   * @param ioContext - IO context to read from
+   * @param ioContext.getNative - Method to get native IO context
+   * @param maxProbeSize - Maximum bytes to read for probing
+   * @returns Detected format, or null if not recognized
    *
    * @example
    * ```typescript
-   * import { InputFormat, IOContext } from 'node-av';
+   * import { IOContext } from 'node-av';
    *
-   * // Open an IOContext
-   * const io = new IOContext();
-   * await io.open2('video.mp4', AVIO_FLAG_READ);
+   * // Create custom IO context
+   * const ioContext = new IOContext();
+   * // ... configure IO context ...
    *
-   * // Probe the format
-   * const format = await InputFormat.probeBuffer(io);
-   *
+   * // Probe format
+   * const format = await InputFormat.probeBuffer(ioContext, 32768);
    * if (format) {
-   *   console.log(`Detected format: ${format.longName}`);
+   *   console.log(`Stream format: ${format.name}`);
    * }
-   *
-   * await io.closep();
    * ```
+   *
+   * @see {@link probe} For buffer probing
    */
   static async probeBuffer(ioContext: { getNative(): NativeIOContext }, maxProbeSize?: number): Promise<InputFormat | null> {
     const native = await bindings.InputFormat.probeBuffer(ioContext.getNative(), maxProbeSize);
@@ -179,46 +164,44 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   }
 
   /**
-   * A comma separated list of short names for the format.
+   * Format short name.
    *
-   * Direct mapping to AVInputFormat->name
+   * Short identifier for the format (e.g., 'mp4', 'mkv').
    *
-   * @readonly
+   * Direct mapping to AVInputFormat->name.
    */
   get name(): string | null {
     return this.native.name;
   }
 
   /**
-   * Descriptive name for the format.
+   * Format long name.
    *
-   * Direct mapping to AVInputFormat->long_name
+   * Human-readable description of the format.
    *
-   * Meant to be more human-readable than the short name.
-   * @readonly
+   * Direct mapping to AVInputFormat->long_name.
    */
   get longName(): string | null {
     return this.native.longName;
   }
 
   /**
-   * Comma-separated list of file extensions.
+   * File extensions.
    *
-   * Direct mapping to AVInputFormat->extensions
+   * Comma-separated list of file extensions for this format.
    *
-   * If extensions are defined, then no probe is done.
-   * @readonly
+   * Direct mapping to AVInputFormat->extensions.
    */
   get extensions(): string | null {
     return this.native.extensions;
   }
 
   /**
-   * Comma-separated list of mime types.
+   * MIME type.
    *
-   * Direct mapping to AVInputFormat->mime_type
+   * MIME type(s) associated with this format.
    *
-   * @readonly
+   * Direct mapping to AVInputFormat->mime_type.
    */
   get mimeType(): string | null {
     return this.native.mimeType;
@@ -227,31 +210,20 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
   /**
    * Format flags.
    *
-   * Direct mapping to AVInputFormat->flags
+   * Combination of AVFMT_* flags indicating format capabilities.
    *
-   * Combination of AVFMT_* flags:
-   * - AVFMT_NOFILE: No file is opened
-   * - AVFMT_NEEDNUMBER: Needs '%d' in filename
-   * - AVFMT_SHOW_IDS: Show format stream IDs
-   * - AVFMT_GLOBALHEADER: Format wants global headers
-   * - AVFMT_NOTIMESTAMPS: Format does not need/have timestamps
-   * - AVFMT_GENERIC_INDEX: Use generic index building code
-   * - AVFMT_TS_DISCONT: Format allows timestamp discontinuities
-   * - AVFMT_NOBINSEARCH: Format does not allow seeking by bytes
-   * - AVFMT_NOGENSEARCH: Format does not allow seeking by timestamp
-   * - AVFMT_NO_BYTE_SEEK: Format does not allow seeking by bytes
-   * - AVFMT_SEEK_TO_PTS: Seeking is based on PTS
-   * @readonly
+   * Direct mapping to AVInputFormat->flags.
    */
   get flags(): AVFormatFlag {
     return this.native.flags;
   }
 
   /**
-   * Get the native FFmpeg AVInputFormat pointer.
+   * Get the underlying native InputFormat object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native input format object
+   * @returns The native InputFormat binding object
+   *
+   * @internal
    */
   getNative(): NativeInputFormat {
     return this.native;

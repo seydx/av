@@ -8,84 +8,60 @@ import type { Filter } from './filter.js';
 import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
 
 /**
- * Filter graph for media processing.
+ * Filter graph for audio/video processing pipelines.
  *
- * Container for filters and their connections in a processing pipeline.
- * Manages the entire filtering system from sources to sinks.
- * Supports complex filter chains with multiple inputs and outputs.
+ * Manages a collection of interconnected filters forming a processing pipeline.
+ * Filters are connected through their input/output pads to create complex
+ * audio/video transformations. Supports both simple linear chains and complex
+ * graphs with multiple inputs/outputs. Essential for effects, format conversions,
+ * scaling, and other media processing operations.
  *
  * Direct mapping to FFmpeg's AVFilterGraph.
  *
  * @example
  * ```typescript
- * import { FilterGraph, Filter, FilterContext, FFmpegError } from 'node-av';
+ * import { FilterGraph, Filter, FilterInOut, FFmpegError } from 'node-av';
  *
- * // Create and configure a simple filter graph
+ * // Create and configure filter graph
  * const graph = new FilterGraph();
  * graph.alloc();
  *
- * // Create buffer source
- * const bufferFilter = Filter.getByName('buffer');
- * if (!bufferFilter) throw new Error('Buffer filter not found');
+ * // Create filters
  * const bufferSrc = graph.createFilter(
- *   bufferFilter,
- *   'in',
- *   'video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25'
+ *   Filter.getByName('buffer')!,
+ *   'src',
+ *   'video_size=1920x1080:pix_fmt=yuv420p'
  * );
- * if (!bufferSrc) throw new Error('Failed to create buffer source');
  *
- * // Create scale filter
- * const scaleFilter = Filter.getByName('scale');
- * if (!scaleFilter) throw new Error('Scale filter not found');
  * const scale = graph.createFilter(
- *   scaleFilter,
+ *   Filter.getByName('scale')!,
  *   'scale',
- *   '1280:720'
+ *   '640:480'
  * );
- * if (!scale) throw new Error('Failed to create scale filter');
  *
- * // Create buffer sink
- * const sinkFilter = Filter.getByName('buffersink');
- * if (!sinkFilter) throw new Error('Buffersink filter not found');
  * const bufferSink = graph.createFilter(
- *   sinkFilter,
- *   'out'
+ *   Filter.getByName('buffersink')!,
+ *   'sink'
  * );
- * if (!bufferSink) throw new Error('Failed to create buffer sink');
  *
  * // Link filters
- * const linkRet1 = bufferSrc.link(0, scale, 0);
- * FFmpegError.throwIfError(linkRet1, 'link buffer to scale');
+ * bufferSrc.link(0, scale, 0);
+ * scale.link(0, bufferSink, 0);
  *
- * const linkRet2 = scale.link(0, bufferSink, 0);
- * FFmpegError.throwIfError(linkRet2, 'link scale to sink');
+ * // Configure graph
+ * const ret = await graph.config();
+ * FFmpegError.throwIfError(ret, 'config');
  *
- * // Configure the graph
- * const configRet = graph.config();
- * FFmpegError.throwIfError(configRet, 'config');
- *
- * // Clean up
- * graph.free();
+ * // Parse filter string
+ * const ret2 = graph.parse2('[in]scale=640:480[out]');
+ * FFmpegError.throwIfError(ret2, 'parse2');
  * ```
+ *
+ * @see {@link [AVFilterGraph](https://ffmpeg.org/doxygen/trunk/structAVFilterGraph.html)}
+ * @see {@link FilterContext} For filter instances
+ * @see {@link Filter} For filter descriptors
  */
 export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disposable, NativeWrapper<NativeFilterGraph> {
-  /**
-   * Create a new FilterGraph instance.
-   *
-   * The graph is uninitialized - you must call alloc() before use.
-   * No FFmpeg resources are allocated until alloc() is called.
-   *
-   * Direct wrapper around AVFilterGraph.
-   *
-   * @example
-   * ```typescript
-   * import { FilterGraph } from 'node-av';
-   *
-   * const graph = new FilterGraph();
-   * graph.alloc();
-   * // Graph is now ready for use
-   * ```
-   */
   constructor() {
     super(new bindings.FilterGraph());
   }
@@ -93,20 +69,20 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   /**
    * Number of filters in the graph.
    *
-   * Direct mapping to AVFilterGraph->nb_filters
+   * Total count of filter contexts in this graph.
    *
-   * The total count of filters currently in the graph.
+   * Direct mapping to AVFilterGraph->nb_filters.
    */
   get nbFilters(): number {
     return this.native.nbFilters;
   }
 
   /**
-   * Array of all filters in the graph.
-   *
-   * Direct mapping to AVFilterGraph->filters
+   * Array of filters in the graph.
    *
    * All filter contexts currently in the graph.
+   *
+   * Direct mapping to AVFilterGraph->filters.
    */
   get filters(): FilterContext[] | null {
     const natives = this.native.filters;
@@ -115,11 +91,12 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
-   * Thread type for graph processing.
+   * Threading type for graph execution.
    *
-   * Direct mapping to AVFilterGraph->thread_type
+   * Controls how filters are executed in parallel.
+   * Use AVFILTER_THREAD_SLICE for slice-based threading.
    *
-   * Controls threading behavior of the graph (0 = disabled, AVFILTER_THREAD_SLICE = slice threading).
+   * Direct mapping to AVFilterGraph->thread_type.
    */
   get threadType(): AVFilterConstants {
     return this.native.threadType;
@@ -130,11 +107,12 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
-   * Number of threads for graph processing.
+   * Number of threads for parallel processing.
    *
-   * Direct mapping to AVFilterGraph->nb_threads
+   * Number of threads used for filter execution.
+   * 0 means automatic detection.
    *
-   * 0 means automatic detection based on CPU cores.
+   * Direct mapping to AVFilterGraph->nb_threads.
    */
   get nbThreads(): number {
     return this.native.nbThreads;
@@ -145,11 +123,11 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
-   * Software scaler options.
+   * Swscale options for scale filter.
    *
-   * Direct mapping to AVFilterGraph->scale_sws_opts
+   * Options string passed to swscale for scaling operations.
    *
-   * Options string passed to the software scaler (e.g., "flags=bicubic").
+   * Direct mapping to AVFilterGraph->scale_sws_opts.
    */
   get scaleSwsOpts(): string | null {
     return this.native.scaleSwsOpts;
@@ -160,25 +138,24 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
-   * Allocate the filter graph.
+   * Allocate a filter graph.
    *
-   * Allocates the graph structure and initializes it.
-   * Must be called before adding filters to the graph.
+   * Allocates memory for the filter graph structure.
+   * Must be called before using the graph.
    *
-   * Direct mapping to avfilter_graph_alloc()
+   * Direct mapping to avfilter_graph_alloc().
    *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @throws {Error} If allocation fails (ENOMEM)
    *
    * @example
    * ```typescript
-   * import { FilterGraph } from 'node-av';
-   *
    * const graph = new FilterGraph();
    * graph.alloc();
-   * // Graph is now allocated and ready
+   * // Graph is now ready for filter creation
    * ```
    *
-   * @see {@link free} To free the graph
+   * @see {@link free} To deallocate
+   * @see {@link config} To configure after building
    */
   alloc(): void {
     this.native.alloc();
@@ -187,50 +164,56 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   /**
    * Free the filter graph.
    *
-   * Releases all resources associated with the graph.
-   * All filters in the graph are also freed.
+   * Releases all resources associated with the graph,
+   * including all contained filters.
    *
-   * Direct mapping to avfilter_graph_free()
+   * Direct mapping to avfilter_graph_free().
    *
    * @example
    * ```typescript
    * graph.free();
-   * // graph is now invalid and should not be used
+   * // Graph is now invalid
    * ```
+   *
+   * @see {@link alloc} To allocate
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Create a filter instance in the graph.
+   * Create and initialize a filter in the graph.
    *
-   * Direct mapping to avfilter_graph_create_filter()
+   * Creates a new filter context, adds it to the graph,
+   * and initializes it with the provided arguments.
    *
-   * @param filter - The filter definition
-   * @param name - Name for this filter instance (must be unique in the graph)
-   * @param args - Optional initialization arguments (filter-specific format)
+   * Direct mapping to avfilter_graph_create_filter().
    *
-   * @returns The created filter context or null on failure
+   * @param filter - Filter descriptor to instantiate
+   * @param name - Name for this filter instance
+   * @param args - Initialization arguments (filter-specific)
+   * @returns Created filter context, or null on failure
    *
    * @example
    * ```typescript
    * // Create a scale filter
-   * const scaleFilter = Filter.getByName('scale');
-   * const scaleCtx = graph.createFilter(
-   *   scaleFilter!,
-   *   'my_scale',
-   *   '1280:720'  // width:height
+   * const scale = graph.createFilter(
+   *   Filter.getByName('scale')!,
+   *   'scaler',
+   *   '640:480'  // width:height
    * );
    *
-   * // Create a buffer source for video
-   * const bufferFilter = Filter.getByName('buffer');
-   * const bufferCtx = graph.createFilter(
-   *   bufferFilter!,
-   *   'video_in',
-   *   'video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25:pixel_aspect=1/1'
+   * // Create a buffer source
+   * const src = graph.createFilter(
+   *   Filter.getByName('buffer')!,
+   *   'source',
+   *   'video_size=1920x1080:pix_fmt=yuv420p:time_base=1/25'
    * );
    * ```
+   *
+   * @see {@link allocFilter} To allocate without initializing
+   * @see {@link getFilter} To retrieve by name
    */
   createFilter(filter: Filter, name: string, args: string | null = null): FilterContext | null {
     const native = this.native.createFilter(filter.getNative(), name, args ?? null);
@@ -238,41 +221,33 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
-   * Allocate a filter instance in the graph without initializing it.
+   * Allocate a filter in the graph.
    *
-   * Direct mapping to avfilter_graph_alloc_filter()
+   * Creates a new filter context and adds it to the graph,
+   * but does not initialize it. Call init() on the context afterwards.
    *
-   * This method allocates the filter but does not initialize it.
-   * You must call filter.init() or filter.initStr() afterwards.
+   * Direct mapping to avfilter_graph_alloc_filter().
    *
-   * @param filter - The filter definition
-   * @param name - Name for this filter instance (must be unique in the graph)
-   *
-   * @returns The allocated filter context or null on failure
+   * @param filter - Filter descriptor to instantiate
+   * @param name - Name for this filter instance
+   * @returns Allocated filter context, or null on failure
    *
    * @example
    * ```typescript
-   * import { FilterGraph, Filter, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * // Allocate a filter without initializing
-   * const scaleFilter = Filter.getByName('scale');
-   * if (!scaleFilter) throw new Error('Scale filter not found');
-   * const scaleCtx = graph.allocFilter(scaleFilter, 'my_scale');
-   * if (!scaleCtx) throw new Error('Failed to allocate filter');
-   *
-   * // Set options using setOpt
-   * const ret1 = scaleCtx.setOpt('width', '1280');
-   * FFmpegError.throwIfError(ret1, 'setOpt width');
-   * const ret2 = scaleCtx.setOpt('height', '720');
-   * FFmpegError.throwIfError(ret2, 'setOpt height');
-   *
-   * // Initialize the filter
-   * const initRet = scaleCtx.init();
-   * FFmpegError.throwIfError(initRet, 'init');
+   * const filter = graph.allocFilter(
+   *   Filter.getByName('scale')!,
+   *   'scaler'
+   * );
+   * if (filter) {
+   *   // Initialize separately
+   *   const ret = filter.initStr('640:480');
+   *   FFmpegError.throwIfError(ret, 'initStr');
+   * }
    * ```
    *
-   * @note This provides an alternative workflow to createFilter,
-   * allowing options to be set before initialization.
+   * @see {@link createFilter} To allocate and initialize
    */
   allocFilter(filter: Filter, name: string): FilterContext | null {
     const native = this.native.allocFilter(filter.getNative(), name);
@@ -282,19 +257,23 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   /**
    * Get a filter by name from the graph.
    *
-   * Direct mapping to avfilter_graph_get_filter()
+   * Retrieves an existing filter context by its instance name.
    *
-   * @param name - The filter instance name
+   * Direct mapping to avfilter_graph_get_filter().
    *
-   * @returns The filter context or null if not found
+   * @param name - Name of the filter instance
+   * @returns Filter context if found, null otherwise
    *
    * @example
    * ```typescript
-   * const scaleCtx = graph.getFilter('my_scale');
-   * if (scaleCtx) {
-   *   console.log('Found scale filter');
+   * // Find a previously created filter
+   * const scaler = graph.getFilter('scaler');
+   * if (scaler) {
+   *   console.log('Found scaler filter');
    * }
    * ```
+   *
+   * @see {@link createFilter} To create new filters
    */
   getFilter(name: string): FilterContext | null {
     const native = this.native.getFilter(name);
@@ -304,168 +283,154 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   /**
    * Configure the filter graph.
    *
-   * Direct mapping to avfilter_graph_config()
+   * Validates and finalizes the graph configuration.
+   * Must be called after all filters are created and linked.
+   *
+   * Direct mapping to avfilter_graph_config().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid graph configuration
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other configuration errors
+   *   - AVERROR_EINVAL: Invalid graph configuration
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * // After creating and linking all filters
-   * const ret = graph.config();
+   * // Build graph...
+   * // Link filters...
+   *
+   * // Configure the complete graph
+   * const ret = await graph.config();
    * FFmpegError.throwIfError(ret, 'config');
    * // Graph is now ready for processing
    * ```
    *
-   * @note Must be called after all filters are added and connected.
+   * @see {@link validate} To check configuration
    */
   async config(): Promise<number> {
-    return this.native.config();
+    return await this.native.config();
   }
 
   /**
-   * Parse a filtergraph description.
+   * Parse a filter graph description.
    *
-   * Direct mapping to avfilter_graph_parse()
+   * Parses a textual representation of a filter graph and adds
+   * filters to this graph. Handles labeled inputs and outputs.
    *
-   * @param filters - Filtergraph description string
-   * @param inputs - Input pad list
-   * @param outputs - Output pad list
+   * Direct mapping to avfilter_graph_parse().
    *
+   * @param filters - Filter graph description string
+   * @param inputs - Linked list of graph inputs
+   * @param outputs - Linked list of graph outputs
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid filtergraph syntax
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other parsing errors
+   *   - AVERROR_EINVAL: Parse error
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FilterInOut, FFmpegError } from 'node-av';
+   * import { FFmpegError, FilterInOut } from 'node-av';
    *
-   * const inputs = new FilterInOut();
-   * inputs.alloc();
-   * inputs.name = 'in';
-   * inputs.filterCtx = bufferSrcCtx;
-   * inputs.padIdx = 0;
+   * const inputs = FilterInOut.createList([
+   *   { name: 'in', filterCtx: bufferSrc, padIdx: 0 }
+   * ]);
+   * const outputs = FilterInOut.createList([
+   *   { name: 'out', filterCtx: bufferSink, padIdx: 0 }
+   * ]);
    *
-   * const outputs = new FilterInOut();
-   * outputs.alloc();
-   * outputs.name = 'out';
-   * outputs.filterCtx = bufferSinkCtx;
-   * outputs.padIdx = 0;
-   *
-   * const ret = graph.parse('[in] scale=1280:720 [out]', inputs, outputs);
+   * const ret = graph.parse(
+   *   '[in]scale=640:480,format=yuv420p[out]',
+   *   inputs,
+   *   outputs
+   * );
    * FFmpegError.throwIfError(ret, 'parse');
    * ```
+   *
+   * @see {@link parse2} For simpler syntax
+   * @see {@link parsePtr} For alternative parsing
    */
   parse(filters: string, inputs: FilterInOut | null, outputs: FilterInOut | null): number {
     return this.native.parse(filters, inputs ? inputs.getNative() : null, outputs ? outputs.getNative() : null);
   }
 
   /**
-   * Parse a filtergraph description (simplified).
+   * Parse a filter graph description (simplified).
    *
-   * Direct mapping to avfilter_graph_parse2()
+   * Parses a textual filter description with automatic input/output handling.
+   * Simpler than parse() but less flexible.
    *
-   * @param filters - Filtergraph description string
+   * Direct mapping to avfilter_graph_parse2().
    *
+   * @param filters - Filter graph description string
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid filtergraph syntax
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other parsing errors
+   *   - AVERROR_EINVAL: Parse error
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
    * // Parse a simple filter chain
-   * const ret = graph.parse2('scale=1280:720,format=yuv420p');
+   * const ret = graph.parse2(
+   *   'scale=640:480,format=yuv420p'
+   * );
    * FFmpegError.throwIfError(ret, 'parse2');
    * ```
    *
-   * @note Automatically handles inputs and outputs.
+   * @see {@link parse} For labeled inputs/outputs
    */
   parse2(filters: string): number {
     return this.native.parse2(filters);
   }
 
   /**
-   * Parse a filtergraph description (pointer version).
+   * Parse a filter graph description with pointer.
    *
-   * Direct mapping to avfilter_graph_parse_ptr()
+   * Alternative parsing method with different parameter handling.
    *
-   * @param filters - Filtergraph description string
-   * @param inputs - Optional input pad list (FilterInOut)
-   * @param outputs - Optional output pad list (FilterInOut)
+   * Direct mapping to avfilter_graph_parse_ptr().
    *
+   * @param filters - Filter graph description string
+   * @param inputs - Optional linked list of inputs
+   * @param outputs - Optional linked list of outputs
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid filtergraph syntax
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other parsing errors
+   *   - AVERROR_EINVAL: Parse error
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * // Parse a complex filter graph
    * const ret = graph.parsePtr(
-   *   '[0:v] scale=1280:720 [scaled]; [scaled] split [out1][out2]'
+   *   '[in]scale=w=640:h=480[out]'
    * );
    * FFmpegError.throwIfError(ret, 'parsePtr');
    * ```
    *
-   * @example
-   * ```typescript
-   * import { FilterGraph, FilterInOut, FFmpegError } from 'node-av';
-   *
-   * // Parse with explicit inputs/outputs
-   * const inputs = new FilterInOut();
-   * inputs.name = 'in';
-   * inputs.filterCtx = buffersrcCtx;
-   * inputs.padIdx = 0;
-   *
-   * const outputs = new FilterInOut();
-   * outputs.name = 'out';
-   * outputs.filterCtx = buffersinkCtx;
-   * outputs.padIdx = 0;
-   *
-   * const ret = graph.parsePtr(filtersDescr, inputs, outputs);
-   * FFmpegError.throwIfError(ret, 'parsePtr');
-   * ```
-   *
-   * @note Similar to parse2 but with different internal handling.
+   * @see {@link parse} For standard parsing
+   * @see {@link parse2} For simplified parsing
    */
   parsePtr(filters: string, inputs?: FilterInOut | null, outputs?: FilterInOut | null): number {
     return this.native.parsePtr(filters, inputs ? inputs.getNative() : null, outputs ? outputs.getNative() : null);
   }
 
   /**
-   * Validate the filter graph.
+   * Validate the filter graph configuration.
    *
-   * Direct mapping to avfilter_graph_validate()
+   * Checks if the graph is valid and properly configured.
+   * Does not finalize the graph like config() does.
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Valid graph structure
-   *   - AVERROR(EINVAL): Invalid graph structure
-   *   - <0: Other validation errors
+   *   - AVERROR_EINVAL: Invalid configuration
    *
    * @example
    * ```typescript
-   * // Validate before configuring
+   * import { FFmpegError } from 'node-av';
+   *
    * const ret = graph.validate();
-   * if (ret < 0) {
-   *   console.error('Graph validation failed');
-   * }
+   * FFmpegError.throwIfError(ret, 'validate');
    * ```
    *
-   * @note Checks that the graph structure is valid without configuring it.
+   * @see {@link config} To configure and finalize
    */
   validate(): number {
     return this.native.validate();
@@ -474,50 +439,51 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   /**
    * Request a frame from the oldest sink.
    *
-   * Direct mapping to avfilter_graph_request_oldest()
+   * Requests that a frame be output from the oldest sink in the graph.
+   * Used to drive the filter graph processing.
+   *
+   * Direct mapping to avfilter_graph_request_oldest().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR_EOF: No more frames available
-   *   - AVERROR(EAGAIN): Need more input data
-   *   - <0: Other processing errors
+   *   - AVERROR_EOF: End of stream reached
+   *   - AVERROR_EAGAIN: Need more input
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    * import { AVERROR_EOF, AVERROR_EAGAIN } from 'node-av/constants';
    *
-   * // Pull frames from the graph
-   * while (true) {
-   *   const ret = await graph.requestOldest();
-   *   if (FFmpegError.is(ret, AVERROR_EOF)) {
-   *     break; // No more frames
-   *   }
-   *   if (ret < 0 && !FFmpegError.is(ret, AVERROR_EAGAIN)) {
-   *     FFmpegError.throwIfError(ret, 'requestOldest');
-   *   }
-   *   // Process output from sinks
+   * const ret = await graph.requestOldest();
+   * if (ret === AVERROR_EOF) {
+   *   // No more frames
+   * } else if (ret === AVERROR_EAGAIN) {
+   *   // Need to provide more input
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'requestOldest');
    * }
    * ```
-   *
-   * @note Triggers processing in the graph to produce output.
    */
   async requestOldest(): Promise<number> {
-    return this.native.requestOldest();
+    return await this.native.requestOldest();
   }
 
   /**
-   * Get the graph structure as a string.
+   * Dump the filter graph to a string.
    *
-   * Returns a string representation of the filter graph in DOT format.
-   * Uses avfilter_graph_dump() internally.
+   * Returns a textual representation of the graph structure.
+   * Useful for debugging and visualization.
    *
-   * @returns String representation of the filter graph or null if not allocated
+   * Direct mapping to avfilter_graph_dump().
+   *
+   * @returns Graph description string, or null on failure
    *
    * @example
    * ```typescript
-   * const graphDescription = graph.dump();
-   * console.log('Filter graph:', graphDescription);
+   * const graphStr = graph.dump();
+   * if (graphStr) {
+   *   console.log('Graph structure:');
+   *   console.log(graphStr);
+   * }
    * ```
    */
   dump(): string | null {
@@ -525,91 +491,84 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
-   * Send a command to one or more filters in the graph.
+   * Send a command to filters in the graph.
    *
-   * Direct mapping to avfilter_graph_send_command()
+   * Sends a command to one or more filters for immediate execution.
+   * Target can be a specific filter name or "all" for all filters.
    *
-   * @param target - Filter name or "all" to send to all filters
-   * @param cmd - Command name (e.g., "volume", "hue", "rate")
-   * @param arg - Command argument (e.g., "0.5", "2.0")
-   * @param flags - Command flags (AVFilterCmdFlag, default: 0)
-   *   - AVFILTER_CMD_FLAG_ONE: Stop once a filter understood the command
-   *   - AVFILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
+   * Direct mapping to avfilter_graph_send_command().
    *
-   * @returns Error code (negative) or response object { response: string | null }
-   *
-   * @example
-   * ```typescript
-   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from 'node-av';
-   *
-   * // Send volume change command to audio filter
-   * const result = graph.sendCommand('volume', 'volume', '0.5');
-   * if (typeof result === 'number') {
-   *   console.error('Command failed:', FFmpegError.strerror(result));
-   * } else {
-   *   console.log('Response:', result.response);
-   * }
-   * ```
+   * @param target - Filter name or "all"
+   * @param cmd - Command to send
+   * @param arg - Command argument
+   * @param flags - Command flags
+   * @returns Error code or response object
    *
    * @example
    * ```typescript
-   * // Send command to all filters, stop at first one that handles it
-   * const result = graph.sendCommand('all', 'enable', 'expr=gte(t,10)', AVFILTER_CMD_FLAG_ONE);
-   *
    * // Send command to specific filter
-   * const result = graph.sendCommand('scale', 'width', '1920');
+   * const result = graph.sendCommand(
+   *   'volume',
+   *   'volume',
+   *   '0.5'
+   * );
+   *
+   * // Send to all filters
+   * const result2 = graph.sendCommand(
+   *   'all',
+   *   'enable',
+   *   'timeline'
+   * );
    * ```
    *
-   * @note Not all filters support commands. Check filter documentation.
+   * @see {@link queueCommand} For delayed execution
    */
   sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): number | { response: string | null } {
     return this.native.sendCommand(target, cmd, arg, flags);
   }
 
   /**
-   * Queue a command to be executed at a specific time.
+   * Queue a command for delayed execution.
    *
-   * Direct mapping to avfilter_graph_queue_command()
+   * Schedules a command to be executed at a specific timestamp.
+   * The command is executed when the filter processes a frame with that timestamp.
    *
-   * @param target - Filter name or "all" to send to all filters
-   * @param cmd - Command name (e.g., "volume", "hue", "rate")
-   * @param arg - Command argument (e.g., "0.5", "2.0")
-   * @param ts - Timestamp when the command should be executed
-   * @param flags - Command flags (AVFilterCmdFlag, default: 0)
-   *   - AVFILTER_CMD_FLAG_ONE: Stop once a filter understood the command
-   *   - AVFILTER_CMD_FLAG_FAST: Only execute if fast (hardware acceleration)
+   * Direct mapping to avfilter_graph_queue_command().
    *
+   * @param target - Filter name or "all"
+   * @param cmd - Command to queue
+   * @param arg - Command argument
+   * @param ts - Timestamp for execution
+   * @param flags - Command flags
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
    * ```typescript
-   * import { FilterGraph, FFmpegError, AVFILTER_CMD_FLAG_ONE } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
-   * // Queue volume change at 10 seconds
-   * const ret = graph.queueCommand('volume', 'volume', '0.2', 10.0);
+   * // Queue volume change at 5 seconds
+   * const ret = graph.queueCommand(
+   *   'volume',
+   *   'volume',
+   *   '0.2',
+   *   5000000,  // microseconds
+   *   0
+   * );
    * FFmpegError.throwIfError(ret, 'queueCommand');
    * ```
    *
-   * @example
-   * ```typescript
-   * // Queue multiple commands at different times
-   * graph.queueCommand('volume', 'volume', '0.5', 5.0);
-   * graph.queueCommand('volume', 'volume', '1.0', 10.0);
-   * graph.queueCommand('volume', 'volume', '0.2', 15.0);
-   * ```
-   *
-   * @note Commands are executed when processing frames with matching timestamps.
-   * @note Not all filters support queued commands.
+   * @see {@link sendCommand} For immediate execution
    */
   queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): number {
     return this.native.queueCommand(target, cmd, arg, ts, flags);
   }
 
   /**
-   * Get the native FFmpeg AVFilterGraph pointer.
+   * Get the underlying native FilterGraph object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native filter graph object
+   * @returns The native FilterGraph binding object
+   *
+   * @internal
    */
   getNative(): NativeFilterGraph {
     return this.native;
@@ -626,7 +585,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * {
    *   using graph = new FilterGraph();
    *   graph.alloc();
-   *   // ... use graph
+   *   // Build and use graph...
    * } // Automatically freed when leaving scope
    * ```
    */

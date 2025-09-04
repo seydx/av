@@ -8,136 +8,82 @@ import type { NativeBitStreamFilterContext, NativeWrapper } from './native-types
 import type { Packet } from './packet.js';
 
 /**
- * Bitstream filter context for processing packets.
+ * Bitstream filter context for processing compressed video/audio streams.
  *
- * Manages the state for bitstream filtering operations.
- * Processes packets through a bitstream filter without decoding.
- * Supports packet-by-packet filtering with internal buffering.
+ * Applies bitstream filters to modify or analyze compressed packets without
+ * full decoding/encoding. Common uses include format conversion (e.g., H.264 MP4 to Annex B),
+ * metadata extraction, parameter set manipulation, and packet splitting/merging.
+ * Essential for stream compatibility between different containers and decoders.
  *
  * Direct mapping to FFmpeg's AVBSFContext.
  *
  * @example
  * ```typescript
- * import { BitStreamFilter, BitStreamFilterContext, Packet, FFmpegError } from 'node-av';
- * import { AVERROR_EOF, AVERROR } from 'node-av/constants';
+ * import { BitStreamFilterContext, BitStreamFilter, Packet, FFmpegError } from 'node-av';
  *
- * // Create and initialize filter context
- * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
+ * // Create and initialize H.264 stream format converter
  * const ctx = new BitStreamFilterContext();
+ * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
+ * if (!filter) {
+ *   throw new Error('H.264 filter not available');
+ * }
  *
- * // Allocate and configure
  * let ret = ctx.alloc(filter);
  * FFmpegError.throwIfError(ret, 'alloc');
  *
- * // Copy input parameters from stream to BSF context
- * stream.codecpar.copy(ctx.inputCodecParameters);
- * ctx.inputTimeBase = stream.timeBase;
- *
- * // Initialize filter
  * ret = ctx.init();
  * FFmpegError.throwIfError(ret, 'init');
  *
  * // Process packets
- * while (hasMorePackets) {
- *   const inputPacket = getNextPacket();
+ * const inputPacket = new Packet();
+ * const outputPacket = new Packet();
  *
- *   // Send packet to filter
- *   ret = await ctx.sendPacket(inputPacket);
- *   FFmpegError.throwIfError(ret, 'sendPacket');
+ * ret = await ctx.sendPacket(inputPacket);
+ * FFmpegError.throwIfError(ret, 'sendPacket');
  *
- *   // Receive filtered packets
- *   while (true) {
- *     const outputPacket = new Packet();
- *     const result = await ctx.receivePacket(outputPacket);
- *
- *     if (result.eagain || result.eof) break;
- *     FFmpegError.throwIfError(result.ret || result, 'receivePacket');
- *
- *     // Process filtered packet
- *     processPacket(outputPacket);
- *     outputPacket.unref();
- *   }
- * }
- *
- * // Send EOF
- * await ctx.sendPacket(null);
- *
- * // Drain remaining packets
- * while (true) {
- *   const outputPacket = new Packet();
- *   const result = await ctx.receivePacket(outputPacket);
- *   if (result.eof) break;
- *   // Process remaining packets
+ * ret = await ctx.receivePacket(outputPacket);
+ * if (ret >= 0) {
+ *   // Process filtered packet
  * }
  *
  * // Cleanup
  * ctx.free();
  * ```
+ *
+ * @see {@link BitStreamFilter} For available filter types
+ * @see {@link Packet} For packet manipulation
  */
 export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterContext> implements Disposable, NativeWrapper<NativeBitStreamFilterContext> {
   private _filter?: BitStreamFilter; // Cache for filter wrapper
 
-  /**
-   * Create a new bitstream filter context.
-   *
-   * The context is uninitialized - you must call alloc() and init() before use.
-   * No FFmpeg resources are allocated until initialization.
-   *
-   * Direct wrapper around AVBSFContext.
-   *
-   * @example
-   * ```typescript
-   * const ctx = new BitStreamFilterContext();
-   * ctx.alloc(filter);
-   * ctx.init();
-   * // Context is now ready for filtering
-   * ```
-   */
   constructor() {
     super(new bindings.BitStreamFilterContext());
   }
 
   /**
-   * Check if the context is initialized.
+   * Check if the context has been initialized.
    *
-   * Returns true if init() has been called successfully.
-   *
-   * @returns True if initialized, false otherwise
+   * Returns true if init() has been successfully called.
+   * The context must be initialized before sending/receiving packets.
    */
   get isInitialized(): boolean {
     return this.native.isInitialized();
   }
 
   /**
-   * Input codec parameters (read-only reference, mutable contents).
+   * Input codec parameters.
    *
-   * Returns a reference to the BSF context's internal codec parameters.
-   * While you cannot replace this object (no setter), you can modify its contents
-   * or use it as a destination for copy operations.
+   * Parameters describing the input stream format.
+   * These are automatically configured from the input packets in most cases.
    *
-   * You must configure these parameters before calling init().
-   *
-   * Maps to AVBSFContext->par_in.
-   *
-   * @example
-   * ```typescript
-   * // Copy parameters from input stream to BSF context
-   * if (ctx.inputCodecParameters) {
-   *   stream.codecpar.copy(ctx.inputCodecParameters);
-   *
-   *   // Or set individual properties
-   *   ctx.inputCodecParameters.codecType = AVMEDIA_TYPE_VIDEO;
-   *   ctx.inputCodecParameters.codecId = AV_CODEC_ID_H264;
-   * }
-   * ```
+   * Direct mapping to AVBSFContext->par_in.
    */
   get inputCodecParameters(): CodecParameters | null {
-    // The native binding returns a CodecParameters object created with the constructor
-    // It's the native object itself, not a TypeScript wrapper
     const nativeParams = this.native.inputCodecParameters;
     if (!nativeParams) {
       return null;
     }
+
     // Wrap it in our TypeScript class
     const wrapper = Object.create(CodecParameters.prototype) as CodecParameters;
     (wrapper as any).native = nativeParams;
@@ -145,28 +91,14 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   }
 
   /**
-   * Output codec parameters (read-only reference, read-only contents).
+   * Output codec parameters.
    *
-   * Returns a reference to the BSF context's output codec parameters.
-   * These are automatically configured by the filter during init().
-   * You should not modify these parameters.
+   * Parameters describing the output stream format after filtering.
+   * These reflect any changes made by the bitstream filter.
    *
-   * Maps to AVBSFContext->par_out.
-   *
-   * @example
-   * ```typescript
-   * // After initialization, read the output parameters
-   * console.log(`Output codec: ${ctx.outputCodecParameters?.codecId}`);
-   *
-   * // Use them to configure downstream components
-   * if (ctx.outputCodecParameters) {
-   *   ctx.outputCodecParameters.copy(nextStream.codecpar);
-   * }
-   * ```
+   * Direct mapping to AVBSFContext->par_out.
    */
   get outputCodecParameters(): CodecParameters | null {
-    // The native binding returns a CodecParameters object created with the constructor
-    // It's the native object itself, not a TypeScript wrapper
     const nativeParams = this.native.outputCodecParameters;
     if (!nativeParams) {
       return null;
@@ -180,15 +112,10 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   /**
    * Input time base.
    *
-   * Time base for input packet timestamps.
-   * Must be set before calling init().
+   * Time base of the input packets (timestamps per second).
+   * Must be set before init() for proper timestamp handling.
    *
-   * Maps to AVBSFContext->time_base_in.
-   *
-   * @example
-   * ```typescript
-   * ctx.inputTimeBase = new Rational(1, 1000); // 1ms time base
-   * ```
+   * Direct mapping to AVBSFContext->time_base_in.
    */
   get inputTimeBase(): Rational {
     const tb = this.native.inputTimeBase;
@@ -202,16 +129,10 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   /**
    * Output time base.
    *
-   * Time base for output packet timestamps.
-   * Set by the filter during init().
+   * Time base of the output packets after filtering.
+   * May differ from input if the filter modifies timing.
    *
-   * Maps to AVBSFContext->time_base_out.
-   *
-   * @example
-   * ```typescript
-   * // After initialization
-   * console.log(`Output time base: ${ctx.outputTimeBase.num}/${ctx.outputTimeBase.den}`);
-   * ```
+   * Direct mapping to AVBSFContext->time_base_out.
    */
   get outputTimeBase(): Rational | null {
     const tb = this.native.outputTimeBase;
@@ -222,14 +143,9 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   /**
    * The bitstream filter being used.
    *
-   * Reference to the filter this context was allocated with.
+   * Reference to the filter descriptor allocated to this context.
    *
-   * Maps to AVBSFContext->filter.
-   *
-   * @example
-   * ```typescript
-   * console.log(`Using filter: ${ctx.filter?.name}`);
-   * ```
+   * Direct mapping to AVBSFContext->filter.
    */
   get filter(): BitStreamFilter | null {
     if (!this._filter) {
@@ -243,24 +159,33 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   }
 
   /**
-   * Allocate the bitstream filter context.
+   * Allocate a bitstream filter context.
    *
-   * Allocates the context for the specified filter.
-   * Must be called before any other operations.
-   * After allocation, configure input parameters before calling init().
+   * Allocates and configures the context for the specified filter.
+   * Must be called before init().
    *
-   * Calls av_bsf_alloc() internally.
+   * Direct mapping to av_bsf_alloc().
    *
    * @param filter - The bitstream filter to use
-   * @returns 0 on success, negative error code on failure
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_EINVAL: Invalid filter
    *
    * @example
    * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
    * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
-   * const ctx = new BitStreamFilterContext();
+   * if (!filter) {
+   *   throw new Error('Filter not found');
+   * }
+   *
    * const ret = ctx.alloc(filter);
    * FFmpegError.throwIfError(ret, 'alloc');
    * ```
+   *
+   * @see {@link init} To initialize after allocation
+   * @see {@link BitStreamFilter.getByName} To get filter by name
    */
   alloc(filter: BitStreamFilter): number {
     return this.native.alloc(filter.getNative());
@@ -269,20 +194,32 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   /**
    * Initialize the bitstream filter context.
    *
-   * Prepares the filter for use after parameters have been set.
-   * Sets up output parameters based on input and filter configuration.
-   * Must be called after alloc() and parameter configuration.
+   * Initializes the filter with the configured parameters.
+   * Must be called after alloc() and before processing packets.
    *
-   * Calls av_bsf_init() internally.
+   * Direct mapping to av_bsf_init().
    *
-   * @returns 0 on success, negative error code on failure
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * // After allocation and parameter setup
-   * const ret = ctx.init();
-   * FFmpegError.throwIfError(ret, 'init');
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Allocate and initialize
+   * const ret1 = ctx.alloc(filter);
+   * FFmpegError.throwIfError(ret1, 'alloc');
+   *
+   * // Set parameters if needed
+   * ctx.inputTimeBase = new Rational(1, 25);
+   *
+   * const ret2 = ctx.init();
+   * FFmpegError.throwIfError(ret2, 'init');
    * ```
+   *
+   * @see {@link alloc} Must be called first
+   * @see {@link isInitialized} To check initialization status
    */
   init(): number {
     return this.native.init();
@@ -292,15 +229,18 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    * Free the bitstream filter context.
    *
    * Releases all resources associated with the context.
-   * The context cannot be used after calling this method.
+   * The context becomes invalid after calling this.
    *
-   * Calls av_bsf_free() internally.
+   * Direct mapping to av_bsf_free().
    *
    * @example
    * ```typescript
    * ctx.free();
-   * // Context is now freed and unusable
+   * // Context is now invalid
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
+   * @see {@link alloc} To allocate
    */
   free(): void {
     this.native.free();
@@ -310,16 +250,16 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   /**
    * Flush the bitstream filter.
    *
-   * Resets the internal filter state.
-   * Should be called when seeking or switching streams.
+   * Resets the internal state and discards any buffered data.
+   * Useful when seeking or switching streams.
    *
-   * Calls av_bsf_flush() internally.
+   * Direct mapping to av_bsf_flush().
    *
    * @example
    * ```typescript
-   * // When seeking
+   * // Flush when seeking
    * ctx.flush();
-   * // Filter is reset and ready for new packets
+   * // Now ready to process packets from new position
    * ```
    */
   flush(): void {
@@ -327,77 +267,88 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   }
 
   /**
-   * Send a packet to the filter.
+   * Send a packet to the bitstream filter.
    *
-   * Submits a packet for filtering.
-   * The filter takes ownership of the packet.
-   * Pass null to signal end of stream.
+   * Submits a packet for filtering. The filter may buffer the packet
+   * internally and require multiple calls to receivePacket() to retrieve
+   * all output. Send null to signal end of stream.
    *
-   * After sending a packet, call receivePacket() repeatedly
-   * until it returns EAGAIN or EOF.
+   * Direct mapping to av_bsf_send_packet().
    *
-   * Calls av_bsf_send_packet() internally.
-   *
-   * @param packet - Packet to filter, or null for EOF
-   * @returns Promise resolving to 0 on success, error code on failure
+   * @param packet - Packet to filter, or null to signal EOF
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Filter needs output to be consumed first
+   *   - AVERROR_EOF: Filter has been flushed
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * // Send packet
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av';
+   *
    * const ret = await ctx.sendPacket(inputPacket);
-   * if (ret < 0 && ret !== AVERROR_EAGAIN) {
-   *   throw new Error('Failed to send packet');
+   * if (ret === AVERROR_EAGAIN) {
+   *   // Need to receive packets first
+   *   const ret2 = await ctx.receivePacket(outputPacket);
+   *   FFmpegError.throwIfError(ret2, 'receivePacket');
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'sendPacket');
    * }
    *
    * // Send EOF
    * await ctx.sendPacket(null);
    * ```
+   *
+   * @see {@link receivePacket} To retrieve filtered packets
    */
   async sendPacket(packet: Packet | null): Promise<number> {
     return await this.native.sendPacket(packet ? packet.getNative() : null);
   }
 
   /**
-   * Receive a filtered packet.
+   * Receive a filtered packet from the bitstream filter.
    *
-   * Gets a filtered packet from the filter.
-   * Must be called repeatedly after sendPacket() until EAGAIN or EOF.
-   * One input packet may produce multiple output packets.
+   * Retrieves a packet that has been processed by the filter.
+   * May need to be called multiple times after each sendPacket().
    *
-   * Calls av_bsf_receive_packet() internally.
+   * Direct mapping to av_bsf_receive_packet().
    *
    * @param packet - Packet to receive filtered data into
-   * @returns Promise resolving to 0 on success, negative error code on failure
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Need more input
+   *   - AVERROR_EOF: No more packets available
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
-   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av';
    *
-   * const packet = new Packet();
-   * const ret = await ctx.receivePacket(packet);
+   * // Receive all available packets
+   * while (true) {
+   *   const ret = await ctx.receivePacket(outputPacket);
+   *   if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+   *     break;
+   *   }
+   *   FFmpegError.throwIfError(ret, 'receivePacket');
    *
-   * if (ret === AVERROR_EAGAIN) {
-   *   // Need to send more packets
-   * } else if (ret === AVERROR_EOF) {
-   *   // No more packets
-   * } else if (ret < 0) {
-   *   // Error occurred
-   * } else {
-   *   // Got a packet successfully
-   *   processPacket(packet);
+   *   // Process filtered packet
+   *   console.log(`Filtered packet size: ${outputPacket.size}`);
    * }
    * ```
+   *
+   * @see {@link sendPacket} To submit packets for filtering
    */
   async receivePacket(packet: Packet): Promise<number> {
     return await this.native.receivePacket(packet.getNative());
   }
 
   /**
-   * Get the underlying native object.
+   * Get the underlying native BitStreamFilterContext object.
    *
-   * For advanced use cases that need direct access to the native bindings.
+   * @returns The native BitStreamFilterContext binding object
    *
-   * @returns Native BitStreamFilterContext object
    * @internal
    */
   getNative(): NativeBitStreamFilterContext {
@@ -405,17 +356,18 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   }
 
   /**
-   * Dispose of the context resources.
+   * Dispose of the bitstream filter context.
    *
-   * Automatically called when using the `using` statement.
-   * Frees all associated FFmpeg resources.
+   * Implements the Disposable interface for automatic cleanup.
+   * Equivalent to calling free().
    *
    * @example
    * ```typescript
    * {
    *   using ctx = new BitStreamFilterContext();
    *   ctx.alloc(filter);
-   *   // ... use context
+   *   ctx.init();
+   *   // Use context...
    * } // Automatically freed when leaving scope
    * ```
    */

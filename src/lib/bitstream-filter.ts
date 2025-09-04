@@ -4,11 +4,12 @@ import type { AVCodecID } from '../constants/constants.js';
 import type { NativeBitStreamFilter, NativeWrapper } from './native-types.js';
 
 /**
- * Bitstream filter definition.
+ * Bitstream filter descriptor.
  *
- * Represents a bitstream filter for manipulating encoded data without decoding.
- * Allows modification of codec-specific headers, packet metadata, and bitstream syntax.
- * This is an immutable descriptor - actual filtering happens via BitStreamFilterContext.
+ * Provides access to bitstream filter properties and codec compatibility information.
+ * Bitstream filters are used to modify or analyze compressed bitstreams without
+ * full decoding/encoding. Common uses include H.264/HEVC parameter set extraction,
+ * VP9 superframe splitting, and adding/removing codec-specific headers.
  *
  * Direct mapping to FFmpeg's AVBitStreamFilter.
  *
@@ -16,30 +17,27 @@ import type { NativeBitStreamFilter, NativeWrapper } from './native-types.js';
  * ```typescript
  * import { BitStreamFilter } from 'node-av';
  *
- * // Find a specific bitstream filter
- * const h264Mp4ToAnnexB = BitStreamFilter.getByName('h264_mp4toannexb');
- * if (!h264Mp4ToAnnexB) throw new Error('h264_mp4toannexb filter not found');
- *
- * console.log(`Filter: ${h264Mp4ToAnnexB.name}`);
- * console.log(`Supported codecs: ${h264Mp4ToAnnexB.codecIds}`);
+ * // Get a specific bitstream filter
+ * const h264Filter = BitStreamFilter.getByName('h264_mp4toannexb');
+ * if (h264Filter) {
+ *   console.log(`Filter: ${h264Filter.name}`);
+ *   console.log(`Supported codecs: ${h264Filter.codecIds}`);
+ * }
  *
  * // List all available bitstream filters
  * const filters = BitStreamFilter.iterate();
  * for (const filter of filters) {
- *   console.log(`Found filter: ${filter.name}`);
+ *   console.log(`- ${filter.name}`);
  * }
  * ```
+ *
+ * @see {@link [AVBitStreamFilter](https://ffmpeg.org/doxygen/trunk/structAVBitStreamFilter.html)}
  */
 export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   private native: NativeBitStreamFilter;
 
   /**
-   * Create a BitStreamFilter wrapper.
-   *
-   * Usually not called directly - use static methods instead.
-   * No FFmpeg resources are allocated.
-   *
-   * @param native - Native BitStreamFilter object from bindings
+   * @param native The native bitstream filter instance
    * @internal
    */
   constructor(native: NativeBitStreamFilter) {
@@ -47,23 +45,31 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   }
 
   /**
-   * Find a bitstream filter by name.
+   * Get a bitstream filter by name.
    *
-   * Searches for a registered bitstream filter with the given name.
-   * Returns null if no filter with that name exists.
+   * Retrieves a specific bitstream filter descriptor by its name.
+   * Common filter names include 'h264_mp4toannexb', 'hevc_mp4toannexb',
+   * 'extract_extradata', 'vp9_superframe', etc.
    *
-   * Calls av_bsf_get_by_name() internally.
+   * Direct mapping to av_bsf_get_by_name().
    *
-   * @param name - Name of the bitstream filter (e.g., 'h264_mp4toannexb')
-   * @returns BitStreamFilter if found, null otherwise
+   * @param name - Name of the bitstream filter
+   * @returns BitStreamFilter instance if found, null otherwise
    *
    * @example
    * ```typescript
-   * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
-   * if (filter) {
-   *   console.log(`Found filter: ${filter.name}`);
+   * // Get H.264 stream format converter
+   * const h264Filter = BitStreamFilter.getByName('h264_mp4toannexb');
+   * if (!h264Filter) {
+   *   throw new Error('H.264 bitstream filter not available');
    * }
+   *
+   * // Get HEVC metadata extractor
+   * const hevcFilter = BitStreamFilter.getByName('hevc_metadata');
    * ```
+   *
+   * @see {@link iterate} To list all available filters
+   * @see {@link BitStreamFilterContext.alloc} To use the filter
    */
   static getByName(name: string): BitStreamFilter | null {
     const native = bindings.BitStreamFilter.getByName(name);
@@ -71,22 +77,35 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   }
 
   /**
-   * Get all available bitstream filters.
+   * Iterate over all available bitstream filters.
    *
-   * Returns an array of all registered bitstream filters.
-   * Useful for discovery and debugging.
+   * Returns an array of all registered bitstream filters in FFmpeg.
+   * Useful for discovering available filters or building filter lists.
    *
-   * Calls av_bsf_iterate() internally.
+   * Direct mapping to av_bsf_iterate().
    *
    * @returns Array of all available bitstream filters
    *
    * @example
    * ```typescript
+   * import { BitStreamFilter } from 'node-av';
+   * import { AV_CODEC_ID_H264 } from 'node-av/constants';
+   *
+   * // List all available filters
    * const filters = BitStreamFilter.iterate();
-   * for (const filter of filters) {
-   *   console.log(`${filter.name}: ${filter.codecIds?.join(', ') || 'all codecs'}`);
+   * console.log(`Found ${filters.length} bitstream filters`);
+   *
+   * // Find filters that support H.264
+   * const h264Filters = filters.filter(f =>
+   *   f.codecIds?.includes(AV_CODEC_ID_H264)
+   * );
+   * console.log('H.264 compatible filters:');
+   * for (const filter of h264Filters) {
+   *   console.log(`- ${filter.name}`);
    * }
    * ```
+   *
+   * @see {@link getByName} To get a specific filter
    */
   static iterate(): BitStreamFilter[] {
     const natives = bindings.BitStreamFilter.iterate();
@@ -94,38 +113,34 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   }
 
   /**
-   * Filter name.
+   * Name of the bitstream filter.
    *
-   * Short name used to identify the filter.
-   * This is the name used with getByName().
+   * Human-readable name identifying the filter (e.g., 'h264_mp4toannexb').
    *
-   * Maps to AVBitStreamFilter->name.
-   *
-   * @example
-   * ```typescript
-   * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
-   * console.log(filter.name); // 'h264_mp4toannexb'
-   * ```
+   * Direct mapping to AVBitStreamFilter->name.
    */
   get name(): string | null {
     return this.native.name;
   }
 
   /**
-   * Supported codec IDs.
+   * List of supported codec IDs.
    *
-   * List of codec IDs this filter can process.
-   * If null, the filter works with any codec.
+   * Array of codec IDs that this filter can process.
+   * If null, the filter supports all codecs.
    *
-   * Maps to AVBitStreamFilter->codec_ids.
+   * Direct mapping to AVBitStreamFilter->codec_ids.
    *
    * @example
    * ```typescript
-   * import { AV_CODEC_ID_H264 } from 'node-av/constants';
+   * import { AV_CODEC_ID_H264, AV_CODEC_ID_HEVC } from 'node-av/constants';
    *
-   * const filter = BitStreamFilter.getByName('h264_mp4toannexb');
-   * if (filter.codecIds?.includes(AV_CODEC_ID_H264)) {
-   *   console.log('Filter supports H.264');
+   * const filter = BitStreamFilter.getByName('extract_extradata');
+   * if (filter?.codecIds) {
+   *   const supportsH264 = filter.codecIds.includes(AV_CODEC_ID_H264);
+   *   const supportsHEVC = filter.codecIds.includes(AV_CODEC_ID_HEVC);
+   *   console.log(`H.264 support: ${supportsH264}`);
+   *   console.log(`HEVC support: ${supportsHEVC}`);
    * }
    * ```
    */
@@ -134,11 +149,10 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   }
 
   /**
-   * Get the underlying native object.
+   * Get the underlying native BitStreamFilter object.
    *
-   * For advanced use cases that need direct access to the native bindings.
+   * @returns The native BitStreamFilter binding object
    *
-   * @returns Native BitStreamFilter object
    * @internal
    */
   getNative(): NativeBitStreamFilter {

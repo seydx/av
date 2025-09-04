@@ -1,15 +1,3 @@
-/**
- * Decoder - High-level wrapper for media decoding
- *
- * Simplifies FFmpeg's decoding API with automatic codec selection,
- * parameter configuration, and frame management.
- *
- * Handles codec initialization, packet decoding, and frame output.
- * Supports hardware acceleration and zero-copy transcoding.
- *
- * @module api/decoder
- */
-
 import { AVERROR_EOF, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import { AVERROR_EAGAIN, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
 
@@ -18,49 +6,46 @@ import type { HardwareContext } from './hardware.js';
 import type { DecoderOptions, StreamInfo } from './types.js';
 
 /**
- * High-level decoder for media streams.
+ * High-level decoder for audio and video streams.
  *
- * Handles codec initialization, packet decoding, and frame output.
- * Designed for simple, efficient decoding workflows.
- *
- * Manages codec context lifecycle and provides automatic cleanup.
- * Supports hardware acceleration with zero-copy frame sharing.
+ * Provides a simplified interface for decoding media streams from packets to frames.
+ * Handles codec initialization, hardware acceleration setup, and frame management.
+ * Supports both synchronous packet-by-packet decoding and async iteration over frames.
+ * Essential component in media processing pipelines for converting compressed data to raw frames.
  *
  * @example
  * ```typescript
- * // Create decoder for video stream
- * const media = await MediaInput.open('video.mp4');
- * const stream = media.video(); // Get video stream
- * const decoder = await Decoder.create(stream);
+ * import { MediaInput, Decoder } from '@seydx/av/api';
  *
- * // Decode packets
- * for await (const packet of media.packets()) {
- *   if (packet.streamIndex === stream.index) {
- *     const frame = await decoder.decode(packet);
- *     if (frame) {
- *       console.log(`Decoded frame: ${frame.width}x${frame.height}`);
- *       // Process frame...
- *     }
- *   }
+ * // Open media and create decoder
+ * await using input = await MediaInput.open('video.mp4');
+ * using decoder = await Decoder.create(input.video());
+ *
+ * // Decode frames
+ * for await (const frame of decoder.frames(input.packets())) {
+ *   console.log(`Decoded frame: ${frame.width}x${frame.height}`);
+ *   frame.free();
  * }
- *
- * // Flush decoder
- * const lastFrame = await decoder.flush();
- * decoder.close();
  * ```
  *
  * @example
  * ```typescript
- * // With hardware acceleration
- * const hw = await HardwareContext.auto();
- * const stream = media.video();
- * const decoder = await Decoder.create(stream, {
- *   hardware: hw
- * });
- * // ... use decoder
- * decoder.close();
- * hw?.dispose(); // Safe to call again (no-op)
+ * import { HardwareContext } from '@seydx/av/api';
+ * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+ *
+ * // Setup hardware acceleration
+ * const hw = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+ * using decoder = await Decoder.create(stream, { hardware: hw });
+ *
+ * // Frames will be decoded on GPU
+ * for await (const frame of decoder.frames(packets)) {
+ *   // frame.hwFramesCtx contains GPU memory reference
+ * }
  * ```
+ *
+ * @see {@link Encoder} For encoding frames to packets
+ * @see {@link MediaInput} For reading media files
+ * @see {@link HardwareContext} For GPU acceleration
  */
 export class Decoder implements Disposable {
   private codecContext: CodecContext;
@@ -68,16 +53,15 @@ export class Decoder implements Disposable {
   private streamIndex: number;
   private stream: Stream;
   private isOpen = true;
-  private hardware?: HardwareContext | null; // Reference to hardware context for auto-sharing frames context
+  private hardware?: HardwareContext | null;
 
   /**
-   * Private constructor - use Decoder.create() instead.
+   * @param codecContext - Configured codec context
+   * @param stream - Media stream being decoded
+   * @param hardware - Optional hardware context
+   * Use {@link create} factory method
    *
-   * Initializes the decoder with a codec context and allocates a frame buffer.
-   *
-   * @param codecContext - Initialized codec context
-   * @param stream - The stream this decoder is for
-   * @param hardware - Optional hardware context for auto-sharing frames context
+   * @internal
    */
   private constructor(codecContext: CodecContext, stream: Stream, hardware?: HardwareContext | null) {
     this.codecContext = codecContext;
@@ -89,27 +73,49 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Create a decoder for a specific stream.
+   * Create a decoder for a media stream.
    *
-   * Factory method that handles codec discovery, context setup,
-   * and initialization.
+   * Initializes a decoder with the appropriate codec and configuration.
+   * Automatically detects and configures hardware acceleration if provided.
+   * Applies custom codec options and threading configuration.
    *
-   * Uses avcodec_find_decoder() to locate the appropriate codec,
-   * then initializes and opens the codec context.
-   *
-   * @param stream - Stream to decode
+   * @param stream - Media stream to decode
    * @param options - Decoder configuration options
+   * @returns Configured decoder instance
    *
-   * @returns Promise resolving to configured Decoder
-   *
-   * @throws {Error} If codec unavailable
+   * @throws {Error} If decoder not found for codec
+   * @throws {FFmpegError} If codec initialization fails
    *
    * @example
    * ```typescript
-   * const media = await MediaInput.open('video.mp4');
-   * const stream = media.video();
-   * const decoder = await Decoder.create(stream);
+   * import { MediaInput, Decoder } from '@seydx/av/api';
+   *
+   * await using input = await MediaInput.open('video.mp4');
+   * using decoder = await Decoder.create(input.video());
    * ```
+   *
+   * @example
+   * ```typescript
+   * using decoder = await Decoder.create(stream, {
+   *   threads: 4,
+   *   options: {
+   *     'refcounted_frames': '1',
+   *     'skip_frame': 'nonkey'  // Only decode keyframes
+   *   }
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * const hw = HardwareContext.auto();
+   * using decoder = await Decoder.create(stream, {
+   *   hardware: hw,
+   *   threads: 0  // Auto-detect thread count
+   * });
+   * ```
+   *
+   * @see {@link HardwareContext} For GPU acceleration setup
+   * @see {@link DecoderOptions} For configuration options
    */
   static async create(stream: Stream, options: DecoderOptions = {}): Promise<Decoder> {
     if (!stream) {
@@ -169,6 +175,15 @@ export class Decoder implements Disposable {
 
   /**
    * Check if decoder is open.
+   *
+   * @returns true if decoder is open and ready
+   *
+   * @example
+   * ```typescript
+   * if (decoder.isDecoderOpen) {
+   *   const frame = await decoder.decode(packet);
+   * }
+   * ```
    */
   get isDecoderOpen(): boolean {
     return this.isOpen;
@@ -177,10 +192,32 @@ export class Decoder implements Disposable {
   /**
    * Get output stream information.
    *
-   * Returns the actual decoder output format, which may differ from the input stream.
-   * For hardware decoders, this returns the hardware pixel format.
+   * Returns format information about decoded frames.
+   * For hardware decoding, returns the hardware pixel format.
+   * Essential for configuring downstream components like encoders or filters.
    *
-   * @returns StreamInfo with decoder output properties
+   * @returns Stream format information
+   *
+   * @example
+   * ```typescript
+   * const info = decoder.getOutputStreamInfo();
+   * if (info.type === 'video') {
+   *   console.log(`Video: ${info.width}x${info.height} @ ${info.pixelFormat}`);
+   *   console.log(`Frame rate: ${info.frameRate.num}/${info.frameRate.den}`);
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * const info = decoder.getOutputStreamInfo();
+   * if (info.type === 'audio') {
+   *   console.log(`Audio: ${info.sampleRate}Hz ${info.sampleFormat}`);
+   *   console.log(`Channels: ${info.channelLayout}`);
+   * }
+   * ```
+   *
+   * @see {@link StreamInfo} For format details
+   * @see {@link Encoder.create} For matching encoder configuration
    */
   getOutputStreamInfo(): StreamInfo {
     if (this.stream.codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
@@ -205,35 +242,63 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Check if decoder is hardware-accelerated.
-   * @returns True if hardware-accelerated, false otherwise.
+   * Check if decoder uses hardware acceleration.
+   *
+   * @returns true if hardware-accelerated
+   *
+   * @example
+   * ```typescript
+   * if (decoder.isHardware()) {
+   *   console.log('Using GPU acceleration');
+   * }
+   * ```
+   *
+   * @see {@link HardwareContext} For hardware setup
    */
   isHardware(): boolean {
     return !!this.hardware;
   }
 
   /**
-   * Decode a packet and return a frame if available.
+   * Decode a packet to a frame.
    *
-   * Sends packet to decoder and attempts to receive a frame.
-   * May return null if decoder needs more data.
+   * Sends a packet to the decoder and attempts to receive a decoded frame.
+   * Handles internal buffering - may return null if more packets needed.
+   * Automatically manages decoder state and error recovery.
    *
-   * Uses avcodec_send_packet() and avcodec_receive_frame() internally.
-   * The decoder may buffer packets before producing frames.
+   * Direct mapping to avcodec_send_packet() and avcodec_receive_frame().
    *
-   * @param packet - Packet to decode
+   * @param packet - Compressed packet to decode
+   * @returns Decoded frame or null if more data needed
    *
-   * @returns Promise resolving to Frame or null
-   *
-   * @throws {Error} If decoder is closed or decode fails
+   * @throws {Error} If decoder is closed
+   * @throws {FFmpegError} If decoding fails
    *
    * @example
    * ```typescript
    * const frame = await decoder.decode(packet);
    * if (frame) {
-   *   // Process frame
+   *   console.log(`Decoded frame with PTS: ${frame.pts}`);
+   *   frame.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * for await (const packet of input.packets()) {
+   *   if (packet.streamIndex === decoder.getStreamIndex()) {
+   *     const frame = await decoder.decode(packet);
+   *     if (frame) {
+   *       await processFrame(frame);
+   *       frame.free();
+   *     }
+   *   }
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link frames} For automatic packet iteration
+   * @see {@link flush} For end-of-stream handling
    */
   async decode(packet: Packet): Promise<Frame | null> {
     if (!this.isOpen) {
@@ -261,26 +326,31 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Flush decoder and get remaining frames.
+   * Flush decoder and get buffered frame.
    *
-   * Sends null packet to trigger flush mode.
-   * Call repeatedly until it returns null.
+   * Signals end-of-stream and retrieves remaining frames.
+   * Call repeatedly until null to get all buffered frames.
+   * Essential for ensuring all frames are decoded.
    *
-   * Uses avcodec_send_packet(NULL) to signal end of stream.
-   * Retrieves buffered frames from the decoder.
+   * Direct mapping to avcodec_send_packet(NULL).
    *
-   * @returns Promise resolving to Frame or null
+   * @returns Buffered frame or null if none remaining
    *
    * @throws {Error} If decoder is closed
    *
    * @example
    * ```typescript
-   * // Flush all remaining frames
+   * // After all packets processed
    * let frame;
    * while ((frame = await decoder.flush()) !== null) {
-   *   // Process final frames
+   *   console.log('Got buffered frame');
+   *   await processFrame(frame);
+   *   frame.free();
    * }
    * ```
+   *
+   * @see {@link flushFrames} For async iteration
+   * @see {@link frames} For complete decoding pipeline
    */
   async flush(): Promise<Frame | null> {
     if (!this.isOpen) {
@@ -296,26 +366,27 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Flush decoder and yield all remaining frames as a generator.
+   * Flush all buffered frames as async generator.
    *
-   * More convenient than calling flush() in a loop.
-   * Automatically sends flush signal and yields all buffered frames.
+   * Convenient async iteration over remaining frames.
+   * Automatically handles repeated flush calls.
+   * Useful for end-of-stream processing.
    *
-   * IMPORTANT: The yielded frames MUST be freed by the caller!
-   * Use 'using' statement or manually call frame.free() to avoid memory leaks.
-   *
-   * @returns Async generator of remaining frames
-   *
+   * @yields Buffered frames
    * @throws {Error} If decoder is closed
    *
    * @example
    * ```typescript
-   * // Process all remaining frames with generator
+   * // Flush at end of decoding
    * for await (const frame of decoder.flushFrames()) {
-   *   // Process final frame
-   *   using _ = frame; // Auto cleanup
+   *   console.log('Processing buffered frame');
+   *   await encoder.encode(frame);
+   *   frame.free();
    * }
    * ```
+   *
+   * @see {@link flush} For single frame flush
+   * @see {@link frames} For complete pipeline
    */
   async *flushFrames(): AsyncGenerator<Frame> {
     if (!this.isOpen) {
@@ -329,36 +400,55 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Async iterator that decodes packets and yields frames.
+   * Decode packet stream to frame stream.
    *
-   * Filters packets for this decoder's stream and yields decoded frames.
-   * Automatically handles packet cleanup and decoder flushing.
+   * High-level async generator for complete decoding pipeline.
+   * Automatically filters packets for this stream, manages memory,
+   * and flushes buffered frames at end.
+   * Primary interface for stream-based decoding.
    *
-   * Processes packets in sequence, decoding each and yielding frames.
-   * After all packets are processed, flushes the decoder for remaining frames.
-   *
-   * IMPORTANT: The yielded frames MUST be freed by the caller!
-   * Use 'using' statement or manually call frame.free() to avoid memory leaks.
-   *
-   * @param packets - Async iterable of packets (e.g., from MediaInput.packets())
-   *
-   * @yields Decoded frames (ownership transferred to caller)
+   * @param packets - Async iterable of packets
+   * @yields Decoded frames
+   * @throws {Error} If decoder is closed
+   * @throws {FFmpegError} If decoding fails
    *
    * @example
    * ```typescript
-   * // RECOMMENDED: Use 'using' for automatic cleanup
-   * for await (using frame of decoder.frames(media.packets())) {
-   *   console.log(`Frame: ${frame.width}x${frame.height}`);
-   *   // Frame is automatically freed at end of iteration
-   * }
+   * await using input = await MediaInput.open('video.mp4');
+   * using decoder = await Decoder.create(input.video());
    *
-   * // OR: Manual cleanup
-   * for await (const frame of decoder.frames(media.packets())) {
+   * for await (const frame of decoder.frames(input.packets())) {
    *   console.log(`Frame: ${frame.width}x${frame.height}`);
-   *   // Process frame...
-   *   frame.free(); // MUST call free()!
+   *   frame.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * for await (const frame of decoder.frames(input.packets())) {
+   *   // Process frame
+   *   await filter.filterFrame(frame);
+   *
+   *   // Frame automatically freed
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * import { pipeline } from '@seydx/av/api';
+   *
+   * const control = pipeline(
+   *   input,
+   *   decoder,
+   *   encoder,
+   *   output
+   * );
+   * await control.completion;
+   * ```
+   *
+   * @see {@link decode} For single packet decoding
+   * @see {@link MediaInput.packets} For packet source
    */
   async *frames(packets: AsyncIterable<Packet>): AsyncGenerator<Frame> {
     if (!this.isOpen) {
@@ -391,10 +481,21 @@ export class Decoder implements Disposable {
   /**
    * Close decoder and free resources.
    *
-   * After closing, the decoder cannot be used again.
+   * Releases codec context and internal frame buffer.
+   * Safe to call multiple times.
+   * Automatically called by Symbol.dispose.
    *
-   * Frees the frame buffer and codec context.
-   * Note: Does NOT dispose the HardwareContext - caller is responsible for that.
+   * @example
+   * ```typescript
+   * const decoder = await Decoder.create(stream);
+   * try {
+   *   // Use decoder
+   * } finally {
+   *   decoder.close();
+   * }
+   * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   close(): void {
     if (!this.isOpen) {
@@ -408,28 +509,55 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Get the stream index this decoder is for.
+   * Get stream index.
+   *
+   * Returns the index of the stream being decoded.
+   * Used for packet filtering in multi-stream files.
+   *
+   * @returns Stream index
+   *
+   * @example
+   * ```typescript
+   * if (packet.streamIndex === decoder.getStreamIndex()) {
+   *   const frame = await decoder.decode(packet);
+   * }
+   * ```
+   *
+   * @see {@link getStream} For full stream object
    */
   getStreamIndex(): number {
     return this.streamIndex;
   }
 
   /**
-   * Get the original stream this decoder was created from.
-   * Used for stream-copy operations in pipeline.
+   * Get stream object.
+   *
+   * Returns the underlying stream being decoded.
+   * Provides access to stream metadata and parameters.
+   *
+   * @returns Stream object
+   *
+   * @example
+   * ```typescript
+   * const stream = decoder.getStream();
+   * console.log(`Duration: ${stream.duration}`);
+   * console.log(`Time base: ${stream.timeBase.num}/${stream.timeBase.den}`);
+   * ```
+   *
+   * @see {@link Stream} For stream properties
+   * @see {@link getStreamIndex} For index only
    */
   getStream(): Stream {
     return this.stream;
   }
 
   /**
-   * Get codec context for advanced configuration.
+   * Get underlying codec context.
    *
-   * Use with caution - direct manipulation may cause issues.
+   * Returns the internal codec context for advanced operations.
+   * Returns null if decoder is closed.
    *
-   * Provides access to the underlying AVCodecContext for advanced operations.
-   *
-   * @returns CodecContext or null if closed
+   * @returns Codec context or null
    *
    * @internal
    */
@@ -438,15 +566,18 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Receive a frame from the decoder (internal).
+   * Receive frame from decoder.
    *
-   * Internal method to receive decoded frames without conversion.
+   * Internal method to get decoded frames from codec.
+   * Handles frame cloning and error checking.
+   * Hardware frames include hw_frames_ctx reference.
    *
-   * Uses avcodec_receive_frame() to get decoded frames from the codec.
-   * Clones the frame for the user to prevent internal buffer corruption.
+   * Direct mapping to avcodec_receive_frame().
    *
-   * @returns Frame or null if no frame available
-   * @internal
+   * @returns Cloned frame or null
+   *
+   * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
+   *
    */
   private async receiveFrameInternal(): Promise<Frame | null> {
     // Clear previous frame data
@@ -471,10 +602,20 @@ export class Decoder implements Disposable {
   }
 
   /**
-   * Symbol.dispose for automatic cleanup.
+   * Dispose of decoder.
    *
-   * Implements the Disposable interface for automatic resource management.
-   * Calls close() to free all resources.
+   * Implements Disposable interface for automatic cleanup.
+   * Equivalent to calling close().
+   *
+   * @example
+   * ```typescript
+   * {
+   *   using decoder = await Decoder.create(stream);
+   *   // Decode frames...
+   * } // Automatically closed
+   * ```
+   *
+   * @see {@link close} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.close();

@@ -1,91 +1,93 @@
-/**
- * IOStream - Custom I/O Factory for FFmpeg
- *
- * Provides factory methods for creating IOContext instances from various sources.
- * Supports Buffers for in-memory operations and custom callbacks for full control.
- *
- * All methods are static - this class cannot be instantiated.
- * Use the overloaded create() method to create IOContext from different input types.
- *
- * @module api/io-stream
- */
-
 import { AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, AVSEEK_SIZE } from '../constants/constants.js';
 import { IOContext } from '../lib/index.js';
 
 import type { IOInputCallbacks, MediaInputOptions } from './types.js';
 
 /**
- * Factory class for creating IOContext instances.
+ * Factory for creating custom I/O contexts.
  *
- * Provides a unified interface for creating custom I/O contexts from:
- * - Buffers for in-memory data
- * - Custom callbacks for full I/O control
+ * Provides simplified creation of I/O contexts from buffers or custom callbacks.
+ * Handles buffer management and seek operations for in-memory media.
+ * Bridges the gap between high-level media operations and custom I/O sources.
+ * Essential for processing media from non-file sources like network streams or memory.
  *
  * @example
  * ```typescript
- * import { IOStream } from 'node-av/api';
- * import { readFile } from 'fs/promises';
+ * import { IOStream, MediaInput } from '@seydx/av/api';
  *
- * // From Buffer
- * const buffer = await readFile('video.mp4');
+ * // From buffer
+ * const buffer = await fs.readFile('video.mp4');
  * const ioContext = IOStream.create(buffer);
+ * const input = await MediaInput.open(buffer);
+ * ```
  *
- * // From custom callbacks
- * const ioContext = IOStream.create({
- *   read: (size) => customSource.read(size),
- *   seek: (offset, whence) => customSource.seek(offset, whence)
+ * @example
+ * ```typescript
+ * // Custom I/O callbacks
+ * const callbacks = {
+ *   read: async (size: number) => {
+ *     // Read from custom source
+ *     return Buffer.alloc(size);
+ *   },
+ *   seek: async (offset: bigint, whence: number) => {
+ *     // Seek in custom source
+ *     return offset;
+ *   }
+ * };
+ *
+ * const ioContext = IOStream.create(callbacks, {
+ *   bufferSize: 4096
  * });
  * ```
+ *
+ * @see {@link IOContext} For low-level I/O operations
+ * @see {@link MediaInput} For using I/O contexts
+ * @see {@link IOInputCallbacks} For callback interface
  */
 export class IOStream {
-  // Private constructor to prevent instantiation
-  private constructor() {
-    throw new Error('IOStream is a static class and cannot be instantiated');
-  }
-
   /**
-   * Create IOContext from a Buffer.
+   * Create I/O context from buffer or callbacks.
    *
-   * Creates an I/O context for reading from in-memory data.
-   * Automatically handles seeking within the buffer.
+   * Factory method that creates appropriate I/O context based on input type.
+   * Supports both in-memory buffers and custom callback-based I/O.
+   * Configures buffer size and read/seek operations.
    *
-   * @param buffer - Buffer containing media data
-   * @param options - Optional configuration
+   * Direct mapping to avio_alloc_context().
    *
-   * @returns IOContext instance ready for use
+   * @param input - Buffer or I/O callbacks
+   * @param options - I/O configuration options
+   * @returns Configured I/O context
+   *
+   * @throws {TypeError} If input type is invalid
+   * @throws {Error} If callbacks missing required read function
    *
    * @example
    * ```typescript
-   * const buffer = await readFile('video.mp4');
-   * const ioContext = IOStream.create(buffer);
-   * ```
-   */
-  static create(buffer: Buffer, options?: MediaInputOptions): IOContext;
-
-  /**
-   * Create IOContext from custom callbacks.
-   *
-   * Creates an I/O context with custom read and seek operations.
-   * Callbacks must be synchronous and return immediately.
-   *
-   * @param callbacks - Custom I/O callbacks (read required, seek optional)
-   * @param options - Optional configuration
-   *
-   * @returns IOContext instance ready for use
-   *
-   * @throws {Error} If read callback is not provided
-   *
-   * @example
-   * ```typescript
-   * const ioContext = IOStream.create({
-   *   read: (size) => buffer.slice(pos, pos + size),
-   *   seek: (offset, whence) => calculatePosition(offset, whence)
+   * // From buffer
+   * const buffer = await fs.readFile('video.mp4');
+   * const ioContext = IOStream.create(buffer, {
+   *   bufferSize: 8192
    * });
    * ```
+   *
+   * @example
+   * ```typescript
+   * // From callbacks
+   * const ioContext = IOStream.create({
+   *   read: async (size) => {
+   *     return await customSource.read(size);
+   *   },
+   *   seek: async (offset, whence) => {
+   *     return await customSource.seek(offset, whence);
+   *   }
+   * });
+   * ```
+   *
+   * @see {@link createFromBuffer} For buffer implementation
+   * @see {@link createFromCallbacks} For callback implementation
    */
+  static create(buffer: Buffer, options?: MediaInputOptions): IOContext;
   static create(callbacks: IOInputCallbacks, options?: MediaInputOptions): IOContext;
-
   static create(input: Buffer | IOInputCallbacks, options: MediaInputOptions = {}): IOContext | Promise<IOContext> {
     const { bufferSize = 8192 } = options;
 
@@ -103,17 +105,14 @@ export class IOStream {
   }
 
   /**
-   * Create IOContext from a Buffer with position tracking.
+   * Create I/O context from buffer.
    *
-   * Sets up read and seek callbacks that operate on the buffer.
-   * Maintains internal position state for sequential reading.
+   * Sets up read and seek callbacks for in-memory buffer.
+   * Manages position tracking and EOF handling.
    *
-   * @param buffer - Buffer containing the data
-   * @param bufferSize - Internal buffer size for IOContext
-   *
-   * @returns Configured IOContext instance
-   *
-   * @internal
+   * @param buffer - Source buffer
+   * @param bufferSize - Internal buffer size
+   * @returns Configured I/O context
    */
   private static createFromBuffer(buffer: Buffer, bufferSize: number): IOContext {
     let position = 0;
@@ -157,19 +156,16 @@ export class IOStream {
   }
 
   /**
-   * Create IOContext from user-provided callbacks.
+   * Create I/O context from callbacks.
    *
-   * Validates and wraps the provided callbacks for use with FFmpeg.
-   * Only supports read mode as high-level API doesn't expose write operations.
+   * Sets up custom I/O with user-provided callbacks.
+   * Supports read and optional seek operations.
    *
-   * @param callbacks - User-provided I/O callbacks
-   * @param bufferSize - Internal buffer size for IOContext
+   * @param callbacks - User I/O callbacks
+   * @param bufferSize - Internal buffer size
+   * @returns Configured I/O context
    *
-   * @returns Configured IOContext instance
-   *
-   * @throws {Error} If read callback is not provided
-   *
-   * @internal
+   * @throws {Error} If read callback not provided
    */
   private static createFromCallbacks(callbacks: IOInputCallbacks, bufferSize: number): IOContext {
     // We only support read mode in the high-level API

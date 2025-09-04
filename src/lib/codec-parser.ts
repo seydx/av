@@ -6,198 +6,188 @@ import type { NativeCodecParser, NativeWrapper } from './native-types.js';
 import type { Packet } from './packet.js';
 
 /**
- * Codec parser for splitting elementary streams into frames.
+ * Parser for extracting codec frames from raw bitstream data.
  *
- * Parsers split raw byte streams (currently only video) into coded frames.
- * Many decoders require that coded video frames are preceded by a start code,
- * and this parser splits the stream at these boundaries. Parsers are essential
- * for handling raw elementary streams from sources like network streams or
- * raw video files without container format.
+ * Analyzes and splits raw bitstream data into individual codec frames.
+ * Essential for processing elementary streams, extracting NAL units,
+ * and handling frame boundaries in raw codec data. Commonly used for
+ * parsing H.264/H.265 streams, AAC ADTS streams, and other raw formats.
  *
- * Direct wrapper around AVCodecParserContext.
+ * Direct mapping to FFmpeg's AVCodecParserContext.
  *
  * @example
  * ```typescript
  * import { CodecParser, CodecContext, Packet, FFmpegError } from 'node-av';
- * import { AV_CODEC_ID_H264, AV_NOPTS_VALUE } from 'node-av/constants';
+ * import { AV_CODEC_ID_H264 } from 'node-av/constants';
  *
+ * // Create and initialize parser
  * const parser = new CodecParser();
  * parser.init(AV_CODEC_ID_H264);
  *
- * // Parse raw H.264 stream
+ * // Parse raw data into packets
  * const packet = new Packet();
  * packet.alloc();
  *
- * const bytesConsumed = parser.parse2(
+ * const rawData = Buffer.from([...]); // Raw H.264 stream
+ * const ret = parser.parse2(
  *   codecContext,
  *   packet,
- *   inputBuffer,
- *   AV_NOPTS_VALUE,
- *   AV_NOPTS_VALUE,
- *   0
+ *   rawData,
+ *   0n,  // pts
+ *   0n,  // dts
+ *   0    // position
  * );
  *
- * if (packet.size > 0) {
- *   // We have a complete frame in packet
- *   const ret = await codecContext.sendPacket(packet);
- *   FFmpegError.throwIfError(ret, 'sendPacket');
+ * if (ret > 0) {
+ *   // Got complete packet, ret is consumed bytes
+ *   console.log(`Parsed ${ret} bytes into packet`);
  * }
  *
+ * // Cleanup
  * parser.close();
  * ```
  *
+ * @see {@link [AVCodecParserContext](https://ffmpeg.org/doxygen/trunk/structAVCodecParserContext.html)}
  * @see {@link CodecContext} For decoding parsed packets
- * @see {@link Packet} For storing parsed frame data
  */
-export class CodecParser implements NativeWrapper<NativeCodecParser> {
+export class CodecParser implements Disposable, NativeWrapper<NativeCodecParser> {
   private native: NativeCodecParser;
 
-  /**
-   * Create a new CodecParser instance.
-   *
-   * The parser is uninitialized - you must call init() before use.
-   * No FFmpeg resources are allocated until init() is called.
-   *
-   * Direct wrapper around AVCodecParserContext allocation.
-   *
-   * @example
-   * ```typescript
-   * import { CodecParser } from 'node-av';
-   * import { AV_CODEC_ID_MPEG1VIDEO } from 'node-av/constants';
-   *
-   * const parser = new CodecParser();
-   * parser.init(AV_CODEC_ID_MPEG1VIDEO);
-   * // parser is now ready for use
-   * ```
-   */
   constructor() {
     this.native = new bindings.CodecParser();
   }
 
   /**
-   * Initialize the parser with a specific codec ID.
+   * Initialize parser for specific codec.
    *
-   * Allocates and initializes the AVCodecParserContext for the specified codec.
-   * Must be called before parse2() can be used.
+   * Sets up the parser to handle a specific codec format.
+   * Must be called before parsing data.
    *
-   * Direct mapping to av_parser_init()
+   * Direct mapping to av_parser_init().
    *
-   * @param codecId - AVCodecID of the codec to parse
+   * @param codecId - Codec ID to parse
    *
-   * @throws {Error} Parser for codec ID not found
+   * @throws {Error} If codec parser not available
    *
    * @example
    * ```typescript
-   * import { CodecParser } from 'node-av';
-   * import { AV_CODEC_ID_H264, AV_CODEC_ID_HEVC } from 'node-av/constants';
+   * import { AV_CODEC_ID_AAC } from 'node-av/constants';
    *
    * const parser = new CodecParser();
-   *
-   * // Initialize for H.264
-   * parser.init(AV_CODEC_ID_H264);
-   * // Parser is now ready to parse H.264 streams
-   *
-   * // For HEVC/H.265
-   * const hevcParser = new CodecParser();
-   * hevcParser.init(AV_CODEC_ID_HEVC);
+   * parser.init(AV_CODEC_ID_AAC);
+   * // Parser ready for AAC ADTS streams
    * ```
    *
-   * @see {@link parse2} For parsing data after initialization
+   * @see {@link parse2} To parse data
+   * @see {@link close} To cleanup
    */
   init(codecId: AVCodecID): void {
     this.native.init(codecId);
   }
 
   /**
-   * Parse a buffer and extract packets from elementary stream.
+   * Parse bitstream data into packets.
    *
-   * Parses the input buffer and extracts complete coded frames. The parser
-   * maintains internal state to handle partial frames across multiple calls.
-   * The parser may combine multiple frames into one packet or split one frame
-   * into multiple packets, depending on the codec and stream format.
+   * Analyzes raw bitstream data and extracts complete codec frames.
+   * May require multiple calls to accumulate enough data for a complete frame.
+   * Returns the number of bytes consumed from the input buffer.
    *
-   * Direct mapping to av_parser_parse2()
+   * Direct mapping to av_parser_parse2().
    *
-   * @param codecContext - Codec context (used for stream parameters)
-   * @param packet - Packet to fill with parsed data
-   * @param data - Input buffer containing elementary stream data
-   * @param pts - Presentation timestamp of the first byte in data
-   * @param dts - Decoding timestamp of the first byte in data
-   * @param pos - Byte position of the first byte in data in the stream
-   *
-   * @returns Number of bytes consumed from the input buffer:
-   *   - >0: Number of bytes consumed from input
-   *   - 0: More data needed to complete a frame
+   * @param codecContext - Codec context for parser state
+   * @param packet - Packet to receive parsed frame
+   * @param data - Raw bitstream data to parse
+   * @param pts - Presentation timestamp for data
+   * @param dts - Decoding timestamp for data
+   * @param pos - Byte position in stream
+   * @returns Number of bytes consumed from data, negative on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { CodecParser, CodecContext, Packet, FFmpegError } from 'node-av';
-   * import { AV_NOPTS_VALUE } from 'node-av/constants';
-   * import * as fs from 'fs';
-   *
-   * const inbuf = Buffer.alloc(4096);
-   * const bytesRead = fs.readSync(fd, inbuf, 0, 4096, null);
+   * import { FFmpegError } from 'node-av';
    *
    * let offset = 0;
-   * while (offset < bytesRead) {
-   *   const consumed = parser.parse2(
+   * while (offset < rawData.length) {
+   *   const remaining = rawData.subarray(offset);
+   *   const ret = parser.parse2(
    *     codecContext,
    *     packet,
-   *     inbuf.subarray(offset),
-   *     AV_NOPTS_VALUE,
-   *     AV_NOPTS_VALUE,
-   *     0
+   *     remaining,
+   *     pts,
+   *     dts,
+   *     offset
    *   );
    *
-   *   offset += consumed;
+   *   if (ret < 0) {
+   *     FFmpegError.throwIfError(ret, 'parse2');
+   *   }
+   *
+   *   offset += ret;
    *
    *   if (packet.size > 0) {
-   *     // Complete packet ready for decoding
-   *     const ret = await codecContext.sendPacket(packet);
-   *     FFmpegError.throwIfError(ret, 'sendPacket');
+   *     // Got complete packet
+   *     await processPacket(packet);
+   *     packet.unref();
    *   }
    * }
    * ```
    *
-   * @see {@link init} Must be called before parse2
-   * @see {@link close} Should be called when done parsing
+   * @see {@link init} To initialize parser
    */
   parse2(codecContext: CodecContext, packet: Packet, data: Buffer, pts: bigint, dts: bigint, pos: number): number {
     return this.native.parse2(codecContext.getNative(), packet.getNative(), data, pts, dts, pos);
   }
 
   /**
-   * Close the parser and free all resources.
+   * Close the codec parser.
    *
-   * Releases all resources associated with the parser context.
-   * After calling close(), the parser instance should not be used anymore.
+   * Releases all resources associated with the parser.
+   * The parser becomes invalid after calling this.
    *
-   * Direct mapping to av_parser_close()
+   * Direct mapping to av_parser_close().
    *
    * @example
    * ```typescript
-   * import { CodecParser } from 'node-av';
-   *
-   * const parser = new CodecParser();
-   * // ... use parser ...
-   *
    * parser.close();
-   * // Parser resources are now freed
-   * // Do not use parser after this point
+   * // Parser is now invalid
    * ```
+   *
+   * @see {@link init} To initialize
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   close(): void {
     this.native.close();
   }
 
   /**
-   * @internal
-   * Get the underlying native codec parser object.
-   * This method is for internal use by other FFmpeg classes.
+   * Get the underlying native CodecParser object.
    *
-   * @returns The underlying native codec parser object
+   * @returns The native CodecParser binding object
+   *
+   * @internal
    */
   getNative(): NativeCodecParser {
     return this.native;
+  }
+
+  /**
+   * Dispose of the codec parser.
+   *
+   * Implements the Disposable interface for automatic cleanup.
+   * Equivalent to calling close().
+   *
+   * @example
+   * ```typescript
+   * {
+   *   using parser = new CodecParser();
+   *   parser.init(AV_CODEC_ID_H264);
+   *   // Use parser...
+   * } // Automatically closed when leaving scope
+   * ```
+   */
+  [Symbol.dispose](): void {
+    this.close();
   }
 }

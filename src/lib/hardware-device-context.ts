@@ -5,134 +5,97 @@ import type { Dictionary } from './dictionary.js';
 import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.js';
 
 /**
- * Hardware device context for hardware acceleration.
+ * Hardware device context for GPU-accelerated processing.
  *
- * Manages hardware acceleration devices like CUDA, VAAPI, DXVA2, etc.
- * Provides device creation, configuration, and constraint querying.
- * Required for hardware-accelerated encoding, decoding, and filtering.
+ * Manages hardware acceleration devices for video encoding, decoding, and filtering.
+ * Provides access to GPU resources like CUDA, VAAPI, VideoToolbox, and other
+ * hardware acceleration APIs. Essential for high-performance video processing
+ * and reduced CPU usage.
  *
  * Direct mapping to FFmpeg's AVHWDeviceContext.
  *
  * @example
  * ```typescript
- * import { HardwareDeviceContext, HardwareFramesContext, FFmpegError } from 'node-av';
- * import { AV_HWDEVICE_TYPE_CUDA, AV_PIX_FMT_CUDA, AV_PIX_FMT_NV12 } from 'node-av/constants';
+ * import { HardwareDeviceContext, FFmpegError } from 'node-av';
+ * import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VIDEOTOOLBOX } from 'node-av/constants';
  *
- * // Create CUDA device context
+ * // Create hardware device
  * const device = new HardwareDeviceContext();
- * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
- * FFmpegError.throwIfError(ret, 'create device');
+ * const ret = device.create(AV_HWDEVICE_TYPE_CUDA);
+ * FFmpegError.throwIfError(ret, 'create');
  *
- * // Get device constraints
- * const constraints = device.getHwframeConstraints();
- * console.log(`Max size: ${constraints.maxWidth}x${constraints.maxHeight}`);
- *
- * // Create frames context for this device
- * const frames = new HardwareFramesContext();
- * frames.alloc(device);
- * frames.format = AV_PIX_FMT_CUDA;
- * frames.swFormat = AV_PIX_FMT_NV12;
- * frames.width = 1920;
- * frames.height = 1080;
- * const initRet = frames.init();
- * FFmpegError.throwIfError(initRet, 'init frames');
- *
- * // Cleanup
- * frames.free();
- * device.free();
- * ```
- *
- * @example
- * ```typescript
- * import { HardwareDeviceContext } from 'node-av';
- * import { AV_HWDEVICE_TYPE_NONE } from 'node-av/constants';
- *
- * // List available hardware device types
+ * // List available hardware types
  * const types = HardwareDeviceContext.iterateTypes();
  * for (const type of types) {
  *   const name = HardwareDeviceContext.getTypeName(type);
  *   console.log(`Available: ${name}`);
  * }
  *
- * // Find specific device type
- * const vaapi = HardwareDeviceContext.findTypeByName('vaapi');
- * if (vaapi !== AV_HWDEVICE_TYPE_NONE) {
- *   const device = new HardwareDeviceContext();
- *   const ret = device.create(vaapi, '/dev/dri/renderD128', null);
- *   FFmpegError.throwIfError(ret, 'create VAAPI device');
- * }
+ * // Use with decoder
+ * const codecContext = new CodecContext();
+ * codecContext.hwDeviceCtx = device;
+ *
+ * // Create derived context
+ * const derived = new HardwareDeviceContext();
+ * const ret2 = derived.createDerived(device, AV_HWDEVICE_TYPE_CUDA);
+ * FFmpegError.throwIfError(ret2, 'createDerived');
+ *
+ * // Cleanup
+ * device.free();
  * ```
  *
- * @see {@link HardwareFramesContext} For managing hardware frame pools
- * @see {@link CodecContext} For hardware-accelerated encoding/decoding
+ * @see {@link [AVHWDeviceContext](https://ffmpeg.org/doxygen/trunk/structAVHWDeviceContext.html)}
+ * @see {@link HardwareFramesContext} For hardware frame allocation
+ * @see {@link CodecContext} For hardware codec usage
  */
 export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHardwareDeviceContext> {
   private native: NativeHardwareDeviceContext;
 
-  /**
-   * Create a new hardware device context.
-   *
-   * The context is uninitialized - you must call alloc() or create() before use.
-   * No FFmpeg resources are allocated until initialization.
-   *
-   * Direct wrapper around AVHWDeviceContext.
-   *
-   * @example
-   * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
-   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
-   *
-   * const device = new HardwareDeviceContext();
-   * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
-   * FFmpegError.throwIfError(ret, 'create device');
-   * // Device is now ready for use
-   * ```
-   */
   constructor() {
     this.native = new bindings.HardwareDeviceContext();
   }
 
   /**
-   * Get the string name of an AVHWDeviceType.
+   * Get human-readable name for hardware device type.
    *
-   * Returns the human-readable name for a hardware device type.
+   * Converts a hardware device type enum to its string representation.
    *
-   * Direct mapping to av_hwdevice_get_type_name()
+   * Direct mapping to av_hwdevice_get_type_name().
    *
-   * @param type - Hardware device type (AVHWDeviceType)
-   *
-   * @returns Device type name or null if unknown
+   * @param type - Hardware device type
+   * @returns Type name string, or null if invalid
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from 'node-av';
    * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * const name = HardwareDeviceContext.getTypeName(AV_HWDEVICE_TYPE_CUDA);
    * console.log(name); // "cuda"
    * ```
+   *
+   * @see {@link findTypeByName} For reverse lookup
    */
   static getTypeName(type: AVHWDeviceType): string | null {
     return bindings.HardwareDeviceContext.getTypeName(type);
   }
 
   /**
-   * Iterate over supported device types.
+   * List all supported hardware device types.
    *
-   * Returns all hardware device types supported by this FFmpeg build.
+   * Returns an array of all hardware acceleration types available
+   * in the current FFmpeg build.
    *
-   * Direct mapping to av_hwdevice_iterate_types()
+   * Direct mapping to av_hwdevice_iterate_types().
    *
-   * @returns Array of supported AVHWDeviceType values
+   * @returns Array of available hardware device types
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from 'node-av';
-   *
    * const types = HardwareDeviceContext.iterateTypes();
+   * console.log('Available hardware acceleration:');
    * for (const type of types) {
    *   const name = HardwareDeviceContext.getTypeName(type);
-   *   console.log(`Supported: ${name}`);
+   *   console.log(`  - ${name}`);
    * }
    * ```
    */
@@ -141,26 +104,24 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
-   * Get the AVHWDeviceType corresponding to the name.
+   * Find hardware device type by name.
    *
-   * Looks up a hardware device type by its string name.
+   * Converts a string name to the corresponding hardware device type enum.
    *
-   * Direct mapping to av_hwdevice_find_type_by_name()
+   * Direct mapping to av_hwdevice_find_type_by_name().
    *
-   * @param name - Device type name (e.g., "cuda", "vaapi", "dxva2")
-   *
-   * @returns AVHWDeviceType or AV_HWDEVICE_TYPE_NONE if not found
+   * @param name - Hardware type name (e.g., 'cuda', 'vaapi', 'videotoolbox')
+   * @returns Hardware device type enum, or AV_HWDEVICE_TYPE_NONE if not found
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from 'node-av';
-   * import { AV_HWDEVICE_TYPE_NONE } from 'node-av/constants';
-   *
    * const type = HardwareDeviceContext.findTypeByName('cuda');
    * if (type !== AV_HWDEVICE_TYPE_NONE) {
-   *   // CUDA is available
+   *   console.log('CUDA is available');
    * }
    * ```
+   *
+   * @see {@link getTypeName} For type to name conversion
    */
   static findTypeByName(name: string): AVHWDeviceType {
     return bindings.HardwareDeviceContext.findTypeByName(name);
@@ -169,243 +130,233 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   /**
    * Hardware device type.
    *
-   * Direct mapping to AVHWDeviceContext->type
+   * The type of hardware acceleration in use.
    *
-   * @readonly
+   * Direct mapping to AVHWDeviceContext->type.
    */
   get type(): AVHWDeviceType {
     return this.native.type;
   }
 
   /**
-   * Hardware-specific data.
+   * Hardware context pointer.
    *
-   * Direct mapping to AVHWDeviceContext->hwctx
+   * Opaque pointer to the underlying hardware-specific context.
+   * Type depends on the hardware device type.
    *
-   * Returns opaque pointer as BigInt for advanced users.
-   * @readonly
+   * Direct mapping to AVHWDeviceContext->hwctx.
    */
   get hwctx(): bigint | null {
     return this.native.hwctx;
   }
 
   /**
-   * Allocate an AVHWDeviceContext for a given hardware type.
+   * Allocate hardware device context.
    *
-   * Allocates the device context structure but doesn't open the device.
-   * Must call init() after configuration to finalize.
+   * Allocates memory for the specified hardware device type.
+   * Must be followed by init() to initialize the device.
    *
-   * Direct mapping to av_hwdevice_ctx_alloc()
+   * Direct mapping to av_hwdevice_ctx_alloc().
    *
-   * @param type - Hardware device type
+   * @param type - Hardware device type to allocate
    *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @throws {Error} If allocation fails (ENOMEM)
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
    * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * const device = new HardwareDeviceContext();
    * device.alloc(AV_HWDEVICE_TYPE_CUDA);
-   * // Configure device properties if needed
    * const ret = device.init();
-   * FFmpegError.throwIfError(ret, 'init device');
+   * FFmpegError.throwIfError(ret, 'init');
    * ```
    *
-   * @see {@link init} To finalize the device
-   * @see {@link create} For one-step device creation
+   * @see {@link init} To initialize after allocation
+   * @see {@link create} For combined alloc and init
    */
   alloc(type: AVHWDeviceType): void {
     this.native.alloc(type);
   }
 
   /**
-   * Finalize the device context before use.
+   * Initialize allocated hardware device.
    *
-   * Completes device initialization after alloc() and configuration.
-   * Must be called before using the device context.
+   * Initializes a previously allocated hardware device context.
+   * Must be called after alloc() and before using the device.
    *
-   * Direct mapping to av_hwdevice_ctx_init()
+   * Direct mapping to av_hwdevice_ctx_init().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success (device ready)
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Device-specific errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - Device-specific errors
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
+   * import { FFmpegError } from 'node-av';
    *
+   * device.alloc(type);
    * const ret = device.init();
-   * FFmpegError.throwIfError(ret, 'init device');
-   * // Device is now ready for use
+   * FFmpegError.throwIfError(ret, 'init');
    * ```
    *
    * @see {@link alloc} Must be called first
+   * @see {@link create} For combined operation
    */
   init(): number {
     return this.native.init();
   }
 
   /**
-   * Open a device of the specified type and create an AVHWDeviceContext.
+   * Create and initialize hardware device.
    *
-   * One-step device creation that allocates, opens, and initializes the device.
-   * This is the preferred method for creating hardware devices.
+   * Combined allocation and initialization of a hardware device.
+   * This is the preferred method for creating hardware contexts.
    *
-   * Direct mapping to av_hwdevice_ctx_create()
+   * Direct mapping to av_hwdevice_ctx_create().
    *
    * @param type - Hardware device type
-   * @param device - Device to open (e.g., "/dev/dri/renderD128" for VAAPI), or null for default
-   * @param options - Device creation options, or null
-   *
+   * @param device - Device name/path (null for default)
+   * @param options - Device-specific options
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success (device created and ready)
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - AVERROR(ENOSYS): Device type not supported
-   *   - <0: Device-specific errors
+   *   - AVERROR_EINVAL: Invalid type or parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *   - AVERROR_ENOSYS: Type not supported
+   *   - Device-specific errors
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
-   * import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from 'node-av/constants';
+   * import { FFmpegError, Dictionary } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
-   * // Create CUDA device
-   * const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
-   * FFmpegError.throwIfError(ret, 'create CUDA device');
+   * // Create with default device
+   * const device = new HardwareDeviceContext();
+   * let ret = device.create(AV_HWDEVICE_TYPE_CUDA);
+   * FFmpegError.throwIfError(ret, 'create');
    *
-   * // Create VAAPI device with specific device
-   * const ret2 = device.create(
-   *   AV_HWDEVICE_TYPE_VAAPI,
-   *   '/dev/dri/renderD128',
-   *   null
-   * );
-   * FFmpegError.throwIfError(ret2, 'create VAAPI device');
+   * // Create with specific device
+   * const device2 = new HardwareDeviceContext();
+   * ret = device2.create(AV_HWDEVICE_TYPE_VAAPI, '/dev/dri/renderD128');
+   * FFmpegError.throwIfError(ret, 'create');
+   *
+   * // Create with options
+   * const opts = Dictionary.fromObject({ 'device_idx': '1' });
+   * ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, opts);
+   * FFmpegError.throwIfError(ret, 'create');
    * ```
    *
-   * @see {@link alloc} For manual device allocation
-   * @see {@link createDerived} To derive from another device
+   * @see {@link createDerived} To create from existing device
    */
   create(type: AVHWDeviceType, device: string | null = null, options: Dictionary | null = null): number {
     return this.native.create(type, device, options?.getNative() ?? null);
   }
 
   /**
-   * Create a new device of the specified type from an existing device.
+   * Create derived hardware device.
    *
-   * Creates a device that shares resources with the source device.
-   * Useful for interop between different hardware APIs.
+   * Creates a new device context derived from an existing one.
+   * Used for interoperability between different hardware APIs.
    *
-   * Direct mapping to av_hwdevice_ctx_create_derived()
+   * Direct mapping to av_hwdevice_ctx_create_derived().
    *
    * @param source - Source device context to derive from
    * @param type - Target hardware device type
-   *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success (derived device created)
-   *   - AVERROR(ENOSYS): Derivation not supported
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOSYS: Derivation not supported
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
-   * import { AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
+   * import { FFmpegError } from 'node-av';
+   * import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VULKAN } from 'node-av/constants';
    *
-   * // Create CUDA device from VAAPI device
-   * const vaapi = new HardwareDeviceContext();
-   * const vaapiRet = vaapi.create(AV_HWDEVICE_TYPE_VAAPI, null, null);
-   * FFmpegError.throwIfError(vaapiRet, 'create VAAPI');
+   * // Create CUDA device from Vulkan
+   * const vulkan = new HardwareDeviceContext();
+   * vulkan.create(AV_HWDEVICE_TYPE_VULKAN);
    *
    * const cuda = new HardwareDeviceContext();
-   * const ret = cuda.createDerived(vaapi, AV_HWDEVICE_TYPE_CUDA);
-   * FFmpegError.throwIfError(ret, 'derive CUDA from VAAPI');
+   * const ret = cuda.createDerived(vulkan, AV_HWDEVICE_TYPE_CUDA);
+   * FFmpegError.throwIfError(ret, 'createDerived');
    * ```
    *
-   * @see {@link create} For standalone device creation
+   * @see {@link create} For creating independent device
    */
   createDerived(source: HardwareDeviceContext, type: AVHWDeviceType): number {
     return this.native.createDerived(source.native, type);
   }
 
   /**
-   * Free the device context.
+   * Free hardware device context.
    *
-   * Unreferences the AVBufferRef and releases all device resources.
+   * Releases all resources associated with the hardware device.
+   * The context becomes invalid after calling this.
    *
-   * Direct mapping to av_buffer_unref()
+   * Direct mapping to av_buffer_unref() on device context.
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from 'node-av';
-   *
    * device.free();
-   * // device is now invalid and should not be used
+   * // Device is now invalid
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   free(): void {
     this.native.free();
   }
 
   /**
-   * Allocate a HW-specific configuration structure.
+   * Allocate hardware configuration.
    *
-   * Allocates a configuration structure for querying device constraints.
+   * Allocates a hardware-specific configuration structure.
+   * Used for codec configuration with hardware acceleration.
    *
-   * Direct mapping to av_hwdevice_hwconfig_alloc()
+   * Direct mapping to av_hwdevice_hwconfig_alloc().
    *
-   * @returns Opaque pointer as BigInt or null
+   * @returns Configuration pointer, or null on failure
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from 'node-av';
-   *
    * const hwconfig = device.hwconfigAlloc();
    * if (hwconfig) {
-   *   // Use with getHwframeConstraints
-   *   const constraints = device.getHwframeConstraints(hwconfig);
+   *   // Use with codec context
+   *   codecContext.hwConfig = hwconfig;
    * }
    * ```
    *
-   * @see {@link getHwframeConstraints} To use the configuration
+   * @see {@link getHwframeConstraints} To get constraints
    */
   hwconfigAlloc(): bigint | null {
     return this.native.hwconfigAlloc();
   }
 
   /**
-   * Get the constraints on HW frames given a device and parameters.
+   * Get hardware frame constraints.
    *
-   * Queries the device for supported formats, sizes, and other constraints.
-   * Essential for configuring hardware frames contexts.
+   * Returns the constraints on frames that can be allocated
+   * with this hardware device.
    *
-   * Direct mapping to av_hwdevice_get_hwframe_constraints()
+   * Direct mapping to av_hwdevice_get_hwframe_constraints().
    *
-   * @param hwconfig - Hardware configuration from hwconfigAlloc(), or undefined
-   *
-   * @returns Constraints object or null:
-   *   - Object: Device constraints
-   *   - null: No constraints available
+   * @param hwconfig - Optional hardware configuration
+   * @returns Frame constraints, or null if not available
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext } from 'node-av';
-   *
    * const constraints = device.getHwframeConstraints();
    * if (constraints) {
-   *   console.log(`Size range: ${constraints.minWidth}x${constraints.minHeight} to ${constraints.maxWidth}x${constraints.maxHeight}`);
-   *
+   *   console.log(`Min size: ${constraints.minWidth}x${constraints.minHeight}`);
+   *   console.log(`Max size: ${constraints.maxWidth}x${constraints.maxHeight}`);
    *   if (constraints.validSwFormats) {
-   *     console.log('Valid software formats:', constraints.validSwFormats);
+   *     console.log('Software formats:', constraints.validSwFormats);
+   *   }
+   *   if (constraints.validHwFormats) {
+   *     console.log('Hardware formats:', constraints.validHwFormats);
    *   }
    * }
    * ```
-   *
-   * @see {@link hwconfigAlloc} To create configuration
-   * @see {@link HardwareFramesContext} To use with frame pools
    */
   getHwframeConstraints(hwconfig?: bigint): {
     validHwFormats?: number[];
@@ -419,10 +370,11 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
-   * Get the native FFmpeg AVHWDeviceContext pointer.
+   * Get the underlying native HardwareDeviceContext object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native hardware device context object
+   * @returns The native HardwareDeviceContext binding object
+   *
+   * @internal
    */
   getNative(): NativeHardwareDeviceContext {
     return this.native;
@@ -436,18 +388,12 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    *
    * @example
    * ```typescript
-   * import { HardwareDeviceContext, FFmpegError } from 'node-av';
-   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
-   *
    * {
    *   using device = new HardwareDeviceContext();
-   *   const ret = device.create(AV_HWDEVICE_TYPE_CUDA, null, null);
-   *   FFmpegError.throwIfError(ret, 'create device');
-   *   // ... use device
+   *   device.create(AV_HWDEVICE_TYPE_CUDA);
+   *   // Use device...
    * } // Automatically freed when leaving scope
    * ```
-   *
-   * @see {@link free} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

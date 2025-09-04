@@ -1,14 +1,3 @@
-/**
- * HardwareContext - High-level Hardware Acceleration API
- *
- * Provides simplified access to hardware acceleration features.
- * Automatically detects and configures hardware devices for encoding/decoding.
- *
- * Wraps the low-level HardwareDeviceContext.
- * Manages lifecycle of hardware resources with automatic cleanup.
- * @module api/hardware
- */
-
 import {
   AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
   AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX,
@@ -46,34 +35,47 @@ import type { AVCodecID, AVHWDeviceType, AVPixelFormat, FFEncoderCodec } from '.
 import type { BaseCodecName, HardwareOptions } from './types.js';
 
 /**
- * HardwareContext - Simplified hardware acceleration management.
+ * High-level hardware acceleration management.
  *
- * Provides automatic detection and configuration of hardware acceleration.
- * Manages device contexts and frame contexts for hardware encoding/decoding.
+ * Provides automatic detection and configuration of hardware acceleration for media processing.
+ * Manages device contexts for GPU-accelerated encoding and decoding operations.
+ * Supports various hardware types including VideoToolbox, CUDA, VAAPI, D3D11VA, and more.
+ * Essential for high-performance video processing with reduced CPU usage.
  *
- * Supports various hardware types including VideoToolbox (macOS), CUDA,
- * VAAPI (Linux), D3D11VA/D3D12VA (Windows), and more.
  * @example
  * ```typescript
- * import { HardwareContext } from 'node-av/api';
+ * import { HardwareContext } from '@seydx/av/api';
+ * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
  *
  * // Auto-detect best available hardware
  * const hw = HardwareContext.auto();
  * if (hw) {
- *   console.log(`Using hardware: ${hw.deviceType}`);
- *   decoder.hwDeviceCtx = hw.deviceContext;
+ *   console.log(`Using hardware: ${hw.deviceTypeName}`);
+ *   const decoder = await Decoder.create(stream, { hardware: hw });
  * }
+ * ```
  *
- * // Use specific hardware
- * const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
- * encoder.hwDeviceCtx = cuda.deviceContext;
- *
- * // Clean up when done
- * hw?.dispose();
+ * @example
+ * ```typescript
+ * // Use specific hardware type
+ * const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+ * const encoder = await Encoder.create('h264_nvenc', streamInfo, {
+ *   hardware: cuda
+ * });
  * cuda.dispose();
  * ```
+ *
+ * @see {@link Decoder} For hardware-accelerated decoding
+ * @see {@link Encoder} For hardware-accelerated encoding
+ * @see {@link HardwareFilterPresets} For hardware filter operations
  */
 export class HardwareContext implements Disposable {
+  /**
+   * Hardware-specific filter presets for this device.
+   * Provides convenient filter builders for hardware-accelerated operations.
+   */
+  public readonly filterPresets: HardwareFilterPresets;
+
   private _deviceContext: HardwareDeviceContext;
   private _deviceType: AVHWDeviceType;
   private _deviceTypeName: string;
@@ -81,21 +83,10 @@ export class HardwareContext implements Disposable {
   private _isDisposed = false;
 
   /**
-   * Hardware-specific filter presets for this device.
-   * Provides convenient filter builders for hardware-accelerated operations.
-   */
-  public readonly filterPresets: HardwareFilterPresets;
-
-  /**
-   * Create a new HardwareContext instance.
-   *
-   * Private constructor - use HardwareContext.create() or HardwareContext.auto() to create instances.
-   *
-   * Stores the device context and type for later use.
    * @param deviceContext - Initialized hardware device context
-   * @param deviceType - Hardware device type
-   * @param deviceName - Optional device name/identifier
-   * @param deviceTypeName
+   * @param deviceType - Hardware device type enum
+   * @param deviceTypeName - Human-readable device type name
+   * @internal
    */
   private constructor(deviceContext: HardwareDeviceContext, deviceType: AVHWDeviceType, deviceTypeName: string) {
     this._deviceContext = deviceContext;
@@ -110,20 +101,30 @@ export class HardwareContext implements Disposable {
    *
    * Tries hardware types in order of preference based on platform.
    * Returns null if no hardware acceleration is available.
+   * Platform-specific preference order ensures optimal performance.
    *
-   * Platform-specific preferences:
-   * - macOS: VideoToolbox
-   * - Windows: D3D12VA, D3D11VA, DXVA2, QSV, CUDA
-   * - Linux: VAAPI, VDPAU, CUDA, Vulkan, DRM
    * @param options - Optional hardware configuration
-   * @returns HardwareContext or null
+   * @returns Hardware context or null if unavailable
+   *
    * @example
    * ```typescript
    * const hw = HardwareContext.auto();
    * if (hw) {
    *   console.log(`Auto-detected: ${hw.deviceTypeName}`);
+   *   // Use for decoder/encoder
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // With specific device
+   * const hw = HardwareContext.auto({
+   *   deviceName: '/dev/dri/renderD128'
+   * });
+   * ```
+   *
+   * @see {@link create} For specific hardware type
+   * @see {@link listAvailable} To check available types
    */
   static auto(options: HardwareOptions = {}): HardwareContext | null {
     // Platform-specific preference order
@@ -131,7 +132,7 @@ export class HardwareContext implements Disposable {
 
     for (const deviceType of preferenceOrder) {
       try {
-        const hw = this.createFromType(deviceType, options.deviceName, options.options);
+        const hw = this.createFromType(deviceType, options.device, options.options);
         if (hw) {
           return hw;
         } else {
@@ -150,22 +151,39 @@ export class HardwareContext implements Disposable {
   /**
    * Create a hardware context for a specific device type.
    *
-   * Creates and initializes a hardware device context using FFmpeg's
-   * av_hwdevice_ctx_create() internally.
-   * @param deviceType
-   * @param device - Device type name (e.g., AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VIDEOTOOLBOX)
-   * @param deviceName - Optional device name/index
+   * Creates and initializes a hardware device context.
+   * Throws if the device type is not supported or initialization fails.
+   *
+   * Direct mapping to av_hwdevice_ctx_create().
+   *
+   * @param deviceType - Hardware device type from AVHWDeviceType
+   * @param device - Optional device specifier (e.g., GPU index, device path)
    * @param options - Optional device initialization options
-   * @returns HardwareContext
-   * @throws {Error} If device type is not supported or initialization fails
+   * @returns Initialized hardware context
+   *
+   * @throws {Error} If device type unsupported or initialization fails
+   *
    * @example
    * ```typescript
-   * // Create CUDA context
-   * const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA, '0');
+   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
    *
-   * // Create VAAPI context
-   * const vaapi = HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI, '/dev/dri/renderD128');
+   * // CUDA with specific GPU
+   * const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA, '0');
    * ```
+   *
+   * @example
+   * ```typescript
+   * import { AV_HWDEVICE_TYPE_VAAPI } from '@seydx/av/constants';
+   *
+   * // VAAPI with render device
+   * const vaapi = HardwareContext.create(
+   *   AV_HWDEVICE_TYPE_VAAPI,
+   *   '/dev/dri/renderD128'
+   * );
+   * ```
+   *
+   * @see {@link auto} For automatic detection
+   * @see {@link HardwareDeviceContext} For low-level API
    */
   static create(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): HardwareContext {
     if (deviceType === AV_HWDEVICE_TYPE_NONE) {
@@ -183,14 +201,21 @@ export class HardwareContext implements Disposable {
   /**
    * List all available hardware device types.
    *
-   * Uses av_hwdevice_iterate_types() internally to enumerate
-   * all hardware types supported by the FFmpeg build.
+   * Enumerates all hardware types supported by the FFmpeg build.
+   * Useful for checking hardware capabilities at runtime.
+   *
+   * Direct mapping to av_hwdevice_iterate_types().
+   *
    * @returns Array of available device type names
+   *
    * @example
    * ```typescript
    * const available = HardwareContext.listAvailable();
    * console.log('Available hardware:', available.join(', '));
+   * // Output: "cuda, vaapi, videotoolbox"
    * ```
+   *
+   * @see {@link auto} For automatic selection
    */
   static listAvailable(): string[] {
     const types = HardwareDeviceContext.iterateTypes();
@@ -209,8 +234,13 @@ export class HardwareContext implements Disposable {
   /**
    * Get the hardware device context.
    *
-   * This can be assigned to CodecContext.hwDeviceCtx for hardware acceleration.
-   * @returns Hardware device context
+   * Used internally by encoders and decoders for hardware acceleration.
+   * Can be assigned to CodecContext.hwDeviceCtx.
+   *
+   * @example
+   * ```typescript
+   * codecContext.hwDeviceCtx = hw.deviceContext;
+   * ```
    */
   get deviceContext(): HardwareDeviceContext {
     return this._deviceContext;
@@ -218,7 +248,13 @@ export class HardwareContext implements Disposable {
 
   /**
    * Get the device type enum value.
-   * @returns AVHWDeviceType enum value
+   *
+   * @example
+   * ```typescript
+   * if (hw.deviceType === AV_HWDEVICE_TYPE_CUDA) {
+   *   console.log('Using NVIDIA GPU');
+   * }
+   * ```
    */
   get deviceType(): AVHWDeviceType {
     return this._deviceType;
@@ -227,8 +263,13 @@ export class HardwareContext implements Disposable {
   /**
    * Get the hardware device type name.
    *
-   * Uses FFmpeg's native av_hwdevice_get_type_name() function.
-   * @returns Device type name as string (e.g., 'cuda', 'videotoolbox')
+   * Human-readable device type string.
+   *
+   * @example
+   * ```typescript
+   * console.log(`Hardware type: ${hw.deviceTypeName}`);
+   * // Output: "cuda" or "videotoolbox" etc.
+   * ```
    */
   get deviceTypeName(): string {
     return this._deviceTypeName;
@@ -236,7 +277,13 @@ export class HardwareContext implements Disposable {
 
   /**
    * Get the device pixel format.
-   * @returns Device pixel format
+   *
+   * Hardware-specific pixel format for frame allocation.
+   *
+   * @example
+   * ```typescript
+   * frame.format = hw.devicePixelFormat;
+   * ```
    */
   get devicePixelFormat(): AVPixelFormat {
     return this._devicePixelFormat;
@@ -244,7 +291,13 @@ export class HardwareContext implements Disposable {
 
   /**
    * Check if this hardware context has been disposed.
-   * @returns True if disposed
+   *
+   * @example
+   * ```typescript
+   * if (!hw.isDisposed) {
+   *   hw.dispose();
+   * }
+   * ```
    */
   get isDisposed(): boolean {
     return this._isDisposed;
@@ -253,12 +306,25 @@ export class HardwareContext implements Disposable {
   /**
    * Check if this hardware type supports a specific codec.
    *
-   * Checks both decoder and encoder support by querying FFmpeg's codec configurations.
+   * Queries FFmpeg's codec configurations to verify hardware support.
+   * Checks both decoder and encoder support based on parameters.
    *
-   * Uses avcodec_get_hw_config() internally to check hardware support.
+   * Direct mapping to avcodec_get_hw_config().
+   *
    * @param codecId - Codec ID from AVCodecID enum
-   * @param isEncoder - Check for encoder support (default: false for decoder)
-   * @returns True if codec is supported by this hardware
+   * @param isEncoder - Check for encoder support (default: decoder)
+   * @returns true if codec is supported
+   *
+   * @example
+   * ```typescript
+   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
+   *
+   * if (hw.supportsCodec(AV_CODEC_ID_H264, true)) {
+   *   // Can use hardware H.264 encoder
+   * }
+   * ```
+   *
+   * @see {@link findSupportedCodecs} For all supported codecs
    */
   supportsCodec(codecId: AVCodecID, isEncoder = false): boolean {
     // Try to find the codec
@@ -275,11 +341,26 @@ export class HardwareContext implements Disposable {
   }
 
   /**
-   * Check if this hardware device type supports a specific pixel format.
+   * Check if this hardware supports a specific pixel format for a codec.
+   *
+   * Verifies pixel format compatibility with hardware codec.
+   * Important for ensuring format compatibility in pipelines.
+   *
    * @param codecId - Codec ID from AVCodecID enum
    * @param pixelFormat - Pixel format to check
-   * @param isEncoder - Check for encoder support (default: false for decoder)
-   * @returns True if pixel format is supported by this hardware
+   * @param isEncoder - Check for encoder (default: decoder)
+   * @returns true if pixel format is supported
+   *
+   * @example
+   * ```typescript
+   * import { AV_CODEC_ID_H264, AV_PIX_FMT_NV12 } from '@seydx/av/constants';
+   *
+   * if (hw.supportsPixelFormat(AV_CODEC_ID_H264, AV_PIX_FMT_NV12)) {
+   *   // Can use NV12 format with H.264
+   * }
+   * ```
+   *
+   * @see {@link supportsCodec} For basic codec support
    */
   supportsPixelFormat(codecId: AVCodecID, pixelFormat: AVPixelFormat, isEncoder = false): boolean {
     const codec = isEncoder ? Codec.findEncoder(codecId) : Codec.findDecoder(codecId);
@@ -296,22 +377,36 @@ export class HardwareContext implements Disposable {
   }
 
   /**
-   * Get the appropriate encodec codec for a given base codec name.
+   * Get the appropriate encoder codec for a given base codec name.
    *
-   * Maps generic codec names and hardware types to their specific encoder implementations.
-   * For example, 'h264' with VideoToolbox returns 'h264_videotoolbox'.
-   * If no hardware encoder is available, falls back to software encoder.
+   * Maps generic codec names to hardware-specific encoder implementations.
+   * Returns null if no hardware encoder is available for the codec.
+   * Automatically tests encoder viability before returning.
+   *
    * @param codecName - Generic codec name (e.g., 'h264', 'hevc', 'av1')
-   * @returns Hardware encoder codec or null if not supported
+   * @returns Hardware encoder codec or null if unsupported
+   *
    * @example
    * ```typescript
-   * const hw = HardwareContext.auto();
    * const encoderCodec = await hw.getEncoderCodec('h264');
-   *
-   * if (encoderCodec?.isHardwareAcceleratedEncoder()) {
-   *   // Use the hardware encoder codec
+   * if (encoderCodec) {
+   *   console.log(`Using encoder: ${encoderCodec.name}`);
+   *   // e.g., "h264_nvenc" for CUDA
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Use with Encoder.create
+   * const codec = await hw.getEncoderCodec('hevc');
+   * if (codec) {
+   *   const encoder = await Encoder.create(codec, streamInfo, {
+   *     hardware: hw
+   *   });
+   * }
+   * ```
+   *
+   * @see {@link Encoder.create} For using the codec
    */
   async getEncoderCodec(codecName: BaseCodecName): Promise<Codec | null> {
     // Build the encoder name
@@ -391,12 +486,26 @@ export class HardwareContext implements Disposable {
   /**
    * Find all codecs that support this hardware device.
    *
-   * Uses FFmpeg's native codec list to find compatible codecs.
+   * Iterates through all available codecs and checks hardware compatibility.
+   * Useful for discovering available hardware acceleration options.
    *
-   * Iterates through all codecs using av_codec_iterate() and checks
-   * their hardware configurations.
+   * Direct mapping to av_codec_iterate() with hardware config checks.
+   *
    * @param isEncoder - Find encoders (true) or decoders (false)
    * @returns Array of codec names that support this hardware
+   *
+   * @example
+   * ```typescript
+   * const decoders = hw.findSupportedCodecs(false);
+   * console.log('Hardware decoders:', decoders);
+   * // ["h264_cuvid", "hevc_cuvid", ...]
+   *
+   * const encoders = hw.findSupportedCodecs(true);
+   * console.log('Hardware encoders:', encoders);
+   * // ["h264_nvenc", "hevc_nvenc", ...]
+   * ```
+   *
+   * @see {@link supportsCodec} For checking specific codec
    */
   findSupportedCodecs(isEncoder = false): string[] {
     const supportedCodecs: string[] = [];
@@ -431,15 +540,25 @@ export class HardwareContext implements Disposable {
   /**
    * Clean up and free hardware resources.
    *
-   * Safe to call multiple times - subsequent calls are no-ops.
-   * Called automatically by Decoder/Encoder on close.
+   * Releases the hardware device context.
+   * Safe to call multiple times.
+   * Automatically called by Symbol.dispose.
    *
-   * Frees both frames context (if created) and device context.
-   * Notifies any waiting components that disposal occurred.
+   * @example
+   * ```typescript
+   * const hw = HardwareContext.auto();
+   * try {
+   *   // Use hardware
+   * } finally {
+   *   hw?.dispose();
+   * }
+   * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   dispose(): void {
     if (this._isDisposed) {
-      return; // Already disposed, safe to return
+      return;
     }
 
     this._deviceContext.free();
@@ -450,9 +569,9 @@ export class HardwareContext implements Disposable {
    * Get the hardware decoder pixel format for this device type.
    *
    * Maps device types to their corresponding pixel formats.
+   * Used internally for frame format configuration.
    *
-   * Returns the appropriate AV_PIX_FMT_* constant for the hardware type.
-   * @returns Hardware pixel format
+   * @returns Hardware-specific pixel format
    */
   private getHardwareDecoderPixelFormat(): AVPixelFormat {
     switch (this._deviceType) {
@@ -486,10 +605,13 @@ export class HardwareContext implements Disposable {
   }
 
   /**
-   * Test if a hardware encoder can be created for the given codec.
-   * @param encoderCodec - The encoder codec to test
-   * @param hardware - The hardware context to use
-   * @returns True if the hardware encoder can be created, false otherwise
+   * Test if a hardware encoder can be created.
+   *
+   * Attempts to initialize the encoder to verify support.
+   * Used internally by getEncoderCodec.
+   *
+   * @param encoderCodec - Encoder to test
+   * @returns true if encoder can be initialized
    */
   private async testHardwareEncoder(encoderCodec: FFEncoderCodec | AVCodecID | Codec): Promise<boolean> {
     let codec: Codec | null = null;
@@ -522,11 +644,11 @@ export class HardwareContext implements Disposable {
    * Create hardware context from device type.
    *
    * Internal factory method using av_hwdevice_ctx_create().
+   *
    * @param deviceType - AVHWDeviceType enum value
-   * @param deviceName - Optional device name/index
-   * @param device
+   * @param device - Optional device specifier
    * @param options - Optional device options
-   * @returns HardwareContext or null if creation fails
+   * @returns Hardware context or null if creation fails
    */
   private static createFromType(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): HardwareContext | null {
     const deviceCtx = new HardwareDeviceContext();
@@ -557,8 +679,10 @@ export class HardwareContext implements Disposable {
   /**
    * Get platform-specific preference order for hardware types.
    *
-   * Returns only the available hardware types sorted by platform-specific preference.
-   * @returns Array of available AVHWDeviceType values in preference order
+   * Returns available hardware types sorted by platform preference.
+   * Ensures optimal hardware selection for each platform.
+   *
+   * @returns Array of AVHWDeviceType values in preference order
    */
   private static getPreferenceOrder(): AVHWDeviceType[] {
     // Get all available hardware types on this system
@@ -615,11 +739,11 @@ export class HardwareContext implements Disposable {
   }
 
   /**
-   * Automatic cleanup when using 'using' statement.
+   * Dispose of hardware context.
    *
-   * Implements the Disposable interface for automatic cleanup.
+   * Implements Disposable interface for automatic cleanup.
+   * Equivalent to calling dispose().
    *
-   * Calls dispose() to free hardware resources.
    * @example
    * ```typescript
    * {
@@ -627,6 +751,8 @@ export class HardwareContext implements Disposable {
    *   // Use hardware context...
    * } // Automatically disposed
    * ```
+   *
+   * @see {@link dispose} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.dispose();

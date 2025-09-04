@@ -7,312 +7,268 @@ import type { Frame } from './frame.js';
 import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.js';
 
 /**
- * Software video scaling context.
+ * Video scaling and pixel format conversion context.
  *
- * Provides high-quality video scaling, format conversion, and color space conversion.
+ * Provides high-quality image scaling and pixel format conversion for video frames.
  * Supports various scaling algorithms from fast bilinear to high-quality Lanczos.
- * Uses the libswscale library for efficient video processing.
+ * Essential for resolution changes, aspect ratio adjustments, and format compatibility
+ * in video processing pipelines.
  *
  * Direct mapping to FFmpeg's SwsContext.
  *
  * @example
  * ```typescript
  * import { SoftwareScaleContext, Frame, FFmpegError } from 'node-av';
- * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
+ * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_LANCZOS } from 'node-av/constants';
  *
- * // Create and configure scale context
- * const sws = new SoftwareScaleContext();
- * sws.getContext(
- *   1920, 1080, AV_PIX_FMT_YUV420P,
- *   1280, 720, AV_PIX_FMT_RGB24,
- *   SWS_BILINEAR
+ * // Create scaler
+ * const scaler = new SoftwareScaleContext();
+ *
+ * // Configure scaling: 1920x1080 YUV420P -> 1280x720 RGB24
+ * scaler.getContext(
+ *   1920, 1080, AV_PIX_FMT_YUV420P,  // Source
+ *   1280, 720, AV_PIX_FMT_RGB24,     // Destination
+ *   SWS_LANCZOS                       // High quality
  * );
  *
- * // Scale frame data
- * const ret = await sws.scale(
- *   srcSlice, srcStride, 0, srcHeight,
- *   dst, dstStride
- * );
+ * const ret = scaler.initContext();
+ * FFmpegError.throwIfError(ret, 'initContext');
  *
- * // Or scale Frame objects directly
- * const scaleRet = await sws.scaleFrame(dstFrame, srcFrame);
- * FFmpegError.throwIfError(scaleRet, 'scaleFrame');
+ * // Scale frames
+ * const dstFrame = new Frame();
+ * dstFrame.width = 1280;
+ * dstFrame.height = 720;
+ * dstFrame.format = AV_PIX_FMT_RGB24;
+ * dstFrame.allocBuffer();
  *
- * // Cleanup
- * sws.freeContext();
+ * const height = await scaler.scaleFrame(dstFrame, srcFrame);
+ * console.log(`Scaled to ${height} lines`);
+ *
+ * // Clean up
+ * scaler.freeContext();
  * ```
+ *
+ * @see {@link [SwsContext](https://ffmpeg.org/doxygen/trunk/structSwsContext.html)}
+ * @see {@link Frame} For video frame operations
  */
 export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContext> implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {
-  /**
-   * Create a new software scale context.
-   *
-   * The context is uninitialized - you must call allocContext() or getContext() before use.
-   * No FFmpeg resources are allocated until initialization.
-   *
-   * Direct wrapper around SwsContext.
-   *
-   * @example
-   * ```typescript
-   * import { SoftwareScaleContext } from 'node-av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
-   *
-   * const sws = new SoftwareScaleContext();
-   * sws.getContext(
-   *   1920, 1080, AV_PIX_FMT_YUV420P,
-   *   1280, 720, AV_PIX_FMT_RGB24,
-   *   SWS_BILINEAR
-   * );
-   * ```
-   */
   constructor() {
     super(new bindings.SoftwareScaleContext());
   }
 
   /**
-   * Allocate an empty SwsContext.
+   * Allocate scale context.
    *
-   * Allocates an uninitialized scale context.
-   * Options must be set through the AVOptions API before calling initContext().
+   * Allocates memory for the scaler.
+   * Must be called before configuration if using options.
    *
-   * Direct mapping to sws_alloc_context()
-   *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * Direct mapping to sws_alloc_context().
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext, FFmpegError } from 'node-av';
-   *
-   * const sws = new SoftwareScaleContext();
-   * sws.allocContext();
-   * // Set options via AVOptions API
-   * const ret = sws.initContext();
-   * FFmpegError.throwIfError(ret, 'initContext');
+   * const scaler = new SoftwareScaleContext();
+   * scaler.allocContext();
+   * // Now configure with setOption() or getContext()
    * ```
    *
-   * @see {@link getContext} For one-step allocation and configuration
-   * @see {@link initContext} To initialize after configuration
+   * @see {@link getContext} For direct configuration
    */
   allocContext(): void {
     this.native.allocContext();
   }
 
   /**
-   * Allocate and return an SwsContext.
+   * Configure scaling context.
    *
-   * One-step allocation and configuration of the scale context.
-   * Sets up everything needed for scaling operations.
+   * Sets up the scaler with source and destination formats.
+   * This is the primary configuration method.
    *
-   * Direct mapping to sws_getContext()
+   * Direct mapping to sws_getContext().
    *
-   * @param srcW - The width of the source image
-   * @param srcH - The height of the source image
-   * @param srcFormat - The source image format
-   * @param dstW - The width of the destination image
-   * @param dstH - The height of the destination image
-   * @param dstFormat - The destination image format
-   * @param flags - Specify which algorithm and options to use for rescaling:
-   *   - SWS_FAST_BILINEAR: Fast bilinear
-   *   - SWS_BILINEAR: Bilinear
-   *   - SWS_BICUBIC: Bicubic
-   *   - SWS_X: Experimental
-   *   - SWS_POINT: Nearest neighbor
-   *   - SWS_AREA: Area averaging
-   *   - SWS_BICUBLIN: Luma bicubic, chroma bilinear
-   *   - SWS_GAUSS: Gaussian
-   *   - SWS_SINC: Sinc
-   *   - SWS_LANCZOS: Lanczos
-   *   - SWS_SPLINE: Natural bicubic spline
-   *
-   * @throws {Error} Memory allocation failure (ENOMEM)
+   * @param srcW - Source width in pixels
+   * @param srcH - Source height in pixels
+   * @param srcFormat - Source pixel format
+   * @param dstW - Destination width in pixels
+   * @param dstH - Destination height in pixels
+   * @param dstFormat - Destination pixel format
+   * @param flags - Scaling algorithm flags (SWS_*)
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from 'node-av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24 } from 'node-av/constants';
+   * import { SWS_BILINEAR, SWS_BICUBIC, SWS_LANCZOS, SWS_FAST_BILINEAR } from 'node-av/constants';
    *
-   * // Scale from 1080p YUV to 720p RGB
-   * sws.getContext(
+   * // Fast bilinear (lower quality, faster)
+   * scaler.getContext(
    *   1920, 1080, AV_PIX_FMT_YUV420P,
    *   1280, 720, AV_PIX_FMT_RGB24,
-   *   SWS_BILINEAR
+   *   SWS_FAST_BILINEAR
+   * );
+   *
+   * // High quality Lanczos (higher quality, slower)
+   * scaler.getContext(
+   *   1920, 1080, AV_PIX_FMT_YUV420P,
+   *   3840, 2160, AV_PIX_FMT_YUV420P,  // Upscaling
+   *   SWS_LANCZOS
    * );
    * ```
    *
-   * @see {@link scale} To scale image data
-   * @see {@link scaleFrame} To scale Frame objects
+   * @see {@link initContext} Must be called after configuration
    */
   getContext(srcW: number, srcH: number, srcFormat: AVPixelFormat, dstW: number, dstH: number, dstFormat: AVPixelFormat, flags: SWSFlag = SWS_BILINEAR): void {
     this.native.getContext(srcW, srcH, srcFormat, dstW, dstH, dstFormat, flags);
   }
 
   /**
-   * Initialize the swscaler context sws_context.
+   * Initialize scaling context.
    *
-   * Completes initialization of the scale context.
-   * Must be called after allocContext() and configuration.
+   * Initializes the scaler after configuration.
+   * Must be called before any scaling operations.
    *
-   * Direct mapping to sws_init_context()
+   * Direct mapping to sws_init_context().
    *
    * @returns 0 on success, negative AVERROR on error:
-   *   - 0: Success
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other errors
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { FFmpegError } from 'node-av';
    *
-   * const ret = sws.initContext();
+   * const ret = scaler.initContext();
    * FFmpegError.throwIfError(ret, 'initContext');
    * ```
    *
-   * @see {@link allocContext} For allocation
-   * @see {@link getContext} For one-step setup
+   * @see {@link getContext} For configuration
    */
   initContext(): number {
     return this.native.initContext();
   }
 
   /**
-   * Free the swscaler context swsContext.
+   * Free scaling context.
    *
-   * Releases all resources associated with the scale context.
-   * Safe to call on NULL context.
+   * Releases all resources associated with the scaler.
+   * The context becomes invalid after calling this.
    *
-   * Direct mapping to sws_freeContext()
+   * Direct mapping to sws_freeContext().
    *
    * @example
    * ```typescript
-   * sws.freeContext();
-   * // sws is now invalid and should not be used
+   * scaler.freeContext();
+   * // Scaler is now invalid
    * ```
+   *
+   * @see {@link Symbol.dispose} For automatic cleanup
    */
   freeContext(): void {
     this.native.freeContext();
   }
 
   /**
-   * Scale the image slice in srcSlice and put the resulting scaled slice in the image in dst.
+   * Scale image data.
    *
-   * Scales image data from source to destination.
-   * Processes image in slices for efficient memory usage.
+   * Scales raw image data from source to destination buffers.
+   * Low-level interface for custom buffer management.
    *
-   * Direct mapping to sws_scale()
+   * Direct mapping to sws_scale().
    *
-   * @param srcSlice - The array containing the pointers to the planes of the source slice
-   * @param srcStride - The array containing the strides for each plane of the source image
-   * @param srcSliceY - The position in the source image of the slice to process (first row number)
-   * @param srcSliceH - The height of the source slice (number of rows)
-   * @param dst - The array containing the pointers to the planes of the destination image
-   * @param dstStride - The array containing the strides for each plane of the destination image
-   *
-   * @returns Promise resolving to the height of the output slice
+   * @param srcSlice - Source data planes (one buffer per plane)
+   * @param srcStride - Bytes per line for each plane
+   * @param srcSliceY - Starting Y position in source
+   * @param srcSliceH - Height of source slice to process
+   * @param dst - Destination data planes
+   * @param dstStride - Destination bytes per line
+   * @returns Output height in pixels, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
    *
    * @example
    * ```typescript
-   * const outputHeight = await sws.scale(
-   *   srcData,
-   *   srcLinesize,
-   *   0,
-   *   srcHeight,
-   *   dstData,
-   *   dstLinesize
+   * // Scale YUV420P data
+   * const srcPlanes = [yPlane, uPlane, vPlane];
+   * const srcStrides = [1920, 960, 960]; // Full HD
+   * const dstPlanes = [dstY, dstU, dstV];
+   * const dstStrides = [1280, 640, 640]; // 720p
+   *
+   * const height = await scaler.scale(
+   *   srcPlanes, srcStrides, 0, 1080,
+   *   dstPlanes, dstStrides
    * );
-   * console.log(`Scaled ${outputHeight} rows`);
+   * console.log(`Scaled ${height} lines`);
    * ```
    *
-   * @see {@link scaleFrame} For Frame-based scaling
-   *
-   * @note Slices must be provided in sequential order (top-bottom or bottom-top).
-   * Non-sequential order results in undefined behavior.
+   * @see {@link scaleFrame} For frame-based scaling
    */
   async scale(srcSlice: Buffer[], srcStride: number[], srcSliceY: number, srcSliceH: number, dst: Buffer[], dstStride: number[]): Promise<number> {
-    return this.native.scale(srcSlice, srcStride, srcSliceY, srcSliceH, dst, dstStride);
+    return await this.native.scale(srcSlice, srcStride, srcSliceY, srcSliceH, dst, dstStride);
   }
 
   /**
-   * Scale source data from src and write the output to dst.
+   * Scale video frame.
    *
-   * Frame-based scaling with automatic configuration.
-   * Dynamically adapts to frame properties without reallocation.
+   * Scales an entire video frame to the destination format.
+   * Simpler interface than scale() for frame-based processing.
    *
-   * Direct mapping to sws_scale_frame()
+   * Direct mapping to sws_scale_frame().
    *
-   * @param dst - The destination frame (buffers can be pre-allocated or allocated by scaler)
-   * @param src - The source frame
-   *
-   * @returns The height of the output slice on success, negative AVERROR on error:
-   *   - >0: Output height (success)
-   *   - AVERROR(EINVAL): Invalid parameters
-   *   - AVERROR(ENOMEM): Memory allocation failure
-   *   - <0: Other errors
+   * @param dst - Destination frame (must be allocated)
+   * @param src - Source frame
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
    *
    * @example
    * ```typescript
    * import { Frame, FFmpegError } from 'node-av';
    * import { AV_PIX_FMT_RGB24 } from 'node-av/constants';
    *
-   * const srcFrame = new Frame();
-   * srcFrame.alloc();
-   * // ... fill srcFrame with data ...
-   *
+   * // Create destination frame
    * const dstFrame = new Frame();
-   * dstFrame.alloc();
    * dstFrame.width = 1280;
    * dstFrame.height = 720;
    * dstFrame.format = AV_PIX_FMT_RGB24;
-   * const bufRet = dstFrame.getBuffer();
-   * FFmpegError.throwIfError(bufRet, 'getBuffer');
+   * const ret = dstFrame.allocBuffer();
+   * FFmpegError.throwIfError(ret, 'allocBuffer');
    *
-   * const ret = await sws.scaleFrame(dstFrame, srcFrame);
-   * FFmpegError.throwIfError(ret, 'scaleFrame');
-   * console.log(`Scaled to height: ${ret}`);
+   * // Scale frame
+   * const ret2 = await scaler.scaleFrame(dstFrame, srcFrame);
+   * FFmpegError.throwIfError(ret2, 'scaleFrame');
+   *
+   * // dstFrame now contains scaled image
    * ```
    *
    * @see {@link scale} For buffer-based scaling
-   *
-   * @note This function can be used directly on an allocated context without
-   * calling sws_init_context(). Such usage is fully dynamic and does not
-   * require reallocation if frame properties change.
    */
   async scaleFrame(dst: Frame, src: Frame): Promise<number> {
-    return this.native.scaleFrame(dst.getNative(), src.getNative());
+    return await this.native.scaleFrame(dst.getNative(), src.getNative());
   }
 
   /**
-   * Get the native FFmpeg SwsContext pointer.
+   * Get the underlying native SoftwareScaleContext object.
    *
-   * @internal For use by other wrapper classes
-   * @returns The underlying native scale context object
+   * @returns The native SoftwareScaleContext binding object
+   *
+   * @internal
    */
   getNative(): NativeSoftwareScaleContext {
     return this.native;
   }
 
   /**
-   * Dispose of the scale context.
+   * Dispose of the scaling context.
    *
    * Implements the Disposable interface for automatic cleanup.
    * Equivalent to calling freeContext().
    *
    * @example
    * ```typescript
-   * import { SoftwareScaleContext } from 'node-av';
-   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24, SWS_BILINEAR } from 'node-av/constants';
-   *
    * {
-   *   using sws = new SoftwareScaleContext();
-   *   sws.getContext(
-   *     1920, 1080, AV_PIX_FMT_YUV420P,
-   *     1280, 720, AV_PIX_FMT_RGB24,
-   *     SWS_BILINEAR
-   *   );
-   *   // ... use context
+   *   using scaler = new SoftwareScaleContext();
+   *   scaler.getContext(...);
+   *   scaler.initContext();
+   *   // Use scaler...
    * } // Automatically freed when leaving scope
    * ```
-   *
-   * @see {@link freeContext} For manual cleanup
    */
   [Symbol.dispose](): void {
     this.native[Symbol.dispose]();

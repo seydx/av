@@ -1,15 +1,3 @@
-/**
- * MediaOutput - Unified Output Handler for FFmpeg
- *
- * Provides a high-level interface for writing media to various destinations.
- * Supports files, streams, and custom IO with automatic format configuration.
- *
- * Central entry point for all media output operations.
- * Manages FormatContext lifecycle and provides stream management.
- *
- * @module api/media-output
- */
-
 import { mkdir } from 'fs/promises';
 import { dirname, resolve } from 'path';
 
@@ -24,57 +12,57 @@ interface StreamInfo {
   stream: Stream;
   timeBase: IRational;
   isStreamCopy: boolean;
-  sourceTimeBase?: IRational; // For rescaling when needed
+  sourceTimeBase?: IRational;
 }
 
 /**
- * MediaOutput - High-level media output handler.
+ * High-level media output for writing and muxing media files.
  *
- * Creates and manages media containers for writing encoded streams.
- * Automatically handles format setup and stream configuration.
- *
- * Manages the FormatContext and provides convenient methods for
- * adding streams, writing packets, and finalizing output.
+ * Provides simplified access to media muxing and file writing operations.
+ * Handles stream configuration, packet writing, and format management.
+ * Supports files, URLs, and custom I/O with automatic cleanup.
+ * Essential component for media encoding pipelines and transcoding.
  *
  * @example
  * ```typescript
- * import { MediaOutput, Encoder } from 'node-av/api';
+ * import { MediaOutput } from '@seydx/av/api';
  *
- * // Open output file
- * const output = await MediaOutput.open('output.mp4');
+ * // Create output file
+ * await using output = await MediaOutput.open('output.mp4');
  *
- * // Add encoder stream
- * const encoder = await Encoder.create('libx264', {
- *   width: 1920,
- *   height: 1080,
- *   pixelFormat: AV_PIX_FMT_YUV420P
- * });
- * const streamIdx = output.addStream(encoder);
+ * // Add streams from encoders
+ * const videoIdx = output.addStream(videoEncoder);
+ * const audioIdx = output.addStream(audioEncoder);
  *
- * // Write header, packets, trailer
+ * // Write header
  * await output.writeHeader();
- * await output.writePacket(packet, streamIdx);
+ *
+ * // Write packets
+ * await output.writePacket(packet, videoIdx);
+ *
+ * // Write trailer and close
  * await output.writeTrailer();
- * await output.close();
  * ```
  *
  * @example
  * ```typescript
- * // Stream copy without re-encoding
- * const input = await MediaInput.open('input.mp4');
- * const output = await MediaOutput.open('output.mkv');
+ * // Stream copy
+ * await using input = await MediaInput.open('input.mp4');
+ * await using output = await MediaOutput.open('output.mp4');
  *
- * const videoStream = input.video();
- * const streamIdx = output.addStream(videoStream);
- *
+ * // Copy stream configuration
+ * const videoIdx = output.addStream(input.video());
  * await output.writeHeader();
+ *
  * for await (const packet of input.packets()) {
- *   if (packet.streamIndex === videoStream.index) {
- *     await output.writePacket(packet, streamIdx);
- *   }
+ *   await output.writePacket(packet, videoIdx);
+ *   packet.free();
  * }
- * await output.writeTrailer();
  * ```
+ *
+ * @see {@link MediaInput} For reading media files
+ * @see {@link Encoder} For encoding frames to packets
+ * @see {@link FormatContext} For low-level API
  */
 export class MediaOutput implements AsyncDisposable {
   private formatContext: FormatContext;
@@ -85,51 +73,64 @@ export class MediaOutput implements AsyncDisposable {
   private closed = false;
 
   /**
-   * Private constructor - use MediaOutput.open() instead.
-   *
-   * Initializes the output with a new FormatContext.
-   * The actual format setup happens in the static factory method.
+   * @internal
    */
   private constructor() {
     this.formatContext = new FormatContext();
   }
 
   /**
-   * Opens a media output for writing with custom IO callbacks or stream URL or file output
+   * Open media output for writing.
    *
-   * Creates a FormatContext and prepares the output for writing.
-   * Automatically detects format from filename/URL if not specified.
+   * Creates and configures output context for muxing.
+   * Automatically creates directories for file output.
+   * Supports files, URLs, and custom I/O callbacks.
    *
-   * If io callbacks is used, it creates a FormatContext with custom IO handling.
-   * Format must be explicitly specified for custom IO.
+   * Direct mapping to avformat_alloc_output_context2() and avio_open2().
    *
-   * Uses avformat_alloc_output_context2() and avio_alloc_context() internally.
+   * @param target - File path, URL, or I/O callbacks
+   * @param options - Output configuration options
+   * @returns Opened media output instance
    *
-   * @param target - File path or stream URL or custom IO callbacks
-   * @param options - Optional configuration
-   *
-   * @returns Promise resolving to MediaOutput instance
-   *
-   * @throws {Error} If format not specified or context allocation fails
+   * @throws {Error} If format required for custom I/O
+   * @throws {FFmpegError} If allocation or opening fails
    *
    * @example
    * ```typescript
+   * // Create file output
+   * await using output = await MediaOutput.open('output.mp4');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Create output with specific format
+   * await using output = await MediaOutput.open('output.ts', {
+   *   format: 'mpegts'
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Custom I/O callbacks
    * const callbacks = {
-   *   write: (buffer) => myStream.write(buffer),
-   *   seek: (offset, whence) => offset
+   *   write: async (buffer: Buffer) => {
+   *     // Write to custom destination
+   *     return buffer.length;
+   *   },
+   *   seek: async (offset: bigint, whence: number) => {
+   *     // Seek in custom destination
+   *     return offset;
+   *   }
    * };
-   * const output = await MediaOutput.open(callbacks, { format: 'mp4' });
+   *
+   * await using output = await MediaOutput.open(callbacks, {
+   *   format: 'mp4',
+   *   bufferSize: 8192
+   * });
    * ```
    *
-   * @example
-   * ```typescript
-   * const output = await MediaOutput.open('output.mp4');
-   * ```
-   *
-   * @example
-   * ```typescript
-   * const output = await MediaOutput.open('rtmp://server/live/streamkey', { format: 'flv' });
-   * ```
+   * @see {@link MediaOutputOptions} For configuration options
+   * @see {@link IOOutputCallbacks} For custom I/O interface
    */
   static async open(target: string | IOOutputCallbacks, options?: MediaOutputOptions): Promise<MediaOutput> {
     const output = new MediaOutput();
@@ -208,46 +209,38 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
-   * Adds a stream to the output container.
+   * Add a stream to the output.
    *
-   * Creates a new stream in the output format context.
-   * Copies codec parameters from encoder or input stream.
+   * Configures output stream from encoder or input stream.
+   * Must be called before writeHeader().
+   * Returns stream index for packet writing.
    *
-   * Uses avformat_new_stream() and avcodec_parameters_copy() internally.
+   * Direct mapping to avformat_new_stream() and avcodec_parameters_copy().
    *
-   * @param source - Encoder for transcoding or Stream for copying
-   * @param options - Optional stream configuration
-   * @param options.timeBase - Custom output timebase for the stream.
-   *                           If not specified, uses the source's timebase.
-   *                           When set, packets will be automatically rescaled
-   *                           from source timebase to this output timebase.
-   *
+   * @param source - Encoder or stream to add
+   * @param options - Stream configuration options
+   * @param options.timeBase - Optional custom timebase for the stream
    * @returns Stream index for packet writing
    *
-   * @throws {Error} If called after header is written or output is closed
+   * @throws {Error} If called after header written or output closed
    *
    * @example
    * ```typescript
-   * // Add encoder stream (transcoding) - uses encoder's timebase
-   * const encoder = await Encoder.create('libx264', { width: 1920, height: 1080 });
-   * const streamIdx = output.addStream(encoder);
+   * // Add stream from encoder
+   * const videoIdx = output.addStream(videoEncoder);
+   * const audioIdx = output.addStream(audioEncoder);
    * ```
    *
    * @example
    * ```typescript
-   * // Add stream for direct copy - uses input stream's timebase
-   * const inputStream = input.video();
-   * const streamIdx = output.addStream(inputStream);
-   * ```
-   *
-   * @example
-   * ```typescript
-   * // Custom output timebase (e.g., for format requirements)
-   * const streamIdx = output.addStream(encoder, {
-   *   timeBase: { num: 1, den: 90000 }  // MPEG-TS standard
+   * // Stream copy with custom timebase
+   * const streamIdx = output.addStream(input.video(), {
+   *   timeBase: { num: 1, den: 90000 }
    * });
-   * // Packets from encoder will be automatically rescaled to 1/90000
    * ```
+   *
+   * @see {@link writePacket} For writing packets to streams
+   * @see {@link Encoder} For transcoding source
    */
   addStream(
     source: Encoder | Stream,
@@ -311,26 +304,42 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
-   * Writes a packet to the output container.
+   * Write a packet to the output.
    *
-   * Writes an encoded packet to the specified stream.
-   * Automatically sets the stream index on the packet.
+   * Writes muxed packet to the specified stream.
+   * Automatically handles timestamp rescaling.
+   * Must be called after writeHeader() and before writeTrailer().
    *
-   * Uses av_interleaved_write_frame() internally.
+   * Direct mapping to av_interleaved_write_frame().
    *
    * @param packet - Packet to write
    * @param streamIndex - Target stream index
-   *
-   * @throws {Error} If header not written, trailer already written, or invalid stream
+   * @throws {Error} If stream invalid or called at wrong time
+   * @throws {FFmpegError} If write fails
    *
    * @example
    * ```typescript
-   * const encoded = await encoder.encode(frame);
-   * if (encoded) {
-   *   await output.writePacket(encoded, streamIdx);
-   *   encoded.free();
+   * // Write encoded packet
+   * const packet = await encoder.encode(frame);
+   * if (packet) {
+   *   await output.writePacket(packet, videoIdx);
+   *   packet.free();
    * }
    * ```
+   *
+   * @example
+   * ```typescript
+   * // Stream copy with packet processing
+   * for await (const packet of input.packets()) {
+   *   if (packet.streamIndex === inputVideoIdx) {
+   *     await output.writePacket(packet, outputVideoIdx);
+   *   }
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link addStream} For adding streams
+   * @see {@link writeHeader} Must be called first
    */
   async writePacket(packet: Packet, streamIndex: number): Promise<void> {
     if (this.closed) {
@@ -373,21 +382,29 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
-   * Writes the output file header.
+   * Write file header.
    *
-   * Writes the container header with stream information.
-   * Must be called before writing any packets.
+   * Writes format header with stream configuration.
+   * Must be called after adding all streams and before writing packets.
+   * Finalizes stream parameters and initializes muxer.
    *
-   * Uses avformat_write_header() internally.
+   * Direct mapping to avformat_write_header().
    *
-   * @param options - Optional header options (format-specific)
-   *
-   * @throws {Error} If header already written or output is closed
+   * @throws {Error} If already written or output closed
+   * @throws {FFmpegError} If write fails
    *
    * @example
    * ```typescript
+   * // Standard workflow
+   * const output = await MediaOutput.open('output.mp4');
+   * output.addStream(encoder);
    * await output.writeHeader();
+   * // Now ready to write packets
    * ```
+   *
+   * @see {@link addStream} Must add streams first
+   * @see {@link writePacket} Can write packets after
+   * @see {@link writeTrailer} Must call at end
    */
   async writeHeader(): Promise<void> {
     if (this.closed) {
@@ -404,19 +421,26 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
-   * Writes the output file trailer.
+   * Write file trailer.
    *
-   * Finalizes the output file with necessary metadata.
-   * Should be called after all packets have been written.
+   * Writes format trailer and finalizes the file.
+   * Must be called after all packets are written.
+   * Flushes any buffered data and updates file headers.
    *
-   * Uses av_write_trailer() internally.
+   * Direct mapping to av_write_trailer().
    *
-   * @throws {Error} If header not written, trailer already written, or output is closed
+   * @throws {Error} If header not written or already written
+   * @throws {FFmpegError} If write fails
    *
    * @example
    * ```typescript
+   * // Finalize output
    * await output.writeTrailer();
+   * await output.close();
    * ```
+   *
+   * @see {@link writeHeader} Must be called first
+   * @see {@link close} For cleanup after trailer
    */
   async writeTrailer(): Promise<void> {
     if (this.closed) {
@@ -437,17 +461,23 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
-   * Closes the output and releases all resources.
+   * Close media output and free resources.
    *
-   * Writes trailer if needed, closes IO context, and frees format context.
+   * Writes trailer if needed and releases all resources.
    * Safe to call multiple times.
-   *
-   * Uses av_write_trailer(), avio_closep(), and avformat_free_context() internally.
+   * Automatically called by Symbol.asyncDispose.
    *
    * @example
    * ```typescript
-   * await output.close();
+   * const output = await MediaOutput.open('output.mp4');
+   * try {
+   *   // Use output
+   * } finally {
+   *   await output.close();
+   * }
    * ```
+   *
+   * @see {@link Symbol.asyncDispose} For automatic cleanup
    */
   async close(): Promise<void> {
     if (this.closed) {
@@ -503,52 +533,100 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
-   * Gets information about a specific stream.
+   * Get stream information.
+   *
+   * Returns internal stream info for the specified index.
+   *
+   * @param streamIndex - Stream index
+   * @returns Stream info or undefined
+   *
+   * @example
+   * ```typescript
+   * const info = output.getStreamInfo(0);
+   * console.log(`Stream 0 timebase: ${info?.timeBase.num}/${info?.timeBase.den}`);
+   * ```
    */
   getStreamInfo(streamIndex: number): StreamInfo | undefined {
     return this.streams.get(streamIndex);
   }
 
   /**
-   * Gets all stream indices.
+   * Get all stream indices.
+   *
+   * Returns array of all added stream indices.
+   *
+   * @returns Array of stream indices
+   *
+   * @example
+   * ```typescript
+   * const indices = output.getStreamIndices();
+   * console.log(`Output has ${indices.length} streams`);
+   * ```
    */
   getStreamIndices(): number[] {
     return Array.from(this.streams.keys());
   }
 
   /**
-   * Checks if header has been written.
+   * Check if header has been written.
+   *
+   * @returns true if header written
+   *
+   * @example
+   * ```typescript
+   * if (!output.isHeaderWritten()) {
+   *   await output.writeHeader();
+   * }
+   * ```
    */
   isHeaderWritten(): boolean {
     return this.headerWritten;
   }
 
   /**
-   * Checks if trailer has been written.
+   * Check if trailer has been written.
+   *
+   * @returns true if trailer written
+   *
+   * @example
+   * ```typescript
+   * if (!output.isTrailerWritten()) {
+   *   await output.writeTrailer();
+   * }
+   * ```
    */
   isTrailerWritten(): boolean {
     return this.trailerWritten;
   }
 
   /**
-   * Gets the underlying format context.
+   * Get underlying format context.
    *
-   * For advanced use cases requiring direct format context access.
+   * Returns the internal format context for advanced operations.
+   *
+   * @returns Format context
+   *
+   * @internal
    */
   getFormatContext(): FormatContext {
     return this.formatContext;
   }
 
   /**
-   * AsyncDisposable implementation for using statement.
+   * Dispose of media output.
    *
-   * Enables automatic resource cleanup with await using syntax.
+   * Implements AsyncDisposable interface for automatic cleanup.
+   * Equivalent to calling close().
    *
    * @example
    * ```typescript
-   * await using output = await MediaOutput.open('output.mp4');
-   * // Output automatically closes when scope ends
+   * {
+   *   await using output = await MediaOutput.open('output.mp4');
+   *   // Use output...
+   * } // Automatically closed
    * ```
+   *
+   * @see {@link close} For manual cleanup
    */
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
