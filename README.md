@@ -126,7 +126,7 @@ import { HardwareContext } from 'node-av/api';
 import { FF_ENCODER_H264_VIDEOTOOLBOX } from 'node-av/constants';
 
 // Automatically detect best available hardware
-const hw = await HardwareContext.auto();
+const hw = HardwareContext.auto();
 if (hw) {
   console.log(`Using hardware: ${hw.deviceTypeName}`);
   
@@ -148,8 +148,8 @@ if (hw) {
 import { AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI } from 'node-av/constants';
 
 // Use specific hardware type
-const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
-const vaapi = await HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI, '/dev/dri/renderD128');
+const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+const vaapi = HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI, '/dev/dri/renderD128');
 ```
 
 ## Imports and Tree Shaking

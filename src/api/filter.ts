@@ -32,7 +32,7 @@ import type { FilterOptions, StreamInfo, VideoInfo } from './types.js';
  * @example
  * ```typescript
  * // Hardware-accelerated filtering
- * const hw = await HardwareContext.auto();
+ * const hw = HardwareContext.auto();
  * const filter = await FilterAPI.create(
  *   'hwupload,scale_cuda=1920:1080,hwdownload',
  *   videoInfo,
