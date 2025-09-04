@@ -15,7 +15,7 @@ import type { DecoderOptions, StreamInfo } from './types.js';
  *
  * @example
  * ```typescript
- * import { MediaInput, Decoder } from '@seydx/av/api';
+ * import { MediaInput, Decoder } from 'node-av/api';
  *
  * // Open media and create decoder
  * await using input = await MediaInput.open('video.mp4');
@@ -30,8 +30,8 @@ import type { DecoderOptions, StreamInfo } from './types.js';
  *
  * @example
  * ```typescript
- * import { HardwareContext } from '@seydx/av/api';
- * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+ * import { HardwareContext } from 'node-av/api';
+ * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
  *
  * // Setup hardware acceleration
  * const hw = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
@@ -88,7 +88,7 @@ export class Decoder implements Disposable {
    *
    * @example
    * ```typescript
-   * import { MediaInput, Decoder } from '@seydx/av/api';
+   * import { MediaInput, Decoder } from 'node-av/api';
    *
    * await using input = await MediaInput.open('video.mp4');
    * using decoder = await Decoder.create(input.video());
@@ -436,7 +436,7 @@ export class Decoder implements Disposable {
    *
    * @example
    * ```typescript
-   * import { pipeline } from '@seydx/av/api';
+   * import { pipeline } from 'node-av/api';
    *
    * const control = pipeline(
    *   input,

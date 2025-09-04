@@ -18,8 +18,8 @@ import type { EncoderOptions, StreamInfo } from './types.js';
  *
  * @example
  * ```typescript
- * import { Encoder } from '@seydx/av/api';
- * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
+ * import { Encoder } from 'node-av/api';
+ * import { AV_CODEC_ID_H264 } from 'node-av/constants';
  *
  * // Create H.264 encoder
  * const encoder = await Encoder.create('libx264', {
@@ -45,8 +45,8 @@ import type { EncoderOptions, StreamInfo } from './types.js';
  * @example
  * ```typescript
  * // Hardware-accelerated encoding
- * import { HardwareContext } from '@seydx/av/api';
- * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+ * import { HardwareContext } from 'node-av/api';
+ * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
  *
  * const hw = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
  * const encoder = await Encoder.create('h264_nvenc', streamInfo, {
@@ -413,7 +413,7 @@ export class Encoder implements Disposable {
    * @example
    * ```typescript
    * // Pipeline integration
-   * import { pipeline } from '@seydx/av/api';
+   * import { pipeline } from 'node-av/api';
    *
    * const control = pipeline(
    *   input,

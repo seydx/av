@@ -19,7 +19,7 @@ import type { MediaInputOptions, RawData } from './types.js';
  *
  * @example
  * ```typescript
- * import { MediaInput } from '@seydx/av/api';
+ * import { MediaInput } from 'node-av/api';
  *
  * // Open media file
  * await using input = await MediaInput.open('video.mp4');
@@ -479,7 +479,7 @@ export class MediaInput implements AsyncDisposable {
    *
    * @example
    * ```typescript
-   * import { AVMEDIA_TYPE_VIDEO } from '@seydx/av/constants';
+   * import { AVMEDIA_TYPE_VIDEO } from 'node-av/constants';
    *
    * const bestVideo = input.findBestStream(AVMEDIA_TYPE_VIDEO);
    * if (bestVideo) {
@@ -584,7 +584,7 @@ export class MediaInput implements AsyncDisposable {
    *
    * @example
    * ```typescript
-   * import { AVSEEK_FLAG_BACKWARD } from '@seydx/av/constants';
+   * import { AVSEEK_FLAG_BACKWARD } from 'node-av/constants';
    *
    * // Seek to keyframe before 60 seconds
    * await input.seek(60, -1, AVSEEK_FLAG_BACKWARD);

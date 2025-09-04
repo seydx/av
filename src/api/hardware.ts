@@ -44,8 +44,8 @@ import type { BaseCodecName, HardwareOptions } from './types.js';
  *
  * @example
  * ```typescript
- * import { HardwareContext } from '@seydx/av/api';
- * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+ * import { HardwareContext } from 'node-av/api';
+ * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
  *
  * // Auto-detect best available hardware
  * const hw = HardwareContext.auto();
@@ -165,7 +165,7 @@ export class HardwareContext implements Disposable {
    *
    * @example
    * ```typescript
-   * import { AV_HWDEVICE_TYPE_CUDA } from '@seydx/av/constants';
+   * import { AV_HWDEVICE_TYPE_CUDA } from 'node-av/constants';
    *
    * // CUDA with specific GPU
    * const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA, '0');
@@ -173,7 +173,7 @@ export class HardwareContext implements Disposable {
    *
    * @example
    * ```typescript
-   * import { AV_HWDEVICE_TYPE_VAAPI } from '@seydx/av/constants';
+   * import { AV_HWDEVICE_TYPE_VAAPI } from 'node-av/constants';
    *
    * // VAAPI with render device
    * const vaapi = HardwareContext.create(
@@ -317,7 +317,7 @@ export class HardwareContext implements Disposable {
    *
    * @example
    * ```typescript
-   * import { AV_CODEC_ID_H264 } from '@seydx/av/constants';
+   * import { AV_CODEC_ID_H264 } from 'node-av/constants';
    *
    * if (hw.supportsCodec(AV_CODEC_ID_H264, true)) {
    *   // Can use hardware H.264 encoder
@@ -353,7 +353,7 @@ export class HardwareContext implements Disposable {
    *
    * @example
    * ```typescript
-   * import { AV_CODEC_ID_H264, AV_PIX_FMT_NV12 } from '@seydx/av/constants';
+   * import { AV_CODEC_ID_H264, AV_PIX_FMT_NV12 } from 'node-av/constants';
    *
    * if (hw.supportsPixelFormat(AV_CODEC_ID_H264, AV_PIX_FMT_NV12)) {
    *   // Can use NV12 format with H.264

@@ -25,7 +25,7 @@ interface StreamInfo {
  *
  * @example
  * ```typescript
- * import { MediaOutput } from '@seydx/av/api';
+ * import { MediaOutput } from 'node-av/api';
  *
  * // Create output file
  * await using output = await MediaOutput.open('output.mp4');

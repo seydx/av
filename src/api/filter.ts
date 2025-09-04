@@ -16,7 +16,7 @@ import type { FilterOptions, StreamInfo, VideoInfo } from './types.js';
  *
  * @example
  * ```typescript
- * import { FilterAPI } from '@seydx/av/api';
+ * import { FilterAPI } from 'node-av/api';
  *
  * // Create video filter
  * const filter = await FilterAPI.create('scale=1280:720', videoInfo);

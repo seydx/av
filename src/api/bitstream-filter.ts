@@ -13,7 +13,7 @@ import type { Stream } from '../lib/index.js';
  *
  * @example
  * ```typescript
- * import { BitStreamFilterAPI } from '@seydx/av/api';
+ * import { BitStreamFilterAPI } from 'node-av/api';
  *
  * // Create H.264 Annex B converter
  * const filter = BitStreamFilterAPI.create('h264_mp4toannexb', stream);

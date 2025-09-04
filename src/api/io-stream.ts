@@ -13,7 +13,7 @@ import type { IOInputCallbacks, MediaInputOptions } from './types.js';
  *
  * @example
  * ```typescript
- * import { IOStream, MediaInput } from '@seydx/av/api';
+ * import { IOStream, MediaInput } from 'node-av/api';
  *
  * // From buffer
  * const buffer = await fs.readFile('video.mp4');

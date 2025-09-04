@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # Fetch all history for tags
+          fetch-depth: 0 # Fetch all history for tags
 
       - uses: actions/setup-node@v4
         with:
@@ -130,7 +130,7 @@ jobs:
         run: |
           # Get the most recent tag
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
+
           # Build the test release notes
           cat > test_release_notes.md << 'EOF'
           ## node-av Test Release ${{ github.event.inputs.test_version }}
@@ -145,7 +145,7 @@ jobs:
           - @seydx/node-av-win32-arm64@${{ github.event.inputs.test_version }}
           - @seydx/node-av-win32-x64@${{ github.event.inputs.test_version }}
           EOF
-          
+
           # Add recent commits since last tag
           if [ -n "$LATEST_TAG" ]; then
             echo "" >> test_release_notes.md
@@ -195,7 +195,7 @@ jobs:
 
           echo ""
           echo "Testing main package publishing:"
-          echo "📦 Testing publish for @seydx/av:"
+          echo "📦 Testing publish for node-av:"
 
           # Clean up artifacts that shouldn't be in the package
           rm -rf prebuilds-artifacts
