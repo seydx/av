@@ -6,7 +6,6 @@ import {
   AV_HWDEVICE_TYPE_NONE,
   AV_HWDEVICE_TYPE_VAAPI,
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-  AV_PIX_FMT_NV12,
   AV_PIX_FMT_YUV420P,
   Decoder,
   Encoder,
@@ -31,7 +30,7 @@ describe('HardwareContext', () => {
     });
 
     it('should auto-detect hardware', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (hw) {
         console.log(`Auto-detected hardware: ${hw.deviceTypeName}`);
         assert.ok(hw.deviceContext, 'Should have device context');
@@ -43,7 +42,7 @@ describe('HardwareContext', () => {
     });
 
     it('should handle unknown device type', async () => {
-      await assert.rejects(async () => await HardwareContext.create(999 as any), /Failed to create hardware context/, 'Should throw for unknown device');
+      await assert.rejects(async () => HardwareContext.create(999 as any), /Failed to create hardware context/, 'Should throw for unknown device');
     });
 
     it('should get preference order for hardware types', () => {
@@ -54,28 +53,28 @@ describe('HardwareContext', () => {
   });
 
   describe('instance methods', () => {
-    it('should provide device information', async () => {
-      const hw = await HardwareContext.auto();
+    it('should provide device information', () => {
+      const hw = HardwareContext.auto();
       if (hw) {
         assert.ok(hw.deviceTypeName, 'Should have device type name');
         assert.ok(typeof hw.deviceType === 'number', 'Should have device type number');
-        assert.ok(typeof hw.getHardwarePixelFormat() === 'number', 'Should have hardware pixel format');
+        assert.ok(typeof hw.devicePixelFormat === 'number', 'Should have hardware pixel format');
         hw.dispose();
       }
     });
 
     it('should get encoder codec for base codec name', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (hw) {
         // Test getting hardware encoder codec
-        const h264Encoder = hw.getEncoderCodec('h264');
-        const hevcEncoder = hw.getEncoderCodec('hevc');
-        const av1Encoder = hw.getEncoderCodec('av1');
+        const h264Encoder = await hw.getEncoderCodec('h264');
+        const hevcEncoder = await hw.getEncoderCodec('hevc');
+        const av1Encoder = await hw.getEncoderCodec('av1');
 
         console.log(`Hardware encoder codecs for ${hw.deviceTypeName}:`);
-        console.log(`  h264: ${h264Encoder ?? 'not supported'}`);
-        console.log(`  hevc: ${hevcEncoder ?? 'not supported'}`);
-        console.log(`  av1: ${av1Encoder ?? 'not supported'}`);
+        console.log(`  h264: ${h264Encoder?.name ?? 'not supported'}`);
+        console.log(`  hevc: ${hevcEncoder?.name ?? 'not supported'}`);
+        console.log(`  av1: ${av1Encoder?.name ?? 'not supported'}`);
 
         // At least one might be supported depending on hardware
         assert.ok(h264Encoder !== null || hevcEncoder !== null || av1Encoder !== null || true, 'Hardware might support some codecs');
@@ -84,8 +83,8 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should support Symbol.dispose', async () => {
-      const hw = await HardwareContext.auto();
+    it('should support Symbol.dispose', () => {
+      const hw = HardwareContext.auto();
       if (hw) {
         {
           using disposableHw = hw;
@@ -96,8 +95,8 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should check if hardware is disposed', async () => {
-      const hw = await HardwareContext.auto();
+    it('should check if hardware is disposed', () => {
+      const hw = HardwareContext.auto();
       if (hw) {
         assert.equal(hw.isDisposed, false, 'Should not be disposed initially');
         hw.dispose();
@@ -105,8 +104,8 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should provide hardware filter presets', async () => {
-      const hw = await HardwareContext.auto();
+    it('should provide hardware filter presets', () => {
+      const hw = HardwareContext.auto();
       if (hw) {
         assert.ok(hw.filterPresets, 'Should have filter presets');
         assert.ok(hw.filterPresets.support, 'Should have support information');
@@ -133,9 +132,9 @@ describe('HardwareContext', () => {
   });
 
   describe('specific hardware types', () => {
-    it('should handle CUDA if available', async () => {
+    it('should handle CUDA if available', () => {
       try {
-        const cuda = await HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+        const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
         console.log('CUDA hardware acceleration available');
         assert.equal(cuda.deviceTypeName, 'cuda', 'Should be CUDA device');
         cuda.dispose();
@@ -144,10 +143,10 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should handle VideoToolbox if available', async () => {
+    it('should handle VideoToolbox if available', () => {
       if (process.platform === 'darwin') {
         try {
-          const vt = await HardwareContext.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+          const vt = HardwareContext.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
           console.log('VideoToolbox hardware acceleration available');
           assert.equal(vt.deviceTypeName, 'videotoolbox', 'Should be VideoToolbox device');
           vt.dispose();
@@ -157,10 +156,10 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should handle VAAPI if available', async () => {
+    it('should handle VAAPI if available', () => {
       if (process.platform === 'linux') {
         try {
-          const vaapi = await HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI);
+          const vaapi = HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI);
           console.log('VAAPI hardware acceleration available');
           assert.equal(vaapi.deviceTypeName, 'vaapi', 'Should be VAAPI device');
           vaapi.dispose();
@@ -172,8 +171,8 @@ describe('HardwareContext', () => {
   });
 
   describe('hardware disposal', () => {
-    it('should safely dispose hardware multiple times', async () => {
-      const hw = await HardwareContext.auto();
+    it('should safely dispose hardware multiple times', () => {
+      const hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available - skipping test');
         return;
@@ -193,7 +192,7 @@ describe('HardwareContext', () => {
     });
 
     it('should dispose hardware when decoder closes', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available - skipping test');
         return;
@@ -219,7 +218,7 @@ describe('HardwareContext', () => {
     });
 
     it('should dispose hardware when encoder closes', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available - skipping test');
         return;
@@ -259,7 +258,7 @@ describe('HardwareContext', () => {
     });
 
     it('should allow sharing hardware between multiple decoders', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available - skipping test');
         return;
@@ -299,7 +298,7 @@ describe('HardwareContext', () => {
   describe('hardware integration', () => {
     it('should work with Decoder when hardware is available', async () => {
       // Try to get hardware context
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
 
       if (!hw) {
         console.log('No hardware acceleration available - skipping test');
@@ -347,7 +346,7 @@ describe('HardwareContext', () => {
       assert.ok(videoStream, 'Should have video stream');
 
       // Auto-detect hardware and create decoder
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       const decoder = await Decoder.create(videoStream, hw ? { hardware: hw } : {});
 
       // Decode first frame
@@ -371,60 +370,63 @@ describe('HardwareContext', () => {
     });
 
     it('should work with Encoder when hardware is available', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
 
       if (!hw) {
         console.log('No hardware acceleration available for encoding - skipping test');
         return;
       }
 
-      try {
-        // Try to create encoder with hardware
-        // Use hardware-specific encoder codec
-        const hwEncoderCodec = hw.getEncoderCodec('h264');
-        const encoderName = hwEncoderCodec ?? FF_ENCODER_LIBX264;
-        const encoder = await Encoder.create(
-          encoderName,
-          {
-            type: 'video',
-            width: 640,
-            height: 480,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            frameRate: { num: 25, den: 1 },
-            timeBase: { num: 1, den: 25 },
-            sampleAspectRatio: { num: 1, den: 1 },
-          },
-          {
-            bitrate: '1M',
-            hardware: hw,
-          },
-        );
-
-        // Just verify it was created successfully
-        assert.ok(encoder, 'Should create hardware encoder');
-
-        encoder.close();
-      } catch (error) {
-        // Hardware might not support encoding
-        console.log('Hardware encoding not supported:', error);
-        hw.dispose();
+      const hwEncoderCodec = await hw.getEncoderCodec('h264');
+      if (!hwEncoderCodec) {
+        console.log('Hardware encoder codec not available - skipping test');
+        return;
       }
+
+      const encoder = await Encoder.create(
+        hwEncoderCodec,
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: hw.devicePixelFormat,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {
+          bitrate: '1M',
+          hardware: hw,
+        },
+      );
+
+      // Just verify it was created successfully
+      assert.ok(encoder, 'Should create hardware encoder');
+
+      encoder.close();
     });
 
     it('should work with Encoder using auto hardware detection', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
+      if (!hw) {
+        return;
+      }
 
       try {
         // Use hardware-specific encoder codec if available
-        const hwEncoderCodec = hw?.getEncoderCodec('h264');
-        const encoderName = hwEncoderCodec ?? FF_ENCODER_LIBX264;
+        const hwEncoderCodec = await hw.getEncoderCodec('h264');
+        if (!hwEncoderCodec) {
+          hw.dispose();
+          return;
+        }
+
         const encoder = await Encoder.create(
-          encoderName,
+          hwEncoderCodec,
           {
             type: 'video',
             width: 640,
             height: 480,
-            pixelFormat: AV_PIX_FMT_YUV420P,
+            pixelFormat: hw.devicePixelFormat,
             frameRate: { num: 25, den: 1 },
             timeBase: { num: 1, den: 25 },
             sampleAspectRatio: { num: 1, den: 1 },
@@ -452,7 +454,7 @@ describe('HardwareContext', () => {
       // This test demonstrates zero-copy GPU frame transfer
       // where frames stay on GPU between decode and encode
 
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware acceleration available - skipping zero-copy test');
         return;
@@ -471,33 +473,32 @@ describe('HardwareContext', () => {
 
         // Create hardware encoder
         // Use hardware-specific encoder codec
-        const hwEncoderCodec = hw.getEncoderCodec('h264');
-        const encoderName = hwEncoderCodec ?? FF_ENCODER_LIBX264;
-        let encoder;
-        try {
-          encoder = await Encoder.create(
-            encoderName,
-            {
-              type: 'video',
-              width: videoStream.codecpar.width,
-              height: videoStream.codecpar.height,
-              pixelFormat: AV_PIX_FMT_NV12,
-              frameRate: { num: 25, den: 1 },
-              timeBase: { num: 1, den: 25 },
-              sampleAspectRatio: { num: 1, den: 1 },
-            },
-            {
-              bitrate: '2M',
-              hardware: hw,
-            },
-          );
-        } catch (error) {
-          console.log('Hardware encoding not supported:', error);
+        const hwEncoderCodec = await hw.getEncoderCodec('h264');
+
+        if (!hwEncoderCodec) {
+          // Not supported, skip
           decoder.close();
           media.close();
           hw.dispose();
           return;
         }
+
+        const encoder = await Encoder.create(
+          hwEncoderCodec,
+          {
+            type: 'video',
+            width: videoStream.codecpar.width,
+            height: videoStream.codecpar.height,
+            pixelFormat: hw.devicePixelFormat,
+            frameRate: { num: 25, den: 1 },
+            timeBase: { num: 1, den: 25 },
+            sampleAspectRatio: { num: 1, den: 1 },
+          },
+          {
+            bitrate: '2M',
+            hardware: hw,
+          },
+        );
 
         let decodedFrames = 0;
         let encodedPackets = 0;
@@ -555,7 +556,7 @@ describe('HardwareContext', () => {
     });
 
     it('should demonstrate GPU memory efficiency with multiple streams', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware acceleration available - skipping test');
         return;
@@ -616,54 +617,41 @@ describe('HardwareContext', () => {
     });
 
     it('should verify hardware codec selection', async () => {
-      const hw = await HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware acceleration available - skipping test');
         return;
       }
 
-      try {
-        console.log(`Hardware ${hw.deviceTypeName} codec support:`);
+      console.log(`Hardware ${hw.deviceTypeName} codec support:`);
 
-        // Test getting hardware encoder codecs
-        const h264HwCodec = hw.getEncoderCodec('h264');
-        const hevcHwCodec = hw.getEncoderCodec('hevc');
-
-        if (h264HwCodec) {
-          console.log(`  H.264 hardware encoder: ${h264HwCodec}`);
-        }
-        if (hevcHwCodec) {
-          console.log(`  HEVC hardware encoder: ${hevcHwCodec}`);
-        }
-
-        // Try to create encoder with hardware codec if available
-        if (h264HwCodec) {
-          const encoder = await Encoder.create(
-            h264HwCodec,
-            {
-              type: 'video',
-              width: 640,
-              height: 480,
-              pixelFormat: hw.getHardwarePixelFormat(),
-              frameRate: { num: 25, den: 1 },
-              timeBase: { num: 1, den: 25 },
-              sampleAspectRatio: { num: 1, den: 1 },
-            },
-            {
-              bitrate: '1M',
-              hardware: hw,
-            },
-          );
-
-          assert.ok(encoder, 'Should create hardware encoder');
-          encoder.close();
-        }
-
-        hw.dispose();
-      } catch (error) {
-        console.log('Hardware codec selection test failed:', error);
-        hw.dispose();
+      // Test getting hardware encoder codecs
+      const h264HwCodec = await hw.getEncoderCodec('h264');
+      if (!h264HwCodec) {
+        return;
       }
+
+      const encoder = await Encoder.create(
+        h264HwCodec,
+        {
+          type: 'video',
+          width: 640,
+          height: 480,
+          pixelFormat: hw.devicePixelFormat,
+          frameRate: { num: 25, den: 1 },
+          timeBase: { num: 1, den: 25 },
+          sampleAspectRatio: { num: 1, den: 1 },
+        },
+        {
+          bitrate: '1M',
+          hardware: hw,
+        },
+      );
+
+      assert.ok(encoder, 'Should create hardware encoder');
+      encoder.close();
+
+      hw.dispose();
     });
   });
 });

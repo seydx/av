@@ -1,18 +1,8 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import {
-  AV_PIX_FMT_YUV420P,
-  AV_SAMPLE_FMT_FLTP,
-  Codec,
-  Encoder,
-  FF_ENCODER_AAC,
-  FF_ENCODER_LIBX264,
-  HardwareContext,
-  type AudioInfo,
-  type VideoInfo,
-} from '../src/index.js';
-import { avIsHardwarePixelFormat, Frame } from '../src/lib/index.js';
+import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Encoder, FF_ENCODER_AAC, FF_ENCODER_LIBX264, HardwareContext } from '../src/index.js';
+import { Frame } from '../src/lib/index.js';
 
 describe('Encoder', () => {
   describe('create', () => {
@@ -36,7 +26,7 @@ describe('Encoder', () => {
 
       assert.ok(encoder);
       assert.equal(encoder.isEncoderOpen, true);
-      assert.equal(encoder.getCodecName(), FF_ENCODER_LIBX264);
+      assert.equal(encoder.getCodec().name, FF_ENCODER_LIBX264);
 
       encoder.close();
     });
@@ -58,7 +48,7 @@ describe('Encoder', () => {
 
       assert.ok(encoder);
       assert.equal(encoder.isEncoderOpen, true);
-      assert.equal(encoder.getCodecName(), FF_ENCODER_AAC);
+      assert.equal(encoder.getCodec().name, FF_ENCODER_AAC);
 
       encoder.close();
     });
@@ -193,7 +183,7 @@ describe('Encoder', () => {
             },
             {},
           ),
-        /Failed to open encoder/,
+        /Unsupported pixel format/,
       );
     });
   });
@@ -497,208 +487,29 @@ describe('Encoder', () => {
     });
   });
 
-  describe('pixel format helpers', () => {
-    it('should get preferred pixel format', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
-
-      const preferredFormat = encoder.getPreferredPixelFormat();
-      // libx264 should have a preferred format
-      assert.ok(preferredFormat !== null, 'Should have a preferred pixel format');
-
-      encoder.close();
-    });
-
-    it('should get supported pixel formats', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
-
-      const supportedFormats = encoder.getSupportedPixelFormats();
-      assert.ok(Array.isArray(supportedFormats), 'Should return array of formats');
-      // libx264 supports multiple formats
-      assert.ok(supportedFormats.length > 0, 'Should support at least one format');
-
-      encoder.close();
-    });
-
-    it('should return empty array for encoders without pixel format info', async () => {
-      // AAC audio encoder doesn't have pixel formats
-      const encoder = await Encoder.create(
-        FF_ENCODER_AAC,
-        {
-          type: 'audio',
-          sampleRate: 44100,
-          sampleFormat: AV_SAMPLE_FMT_FLTP,
-          channelLayout: { nbChannels: 2, order: 1, mask: 3n },
-          timeBase: { num: 1, den: 44100 },
-        },
-        {},
-      );
-
-      const preferredFormat = encoder.getPreferredPixelFormat();
-      assert.equal(preferredFormat, null, 'Audio encoder should not have pixel formats');
-
-      const supportedFormats = encoder.getSupportedPixelFormats();
-      assert.ok(Array.isArray(supportedFormats), 'Should return array');
-      assert.equal(supportedFormats.length, 0, 'Audio encoder should have no pixel formats');
-
-      encoder.close();
-    });
-  });
-
-  describe('getOutputStreamInfo', () => {
-    it('should return correct output format for video encoder', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
-
-      const outputInfo = encoder.getOutputStreamInfo() as VideoInfo;
-
-      assert.equal(outputInfo.type, 'video');
-      assert.equal(outputInfo.width, 640);
-      assert.equal(outputInfo.height, 480);
-      assert.equal(outputInfo.pixelFormat, AV_PIX_FMT_YUV420P);
-      assert.deepEqual(outputInfo.frameRate, { num: 25, den: 1 });
-      assert.deepEqual(outputInfo.timeBase, { num: 1, den: 25 });
-      assert.deepEqual(outputInfo.sampleAspectRatio, { num: 1, den: 1 });
-
-      encoder.close();
-    });
-
-    it('should return correct output format for audio encoder', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_AAC,
-        {
-          type: 'audio',
-          sampleRate: 44100,
-          sampleFormat: AV_SAMPLE_FMT_FLTP,
-          channelLayout: { nbChannels: 2, order: 1, mask: 3n },
-          timeBase: { num: 1, den: 44100 },
-        },
-        {},
-      );
-
-      const outputInfo = encoder.getOutputStreamInfo() as AudioInfo;
-
-      assert.equal(outputInfo.type, 'audio');
-      assert.equal(outputInfo.sampleRate, 44100);
-      assert.equal(outputInfo.sampleFormat, AV_SAMPLE_FMT_FLTP);
-      assert.deepEqual(outputInfo.channelLayout, { nbChannels: 2, order: 1, mask: 3n });
-      assert.deepEqual(outputInfo.timeBase, { num: 1, den: 44100 });
-
-      encoder.close();
-    });
-
-    it('should return hardware pixel format for hardware encoder', async () => {
-      // Try to get hardware context
-      const hw: HardwareContext | null = await HardwareContext.auto();
-      if (!hw) {
-        return;
-      }
-
-      // Get hardware encoder codec name
-      const hwEncoderCodecName = hw.getEncoderCodec('h264');
-      if (!hwEncoderCodecName) {
-        hw.dispose();
-        return;
-      }
-
-      try {
-        const encoder = await Encoder.create(
-          hwEncoderCodecName,
-          {
-            type: 'video',
-            width: 640,
-            height: 480,
-            pixelFormat: AV_PIX_FMT_YUV420P, // Will be converted to hardware format
-            frameRate: { num: 25, den: 1 },
-            timeBase: { num: 1, den: 25 },
-            sampleAspectRatio: { num: 1, den: 1 },
-          },
-          {
-            hardware: hw,
-          },
-        );
-
-        const outputInfo = encoder.getOutputStreamInfo();
-
-        assert.equal(outputInfo.type, 'video');
-
-        // For hardware encoder, output should be hardware pixel format
-        const codecObj = Codec.findEncoderByName(hwEncoderCodecName);
-        if (codecObj?.isHardwareAcceleratedEncoder()) {
-          assert.ok(avIsHardwarePixelFormat((outputInfo as VideoInfo).pixelFormat), `Expected hardware pixel format, got ${(outputInfo as VideoInfo).pixelFormat}`);
-        }
-
-        encoder.close();
-      } catch (error) {
-        // Hardware encoder creation might fail on some systems
-        console.log('Hardware encoder creation failed:', error.message);
-      }
-
-      hw.dispose();
-    });
-  });
-
   describe('hardware encoding', () => {
     it('should create hardware encoder with hardware context', async () => {
       // Try to get hardware context
-      const hw: HardwareContext | null = await HardwareContext.auto();
-      if (!hw) {
-        return;
-      }
-
+      const hw: HardwareContext | null = HardwareContext.auto();
       if (!hw) {
         return;
       }
 
       // Get hardware encoder codec name
-      const hwEncoderCodecName = hw.getEncoderCodec('h264');
-      if (!hwEncoderCodecName) {
+      const encoderCodec = await hw.getEncoderCodec('h264');
+      if (!encoderCodec) {
         hw.dispose();
         return;
       }
 
       try {
         const encoder = await Encoder.create(
-          hwEncoderCodecName,
+          encoderCodec,
           {
             type: 'video',
             width: 640,
             height: 480,
-            pixelFormat: AV_PIX_FMT_YUV420P,
+            pixelFormat: hw.devicePixelFormat,
             frameRate: { num: 25, den: 1 },
             timeBase: { num: 1, den: 25 },
             sampleAspectRatio: { num: 1, den: 1 },
@@ -711,7 +522,7 @@ describe('Encoder', () => {
 
         assert.ok(encoder);
         assert.equal(encoder.isEncoderOpen, true);
-        assert.equal(encoder.getCodecName(), hwEncoderCodecName);
+        assert.equal(encoder.getCodec().name, encoderCodec.name);
 
         encoder.close();
       } catch (error) {
@@ -724,23 +535,15 @@ describe('Encoder', () => {
 
     it('should throw when hardware encoder used without hardware context for encoders requiring it', async () => {
       // Try to get hardware context to find hardware encoder names
-      const hw: HardwareContext | null = await HardwareContext.auto();
+      const hw: HardwareContext | null = HardwareContext.auto();
       if (!hw) {
         return;
       }
 
       // Get hardware encoder codec name
-      const hwEncoderCodecName = hw.getEncoderCodec('h264');
-      if (!hwEncoderCodecName) {
+      const encoderCodec = await hw.getEncoderCodec('h264');
+      if (!encoderCodec) {
         hw.dispose();
-        return;
-      }
-
-      hw.dispose(); // Dispose after we got the name
-
-      // Check if encoder is a hardware encoder
-      const codecObj = Codec.findEncoderByName(hwEncoderCodecName);
-      if (!codecObj?.isHardwareAcceleratedEncoder()) {
         return;
       }
 
@@ -748,12 +551,12 @@ describe('Encoder', () => {
       await assert.rejects(
         async () => {
           await Encoder.create(
-            hwEncoderCodecName,
+            encoderCodec,
             {
               type: 'video',
               width: 640,
               height: 480,
-              pixelFormat: AV_PIX_FMT_YUV420P,
+              pixelFormat: hw.devicePixelFormat,
               frameRate: { num: 25, den: 1 },
               timeBase: { num: 1, den: 25 },
               sampleAspectRatio: { num: 1, den: 1 },

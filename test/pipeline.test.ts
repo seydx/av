@@ -227,7 +227,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         await using output = await MediaOutput.open(outputFile);
 
         // Create h264_mp4toannexb filter for the video stream
-        using bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', videoStream);
+        using bsf = BitStreamFilterAPI.create('h264_mp4toannexb', videoStream);
 
         const control = pipeline(input, bsf, output);
         await control.completion;
@@ -270,7 +270,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         // Create BSF for the encoded stream
         // Note: We use the null filter which works with any stream
-        using bsf = await BitStreamFilterAPI.create('null', videoStream);
+        using bsf = BitStreamFilterAPI.create('null', videoStream);
 
         const control = pipeline(input, decoder, encoder, bsf, output);
         await control.completion;
@@ -773,8 +773,7 @@ describe('Pipeline - Comprehensive Tests', () => {
   describe('Hardware Acceleration', skipInCI, () => {
     it('should support hardware decoder in pipeline', async function (t) {
       // Check if hardware acceleration is available
-      const hw = await HardwareContext.auto();
-
+      const hw = HardwareContext.auto();
       if (!hw) {
         t.skip(); // No hardware acceleration available
         return;
@@ -837,7 +836,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           await using output = await MediaOutput.open(outputFile);
 
           // Create BSF for the stream
-          using bsf = await BitStreamFilterAPI.create('null', videoStream);
+          using bsf = BitStreamFilterAPI.create('null', videoStream);
 
           // Stream copy with BSF: input → bsf → output
           const control = pipeline(input, bsf, output);

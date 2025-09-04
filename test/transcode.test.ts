@@ -126,7 +126,7 @@ describe('Transcode Scenarios', () => {
   });
 
   it('should handle HW Decode -> HW Filter -> SW Encode', skipInCI, async () => {
-    using hw = await HardwareContext.auto();
+    using hw = HardwareContext.auto();
     if (!hw) {
       console.log('No hardware available - skipping test');
       return;
@@ -160,7 +160,7 @@ describe('Transcode Scenarios', () => {
   });
 
   it('should handle SW Decode -> HW Filter -> HW Encode', skipInCI, async () => {
-    using hw = await HardwareContext.auto();
+    using hw = HardwareContext.auto();
     if (!hw) {
       console.log('No hardware available - skipping test');
       return;
@@ -178,7 +178,7 @@ describe('Transcode Scenarios', () => {
     using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), { hardware: hw });
     assert.ok(filter, 'Should create filter with hardware upload');
 
-    const encoderCodec = hw.getEncoderCodec('h264');
+    const encoderCodec = await hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
@@ -191,7 +191,7 @@ describe('Transcode Scenarios', () => {
         type: 'video',
         width: 100,
         height: 100,
-        pixelFormat: AV_PIX_FMT_YUV420P,
+        pixelFormat: hw.devicePixelFormat,
         frameRate: { num: 30, den: 1 },
         timeBase: { num: 1, den: 30 },
         sampleAspectRatio: { num: 1, den: 1 },
@@ -207,7 +207,7 @@ describe('Transcode Scenarios', () => {
   });
 
   it('should handle HW Decode -> HW Filter -> HW Encode', skipInCI, async () => {
-    using hw = await HardwareContext.auto();
+    using hw = HardwareContext.auto();
     if (!hw) {
       console.log('No hardware available - skipping test');
       return;
@@ -225,7 +225,7 @@ describe('Transcode Scenarios', () => {
     using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), { hardware: hw });
     assert.ok(filter, 'Should create hardware filter');
 
-    const encoderCodec = hw.getEncoderCodec('h264');
+    const encoderCodec = await hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
@@ -238,7 +238,7 @@ describe('Transcode Scenarios', () => {
         type: 'video',
         width: 100,
         height: 100,
-        pixelFormat: AV_PIX_FMT_YUV420P,
+        pixelFormat: hw.devicePixelFormat,
         frameRate: { num: 30, den: 1 },
         timeBase: { num: 1, den: 30 },
         sampleAspectRatio: { num: 1, den: 1 },
@@ -254,7 +254,7 @@ describe('Transcode Scenarios', () => {
   });
 
   it('should handle HW Decode -> HW Encode (no filter)', skipInCI, async () => {
-    using hw = await HardwareContext.auto();
+    using hw = HardwareContext.auto();
     if (!hw) {
       console.log('No hardware available - skipping test');
       return;
@@ -267,7 +267,7 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream, { hardware: hw });
     assert.ok(decoder, 'Should create hardware decoder');
 
-    const encoderCodec = hw.getEncoderCodec('h264');
+    const encoderCodec = await hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
@@ -296,8 +296,8 @@ describe('Transcode Scenarios', () => {
     assert.ok(frameCount > 0, 'Should process at least one frame');
   });
 
-  it('should handle SW Decode -> HW Encode', skipInCI, async () => {
-    using hw = await HardwareContext.auto();
+  it('should handle SW Decode -> SW/HW Filter -> HW Encode', skipInCI, async () => {
+    using hw = HardwareContext.auto();
     if (!hw) {
       console.log('No hardware available - skipping test');
       return;
@@ -310,55 +310,12 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream);
     assert.ok(decoder, 'Should create software decoder');
 
-    const encoderCodec = hw.getEncoderCodec('h264');
-    if (!encoderCodec) {
-      console.log('No hardware encoder codec available');
-      console.log('No hardware available - skipping test');
-      return;
-    }
+    const filterChain = FilterPresets.chain().scale(100, 100).hwupload().build();
 
-    const streamInfo = decoder.getOutputStreamInfo() as VideoInfo;
-    using encoder = await Encoder.create(
-      encoderCodec,
-      {
-        type: 'video',
-        width: streamInfo.width,
-        height: streamInfo.height,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        frameRate: streamInfo.frameRate,
-        timeBase: streamInfo.timeBase,
-        sampleAspectRatio: streamInfo.sampleAspectRatio,
-      },
-      {
-        hardware: hw,
-      },
-    );
-    assert.ok(encoder, 'Should create hardware encoder');
-
-    const frameCount = await processFrames(input, decoder, null, encoder, videoStream.index);
-    assert.ok(frameCount > 0, 'Should process at least one frame');
-  });
-
-  it('should handle SW Decode -> SW Filter -> HW Encode', skipInCI, async () => {
-    using hw = await HardwareContext.auto();
-    if (!hw) {
-      console.log('No hardware available - skipping test');
-      return;
-    }
-
-    await using input = await MediaInput.open(inputFile);
-    const videoStream = input.video();
-    assert.ok(videoStream, 'Should have video stream');
-
-    using decoder = await Decoder.create(videoStream);
-    assert.ok(decoder, 'Should create software decoder');
-
-    const filterChain = FilterPresets.chain().scale(100, 100).format(AV_PIX_FMT_YUV420P).build();
-
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo());
+    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), { hardware: hw });
     assert.ok(filter, 'Should create software filter');
 
-    const encoderCodec = hw.getEncoderCodec('h264');
+    const encoderCodec = await hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
@@ -371,7 +328,7 @@ describe('Transcode Scenarios', () => {
         type: 'video',
         width: 100,
         height: 100,
-        pixelFormat: AV_PIX_FMT_YUV420P,
+        pixelFormat: hw.devicePixelFormat,
         frameRate: { num: 30, den: 1 },
         timeBase: { num: 1, den: 30 },
         sampleAspectRatio: { num: 1, den: 1 },
@@ -388,7 +345,7 @@ describe('Transcode Scenarios', () => {
 
   describe('Error Cases', () => {
     it('should fail when using hardware filter without hardware context on filter', async () => {
-      using hw = await HardwareContext.auto();
+      using hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available, skipping test');
         return;

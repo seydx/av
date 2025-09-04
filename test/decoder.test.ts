@@ -396,17 +396,9 @@ describe('Decoder', () => {
 
     it('should return hardware pixel format for hardware decoder', async () => {
       // Try to get hardware context
-      let hw: HardwareContext | null = null;
-      try {
-        hw = await HardwareContext.auto();
-      } catch {
-        // No hardware available, skip test
-        console.log('    Skipping hardware test - no hardware context available');
-        return;
-      }
-
+      const hw = HardwareContext.auto();
       if (!hw) {
-        console.log('    Skipping hardware test - no hardware context available');
+        console.log('Skipping hardware test - no hardware context available');
         return;
       }
 
@@ -428,7 +420,7 @@ describe('Decoder', () => {
         decoder.close();
       } catch (error) {
         // Hardware decoder creation might fail on some systems
-        console.log('    Hardware decoder creation failed:', error.message);
+        console.log('Hardware decoder creation failed:', error.message);
       }
 
       await media.close();

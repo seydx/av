@@ -10,25 +10,11 @@ const inputFile = getInputFile('demux.mp4');
 
 describe('BitStreamFilterAPI', () => {
   describe('Basic Operations', () => {
-    it('should create and dispose filter', async () => {
-      await using media = await MediaInput.open(inputFile);
-      const stream = media.video();
-      assert.ok(stream, 'Should have video stream');
-
-      {
-        using bsf = await BitStreamFilterAPI.create('null', stream);
-        assert.equal(bsf.name, 'null');
-        assert.ok(bsf.streamInfo);
-        assert.equal(bsf.streamInfo.index, stream.index);
-      }
-      // Filter automatically disposed
-    });
-
     it('should throw for non-existent filter', async () => {
       await using media = await MediaInput.open(inputFile);
       const stream = media.video();
 
-      await assert.rejects(async () => await BitStreamFilterAPI.create('non_existent_filter', stream!), /Bitstream filter 'non_existent_filter' not found/);
+      assert.throws(() => BitStreamFilterAPI.create('non_existent_filter', stream!), /Bitstream filter 'non_existent_filter' not found/);
     });
   });
 
@@ -38,7 +24,7 @@ describe('BitStreamFilterAPI', () => {
       const stream = media.video();
       assert.ok(stream);
 
-      using bsf = await BitStreamFilterAPI.create('null', stream);
+      using bsf = BitStreamFilterAPI.create('null', stream);
 
       // Process a few packets
       let packetsProcessed = 0;
@@ -69,7 +55,7 @@ describe('BitStreamFilterAPI', () => {
       const stream = media.video();
       assert.ok(stream);
 
-      using bsf = await BitStreamFilterAPI.create('null', stream);
+      using bsf = BitStreamFilterAPI.create('null', stream);
 
       // Process one packet
       for await (const packet of media.packets()) {
@@ -89,7 +75,7 @@ describe('BitStreamFilterAPI', () => {
       const stream = media.video();
       assert.ok(stream);
 
-      using bsf = await BitStreamFilterAPI.create('null', stream);
+      using bsf = BitStreamFilterAPI.create('null', stream);
 
       // Process one packet
       for await (const packet of media.packets()) {
@@ -115,7 +101,7 @@ describe('BitStreamFilterAPI', () => {
       const stream = media.video();
       assert.ok(stream);
 
-      using bsf = await BitStreamFilterAPI.create('null', stream);
+      using bsf = BitStreamFilterAPI.create('null', stream);
 
       // Reset should not throw
       assert.doesNotThrow(() => bsf.reset());
@@ -128,7 +114,7 @@ describe('BitStreamFilterAPI', () => {
       const stream = media.video();
       assert.ok(stream);
 
-      using bsf = await BitStreamFilterAPI.create('null', stream);
+      using bsf = BitStreamFilterAPI.create('null', stream);
 
       // Create filtered packet stream
       async function* videoPackets() {
@@ -164,7 +150,7 @@ describe('BitStreamFilterAPI', () => {
       }
 
       // Try to create h264_mp4toannexb filter
-      using bsf = await BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+      using bsf = BitStreamFilterAPI.create('h264_mp4toannexb', stream);
 
       // Check output parameters
       assert.ok(bsf.outputCodecParameters, 'Should have output codec parameters');
@@ -199,7 +185,7 @@ describe('BitStreamFilterAPI', () => {
       const stream = media.video();
       assert.ok(stream);
 
-      const bsf = await BitStreamFilterAPI.create('null', stream);
+      const bsf = BitStreamFilterAPI.create('null', stream);
       bsf.dispose();
 
       // Create a test packet

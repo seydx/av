@@ -20,21 +20,6 @@ describe('Log', () => {
     Log.resetCallback();
   });
 
-  describe('Static-only class', () => {
-    it('should not be instantiable', () => {
-      assert.throws(
-        () => {
-          // @ts-expect-error - Testing that constructor throws
-          new Log();
-        },
-        {
-          message: 'Log class cannot be instantiated',
-        },
-        'Should throw when trying to instantiate',
-      );
-    });
-  });
-
   describe('Log Level Management', () => {
     it('should set and get log level', () => {
       Log.setLevel(AV_LOG_ERROR);
