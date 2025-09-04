@@ -15,6 +15,11 @@
 
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
 
+/**
+ *
+ * @param inputFile
+ * @param outputFile
+ */
 async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   console.log('🎬 Software Decode + Hardware Encode Example');
   console.log(`Input: ${inputFile}`);
@@ -22,7 +27,7 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   console.log('');
 
   // Check for hardware availability
-  const hw = await HardwareContext.auto();
+  const hw = HardwareContext.auto();
   if (!hw) {
     console.log('❌ No hardware acceleration available');
     console.log('   This example requires hardware acceleration for encoding.');
@@ -64,18 +69,18 @@ async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
   console.log('🔧 Setting up hardware encoder...');
 
   // Select appropriate hardware encoder based on platform
-  const encoderName = hw.getEncoderCodec('h264');
-  if (!encoderName) {
+  const encoderCodec = await hw.getEncoderCodec('h264');
+  if (!encoderCodec) {
     throw new Error(`Unsupported hardware type: ${hw.deviceTypeName}`);
   }
 
   // Hardware encoder needs hardware context
-  const encoder = await Encoder.create(encoderName, decoder.getOutputStreamInfo(), {
+  const encoder = await Encoder.create(encoderCodec, decoder.getOutputStreamInfo(), {
     bitrate: '4M',
     gopSize: 60,
     hardware: hw,
   });
-  console.log(`  ✓ Hardware encoder created (${encoderName})`);
+  console.log(`  ✓ Hardware encoder created (${encoderCodec.name})`);
   console.log('');
 
   // Create output using MediaOutput

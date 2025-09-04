@@ -20,6 +20,9 @@ if (!inputFile || !outputFile) {
   process.exit(1);
 }
 
+/**
+ *
+ */
 async function main() {
   let hw: HardwareContext | null = null;
 
@@ -29,7 +32,7 @@ async function main() {
 
     // Auto-detect best available hardware
     console.log('Detecting hardware acceleration...');
-    hw = await HardwareContext.auto();
+    hw = HardwareContext.auto();
 
     if (!hw) {
       console.log('⚠️  No hardware acceleration available, falling back to software');
@@ -76,7 +79,10 @@ async function main() {
     let encoderName: FFEncoderCodec = FF_ENCODER_LIBX264; // Default software encoder
 
     if (hw) {
-      encoderName = hw.getEncoderCodec('h264') ?? encoderName;
+      const encoderCodec = await hw.getEncoderCodec('h264');
+      if (encoderCodec?.isHardwareAcceleratedEncoder()) {
+        encoderName = encoderCodec.name as FFEncoderCodec;
+      }
     }
 
     console.log(`Creating encoder: ${encoderName}...`);

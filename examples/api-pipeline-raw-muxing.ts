@@ -18,7 +18,7 @@
  *   tsx examples/api-pipeline-raw-muxing.ts raw.yuv raw.pcm out.mp4 --video-fps 60 --audio-rate 44100
  */
 
-import { Decoder, Encoder, FilterAPI, MediaInput, MediaOutput, pipeline } from '../src/api/index.js';
+import { Decoder, Encoder, FilterAPI, MediaInput, MediaOutput, pipeline, type VideoInfo } from '../src/api/index.js';
 import { AV_CHANNEL_LAYOUT_STEREO, AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16, FF_ENCODER_AAC, FF_ENCODER_LIBX264 } from '../src/index.js';
 
 // Parse command line arguments
@@ -122,10 +122,9 @@ async function main() {
     using videoEncoder = await Encoder.create(
       FF_ENCODER_LIBX264,
       {
-        type: 'video',
+        ...(videoDecoder.getOutputStreamInfo() as VideoInfo),
         width: videoWidth,
         height: videoHeight,
-        pixelFormat: AV_PIX_FMT_YUV420P,
         timeBase: { num: 1, den: videoFps },
         frameRate: { num: videoFps, den: 1 },
       },

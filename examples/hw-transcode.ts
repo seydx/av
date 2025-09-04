@@ -9,7 +9,14 @@
  */
 
 import {
+  AV_HWDEVICE_TYPE_CUDA,
+  AV_HWDEVICE_TYPE_D3D11VA,
+  AV_HWDEVICE_TYPE_D3D12VA,
+  AV_HWDEVICE_TYPE_DRM,
+  AV_HWDEVICE_TYPE_DXVA2,
   AV_HWDEVICE_TYPE_NONE,
+  AV_HWDEVICE_TYPE_OPENCL,
+  AV_HWDEVICE_TYPE_VDPAU,
   AV_PIX_FMT_CUDA,
   AV_PIX_FMT_D3D11,
   AV_PIX_FMT_DXVA2_VLD,
@@ -30,7 +37,7 @@ import {
   Rational,
 } from '../src/index.js';
 
-import type { AVHWDeviceType, AVPixelFormat, FFEncoderCodec, Stream } from '../src/index.js';
+import type { AVCodecID, AVHWDeviceType, AVPixelFormat, FFEncoderCodec, Stream } from '../src/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let inputCtx: FormatContext | null = null;
@@ -65,49 +72,111 @@ function getHardwarePixelFormat(deviceType: AVHWDeviceType): AVPixelFormat {
 /**
  * Get encoder name for hardware type and codec
  */
-function getEncoderCodec(deviceType: AVHWDeviceType, codecName: string): Codec | null {
-  // Get the hardware device type name from FFmpeg
-  const deviceTypeName = HardwareDeviceContext.getTypeName(deviceType);
-  if (!deviceTypeName) return null;
-
+async function getEncoderCodec(deviceCtx: HardwareDeviceContext, deviceType: AVHWDeviceType, codecName: string): Promise<Codec | null> {
   // Build the encoder name
-  let encoderSuffix: string;
+  let encoderSuffix = '';
 
-  switch (deviceTypeName) {
-    case 'cuda':
+  const deviceTypeName = HardwareDeviceContext.getTypeName(deviceType) ?? '';
+
+  // We might only have hardware decode capabilities (d3d11va, d3d12va etc)
+  // So we need to check for other hardware encoders
+  const getAlternativeEncoder = (): string | null => {
+    const nvencCodecName = `${codecName}_nvenc` as FFEncoderCodec;
+    const qsvCodecName = `${codecName}_qsv` as FFEncoderCodec;
+    const amfCodecName = `${codecName}_amf` as FFEncoderCodec;
+    const codecNames = [nvencCodecName, qsvCodecName, amfCodecName];
+
+    let suffix = '';
+    for (const name of codecNames) {
+      const encoderCodec = Codec.findEncoderByName(name);
+      if (!encoderCodec) {
+        continue;
+      }
+
+      suffix = name.split('_')[1]; // Get suffix after underscore
+    }
+
+    if (!suffix) {
+      return null;
+    }
+
+    return suffix;
+  };
+
+  switch (deviceType) {
+    case AV_HWDEVICE_TYPE_CUDA:
       // CUDA uses NVENC for encoding
       encoderSuffix = 'nvenc';
       break;
 
-    case 'd3d11va':
-    case 'dxva2':
-      // D3D11VA and DXVA2 are decode-only APIs
-      // Cannot encode with these hardware contexts
-      // Need nvenc, qsv or amf for encoding
-      return null;
+    case AV_HWDEVICE_TYPE_D3D11VA:
+    case AV_HWDEVICE_TYPE_DXVA2:
+      encoderSuffix = getAlternativeEncoder() ?? '';
+      break;
 
-    case 'd3d12va':
+    case AV_HWDEVICE_TYPE_D3D12VA:
       // D3D12VA currently only supports HEVC encoding
       if (codecName === 'hevc') {
         encoderSuffix = 'd3d12va';
+      } else {
+        encoderSuffix = getAlternativeEncoder() ?? '';
       }
-      return null;
+      break;
 
-    case 'opencl':
-    case 'vdpau':
-    case 'drm':
-      // These don't have dedicated encoders
-      return null;
+    case AV_HWDEVICE_TYPE_OPENCL:
+    case AV_HWDEVICE_TYPE_VDPAU:
+    case AV_HWDEVICE_TYPE_DRM:
+      encoderSuffix = getAlternativeEncoder() ?? '';
+      break;
 
     default:
       // Use the device type name as suffix
       encoderSuffix = deviceTypeName;
   }
 
+  if (!encoderSuffix) {
+    return null;
+  }
+
   // Construct the encoder name
   const encoderName = `${codecName}_${encoderSuffix}` as FFEncoderCodec;
+  const encoderCodec = Codec.findEncoderByName(encoderName);
 
-  return Codec.findEncoderByName(encoderName);
+  if (!encoderCodec || !(await testHardwareEncoder(deviceCtx, encoderName))) {
+    return null;
+  }
+
+  return encoderCodec;
+}
+
+/**
+ * Test if hardware encoder is supported
+ */
+async function testHardwareEncoder(deviceCtx: HardwareDeviceContext, encoderCodec: FFEncoderCodec | AVCodecID | Codec): Promise<boolean> {
+  let codec: Codec | null = null;
+
+  if (encoderCodec instanceof Codec) {
+    codec = encoderCodec;
+  } else if (typeof encoderCodec === 'string') {
+    codec = Codec.findEncoderByName(encoderCodec);
+  } else {
+    codec = Codec.findEncoder(encoderCodec);
+  }
+
+  if (!codec?.pixelFormats || !codec.isHardwareAcceleratedEncoder()) {
+    return false;
+  }
+
+  const codecContext = new CodecContext();
+  codecContext.allocContext3(codec);
+  codecContext.hwDeviceCtx = deviceCtx;
+  codecContext.timeBase = new Rational(1, 30);
+  codecContext.pixelFormat = codec.pixelFormats[0];
+  codecContext.width = 100;
+  codecContext.height = 100;
+  const ret = await codecContext.open2(codec);
+  codecContext.freeContext();
+  return ret >= 0;
 }
 
 /**
@@ -386,7 +455,7 @@ async function main(): Promise<number> {
     }
 
     // Find encoder
-    const encoderCodec = getEncoderCodec(deviceType, codecName);
+    const encoderCodec = await getEncoderCodec(hwDeviceCtx, deviceType, codecName);
     if (!encoderCodec) {
       console.error(`Cannot find encoder: ${codecName}`);
       return -1;

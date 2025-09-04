@@ -11,14 +11,14 @@
  *   --scale <WxH>    Scale video to WxH (default: 640x360)
  *
  * Examples:
- *   tsx examples/api-hw-rtsp.ts rtsp://camera.local/stream examples/.tmp/rtsp-output.mp4
+ *   tsx examples/api-hw-rtsp.ts rtsp://camera.local/stream examples/.tmp/hw-rtsp-output.mp4
  *   tsx examples/api-hw-rtsp.ts rtsp://admin:pass@192.168.1.100/ch1 output.mp4 --duration 30
  *   tsx examples/api-hw-rtsp.ts rtsp://server/live output.mp4 --scale 1280x720
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
+import { Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
 
-import type { FFEncoderCodec } from '../src/index.js';
+import type { FFEncoderCodec, VideoInfo } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -48,6 +48,9 @@ if (scaleIndex !== -1) {
 
 let stop = false;
 
+/**
+ *
+ */
 async function processRtsp() {
   try {
     console.log('High-Level API: Hardware-Accelerated RTSP Streaming');
@@ -94,7 +97,7 @@ async function processRtsp() {
 
     // Auto-detect hardware
     console.log('Detecting hardware acceleration...');
-    using hardware = await HardwareContext.auto();
+    using hardware = HardwareContext.auto();
     if (hardware) {
       console.log(`Using hardware: ${hardware.deviceTypeName}\n`);
     } else {
@@ -113,8 +116,11 @@ async function processRtsp() {
     let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
 
     if (hardware) {
-      encoderName = hardware.getEncoderCodec('hevc') ?? encoderName;
-      filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
+      const encoderCodec = await hardware.getEncoderCodec('hevc');
+      if (encoderCodec?.isHardwareAcceleratedEncoder()) {
+        encoderName = encoderCodec.name as FFEncoderCodec;
+        filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
+      }
     }
 
     // Create filter
@@ -129,13 +135,9 @@ async function processRtsp() {
     using encoder = await Encoder.create(
       encoderName,
       {
-        type: 'video',
-        width: scaleWidth,
+        ...(decoder.getOutputStreamInfo() as VideoInfo),
+        width: scaleWidth, // After scaling
         height: scaleHeight,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: videoStream.timeBase,
-        frameRate: videoStream.avgFrameRate,
-        sampleAspectRatio: videoStream.sampleAspectRatio,
       },
       {
         hardware,
@@ -233,6 +235,9 @@ async function processRtsp() {
   }
 }
 
+/**
+ *
+ */
 async function main() {
   try {
     await processRtsp();

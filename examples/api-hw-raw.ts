@@ -19,7 +19,7 @@
 
 import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
 
-import type { FFEncoderCodec } from '../src/index.js';
+import type { FFEncoderCodec, VideoInfo } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -45,6 +45,9 @@ const height = heightIndex !== -1 ? parseInt(args[heightIndex + 1]) : 720;
 const fpsIndex = args.indexOf('--fps');
 const fps = fpsIndex !== -1 ? parseInt(args[fpsIndex + 1]) : 30;
 
+/**
+ *
+ */
 async function main() {
   try {
     console.log('High-Level API: Hardware-Accelerated Raw Video Processing');
@@ -75,7 +78,7 @@ async function main() {
 
     // Auto-detect hardware
     console.log('Detecting hardware acceleration...');
-    using hardware = await HardwareContext.auto();
+    using hardware = HardwareContext.auto();
     if (hardware) {
       console.log(`Using hardware: ${hardware.deviceTypeName}\n`);
     } else {
@@ -94,8 +97,11 @@ async function main() {
     let filterChain = 'scale=640:360,setpts=N/FRAME_RATE/TB';
 
     if (hardware) {
-      encoderName = hardware.getEncoderCodec('hevc') ?? encoderName;
-      filterChain = hardware.filterPresets.chain().hwupload().scale(640, 360).custom('setpts=N/FRAME_RATE/TB').build();
+      const encoderCodec = await hardware.getEncoderCodec('hevc');
+      if (encoderCodec?.isHardwareAcceleratedEncoder()) {
+        encoderName = encoderCodec.name as FFEncoderCodec;
+        filterChain = hardware.filterPresets.chain().hwupload().scale(640, 360).custom('setpts=N/FRAME_RATE/TB').build();
+      }
     }
 
     console.log(`Creating filter: ${filterChain}`);
@@ -109,13 +115,9 @@ async function main() {
     using encoder = await Encoder.create(
       encoderName,
       {
-        type: 'video',
+        ...(decoder.getOutputStreamInfo() as VideoInfo),
         width: 640, // After scaling
-        height: 360,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: videoStream.timeBase,
-        frameRate: videoStream.avgFrameRate,
-        sampleAspectRatio: videoStream.sampleAspectRatio,
+        height: 360, // After scaling
       },
       {
         hardware,

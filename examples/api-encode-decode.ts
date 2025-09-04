@@ -18,6 +18,9 @@ if (!inputFile || !outputFile) {
   process.exit(1);
 }
 
+/**
+ *
+ */
 async function main() {
   try {
     console.log('High-Level API: Encode/Decode Example');

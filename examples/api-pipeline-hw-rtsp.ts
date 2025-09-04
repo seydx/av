@@ -16,9 +16,9 @@
  *   tsx examples/api-pipeline-hw-rtsp.ts rtsp://server/live output.mp4 --scale 1280x720
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/index.js';
+import { Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/index.js';
 
-import type { FFEncoderCodec, PipelineControl } from '../src/index.js';
+import type { FFEncoderCodec, PipelineControl, VideoInfo } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -48,6 +48,9 @@ if (scaleIndex !== -1) {
 
 let pipelineControl: PipelineControl | undefined;
 
+/**
+ *
+ */
 async function processRtsp() {
   try {
     console.log('High-Level API: Pipeline with Hardware-Accelerated RTSP');
@@ -92,7 +95,7 @@ async function processRtsp() {
 
     // Auto-detect hardware
     console.log('Detecting hardware acceleration...');
-    using hardware = await HardwareContext.auto();
+    using hardware = HardwareContext.auto();
     if (hardware) {
       console.log(`Using hardware: ${hardware.deviceTypeName}\n`);
     } else {
@@ -112,8 +115,11 @@ async function processRtsp() {
     let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
 
     if (hardware) {
-      encoderName = hardware.getEncoderCodec('hevc') ?? encoderName;
-      filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
+      const encoderCodec = await hardware.getEncoderCodec('hevc');
+      if (encoderCodec?.isHardwareAcceleratedEncoder()) {
+        encoderName = encoderCodec.name as FFEncoderCodec;
+        filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
+      }
     }
 
     using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), {
@@ -124,13 +130,9 @@ async function processRtsp() {
     using encoder = await Encoder.create(
       encoderName,
       {
-        type: 'video',
+        ...(decoder.getOutputStreamInfo() as VideoInfo),
         width: scaleWidth,
         height: scaleHeight,
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        timeBase: videoStream.timeBase,
-        frameRate: videoStream.avgFrameRate,
-        sampleAspectRatio: videoStream.sampleAspectRatio,
       },
       {
         hardware,
@@ -206,6 +208,9 @@ async function processRtsp() {
   }
 }
 
+/**
+ *
+ */
 async function main() {
   try {
     await processRtsp();

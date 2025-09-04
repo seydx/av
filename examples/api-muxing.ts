@@ -22,7 +22,6 @@ import {
   AV_CODEC_ID_AAC,
   AV_CODEC_ID_H264,
   AV_CODEC_ID_MP3,
-  AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_FLTP,
   Decoder,
   Encoder,
@@ -61,6 +60,9 @@ if (!videoInputFile || !audioInputFile || !outputFile) {
   process.exit(1);
 }
 
+/**
+ *
+ */
 async function main() {
   console.log('High-Level API: Muxing Example');
   console.log('===============================\n');
@@ -134,15 +136,7 @@ async function main() {
 
     // Create encoder with explicit video parameters
     // Use YUV420P for libx264 as it's the most compatible format
-    videoEncoder = await Encoder.create(FF_ENCODER_LIBX264, {
-      type: 'video',
-      width: videoStream.codecpar.width,
-      height: videoStream.codecpar.height,
-      pixelFormat: AV_PIX_FMT_YUV420P,
-      timeBase: { num: 1, den: 25 },
-      frameRate: { num: 25, den: 1 },
-      sampleAspectRatio: videoStream.sampleAspectRatio,
-    });
+    videoEncoder = await Encoder.create(FF_ENCODER_LIBX264, videoDecoder.getOutputStreamInfo());
 
     videoIdx = output.addStream(videoEncoder);
   }
@@ -166,11 +160,11 @@ async function main() {
       FF_ENCODER_AAC,
       {
         type: 'audio',
-        frameSize: 1024,
-        sampleRate: 48000,
         sampleFormat: AV_SAMPLE_FMT_FLTP,
+        sampleRate: 48000,
         channelLayout: AV_CHANNEL_LAYOUT_STEREO,
-        timeBase: { num: 1, den: 48000 },
+        frameSize: 1024,
+        timeBase: decoderOutputInfo.timeBase,
       },
       {
         bitrate: '192k',

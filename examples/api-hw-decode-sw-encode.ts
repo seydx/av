@@ -13,8 +13,13 @@
  * Example: tsx examples/api-hw-decode-sw-encode.ts testdata/video.mp4 examples/.tmp/api-hw-decode-sw-encode.mp4
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
+import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, FilterAPI, HardwareContext, MediaInput, MediaOutput, type VideoInfo } from '../src/index.js';
 
+/**
+ *
+ * @param inputFile
+ * @param outputFile
+ */
 async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   console.log('🎬 Hardware Decode + Software Encode Example');
   console.log(`Input: ${inputFile}`);
@@ -22,7 +27,7 @@ async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   console.log('');
 
   // Check for hardware availability
-  const hw = await HardwareContext.auto();
+  const hw = HardwareContext.auto();
   if (!hw) {
     console.log('❌ No hardware acceleration available');
     console.log('   This example requires hardware acceleration for decoding.');
@@ -59,7 +64,7 @@ async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
 
   // Create filter to convert from hardware to software format
   console.log('🔧 Setting up format conversion filter...');
-  const filter = await FilterAPI.create('scale_vt,hwdownload,format=nv12,format=yuv420p', decoder.getOutputStreamInfo(), { hardware: hw });
+  const filter = await FilterAPI.create('hwdownload,format=nv12,format=yuv420p', decoder.getOutputStreamInfo(), { hardware: hw });
   console.log('  ✓ Format conversion filter created (HW→CPU)');
 
   // Create software encoder (CPU)
@@ -67,13 +72,8 @@ async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
   const encoder = await Encoder.create(
     FF_ENCODER_LIBX264,
     {
-      type: 'video',
-      width: videoStream.codecpar.width,
-      height: videoStream.codecpar.height,
-      pixelFormat: AV_PIX_FMT_YUV420P, // libx264 prefers YUV420P
-      frameRate: videoStream.avgFrameRate,
-      timeBase: videoStream.timeBase,
-      sampleAspectRatio: videoStream.sampleAspectRatio,
+      ...(decoder.getOutputStreamInfo() as VideoInfo),
+      pixelFormat: AV_PIX_FMT_YUV420P, // Changed through filter
     },
     {
       options: {

@@ -18,6 +18,9 @@ if (!inputFile) {
   process.exit(1);
 }
 
+/**
+ *
+ */
 async function processFromBuffer() {
   console.log('\n=== Reading from Buffer ===\n');
 
@@ -50,6 +53,9 @@ async function processFromBuffer() {
   media.close();
 }
 
+/**
+ *
+ */
 async function main() {
   try {
     console.log('High-Level API: Stream Input Example');

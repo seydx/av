@@ -13,8 +13,13 @@
  * Example: tsx examples/api-sw-transcode.ts testdata/video.mp4 examples/.tmp/api-sw-transcode.mp4
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, MediaInput, MediaOutput } from '../src/index.js';
+import { Decoder, Encoder, FF_ENCODER_LIBX264, MediaInput, MediaOutput } from '../src/index.js';
 
+/**
+ *
+ * @param inputFile
+ * @param outputFile
+ */
 async function softwareTranscode(inputFile: string, outputFile: string) {
   console.log('🎬 Full Software Transcode Example');
   console.log(`Input: ${inputFile}`);
@@ -46,26 +51,16 @@ async function softwareTranscode(inputFile: string, outputFile: string) {
 
   // Create software encoder (CPU)
   console.log('🔧 Setting up software encoder...');
-  const encoder = await Encoder.create(
-    FF_ENCODER_LIBX264,
-    {
-      type: 'video',
-      width: videoStream.codecpar.width,
-      height: videoStream.codecpar.height,
-      pixelFormat: AV_PIX_FMT_YUV420P,
-      timeBase: videoStream.timeBase, // Use input stream's timebase
+  const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo(), {
+    bitrate: '2M',
+    gopSize: 60,
+    options: {
+      preset: 'medium',
+      crf: 23,
+      profile: 'high',
+      level: '4.1',
     },
-    {
-      bitrate: '2M',
-      gopSize: 60,
-      options: {
-        preset: 'medium',
-        crf: 23,
-        profile: 'high',
-        level: '4.1',
-      },
-    },
-  );
+  });
   console.log('  ✓ Software encoder created (libx264)');
   console.log('');
 

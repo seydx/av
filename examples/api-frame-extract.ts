@@ -24,6 +24,8 @@ import {
   MediaInput,
 } from '../src/index.js';
 
+import type { VideoInfo } from '../src/index.js';
+
 const inputFile = process.argv[2];
 const outputDir = process.argv[3];
 
@@ -34,6 +36,7 @@ if (!inputFile || !outputDir) {
 
 /**
  * Extract specific frame as PNG
+ * @param frameNumber
  */
 async function extractFrameAsPNG(frameNumber: number) {
   console.log(`\n=== Extracting frame ${frameNumber} as PNG ===`);
@@ -50,11 +53,8 @@ async function extractFrameAsPNG(frameNumber: number) {
 
   // Create PNG encoder
   const pngEncoder = await Encoder.create(FF_ENCODER_PNG, {
-    type: 'video',
-    width: videoStream.codecpar.width,
-    height: videoStream.codecpar.height,
+    ...(decoder.getOutputStreamInfo() as VideoInfo),
     pixelFormat: AV_PIX_FMT_RGB24,
-    timeBase: videoStream.timeBase,
   });
 
   let currentFrame = 0;
@@ -101,6 +101,8 @@ async function extractFrameAsPNG(frameNumber: number) {
 
 /**
  * Extract frames at regular intervals
+ * @param intervalSeconds
+ * @param count
  */
 async function extractFramesAtInterval(intervalSeconds: number, count: number) {
   console.log(`\n=== Extracting ${count} frames every ${intervalSeconds}s ===`);
@@ -126,14 +128,14 @@ async function extractFramesAtInterval(intervalSeconds: number, count: number) {
   const jpegEncoder = await Encoder.create(
     FF_ENCODER_MJPEG,
     {
-      type: 'video',
-      width: 320, // Thumbnail size
-      height: 240,
-      pixelFormat: AV_PIX_FMT_YUVJ420P,
-      timeBase: videoStream.timeBase,
+      ...(decoder.getOutputStreamInfo() as VideoInfo),
+      pixelFormat: AV_PIX_FMT_YUVJ420P, // MJPEG needs full-range YUV
     },
     {
       bitrate: '2M', // Higher bitrate = better quality
+      options: {
+        strict: '-2', // Allow non-standard compliance for MJPEG
+      },
     },
   );
 
@@ -178,6 +180,7 @@ async function extractFramesAtInterval(intervalSeconds: number, count: number) {
 
 /**
  * Analyze frame properties
+ * @param count
  */
 async function analyzeFrames(count: number) {
   console.log(`\n=== Analyzing first ${count} frames ===`);
@@ -239,6 +242,8 @@ async function analyzeFrames(count: number) {
 
 /**
  * Generate animated GIF from video segment
+ * @param startTime
+ * @param duration
  */
 async function generateGIF(startTime: number, duration: number) {
   console.log(`\n=== Generating GIF from ${startTime}s for ${duration}s ===`);
@@ -290,6 +295,9 @@ async function generateGIF(startTime: number, duration: number) {
   media.close();
 }
 
+/**
+ *
+ */
 async function main() {
   try {
     console.log('High-Level API: Frame Extraction Example');
