@@ -6,8 +6,9 @@ Thank you for your interest in contributing to node-av! This guide will help you
 
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
+- [Project Structure](#project-structure)
 - [Code Style Guide](#code-style-guide)
-- [Architecture Overview](#architecture-overview)
+- [Documentation Standards](#documentation-standards)
 - [Testing Guidelines](#testing-guidelines)
 - [Pull Request Process](#pull-request-process)
 
@@ -16,18 +17,19 @@ Thank you for your interest in contributing to node-av! This guide will help you
 ### Prerequisites
 
 For contributing to node-av, you'll need a development environment with:
-- Node.js 18.17.0+ (LTS recommended)
+- Node.js 22.18.0+ (LTS recommended)
 - FFmpeg 7.1+ with development headers
-- Python 3.12+ (for node-gyp)
+- Python 3.x (for node-gyp)
 - C++ compiler with C++17 support
+- pkg-config (for finding FFmpeg libraries)
 
-For detailed setup instructions by platform, see the **[Installation Guide](INSTALLATION.md#platform-specific-instructions)**.
+For detailed setup instructions by platform, see the **[Installation Guide](INSTALLATION.md)**.
 
 ### Before Contributing
 
 1. Check the [issue tracker](https://github.com/seydx/av/issues) for existing issues or feature requests
 2. Fork the repository and create a new branch from `main`
-3. Follow the code style and structure guidelines below
+3. Follow the code style and documentation standards below
 4. Write tests for new functionality
 5. Ensure all tests pass before submitting a PR
 
@@ -40,379 +42,534 @@ For detailed setup instructions by platform, see the **[Installation Guide](INST
 git clone https://github.com/YOUR_USERNAME/av.git
 cd av
 
-# Install build dependencies
-npm install --save-dev node-addon-api node-gyp
-
-# Install all dependencies and build
+# Install all dependencies
 npm install
-```
 
-For platform-specific setup instructions, including FFmpeg installation, see the **[Installation Guide](INSTALLATION.md#building-from-source)**.
+# Build the project
+npm run build
+```
 
 ### Build Commands
 
 ```bash
-# Build native bindings only
-npm run build:native
-
-# Build TypeScript only
-npm run build:tsc
-
-# Build everything
+# Full build (generates constants, builds TypeScript and native bindings)
 npm run build
 
-# Clean build artifacts
+# Build only native bindings
+npm run build:native
+
+# Build only TypeScript
+npm run build:tsc
+
+# Build tests
+npm run build:tests
+
+# Build examples
+npm run build:examples
+
+# Clean build artifacts and rebuild
 npm run clean
 
-# Generate FFmpeg constants (auto-generated, do not edit manually)
+# Generate FFmpeg constants (auto-generated from headers)
 npm run generate:constants
 
-# Generate channel layouts (auto-generated, do not edit manually)
+# Generate encoder/decoder lists
+npm run generate:encoders
+npm run generate:decoders
+
+# Generate channel layouts
 npm run generate:layouts
+
+# Generate all auto-generated files
+npm run generate
 ```
 
+### Code Quality Commands
+
+```bash
+# Format code with Prettier
+npm run format
+
+# Run ESLint
+npm run lint
+
+# Run ESLint with auto-fix
+npm run lint:fix
+```
 
 ### Testing
 
 ```bash
-# Run all tests
+# Run all tests (includes build)
 npm run test:all
+
+# Run tests only (assumes already built)
+npm run test
 
 # Run specific test file
 tsx --test test/decoder.test.ts
+
+# Run specific test suite
+tsx --test test/transcode-combinations.test.ts
 ```
+
+## Project Structure
+
+The project follows a three-layer architecture:
+
+```
+src/
+├── api/                    # High-level API (user-friendly)
+│   ├── index.ts           # Main API exports
+│   ├── decoder.ts         # High-level decoder
+│   ├── encoder.ts         # High-level encoder
+│   ├── filter.ts          # High-level filter
+│   ├── media-input.ts     # Media input handler
+│   ├── media-output.ts    # Media output handler
+│   ├── hardware.ts        # Hardware acceleration
+│   ├── pipeline.ts        # Pipeline orchestration
+│   └── types.ts           # API type definitions
+│
+├── lib/                    # Low-level FFmpeg bindings
+│   ├── index.ts           # Main library exports
+│   ├── codec-context.ts   # AVCodecContext wrapper
+│   ├── format-context.ts  # AVFormatContext wrapper
+│   ├── frame.ts           # AVFrame wrapper
+│   ├── packet.ts          # AVPacket wrapper
+│   └── ...                # Other FFmpeg wrappers
+│
+├── constants/             # Auto-generated FFmpeg constants
+│   ├── constants.ts       # AUTO-GENERATED - DO NOT EDIT
+│   ├── encoders.ts        # AUTO-GENERATED - DO NOT EDIT
+│   ├── decoders.ts        # AUTO-GENERATED - DO NOT EDIT
+│   └── channel-layouts.ts # AUTO-GENERATED - DO NOT EDIT
+│
+└── bindings/              # Native C++ bindings
+    ├── binding.cc         # Main binding entry point
+    ├── codec_context.cc   # Codec context implementation
+    ├── format_context.cc  # Format context implementation
+    └── ...                # Other native implementations
+
+test/                      # Test files
+├── decoder.test.ts        # Decoder tests
+├── encoder.test.ts        # Encoder tests
+├── transcode.test.ts      # Transcoding tests
+└── ...                    # Other test files
+
+examples/                  # Example usage
+├── api-*.ts              # High-level API examples
+├── transcode.ts          # Low-level transcoding example
+└── ...                   # Other examples
+
+scripts/                   # Build and generation scripts
+├── generate-constants.js  # Generates FFmpeg constants
+├── generate-encoders.js   # Generates encoder lists
+├── generate-decoders.js   # Generates decoder lists
+└── ...                   # Other scripts
+```
+
+### Auto-Generated Files
+
+⚠️ **NEVER manually edit these files:**
+- `src/constants/constants.ts`
+- `src/constants/encoders.ts`
+- `src/constants/decoders.ts`
+- `src/constants/channel-layouts.ts`
+
+These are generated from FFmpeg headers. To modify them:
+1. Edit the corresponding script in `scripts/`
+2. Run `npm run generate`
 
 ## Code Style Guide
 
 ### TypeScript Configuration
 
-We use strict TypeScript settings. All code must pass type checking with:
+We use strict TypeScript with ESLint. All code must pass:
 
 ```bash
+npm run lint
 npm run build:tsc
 ```
 
-### File Organization
-
-The project follows a clear separation between low-level and high-level APIs:
-
-```
-src/
-├── lib/                    # Low-level FFmpeg bindings
-│   ├── index.ts           # Main exports
-│   ├── constants.ts       # AUTO-GENERATED - DO NOT EDIT
-│   ├── channel-layouts.ts # AUTO-GENERATED - DO NOT EDIT
-│   └── *.ts              # Individual binding classes
-├── api/                   # High-level API
-│   ├── index.ts          # Main exports
-│   └── *.ts              # High-level wrapper classes
-└── bindings/             # Native C++ bindings
-    └── *.cc              # C++ implementation files
-
-scripts/
-├── generate-constants.js      # Generates src/lib/constants.ts
-└── generate-channel-layouts.js # Generates src/lib/channel-layouts.ts
-```
-
-### Auto-Generated Files
-
-⚠️ **IMPORTANT**: Never manually edit these files:
-- `src/lib/constants.ts`
-- `src/lib/channel-layouts.ts`
-
-These files are automatically generated from FFmpeg headers. To make changes:
-
-1. **For constants**: Modify `scripts/generate-constants.js`
-2. **For channel layouts**: Modify `scripts/generate-channel-layouts.js`
-3. **Regenerate the files**:
-   ```bash
-   npm run generate:constants
-   npm run generate:layouts
-   ```
-
-The generation scripts extract values directly from FFmpeg headers to ensure accuracy and compatibility with the installed FFmpeg version.
-
 ### Class Structure
 
-Classes should follow this consistent ordering:
+Classes must follow this strict ordering:
 
 ```typescript
 class ClassName {
-  // 1. Private Properties
-  private property: Type;
-  private _internalProperty: Type;
+  // 1. Public properties
+  public readonly property: Type;
   
-  // 2. Constructor (usually private for factory pattern)
-  private constructor(param: Type) {
-    // Minimal initialization only
+  // 2. Private properties
+  private _property: Type;
+  private native: NativeType;
+  
+  // 3. Constructor
+  private constructor(native: NativeType) {
+    this.native = native;
   }
   
-  // 3. Static Factory Methods
-  static async create(param: Type): Promise<ClassName> {
-    // Complex initialization here
+  // 4. Public static methods
+  static async create(): Promise<ClassName> {
+    // Factory method for async initialization
   }
   
-  // 4. Getter/Setter Properties
-  get property(): Type { return this._property; }
-  set property(value: Type) { this._property = value; }
+  // 5. Getters/Setters
+  get property(): Type {
+    return this._property;
+  }
   
-  // 5. Public Methods
-  async publicMethod(): Promise<void> { }
+  // 6. Public methods
+  async process(): Promise<void> {
+    // Implementation
+  }
   
-  // 6. Private Methods
-  private internalMethod(): void { }
+  // 7. Private methods
+  private helper(): void {
+    // Implementation
+  }
   
-  // 7. Private Static Methods
-  private static helperMethod(): void { }
+  // 8. Private static methods
+  private static validate(): boolean {
+    // Implementation
+  }
   
-  // 8. Internal Methods (for other API classes)
-  /** @internal */
-  internalApiMethod(): void { }
+  // 9. Internal methods (for API interop)
+  /**
+   * @internal
+   */
+  getNative(): NativeType {
+    return this.native;
+  }
   
-  // 9. Disposal Methods
-  dispose(): void { }
-  [Symbol.dispose](): void { this.dispose(); }
-  async [Symbol.asyncDispose](): Promise<void> { await this.close(); }
+  // 10. Disposal methods (always last)
+  [Symbol.dispose](): void {
+    this.native[Symbol.dispose]();
+  }
 }
 ```
 
-### Documentation Standards
+### Async Functions
 
-#### Module Documentation
-
-Every module should have a top-level description:
+- Always use `await` with async operations
+- Convert async functions without await to synchronous
+- Use proper error handling with try/catch
 
 ```typescript
-/**
- * MediaInput - Unified Input Handler for FFmpeg
- *
- * Provides a high-level interface for opening and reading media from various sources.
- * Supports files, URLs, Buffers, and Node.js streams with automatic format detection.
- *
- * Central entry point for all media input operations.
- * Manages FormatContext lifecycle and provides stream information.
- *
- * @module api/media-input
- */
+// Good
+async function process(): Promise<void> {
+  const result = await operation();
+  // Process result
+}
+
+// Bad - should be synchronous
+async function getValue(): Promise<number> {
+  return 42; // No await, should be: getValue(): number
+}
 ```
 
-#### Class Documentation
+### Error Handling
+
+Use our error constants and descriptive messages:
 
 ```typescript
+// Good - use AVERROR constants
+if (ret < 0) {
+  throw new FFmpegError(AVERROR_EINVAL, 'Invalid input parameters');
+}
+
+// Bad - don't use AVERROR() macro style
+if (ret < 0) {
+  throw new FFmpegError(AVERROR(EINVAL), 'Invalid input');
+}
+
+// In examples, always show proper error handling
+try {
+  const result = await decoder.decode(packet);
+  FFmpegError.throwIfError(result);
+} catch (error) {
+  console.error('Decoding failed:', error);
+}
+```
+
+### Resource Management
+
+Always use the Disposable pattern:
+
+```typescript
+// Good - automatic cleanup
+{
+  using frame = new Frame();
+  // Frame is automatically disposed
+}
+
+// For Symbol.dispose implementation
+[Symbol.dispose](): void {
+  // Direct binding disposal
+  this.native[Symbol.dispose]();
+  // NOT: this.free() or this.dispose()
+}
+```
+
+## Documentation Standards
+
+### JSDoc Requirements
+
+#### Constructor Documentation
+
+Constructors should have minimal or no JSDoc, except for internal/private ones:
+
+```typescript
+// Good - internal constructor with minimal doc
 /**
- * High-level media input handler.
- *
- * Opens and provides access to media streams from various sources.
- * Automatically detects format and finds stream information.
- *
- * @example
- * ```typescript
- * const media = await MediaInput.open('video.mp4');
- * console.log(`Duration: ${media.duration} seconds`);
- * ```
+ * @param native - The native codec context instance
+ * @internal
  */
-export class MediaInput { }
+private constructor(native: NativeCodecContext) {
+  this.native = native;
+}
+
+// Bad - public constructor with excessive JSDoc
+/**
+ * Creates a new instance of the decoder.
+ * @param options - Decoder options
+ * @returns A new decoder instance
+ */
+constructor(options: DecoderOptions) { }
 ```
 
 #### Method Documentation
 
+All public methods must have complete JSDoc:
+
 ```typescript
 /**
- * Open a media input from various sources.
+ * Decodes a packet into a frame.
  * 
- * Creates a FormatContext and opens the input for reading.
- * Automatically detects format and finds stream information.
+ * Sends a packet to the decoder and receives a decoded frame.
+ * Uses avcodec_send_packet() and avcodec_receive_frame() internally.
  * 
- * Uses av_format_open_input() and av_find_stream_info() internally.
- * 
- * @param input - File path, URL, Buffer, or Readable stream
- * @param options - Optional configuration
- * 
- * @returns Promise resolving to MediaInput instance
- * 
- * @throws {FFmpegError} If input cannot be opened
+ * @param packet - The packet to decode
+ * @returns The decoded frame or null if more data is needed
  * 
  * @example
  * ```typescript
- * const media = await MediaInput.open('video.mp4');
+ * const frame = await decoder.decode(packet);
+ * if (frame) {
+ *   console.log(`Decoded frame: ${frame.width}x${frame.height}`);
+ * }
  * ```
+ * 
+ * @see {@link https://ffmpeg.org/doxygen/7.1/group__lavc__decoding.html#ga58bc4bf1e0ac59e27362597e467efff3 | avcodec_send_packet}
+ * @see {@link https://ffmpeg.org/doxygen/7.1/group__lavc__decoding.html#ga11e6542c4e66d3028668788a1a74217c | avcodec_receive_frame}
  */
-static async open(input: string | Buffer, options?: MediaInputOptions): Promise<MediaInput> { }
+async decode(packet: Packet): Promise<Frame | null> {
+  // Implementation
+}
+```
+
+#### Getter Documentation
+
+Getters should not have `@returns` tags:
+
+```typescript
+// Good
+/**
+ * The codec name.
+ */
+get name(): string {
+  return this.native.name;
+}
+
+// Bad
+/**
+ * Gets the codec name.
+ * @returns The codec name
+ */
+get name(): string {
+  return this.native.name;
+}
 ```
 
 #### Internal Methods
 
-Mark internal methods that shouldn't be part of the public API:
+Always mark internal API methods:
 
 ```typescript
 /**
- * Get the underlying FormatContext.
- * 
- * @returns FFmpeg FormatContext
+ * Get the native handle.
  * @internal
  */
-getFormatContext(): FormatContext { }
-```
-
-### Import Guidelines
-
-```typescript
-// 1. External imports first
-import { Readable } from 'stream';
-
-// 2. Low-level imports from lib
-import { FormatContext, CodecContext } from '../lib/index.js';
-import { AV_PIX_FMT_YUV420P, AV_CODEC_ID_H264 } from '../lib/constants.js';
-
-// 3. High-level imports from api
-import { HardwareContext } from './hardware.js';
-
-// 4. Type imports last (use 'type' keyword)
-import type { AVPixelFormat, AVCodecID } from '../lib/constants.js';
-import type { StreamInfo, EncoderOptions } from './types.js';
-```
-
-### Naming Conventions
-
-- **Classes**: PascalCase (e.g., `MediaInput`, `HardwareContext`)
-- **Methods/Functions**: camelCase (e.g., `open()`, `createDecoder()`)
-- **Constants**: UPPER_SNAKE_CASE (e.g., `AV_PIX_FMT_YUV420P`)
-- **Private properties**: Leading underscore for internal state (e.g., `_isOpen`)
-- **Interfaces**: PascalCase with descriptive names (e.g., `StreamInfo`, `EncoderOptions`)
-
-### Error Handling
-
-Always use descriptive error messages and include context:
-
-```typescript
-if (!stream) {
-  throw new Error(`Stream ${streamIndex} not found in media with ${this.streams.length} streams`);
+getNative(): NativeType {
+  return this.native;
 }
-
-// Use FFmpegError for FFmpeg-specific errors
-FFmpegError.throwIfError(ret, 'Failed to open codec context');
 ```
 
-### Async/Await Patterns
+#### Void Functions
 
-Prefer async/await over callbacks and promises:
+Functions returning void should not have return statements or @returns tags:
 
 ```typescript
 // Good
-async function processMedia(input: string): Promise<void> {
-  const media = await MediaInput.open(input);
-  try {
-    // Process media
-  } finally {
-    await media.close();
-  }
+/**
+ * Closes the decoder and releases resources.
+ */
+close(): void {
+  this.native.close();
 }
 
-// Better - with automatic cleanup
-async function processMedia(input: string): Promise<void> {
-  await using media = await MediaInput.open(input);
-  // Process media - automatically closed
+// Bad
+/**
+ * Closes the decoder.
+ * @returns Nothing
+ */
+close(): void {
+  return this.native.close();
 }
 ```
 
-## Architecture Overview
+### Examples in Documentation
 
-### Low-Level API (src/lib)
+All examples must be complete and working:
 
-Direct 1:1 bindings to FFmpeg C API:
-- Manual memory management required
-- Direct access to all FFmpeg features
-- Minimal abstraction layer
+```typescript
+/**
+ * @example
+ * ```typescript
+ * // Import required modules
+ * import { MediaInput, Decoder } from 'node-av';
+ * 
+ * // Open media and create decoder
+ * const input = await MediaInput.open('video.mp4');
+ * const stream = input.video();
+ * const decoder = await Decoder.create(stream);
+ * 
+ * // Decode packets
+ * for await (const packet of input.packets()) {
+ *   const frame = await decoder.decode(packet);
+ *   if (frame) {
+ *     // Process frame
+ *     frame.free();
+ *   }
+ *   packet.free();
+ * }
+ * 
+ * // Cleanup
+ * decoder.close();
+ * await input.close();
+ * ```
+ */
+```
 
-### High-Level API (src/api)
+### FFmpeg Function References
 
-User-friendly wrappers with:
-- Automatic resource management
-- Simplified interfaces
-- Type-safe options
-- Hardware acceleration support
+Include links to FFmpeg documentation where applicable:
 
-### Native Bindings (src/bindings)
-
-C++ bridge between Node.js and FFmpeg:
-- Uses N-API for stability
-- Handles async operations
-- Memory management utilities
+```typescript
+/**
+ * Seeks to a specific timestamp.
+ * 
+ * @see {@link https://ffmpeg.org/doxygen/7.1/group__lavf__decoding.html#gaa23f7619d8d4ea0857065d9979c75ac8 | av_seek_frame}
+ */
+```
 
 ## Testing Guidelines
 
 ### Test Structure
 
+Use Node.js built-in test runner:
+
 ```typescript
-describe('MediaInput', () => {
-  describe('open()', () => {
-    it('should open a video file', async () => {
-      const media = await MediaInput.open('testdata/video.mp4');
-      expect(media.duration).toBeGreaterThan(0);
-      await media.close();
-    });
-    
-    it('should throw on invalid input', async () => {
-      await expect(MediaInput.open('nonexistent.mp4'))
-        .rejects.toThrow('Failed to open input');
+import { describe, it, before, after } from 'node:test';
+import { strict as assert } from 'node:assert';
+
+describe('Decoder', () => {
+  describe('create()', () => {
+    it('should create decoder from stream', async () => {
+      const input = await MediaInput.open('testdata/video.mp4');
+      const stream = input.video();
+      const decoder = await Decoder.create(stream);
+      
+      assert.ok(decoder);
+      assert.equal(decoder.name, 'h264');
+      
+      decoder.close();
+      await input.close();
     });
   });
 });
 ```
 
-### Running Tests
+### Test Data
 
-```bash
-# Run all tests
-npm run test:all
-```
+Test files are located in `testdata/`:
+- Use small, efficient test files
+- Include various codecs and formats
+- Document any special test file requirements
 
 ## Pull Request Process
 
-1. **Create a Feature Branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+### 1. Prepare Your Changes
 
-2. **Make Your Changes**
-   - Follow the code style guide
-   - Add tests for new functionality
-   - Update documentation as needed
+```bash
+# Create feature branch
+git checkout -b feature/your-feature
 
-3. **Commit Your Changes**
-   ```bash
-   git add .
-   git commit -m "feat: add new feature description"
-   ```
-   
-   Follow conventional commit format:
-   - `feat:` New feature
-   - `fix:` Bug fix
-   - `docs:` Documentation changes
-   - `refactor:` Code refactoring
-   - `test:` Test additions/changes
-   - `chore:` Build/tooling changes
+# Make changes and test
+npm run lint:fix
+npm run format
+npm run test:all
+```
 
-4. **Push and Create PR**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-   
-   Then create a pull request on GitHub with:
-   - Clear description of changes
-   - Link to related issues
-   - Test results/screenshots if applicable
+### 2. Verify Code Quality
 
-5. **Code Review**
-   - Address review feedback
-   - Ensure CI passes
-   - Maintain clean commit history
+Before committing, ensure:
+- ✅ All tests pass (`npm run test:all`)
+- ✅ ESLint passes (`npm run lint`)
+- ✅ TypeScript builds (`npm run build:tsc`)
+- ✅ Examples build (`npm run build:examples`)
+
+### 3. Commit Your Changes
+
+Follow conventional commits:
+
+```bash
+git add .
+git commit -m "feat: add hardware acceleration support"
+```
+
+Commit types:
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation only
+- `style:` Code style changes
+- `refactor:` Code refactoring
+- `perf:` Performance improvements
+- `test:` Test changes
+- `chore:` Build/tooling changes
+
+### 4. Final Checklist
+
+Before submitting your PR:
+- [ ] Code follows the style guide
+- [ ] Documentation is complete with examples
+- [ ] Tests are added for new functionality
+- [ ] All tests pass
+- [ ] ESLint passes with `npm run lint`
+- [ ] Code is formatted with `npm run format`
+
+### 5. Submit Pull Request
+
+- Provide clear description of changes
+- Link related issues
+- Include test results if applicable
+- Be responsive to review feedback
 
 ## Questions?
 
-If you have questions about contributing, please:
-- Check existing issues and discussions
+If you have questions about contributing:
+- Check existing [issues](https://github.com/seydx/av/issues)
 - Open a new issue for clarification
-- Join our community discussions
+- Review the [examples](examples/) directory
 
 Thank you for contributing to node-av!

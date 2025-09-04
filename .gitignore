@@ -59,3 +59,4 @@ ffmpeg_examples
 /prebuildify
 /docs/.vitepress/dist
 /docs/.vitepress/cache
+/docs/.vitepress/.temp

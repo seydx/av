@@ -286,7 +286,7 @@ NodeAV provides direct bindings to FFmpeg's C APIs, which work with raw memory p
 
 Prebuilt binaries are available for macOS, Linux, and Windows (x64/arm64). The package will automatically build from source if needed.
 
-For detailed installation instructions, build requirements, and troubleshooting, see the **[Installation Guide](INSTALLATION.md)**.
+For detailed installation instructions, build requirements, and troubleshooting, see the **[Installation Guide](https://github.com/seydx/av/tree/main/INSTALLATION.md)**.
 
 ## License
 
@@ -296,7 +296,7 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTION.md](CONTRIBUTION.md) for development setup, code standards, and contribution guidelines before submitting pull requests.
+Contributions are welcome! Please read [CONTRIBUTION.md](https://github.com/seydx/av/tree/main/CONTRIBUTION.md) for development setup, code standards, and contribution guidelines before submitting pull requests.
 
 ## Support
 
