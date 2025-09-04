@@ -10,7 +10,6 @@ const typedocSidebarConstants = require('../constants/typedoc-sidebar.json');
 export default defineConfig({
   srcDir: '.',
   base: '/av/',
-
   title: 'NodeAV',
   description: 'FFmpeg bindings for Node.js',
   themeConfig: {

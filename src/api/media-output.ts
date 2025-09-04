@@ -8,7 +8,7 @@ import { Encoder } from './encoder.js';
 import type { IRational, Packet, Stream } from '../lib/index.js';
 import type { IOOutputCallbacks, MediaOutputOptions } from './types.js';
 
-interface StreamInfo {
+export interface StreamDescription {
   stream: Stream;
   timeBase: IRational;
   isStreamCopy: boolean;
@@ -66,7 +66,7 @@ interface StreamInfo {
  */
 export class MediaOutput implements AsyncDisposable {
   private formatContext: FormatContext;
-  private streams = new Map<number, StreamInfo>();
+  private streams = new Map<number, StreamDescription>();
   private ioContext?: IOContext;
   private headerWritten = false;
   private trailerWritten = false;
@@ -546,7 +546,7 @@ export class MediaOutput implements AsyncDisposable {
    * console.log(`Stream 0 timebase: ${info?.timeBase.num}/${info?.timeBase.den}`);
    * ```
    */
-  getStreamInfo(streamIndex: number): StreamInfo | undefined {
+  getStreamInfo(streamIndex: number): StreamDescription | undefined {
     return this.streams.get(streamIndex);
   }
 

@@ -82,9 +82,6 @@ export class IOStream {
    *   }
    * });
    * ```
-   *
-   * @see {@link createFromBuffer} For buffer implementation
-   * @see {@link createFromCallbacks} For callback implementation
    */
   static create(buffer: Buffer, options?: MediaInputOptions): IOContext;
   static create(callbacks: IOInputCallbacks, options?: MediaInputOptions): IOContext;

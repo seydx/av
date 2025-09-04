@@ -1,0 +1,32 @@
+{
+  "plugin": ["typedoc-plugin-markdown", "typedoc-vitepress-theme"],
+  "entryPoints": ["./src/api/index.ts", "./src/api/utilities/index.ts", "./src/lib/index.ts", "./src/lib/native-types.ts", "./src/constants/index.ts"],
+  "exclude": ["**/*.test.ts", "**/examples/**", "**/*.cc", "**/*.h"],
+  "externalPattern": ["**/*.test.ts", "**/examples/**", "**/*.cc", "**/*.h", "examples/*.ts", "**/externals/**"],
+  "excludeExternals": true,
+  "out": "./docs/api",
+  "docsRoot": "./docs",
+  "sidebar": {
+    "autoConfiguration": true,
+    "format": "vitepress",
+    "pretty": false,
+    "collapsed": true
+  },
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "rewrittenLink": true,
+    "notDocumented": false,
+    "unusedMergeModuleWith": true
+  },
+  "externalSymbolLinkMappings": {
+    "global": {
+      "SymbolConstructor.dispose": "#",
+      "SymbolConstructor.asyncDispose": "#"
+    },
+    "typescript": {
+      "SymbolConstructor.dispose": "#",
+      "SymbolConstructor.asyncDispose": "#"
+    }
+  }
+}

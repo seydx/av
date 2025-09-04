@@ -14,15 +14,15 @@ import type { MediaInput } from './media-input.js';
 import type { MediaOutput } from './media-output.js';
 
 // Restrict stream names to known types
-type StreamName = 'video' | 'audio';
+export type StreamName = 'video' | 'audio';
 
 // Better type definitions with proper inference
-type NamedInputs<K extends StreamName = StreamName> = Pick<Record<StreamName, MediaInput>, K>;
-type NamedStages<K extends StreamName = StreamName> = Pick<
+export type NamedInputs<K extends StreamName = StreamName> = Pick<Record<StreamName, MediaInput>, K>;
+export type NamedStages<K extends StreamName = StreamName> = Pick<
   Record<StreamName, (Decoder | FilterAPI | FilterAPI[] | Encoder | BitStreamFilterAPI | BitStreamFilterAPI[])[] | 'passthrough'>,
   K
 >;
-type NamedOutputs<K extends StreamName = StreamName> = Pick<Record<StreamName, MediaOutput>, K>;
+export type NamedOutputs<K extends StreamName = StreamName> = Pick<Record<StreamName, MediaOutput>, K>;
 
 /**
  * Internal metadata for tracking stream components.

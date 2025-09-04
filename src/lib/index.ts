@@ -47,6 +47,9 @@ export { IOContext } from './io-context.js';
 // Dictionary
 export { Dictionary } from './dictionary.js';
 
+// Option
+export { Option, OptionInfo, type OptionMember } from './option.js';
+
 // Filter related classes
 export { FilterContext } from './filter-context.js';
 export { FilterGraph } from './filter-graph.js';
@@ -69,5 +72,4 @@ export * from './error.js';
 // Utilities
 export * from './utilities.js';
 
-// Option
-export { Option, OptionInfo } from './option.js';
+export type { OptionCapableObject } from './binding.js';

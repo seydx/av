@@ -62,7 +62,16 @@ class BitWriter {
   }
 }
 
-function getBit(bits: number, startIndex: number, length = 1) {
+/**
+ * Get a specific bit value from a number.
+ *
+ * @param bits - The number to extract bits from
+ * @param startIndex - The starting bit index (0-based)
+ * @param length - The number of bits to extract
+ *
+ * @returns The extracted bit value
+ */
+function getBit(bits: number, startIndex: number, length = 1): number {
   let bin = bits.toString(2).split('');
   bin = [...Array(8 - bin.length).fill('0'), ...bin];
   const s = bin.slice(startIndex, startIndex + length).join('');
@@ -79,7 +88,8 @@ export const ExtensionProfiles = {
   OneByte: 0xbede, // 48862
   TwoByte: 0x1000, // 4096
 } as const;
-type ExtensionProfile = (typeof ExtensionProfiles)[keyof typeof ExtensionProfiles];
+
+export type ExtensionProfile = (typeof ExtensionProfiles)[keyof typeof ExtensionProfiles];
 
 const seqNumOffset = 2;
 const timestampOffset = 4;

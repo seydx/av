@@ -25,7 +25,6 @@ import type { AVHWDeviceType, AVPixelFormat, AVSampleFormat } from '../constants
  * Each capability indicates whether a specific filter operation is supported
  * by the hardware acceleration type.
  *
- * @description
  * Support varies significantly between hardware types:
  * - CUDA: Comprehensive filter support with NPP integration
  * - VAAPI: Good Linux support with Intel/AMD GPUs
@@ -265,12 +264,10 @@ export abstract class FilterPresetBase {
 
   /**
    * Creates an atempo filter string to change audio playback speed.
+   * Factor must be between 0.5 and 2.0. For larger changes, chain multiple atempo filters.
    *
    * @param factor - Tempo factor (0.5 = half speed, 2.0 = double speed)
    * @returns Filter string or null if not supported
-   *
-   * @description
-   * Factor must be between 0.5 and 2.0. For larger changes, chain multiple atempo filters.
    *
    * @see {@link https://ffmpeg.org/ffmpeg-filters.html#atempo | FFmpeg atempo filter}
    */
@@ -572,11 +569,11 @@ export abstract class ChainBuilderBase<T extends FilterPresetBase> extends Filte
 
   /**
    * Adds a transpose filter to the chain (hardware-specific).
+   * Only available for hardware presets that support transpose
    *
    * @param dir - Transpose direction (default: 0)
    * @returns This instance for chaining
    *
-   * @description Only available for hardware presets that support transpose
    */
   transpose(dir = 0): this {
     if ('transpose' in this.presets) {
@@ -587,11 +584,11 @@ export abstract class ChainBuilderBase<T extends FilterPresetBase> extends Filte
 
   /**
    * Adds a tonemap filter to the chain (hardware-specific).
+   * Only available for hardware presets that support tonemapping
    *
    * @param options - Tonemapping options
    * @returns This instance for chaining
    *
-   * @description Only available for hardware presets that support tonemapping
    */
   tonemap(options?: Record<string, string>): this {
     if ('tonemap' in this.presets) {
@@ -602,11 +599,11 @@ export abstract class ChainBuilderBase<T extends FilterPresetBase> extends Filte
 
   /**
    * Adds a deinterlace filter to the chain (hardware-specific).
+   * Only available for hardware presets that support deinterlacing
    *
    * @param mode - Deinterlace mode (optional)
    * @returns This instance for chaining
    *
-   * @description Only available for hardware presets that support deinterlacing
    */
   deinterlace(mode?: string): this {
     if ('deinterlace' in this.presets) {
@@ -617,11 +614,11 @@ export abstract class ChainBuilderBase<T extends FilterPresetBase> extends Filte
 
   /**
    * Adds a flip filter to the chain (hardware-specific).
+   * Falls back to hflip/vflip if hardware flip not available
    *
    * @param direction - Flip direction ('h' or 'v')
    * @returns This instance for chaining
    *
-   * @description Falls back to hflip/vflip if hardware flip not available
    */
   flip(direction: 'h' | 'v'): this {
     if ('flip' in this.presets) {
@@ -633,12 +630,12 @@ export abstract class ChainBuilderBase<T extends FilterPresetBase> extends Filte
 
   /**
    * Adds a blur filter to the chain (hardware-specific).
+   * Only available for hardware presets that support blur
    *
    * @param type - Blur type (default: 'avg')
    * @param radius - Blur radius (optional)
    * @returns This instance for chaining
    *
-   * @description Only available for hardware presets that support blur
    */
   blur(type: 'avg' | 'gaussian' | 'box' = 'avg', radius?: number): this {
     if ('blur' in this.presets) {
@@ -649,11 +646,11 @@ export abstract class ChainBuilderBase<T extends FilterPresetBase> extends Filte
 
   /**
    * Adds a sharpen filter to the chain (hardware-specific).
+   * Only available for hardware presets that support sharpening
    *
    * @param amount - Sharpen amount (optional)
    * @returns This instance for chaining
    *
-   * @description Only available for hardware presets that support sharpening
    */
   sharpen(amount?: number): this {
     if ('sharpen' in this.presets) {
@@ -664,12 +661,12 @@ export abstract class ChainBuilderBase<T extends FilterPresetBase> extends Filte
 
   /**
    * Adds a stack filter to the chain (hardware-specific).
+   * Only available for hardware presets that support stacking
    *
    * @param type - Stack type ('h' for horizontal, 'v' for vertical, 'x' for grid)
    * @param inputs - Number of inputs (default: 2)
    * @returns This instance for chaining
    *
-   * @description Only available for hardware presets that support stacking
    */
   stack(type: 'h' | 'v' | 'x', inputs = 2): this {
     if ('stack' in this.presets) {
@@ -1023,18 +1020,18 @@ export class HardwareFilterPresets extends FilterPresetBase {
   /**
    * Creates a hardware-accelerated scale filter.
    *
-   * @param width - Target width
-   * @param height - Target height
-   * @param options - Hardware-specific scaling options
-   * @returns Hardware scale filter string or null if not supported
-   *
-   * @description
    * Different hardware types use different scale filters:
    * - CUDA: scale_cuda or scale_npp (with npp option)
    * - VAAPI: scale_vaapi
    * - QSV: scale_qsv
    * - VideoToolbox: scale_vt
    * - RKMPP: scale_rkrga
+   *
+   * @param width - Target width
+   * @param height - Target height
+   * @param options - Hardware-specific scaling options
+   * @returns Hardware scale filter string or null if not supported
+   *
    *
    * @see {@link https://ffmpeg.org/ffmpeg-filters.html#scale_005fcuda | FFmpeg scale_cuda filter}
    */
@@ -1101,15 +1098,15 @@ export class HardwareFilterPresets extends FilterPresetBase {
   /**
    * Creates a hardware-accelerated transpose filter.
    *
-   * @param dir - Transpose direction (default: 0)
-   * @returns Hardware transpose filter string or null if not supported
-   *
-   * @description
    * Direction values:
    * - 0: 90 degrees counter-clockwise and vertical flip
    * - 1: 90 degrees clockwise
    * - 2: 90 degrees counter-clockwise
    * - 3: 90 degrees clockwise and vertical flip
+   *
+   * @param dir - Transpose direction (default: 0)
+   * @returns Hardware transpose filter string or null if not supported
+   *
    */
   transpose(dir = 0): string | null {
     if (!this.support.transpose) {
@@ -1131,12 +1128,11 @@ export class HardwareFilterPresets extends FilterPresetBase {
 
   /**
    * Creates a hardware-accelerated tonemap filter.
+   * Used for HDR to SDR conversion with hardware acceleration.
    *
    * @param options - Tonemapping options (algorithm, parameters)
    * @returns Hardware tonemap filter string or null if not supported
    *
-   * @description
-   * Used for HDR to SDR conversion with hardware acceleration.
    */
   tonemap(options?: Record<string, string>): string | null {
     if (!this.support.tonemap) {
@@ -1161,16 +1157,16 @@ export class HardwareFilterPresets extends FilterPresetBase {
   /**
    * Creates a hardware-accelerated deinterlace filter.
    *
-   * @param mode - Deinterlacing mode (optional)
-   * @returns Hardware deinterlace filter string or null if not supported
-   *
-   * @description
    * Different hardware types use different deinterlacers:
    * - CUDA: yadif_cuda
    * - VAAPI: deinterlace_vaapi
    * - QSV: deinterlace_qsv
    * - Vulkan: bwdif_vulkan
    * - VideoToolbox: yadif_videotoolbox
+   *
+   * @param mode - Deinterlacing mode (optional)
+   * @returns Hardware deinterlace filter string or null if not supported
+   *
    */
   deinterlace(mode?: string): string | null {
     if (!this.support.deinterlace) {
@@ -1195,12 +1191,11 @@ export class HardwareFilterPresets extends FilterPresetBase {
 
   /**
    * Creates a hardware-accelerated flip filter.
+   * Currently only Vulkan supports hardware flip filters.
    *
    * @param direction - Flip direction ('h' for horizontal, 'v' for vertical)
    * @returns Hardware flip filter string or null if not supported
    *
-   * @description
-   * Currently only Vulkan supports hardware flip filters.
    */
   flip(direction: 'h' | 'v'): string | null {
     if (!this.support.flip) {
@@ -1217,15 +1212,15 @@ export class HardwareFilterPresets extends FilterPresetBase {
   /**
    * Creates a hardware-accelerated blur filter.
    *
-   * @param type - Blur type ('avg', 'gaussian', or 'box', default: 'avg')
-   * @param radius - Blur radius (optional)
-   * @returns Hardware blur filter string or null if not supported
-   *
-   * @description
    * Different hardware types support different blur filters:
    * - CUDA: bilateral_cuda
    * - Vulkan: avgblur_vulkan, gblur_vulkan
    * - OpenCL: avgblur_opencl, boxblur_opencl
+   *
+   * @param type - Blur type ('avg', 'gaussian', or 'box', default: 'avg')
+   * @param radius - Blur radius (optional)
+   * @returns Hardware blur filter string or null if not supported
+   *
    */
   blur(type: 'avg' | 'gaussian' | 'box' = 'avg', radius?: number): string | null {
     if (!this.support.blur) {
@@ -1247,14 +1242,14 @@ export class HardwareFilterPresets extends FilterPresetBase {
   /**
    * Creates a hardware-accelerated sharpen filter.
    *
-   * @param amount - Sharpening amount (optional)
-   * @returns Hardware sharpen filter string or null if not supported
-   *
-   * @description
    * Hardware sharpening support:
    * - VAAPI: sharpness_vaapi
    * - OpenCL: unsharp_opencl
    * - CUDA: sharpen_npp (NPP-based)
+   *
+   * @param amount - Sharpening amount (optional)
+   * @returns Hardware sharpen filter string or null if not supported
+   *
    */
   sharpen(amount?: number): string | null {
     if (!this.support.sharpen) {
@@ -1276,13 +1271,12 @@ export class HardwareFilterPresets extends FilterPresetBase {
 
   /**
    * Creates a hardware-accelerated stack filter.
+   * Only VAAPI and QSV support hardware stacking.
    *
    * @param type - Stack type ('h' for horizontal, 'v' for vertical, 'x' for grid)
    * @param inputs - Number of inputs to stack (default: 2)
    * @returns Hardware stack filter string or null if not supported
    *
-   * @description
-   * Only VAAPI and QSV support hardware stacking.
    */
   stack(type: 'h' | 'v' | 'x', inputs = 2): string | null {
     if (!this.support.stack) {
@@ -1298,11 +1292,9 @@ export class HardwareFilterPresets extends FilterPresetBase {
 
   /**
    * Creates a hwupload filter to upload frames to hardware memory.
+   * CUDA uses hwupload_cuda, others use generic hwupload.
    *
    * @returns Hardware upload filter string
-   *
-   * @description
-   * CUDA uses hwupload_cuda, others use generic hwupload.
    *
    * @see {@link https://ffmpeg.org/ffmpeg-filters.html#hwupload | FFmpeg hwupload filter}
    */
