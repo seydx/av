@@ -14,7 +14,7 @@ export default defineConfig({
   title: 'NodeAV',
   description: 'FFmpeg bindings for Node.js',
   themeConfig: {
-    logo: '/media/logo.png',
+    logo: '/logo.png',
 
     sidebar: [
       {

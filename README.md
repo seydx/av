@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/seydx/av/blob/main/docs/media/logo.png" width="330px">
+  <img src="https://github.com/seydx/av/blob/main/docs/logo.png?raw=true" width="330px">
 </p>
 
 # NodeAV
