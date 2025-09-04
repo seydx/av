@@ -20,6 +20,8 @@ node_modules
 test.ts
 script.ts
 tsconfig*.json
+typedoc*.json
+*.txt
 CONTRIBUTION.md
 INSTALLATION.md
 
@@ -41,3 +43,4 @@ INSTALLATION.md
 /node-av-*
 /prebuildify
 /*runner.txt
+/docs
