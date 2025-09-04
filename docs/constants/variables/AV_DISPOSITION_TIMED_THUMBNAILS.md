@@ -1,7 +1,0 @@
-[node-av](../globals.md) / AV\_DISPOSITION\_TIMED\_THUMBNAILS
-
-# Variable: AV\_DISPOSITION\_TIMED\_THUMBNAILS
-
-> `const` **AV\_DISPOSITION\_TIMED\_THUMBNAILS**: [`AVDisposition`](../type-aliases/AVDisposition.md)
-
-Defined in: [constants.ts:1525](https://github.com/seydx/av/blob/f8631fc881b394300b1479f511d55cf1c370a87f/src/constants/constants.ts#L1525)
