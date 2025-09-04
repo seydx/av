@@ -16,14 +16,26 @@ on:
       NPM_TOKEN:
         required: false
         description: "NPM token for publishing packages"
-  # push:
-  #   branches:
-  #     - main
-  #   paths-ignore:
-  #     - '**/*.md'
-  # pull_request:
-  #   paths-ignore:
-  #     - '**/*.md'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "examples/**"
+      - "install/**"
+      - "packages/**"
+      - "testdata/**"
+      - ".vscode/**"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "examples/**"
+      - "install/**"
+      - "packages/**"
+      - "testdata/**"
+      - ".vscode/**"
 
 jobs:
   build_windows:

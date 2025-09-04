@@ -1,4 +1,4 @@
-name: "🧪 Test Build and Publish Release"
+name: "🧪 Build and Test Publish Release"
 
 on:
   workflow_dispatch:

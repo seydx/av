@@ -1,8 +1,16 @@
-name: "📄 Deploy Docs to Github Pages"
+name: "📄 Build and Deploy Docs to Github Pages"
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+    paths:
+      - "src/api/**"
+      - "src/constants/**"
+      - "src/lib/**"
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/build-deploy-docs.yaml"
   workflow_dispatch:
 
 permissions:

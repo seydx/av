@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * 0" # Weekly on Sunday
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - 'externals/jellyfin-ffmpeg/**'
-  #     - '.github/workflows/build-docker-images.yaml'
-  #     - '.github/workflows/build-prebuilds.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - "externals/jellyfin-ffmpeg/**"
+      - ".github/workflows/build-docker-images.yaml"
 
 env:
   REGISTRY: ghcr.io
