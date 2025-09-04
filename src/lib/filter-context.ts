@@ -41,7 +41,7 @@ import type { ChannelLayout, IRational } from './types.js';
  * FFmpegError.throwIfError(ret3, 'buffersrcAddFrame');
  * ```
  *
- * @see {@link [AVFilterContext](https://ffmpeg.org/doxygen/trunk/structAVFilterContext.html)}
+ * @see [AVFilterContext](https://ffmpeg.org/doxygen/trunk/structAVFilterContext.html) - FFmpeg Doxygen
  * @see {@link FilterGraph} For managing filter graphs
  * @see {@link Filter} For filter descriptors
  */

@@ -57,7 +57,7 @@ import type { NativeFilterGraph, NativeWrapper } from './native-types.js';
  * FFmpegError.throwIfError(ret2, 'parse2');
  * ```
  *
- * @see {@link [AVFilterGraph](https://ffmpeg.org/doxygen/trunk/structAVFilterGraph.html)}
+ * @see [AVFilterGraph](https://ffmpeg.org/doxygen/trunk/structAVFilterGraph.html) - FFmpeg Doxygen
  * @see {@link FilterContext} For filter instances
  * @see {@link Filter} For filter descriptors
  */

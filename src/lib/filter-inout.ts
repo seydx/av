@@ -35,7 +35,7 @@ import type { NativeFilterInOut, NativeWrapper } from './native-types.js';
  * inout.padIdx = 0;
  * ```
  *
- * @see {@link [AVFilterInOut](https://ffmpeg.org/doxygen/trunk/structAVFilterInOut.html)}
+ * @see [AVFilterInOut](https://ffmpeg.org/doxygen/trunk/structAVFilterInOut.html) - FFmpeg Doxygen
  * @see {@link FilterGraph} For parsing filter descriptions
  * @see {@link FilterContext} For filter instances
  */
@@ -53,9 +53,6 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    * of filter specifications. Each item becomes a node in the list.
    *
    * @param items - Array of filter input/output specifications
-   * @param items[].name - Label for the filter pad
-   * @param items[].filterCtx - Filter context containing the pad
-   * @param items[].padIdx - Index of the pad in the filter
    * @returns Head of the linked list, or null if items is empty
    *
    * @example

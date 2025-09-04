@@ -51,7 +51,7 @@ import type { NativeHardwareFramesContext, NativeWrapper } from './native-types.
  * FFmpegError.throwIfError(ret3, 'map');
  * ```
  *
- * @see {@link [AVHWFramesContext](https://ffmpeg.org/doxygen/trunk/structAVHWFramesContext.html)}
+ * @see [AVHWFramesContext](https://ffmpeg.org/doxygen/trunk/structAVHWFramesContext.html) - FFmpeg Doxygen
  * @see {@link HardwareDeviceContext} For device management
  * @see {@link Frame} For frame operations
  */

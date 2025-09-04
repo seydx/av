@@ -50,7 +50,7 @@ import type { ChannelLayout } from './types.js';
  * console.log(`Bitrate: ${params.bitRate}`);
  * ```
  *
- * @see {@link [AVCodecParameters](https://ffmpeg.org/doxygen/trunk/structAVCodecParameters.html)}
+ * @see [AVCodecParameters](https://ffmpeg.org/doxygen/trunk/structAVCodecParameters.html) - FFmpeg Doxygen
  * @see {@link CodecContext} For full codec operations
  * @see {@link Stream} For stream parameters
  */

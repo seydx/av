@@ -41,7 +41,7 @@ import type { IRational } from './types.js';
  * packet.unref();
  * ```
  *
- * @see {@link [AVPacket](https://ffmpeg.org/doxygen/trunk/structAVPacket.html)}
+ * @see [AVPacket](https://ffmpeg.org/doxygen/trunk/structAVPacket.html) - FFmpeg Doxygen
  * @see {@link FormatContext} For reading/writing packets
  * @see {@link CodecContext} For encoding/decoding packets
  */

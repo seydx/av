@@ -39,7 +39,7 @@ import type { NativeAudioFifo, NativeWrapper } from './native-types.js';
  * fifo.free();
  * ```
  *
- * @see {@link [AudioFifo](https://ffmpeg.org/doxygen/trunk/structAVAudioFifo.html)}
+ * @see [AudioFifo](https://ffmpeg.org/doxygen/trunk/structAVAudioFifo.html) - FFmpeg Doxygen
  */
 export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   private native: NativeAudioFifo;

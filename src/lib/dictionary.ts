@@ -41,7 +41,7 @@ import type { NativeDictionary, NativeWrapper } from './native-types.js';
  * console.log(entries); // { key1: 'value1', key2: 'value2' }
  * ```
  *
- * @see {@link [AVDictionary](https://ffmpeg.org/doxygen/trunk/group__lavu__dict.html)}
+ * @see [AVDictionary](https://ffmpeg.org/doxygen/trunk/group__lavu__dict.html) - FFmpeg Doxygen
  * @see {@link CodecContext} For codec options
  * @see {@link FormatContext} For format options
  */

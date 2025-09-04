@@ -54,7 +54,7 @@ import type { ChannelLayout } from './types.js';
  * frame.unref();
  * ```
  *
- * @see {@link [AVFrame](https://ffmpeg.org/doxygen/trunk/structAVFrame.html)}
+ * @see [AVFrame](https://ffmpeg.org/doxygen/trunk/structAVFrame.html) - FFmpeg Doxygen
  * @see {@link CodecContext} For encoding/decoding frames
  * @see {@link FilterContext} For filtering frames
  */

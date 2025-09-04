@@ -47,7 +47,7 @@ import type { Packet } from './packet.js';
  * parser.close();
  * ```
  *
- * @see {@link [AVCodecParserContext](https://ffmpeg.org/doxygen/trunk/structAVCodecParserContext.html)}
+ * @see [AVCodecParserContext](https://ffmpeg.org/doxygen/trunk/structAVCodecParserContext.html) - FFmpeg Doxygen
  * @see {@link CodecContext} For decoding parsed packets
  */
 export class CodecParser implements Disposable, NativeWrapper<NativeCodecParser> {

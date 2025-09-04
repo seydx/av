@@ -48,7 +48,7 @@ import type { NativeSoftwareScaleContext, NativeWrapper } from './native-types.j
  * scaler.freeContext();
  * ```
  *
- * @see {@link [SwsContext](https://ffmpeg.org/doxygen/trunk/structSwsContext.html)}
+ * @see [SwsContext](https://ffmpeg.org/doxygen/trunk/structSwsContext.html) - FFmpeg Doxygen
  * @see {@link Frame} For video frame operations
  */
 export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContext> implements Disposable, NativeWrapper<NativeSoftwareScaleContext> {

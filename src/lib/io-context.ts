@@ -68,7 +68,7 @@ import type { NativeIOContext, NativeWrapper } from './native-types.js';
  * );
  * ```
  *
- * @see {@link [AVIOContext](https://ffmpeg.org/doxygen/trunk/structAVIOContext.html)}
+ * @see [AVIOContext](https://ffmpeg.org/doxygen/trunk/structAVIOContext.html) - FFmpeg Doxygen
  * @see {@link FormatContext} For using with demuxing/muxing
  */
 export class IOContext extends OptionMember<NativeIOContext> implements AsyncDisposable, NativeWrapper<NativeIOContext> {

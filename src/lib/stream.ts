@@ -43,7 +43,7 @@ import type { Packet } from './packet.js';
  * }
  * ```
  *
- * @see {@link [AVStream](https://ffmpeg.org/doxygen/trunk/structAVStream.html)}
+ * @see [AVStream](https://ffmpeg.org/doxygen/trunk/structAVStream.html) - FFmpeg Doxygen
  * @see {@link FormatContext} For container operations
  * @see {@link CodecParameters} For codec configuration
  */

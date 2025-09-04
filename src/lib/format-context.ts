@@ -55,7 +55,7 @@ import type { Packet } from './packet.js';
  * await ctx.closeInput();
  * ```
  *
- * @see {@link [AVFormatContext](https://ffmpeg.org/doxygen/trunk/structAVFormatContext.html)}
+ * @see [AVFormatContext](https://ffmpeg.org/doxygen/trunk/structAVFormatContext.html) - FFmpeg Doxygen
  * @see {@link InputFormat} For supported input formats
  * @see {@link OutputFormat} For supported output formats
  * @see {@link Stream} For stream management

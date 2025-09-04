@@ -66,7 +66,7 @@ import type { ChannelLayout } from './types.js';
  * decoder.freeContext();
  * ```
  *
- * @see {@link [AVCodecContext](https://ffmpeg.org/doxygen/trunk/structAVCodecContext.html)}
+ * @see [AVCodecContext](https://ffmpeg.org/doxygen/trunk/structAVCodecContext.html) - FFmpeg Doxygen
  * @see {@link Codec} For finding codecs
  * @see {@link CodecParameters} For stream parameters
  */

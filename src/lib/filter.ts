@@ -33,7 +33,7 @@ import type { FilterPad } from './types.js';
  * console.log(`Found ${videoFilters.length} video filters`);
  * ```
  *
- * @see {@link [AVFilter](https://ffmpeg.org/doxygen/trunk/structAVFilter.html)}
+ * @see [AVFilter](https://ffmpeg.org/doxygen/trunk/structAVFilter.html) - FFmpeg Doxygen
  * @see {@link FilterContext} For using filters in graphs
  * @see {@link FilterGraph} For building filter pipelines
  */

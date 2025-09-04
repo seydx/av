@@ -83,7 +83,7 @@ import type { ChannelLayout, IRational } from './types.js';
  * }
  * ```
  *
- * @see {@link [AVOption](https://ffmpeg.org/doxygen/trunk/structAVOption.html)}
+ * @see [AVOption](https://ffmpeg.org/doxygen/trunk/structAVOption.html) - FFmpeg Doxygen
  */
 export class OptionInfo {
   private native: NativeOption;
@@ -234,7 +234,7 @@ export class OptionInfo {
  * }
  * ```
  *
- * @see {@link [AVOption API](https://ffmpeg.org/doxygen/trunk/group__avoptions.html)}
+ * @see [AVOption API](https://ffmpeg.org/doxygen/trunk/group__avoptions.html) - FFmpeg Doxygen
  * @see {@link OptionMember} For inherited option support
  */
 export class Option {

@@ -39,7 +39,7 @@ import type { NativeInputFormat, NativeIOContext, NativeWrapper } from './native
  * FFmpegError.throwIfError(ret, 'openInput');
  * ```
  *
- * @see {@link [AVInputFormat](https://ffmpeg.org/doxygen/trunk/structAVInputFormat.html)}
+ * @see [AVInputFormat](https://ffmpeg.org/doxygen/trunk/structAVInputFormat.html) - FFmpeg Doxygen
  * @see {@link FormatContext} For using formats to open files
  * @see {@link OutputFormat} For muxing formats
  */

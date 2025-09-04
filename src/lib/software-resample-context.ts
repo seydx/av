@@ -56,7 +56,7 @@ import type { ChannelLayout } from './types.js';
  * resampler.free();
  * ```
  *
- * @see {@link [SwrContext](https://ffmpeg.org/doxygen/trunk/structSwrContext.html)}
+ * @see [SwrContext](https://ffmpeg.org/doxygen/trunk/structSwrContext.html) - FFmpeg Doxygen
  * @see {@link Frame} For audio frame operations
  */
 export class SoftwareResampleContext extends OptionMember<NativeSoftwareResampleContext> implements Disposable, NativeWrapper<NativeSoftwareResampleContext> {

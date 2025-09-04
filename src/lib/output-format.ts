@@ -39,7 +39,7 @@ import type { NativeOutputFormat, NativeWrapper } from './native-types.js';
  * FFmpegError.throwIfError(ret, 'allocOutputContext');
  * ```
  *
- * @see {@link [AVOutputFormat](https://ffmpeg.org/doxygen/trunk/structAVOutputFormat.html)}
+ * @see [AVOutputFormat](https://ffmpeg.org/doxygen/trunk/structAVOutputFormat.html) - FFmpeg Doxygen
  * @see {@link FormatContext} For using formats to write files
  * @see {@link InputFormat} For demuxing formats
  */

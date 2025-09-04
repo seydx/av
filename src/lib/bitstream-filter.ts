@@ -31,7 +31,7 @@ import type { NativeBitStreamFilter, NativeWrapper } from './native-types.js';
  * }
  * ```
  *
- * @see {@link [AVBitStreamFilter](https://ffmpeg.org/doxygen/trunk/structAVBitStreamFilter.html)}
+ * @see [AVBitStreamFilter](https://ffmpeg.org/doxygen/trunk/structAVBitStreamFilter.html) - FFmpeg Doxygen
  */
 export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
   private native: NativeBitStreamFilter;

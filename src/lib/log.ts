@@ -45,7 +45,7 @@ import type { LogOptions } from './types.js';
  * Log.resetCallback();
  * ```
  *
- * @see {@link [av_log](https://ffmpeg.org/doxygen/trunk/group__lavu__log.html)}
+ * @see [av_log](https://ffmpeg.org/doxygen/trunk/group__lavu__log.html) - FFmpeg Doxygen
  */
 export class Log {
   /**

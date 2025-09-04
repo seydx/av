@@ -44,7 +44,7 @@ import type { NativeHardwareDeviceContext, NativeWrapper } from './native-types.
  * device.free();
  * ```
  *
- * @see {@link [AVHWDeviceContext](https://ffmpeg.org/doxygen/trunk/structAVHWDeviceContext.html)}
+ * @see [AVHWDeviceContext](https://ffmpeg.org/doxygen/trunk/structAVHWDeviceContext.html) - FFmpeg Doxygen
  * @see {@link HardwareFramesContext} For hardware frame allocation
  * @see {@link CodecContext} For hardware codec usage
  */

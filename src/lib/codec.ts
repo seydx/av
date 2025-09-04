@@ -47,7 +47,7 @@ import type { ChannelLayout, CodecProfile } from './types.js';
  * }
  * ```
  *
- * @see {@link [AVCodec](https://ffmpeg.org/doxygen/trunk/structAVCodec.html)}
+ * @see [AVCodec](https://ffmpeg.org/doxygen/trunk/structAVCodec.html) - FFmpeg Doxygen
  * @see {@link CodecContext} For encoding/decoding operations
  */
 export class Codec implements NativeWrapper<NativeCodec> {
