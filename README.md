@@ -1,6 +1,19 @@
+<p align="center">
+  <img src="https://github.com/seydx/av/blob/main/docs/media/logo.png" width="330px">
+</p>
+
 # NodeAV
 
+[![npm version](https://img.shields.io/npm/v/node-av.svg)](https://www.npmjs.com/package/node-av)
+[![npm downloads](https://img.shields.io/npm/dm/node-av.svg)](https://www.npmjs.com/package/node-av)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-7.1+-green.svg)](https://ffmpeg.org)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/seydx/av/tree/main/INSTALLATION.md)
+
 Native Node.js bindings for FFmpeg with full TypeScript support. Provides direct access to FFmpeg's C APIs through N-API. Includes both raw FFmpeg bindings for full control and higher-level abstractions. Automatic resource management via Disposable pattern, hardware acceleration support and prebuilt binaries for Windows, Linux, and macOS.
+
+📚 **[Documentation](https://seydx.github.io/av)**
 
 ## Installation
 
@@ -243,43 +256,43 @@ NodeAV provides direct bindings to FFmpeg's C APIs, which work with raw memory p
 
 | Example | FFmpeg | Low-Level API | High-Level API |
 |---------|--------|---------------|----------------|
-| `api-encode-decode` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-encode-decode.ts |
-| `api-frame-extract` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-frame-extract.ts |
-| `api-hw-decode-sw-encode` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-hw-decode-sw-encode.ts |
-| `api-hw-raw` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-hw-raw.ts |
-| `api-hw-rtsp-custom-io` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-hw-rtsp-custom-io.ts |
-| `api-hw-rtsp` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-hw-rtsp.ts |
-| `api-hw-transcode` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-hw-transcode.ts |
-| `api-muxing` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-muxing.ts |
-| `api-pipeline-hw-rtsp` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-pipeline-hw-rtsp.ts |
-| `api-pipeline-raw-muxing` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-pipeline-raw-muxing.ts |
-| `api-stream-input` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-stream-input.ts |
-| `api-sw-decode-hw-encode` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-sw-decode-hw-encode.ts |
-| `api-sw-transcode` | | | [✓]https://github.com/seydx/av/tree/main/examples/api-sw-transcode.ts |
-| `avio-read-callback` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/avio_read_callback.c) | [✓]https://github.com/seydx/av/tree/main/examples/avio-read-callback.ts | |
-| `decode-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_audio.c) | [✓]https://github.com/seydx/av/tree/main/examples/decode-audio.ts | |
-| `decode-filter-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_audio.c) | [✓]https://github.com/seydx/av/tree/main/examples/decode-filter-audio.ts | |
-| `decode-filter-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_video.c) | [✓]https://github.com/seydx/av/tree/main/examples/decode-filter-video.ts | |
-| `decode-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_video.c) | [✓]https://github.com/seydx/av/tree/main/examples/decode-video.ts | |
-| `demux-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/demux_decode.c) | [✓]https://github.com/seydx/av/tree/main/examples/demux-decode.ts | |
-| `encode-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_audio.c) | [✓]https://github.com/seydx/av/tree/main/examples/encode-audio.ts | |
-| `encode-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_video.c) | [✓]https://github.com/seydx/av/tree/main/examples/encode-video.ts | |
-| `ffprobe-metadata` | | [✓]https://github.com/seydx/av/tree/main/examples/ffprobe-metadata.ts | |
-| `filter-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/filter_audio.c) | [✓]https://github.com/seydx/av/tree/main/examples/filter-audio.ts | |
-| `hw-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/hw_decode.c) | [✓]https://github.com/seydx/av/tree/main/examples/hw-decode.ts | |
-| `hw-encode` | | [✓]https://github.com/seydx/av/tree/main/examples/hw-encode.ts | |
-| `hw-transcode` | | [✓]https://github.com/seydx/av/tree/main/examples/hw-transcode.ts | |
+| `api-encode-decode` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-encode-decode.ts) |
+| `api-frame-extract` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-frame-extract.ts) |
+| `api-hw-decode-sw-encode` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-hw-decode-sw-encode.ts) |
+| `api-hw-raw` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-hw-raw.ts) |
+| `api-hw-rtsp-custom-io` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-hw-rtsp-custom-io.ts) |
+| `api-hw-rtsp` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-hw-rtsp.ts) |
+| `api-hw-transcode` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-hw-transcode.ts) |
+| `api-muxing` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-muxing.ts) |
+| `api-pipeline-hw-rtsp` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-pipeline-hw-rtsp.ts) |
+| `api-pipeline-raw-muxing` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-pipeline-raw-muxing.ts) |
+| `api-stream-input` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-stream-input.ts) |
+| `api-sw-decode-hw-encode` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-sw-decode-hw-encode.ts) |
+| `api-sw-transcode` | | | [✓](https://github.com/seydx/av/tree/main/examples/api-sw-transcode.ts) |
+| `avio-read-callback` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/avio_read_callback.c) | [✓](https://github.com/seydx/av/tree/main/examples/avio-read-callback.ts) | |
+| `decode-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_audio.c) | [✓](https://github.com/seydx/av/tree/main/examples/decode-audio.ts) | |
+| `decode-filter-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_audio.c) | [✓](https://github.com/seydx/av/tree/main/examples/decode-filter-audio.ts) | |
+| `decode-filter-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_filter_video.c) | [✓](https://github.com/seydx/av/tree/main/examples/decode-filter-video.ts) | |
+| `decode-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/decode_video.c) | [✓](https://github.com/seydx/av/tree/main/examples/decode-video.ts) | |
+| `demux-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/demux_decode.c) | [✓](https://github.com/seydx/av/tree/main/examples/demux-decode.ts) | |
+| `encode-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_audio.c) | [✓](https://github.com/seydx/av/tree/main/examples/encode-audio.ts) | |
+| `encode-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/encode_video.c) | [✓](https://github.com/seydx/av/tree/main/examples/encode-video.ts) | |
+| `ffprobe-metadata` | | [✓](https://github.com/seydx/av/tree/main/examples/ffprobe-metadata.ts) | |
+| `filter-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/filter_audio.c) | [✓](https://github.com/seydx/av/tree/main/examples/filter-audio.ts) | |
+| `hw-decode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/hw_decode.c) | [✓](https://github.com/seydx/av/tree/main/examples/hw-decode.ts) | |
+| `hw-encode` | | [✓](https://github.com/seydx/av/tree/main/examples/hw-encode.ts) | |
+| `hw-transcode` | | [✓](https://github.com/seydx/av/tree/main/examples/hw-transcode.ts) | |
 | `qsv-decode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/qsv_decode.c) | | |
 | `qsv-transcode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/qsv_transcode.c) | | |
 | `vaapi-encode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/vaapi_encode.c) | | |
 | `vaapi-transcode` | [✓](https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/vaapi_transcode.c) | | |
-| `mux` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/mux.c) | [✓]https://github.com/seydx/av/tree/main/examples/mux.ts | |
-| `remux` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/remux.c) | [✓]https://github.com/seydx/av/tree/main/examples/remux.ts | |
-| `resample-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/resample_audio.c) | [✓]https://github.com/seydx/av/tree/main/examples/resample-audio.ts | |
-| `scale-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/scale_video.c) | [✓]https://github.com/seydx/av/tree/main/examples/scale-video.ts | |
-| `show-metadata` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/show_metadata.c) | [✓]https://github.com/seydx/av/tree/main/examples/show-metadata.ts | |
-| `transcode-aac` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode_aac.c) | [✓]https://github.com/seydx/av/tree/main/examples/transcode-aac.ts | |
-| `transcode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓]https://github.com/seydx/av/tree/main/examples/transcode.ts | |
+| `mux` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/mux.c) | [✓](https://github.com/seydx/av/tree/main/examples/mux.ts) | |
+| `remux` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/remux.c) | [✓](https://github.com/seydx/av/tree/main/examples/remux.ts) | |
+| `resample-audio` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/resample_audio.c) | [✓](https://github.com/seydx/av/tree/main/examples/resample-audio.ts) | |
+| `scale-video` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/scale_video.c) | [✓](https://github.com/seydx/av/tree/main/examples/scale-video.ts) | |
+| `show-metadata` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/show_metadata.c) | [✓](https://github.com/seydx/av/tree/main/examples/show-metadata.ts) | |
+| `transcode-aac` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode_aac.c) | [✓](https://github.com/seydx/av/tree/main/examples/transcode-aac.ts) | |
+| `transcode` | [✓](https://github.com/FFmpeg/FFmpeg/tree/master/doc/examples/transcode.c) | [✓](https://github.com/seydx/av/tree/main/examples/transcode.ts) | |
 
 
 ## Prebuilt Binaries
