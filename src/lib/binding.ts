@@ -239,6 +239,7 @@ export interface NativeBinding {
   avGetPackedSampleFmt: (sampleFmt: AVSampleFormat) => AVSampleFormat;
   avGetPlanarSampleFmt: (sampleFmt: AVSampleFormat) => AVSampleFormat;
   avSampleFmtIsPlanar: (sampleFmt: AVSampleFormat) => boolean;
+  avGetCodecName: (codecId: AVCodecID) => string | null;
   avGetPixFmtName: (pixFmt: AVPixelFormat) => string | null;
   avGetPixFmtFromName: (name: string) => AVPixelFormat;
   avIsHardwarePixelFormat: (pixFmt: AVPixelFormat) => boolean;

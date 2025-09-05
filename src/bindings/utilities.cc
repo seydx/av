@@ -20,6 +20,8 @@ Napi::Object Utilities::Init(Napi::Env env, Napi::Object exports) {
   
   exports.Set("avGetMediaTypeString", Napi::Function::New(env, GetMediaTypeString));
   
+  exports.Set("avGetCodecName", Napi::Function::New(env, GetCodecName));
+  
   exports.Set("avImageAlloc", Napi::Function::New(env, ImageAlloc));
   exports.Set("avImageCopy2", Napi::Function::New(env, ImageCopy2));
   exports.Set("avImageGetBufferSize", Napi::Function::New(env, ImageGetBufferSize));
@@ -188,6 +190,25 @@ Napi::Value Utilities::GetMediaTypeString(const Napi::CallbackInfo& info) {
   
   int media_type = info[0].As<Napi::Number>().Int32Value();
   const char* name = av_get_media_type_string(static_cast<AVMediaType>(media_type));
+  
+  if (name) {
+    return Napi::String::New(env, name);
+  }
+  return env.Null();
+}
+
+// === Codec utilities ===
+
+Napi::Value Utilities::GetCodecName(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  
+  if (info.Length() < 1 || !info[0].IsNumber()) {
+    Napi::TypeError::New(env, "Expected codec ID as number").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  
+  int codec_id = info[0].As<Napi::Number>().Int32Value();
+  const char* name = avcodec_get_name(static_cast<AVCodecID>(codec_id));
   
   if (name) {
     return Napi::String::New(env, name);

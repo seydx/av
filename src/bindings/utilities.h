@@ -12,6 +12,7 @@ extern "C" {
 #include <libavutil/time.h>
 #include <libavutil/channel_layout.h>
 #include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
 }
 
 namespace ffmpeg {
@@ -34,6 +35,9 @@ public:
   
   // Media type utilities
   static Napi::Value GetMediaTypeString(const Napi::CallbackInfo& info);
+  
+  // Codec utilities
+  static Napi::Value GetCodecName(const Napi::CallbackInfo& info);
   
   // Image utilities
   static Napi::Value ImageAlloc(const Napi::CallbackInfo& info);
