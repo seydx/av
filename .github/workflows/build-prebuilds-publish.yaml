@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0  # Fetch all history for tags
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
