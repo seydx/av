@@ -1,12 +1,3 @@
-/**
- * Channel Layout Utilities
- *
- * Provides utilities for working with audio channel layouts in FFmpeg.
- * All methods are static and map directly to FFmpeg's libavutil functions.
- *
- * @module lib/channel-layout-utils
- */
-
 import { bindings } from '../../lib/binding.js';
 
 import type { ChannelLayout } from '../../lib/types.js';

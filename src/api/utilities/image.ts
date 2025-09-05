@@ -1,12 +1,3 @@
-/**
- * Image Utilities
- *
- * Provides utilities for working with image buffers in FFmpeg.
- * All methods are static and map directly to FFmpeg's libavutil functions.
- *
- * @module lib/image-utils
- */
-
 import { bindings } from '../../lib/binding.js';
 import { FFmpegError } from '../../lib/error.js';
 

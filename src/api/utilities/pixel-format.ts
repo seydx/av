@@ -1,12 +1,3 @@
-/**
- * Pixel Format Utilities
- *
- * Provides utilities for working with video pixel formats in FFmpeg.
- * All methods are static and map directly to FFmpeg's libavutil functions.
- *
- * @module lib/pixel-format
- */
-
 import { bindings } from '../../lib/binding.js';
 
 import type { AVPixelFormat } from '../../constants/constants.js';
@@ -31,7 +22,7 @@ import type { AVPixelFormat } from '../../constants/constants.js';
  * console.log(format === AV_PIX_FMT_YUV420P);              // true
  * ```
  */
-export class PixelFormat {
+export class PixelFormatUtils {
   // Private constructor to prevent instantiation
   private constructor() {}
 

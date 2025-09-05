@@ -1,12 +1,3 @@
-/**
- * Sample Format Utilities
- *
- * Provides utilities for working with audio sample formats in FFmpeg.
- * All methods are static and map directly to FFmpeg's libavutil functions.
- *
- * @module lib/sample-format
- */
-
 import { bindings } from '../../lib/binding.js';
 
 import type { AVSampleFormat } from '../../constants/constants.js';
@@ -33,7 +24,7 @@ import type { AVSampleFormat } from '../../constants/constants.js';
  * const planar = SampleFormat.getPlanarFormat(AV_SAMPLE_FMT_FLT);
  * ```
  */
-export class SampleFormat {
+export class SampleFormatUtils {
   // Private constructor to prevent instantiation
   private constructor() {}
 

@@ -1,12 +1,3 @@
-/**
- * Audio Sample Utilities
- *
- * Provides utilities for working with audio sample buffers in FFmpeg.
- * All methods are static and map directly to FFmpeg's libavutil functions.
- *
- * @module lib/audio-sample-utils
- */
-
 import { bindings } from '../../lib/binding.js';
 import { FFmpegError } from '../../lib/error.js';
 

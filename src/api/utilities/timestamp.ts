@@ -1,12 +1,3 @@
-/**
- * Timestamp Utilities
- *
- * Provides utilities for working with timestamps in FFmpeg.
- * All methods are static and map directly to FFmpeg's libavutil functions.
- *
- * @module lib/timestamp-utils
- */
-
 import { bindings } from '../../lib/binding.js';
 
 import type { AVRounding } from '../../constants/constants.js';

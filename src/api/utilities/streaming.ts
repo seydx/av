@@ -1,12 +1,3 @@
-/**
- * Streaming Utilities
- *
- * Provides utilities for working with streaming protocols in FFmpeg.
- * Includes SDP generation for RTP/RTSP streaming and helper methods.
- *
- * @module api/utilities/streaming
- */
-
 import { avSdpCreate } from '../../lib/utilities.js';
 
 import type { MediaInput } from '../media-input.js';

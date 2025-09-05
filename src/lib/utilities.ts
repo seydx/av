@@ -1,7 +1,7 @@
 import { bindings } from './binding.js';
 import { FFmpegError } from './error.js';
 
-import type { AVMediaType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { AVCodecID, AVMediaType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
 import type { FormatContext } from './format-context.js';
 import type { ChannelLayout, IRational } from './types.js';
 
@@ -23,6 +23,8 @@ import type { ChannelLayout, IRational } from './types.js';
  * const bytesS16 = avGetBytesPerSample(AV_SAMPLE_FMT_S16);  // Returns 2
  * const bytesFloat = avGetBytesPerSample(AV_SAMPLE_FMT_FLTP); // Returns 4
  * ```
+ *
+ * @see [av_get_bytes_per_sample](https://ffmpeg.org/doxygen/7.1/group__lavu__sampfmts.html#ga0c3c218e1dd570ad4917c69a35a6c77d) - FFmpeg Doxygen
  */
 export function avGetBytesPerSample(sampleFmt: AVSampleFormat): number {
   return bindings.avGetBytesPerSample(sampleFmt);
@@ -45,6 +47,8 @@ export function avGetBytesPerSample(sampleFmt: AVSampleFormat): number {
  * const name1 = avGetSampleFmtName(AV_SAMPLE_FMT_S16);  // Returns "s16"
  * const name2 = avGetSampleFmtName(AV_SAMPLE_FMT_FLTP); // Returns "fltp"
  * ```
+ *
+ * @see [av_get_sample_fmt_name](https://ffmpeg.org/doxygen/7.1/group__lavu__sampfmts.html#ga31b9d149b2de9821a65f4f5612970838) - FFmpeg Doxygen
  */
 export function avGetSampleFmtName(sampleFmt: AVSampleFormat): string | null {
   return bindings.avGetSampleFmtName(sampleFmt);
@@ -69,6 +73,7 @@ export function avGetSampleFmtName(sampleFmt: AVSampleFormat): string | null {
  * const same = avGetPackedSampleFmt(AV_SAMPLE_FMT_FLT);    // Returns AV_SAMPLE_FMT_FLT
  * ```
  *
+ * @see [av_get_packed_sample_fmt](https://ffmpeg.org/doxygen/7.1/group__lavu__sampfmts.html#ga7817ec0eff4dc6fc0962f31e6d138bca) - FFmpeg Doxygen
  * @see {@link avGetPlanarSampleFmt} For getting planar version
  */
 export function avGetPackedSampleFmt(sampleFmt: AVSampleFormat): AVSampleFormat {
@@ -94,6 +99,7 @@ export function avGetPackedSampleFmt(sampleFmt: AVSampleFormat): AVSampleFormat 
  * const same = avGetPlanarSampleFmt(AV_SAMPLE_FMT_FLTP);    // Returns AV_SAMPLE_FMT_FLTP
  * ```
  *
+ * @see [av_get_planar_sample_fmt](https://ffmpeg.org/doxygen/7.1/group__lavu__sampfmts.html#ga82caf838259d95cc6c4fd87633bb0e19) - FFmpeg Doxygen
  * @see {@link avGetPackedSampleFmt} For getting packed version
  */
 export function avGetPlanarSampleFmt(sampleFmt: AVSampleFormat): AVSampleFormat {
@@ -118,9 +124,37 @@ export function avGetPlanarSampleFmt(sampleFmt: AVSampleFormat): AVSampleFormat 
  * const isPacked = avSampleFmtIsPlanar(AV_SAMPLE_FMT_S16);  // Returns false
  * const isPlanar = avSampleFmtIsPlanar(AV_SAMPLE_FMT_S16P); // Returns true
  * ```
+ *
+ * @see [av_sample_fmt_is_planar](https://ffmpeg.org/doxygen/7.1/group__lavu__sampfmts.html#ga06ba8a64dc4382c422789a5d0b6bf592) - FFmpeg Doxygen
  */
 export function avSampleFmtIsPlanar(sampleFmt: AVSampleFormat): boolean {
   return bindings.avSampleFmtIsPlanar(sampleFmt);
+}
+
+/**
+ * Get codec name from codec ID.
+ *
+ * Returns the canonical codec name corresponding to the codec ID.
+ *
+ * Direct mapping to avcodec_get_name().
+ *
+ * @param codecId - Codec ID from AVCodecID enum
+ * @returns Codec name string or null
+ *
+ * @example
+ * ```typescript
+ * import { AV_CODEC_ID_H264, AV_CODEC_ID_HEVC } from 'node-av/constants';
+ * import { avGetCodecName } from 'node-av/lib';
+ *
+ * const h264Name = avGetCodecName(AV_CODEC_ID_H264);  // Returns "h264"
+ * const hevcName = avGetCodecName(AV_CODEC_ID_HEVC);  // Returns "hevc"
+ * const unknownName = avGetCodecName(99999);          // Returns null
+ * ```
+ *
+ * @see [avcodec_get_name](https://ffmpeg.org/doxygen/7.1/group__lavc__core.html#ga2016a52e94f867ebe5113bdf448e182d) - FFmpeg Doxygen
+ */
+export function avGetCodecName(codecId: AVCodecID): string | null {
+  return bindings.avGetCodecName(codecId);
 }
 
 /**
@@ -140,6 +174,8 @@ export function avSampleFmtIsPlanar(sampleFmt: AVSampleFormat): boolean {
  * const name1 = avGetPixFmtName(AV_PIX_FMT_YUV420P); // Returns "yuv420p"
  * const name2 = avGetPixFmtName(AV_PIX_FMT_RGB24);   // Returns "rgb24"
  * ```
+ *
+ * @see [av_get_pix_fmt_name](https://ffmpeg.org/doxygen/7.1/pixdesc_8c.html#ab92e2a8a9b58c982560c49df9f01e47e) - FFmpeg Doxygen
  */
 export function avGetPixFmtName(pixFmt: AVPixelFormat): string | null {
   return bindings.avGetPixFmtName(pixFmt);
@@ -161,6 +197,8 @@ export function avGetPixFmtName(pixFmt: AVPixelFormat): string | null {
  * const fmt2 = avGetPixFmtFromName("rgb24");   // Returns AV_PIX_FMT_RGB24
  * const none = avGetPixFmtFromName("invalid"); // Returns AV_PIX_FMT_NONE
  * ```
+ *
+ * @see [av_get_pix_fmt](https://ffmpeg.org/doxygen/7.1/pixdesc_8h.html#a925ef18d69c24c3be8c53d5a7dc0660e) - FFmpeg Doxygen
  */
 export function avGetPixFmtFromName(name: string): AVPixelFormat {
   return bindings.avGetPixFmtFromName(name);
@@ -184,6 +222,8 @@ export function avGetPixFmtFromName(name: string): AVPixelFormat {
  * const isSoftware = avIsHardwarePixelFormat(AV_PIX_FMT_YUV420P); // Returns false
  * const isHardware = avIsHardwarePixelFormat(AV_PIX_FMT_CUDA);    // Returns true
  * ```
+ *
+ * @see [av_pix_fmt_desc_get](https://ffmpeg.org/doxygen/7.1/pixdesc_8c.html#afe0c3e8aef5173de28bbdaea4298f5f0) - FFmpeg Doxygen
  */
 export function avIsHardwarePixelFormat(pixFmt: AVPixelFormat): boolean {
   return bindings.avIsHardwarePixelFormat(pixFmt);
@@ -206,6 +246,8 @@ export function avIsHardwarePixelFormat(pixFmt: AVPixelFormat): boolean {
  * const video = avGetMediaTypeString(AVMEDIA_TYPE_VIDEO); // Returns "video"
  * const audio = avGetMediaTypeString(AVMEDIA_TYPE_AUDIO); // Returns "audio"
  * ```
+ *
+ * @see [av_get_media_type_string](https://ffmpeg.org/doxygen/7.1/group__lavu__misc.html#gaf21645cfa855b2caf9699d7dc7b2d08e) - FFmpeg Doxygen
  */
 export function avGetMediaTypeString(mediaType: AVMediaType): string | null {
   return bindings.avGetMediaTypeString(mediaType);
@@ -238,6 +280,7 @@ export function avGetMediaTypeString(mediaType: AVMediaType): string | null {
  * console.log(`Line sizes: ${linesizes}`);
  * ```
  *
+ * @see [av_image_alloc](https://ffmpeg.org/doxygen/7.1/group__lavu__picture.html#ga841e0a89a642e24141af1918a2c10448) - FFmpeg Doxygen
  * @see {@link avImageGetBufferSize} To calculate size without allocating
  */
 export function avImageAlloc(
@@ -281,6 +324,8 @@ export function avImageAlloc(
  *   AV_PIX_FMT_YUV420P, 1920, 1080
  * );
  * ```
+ *
+ * @see [av_image_copy2](https://ffmpeg.org/doxygen/7.1/group__lavu__picture.html#ga911cb7d723163b88bdbbdacbeeaacf2d) - FFmpeg Doxygen
  */
 export function avImageCopy2(
   dstData: Buffer[],
@@ -315,6 +360,7 @@ export function avImageCopy2(
  * console.log(`Need ${size} bytes for Full HD RGB24`);
  * ```
  *
+ * @see [av_image_get_buffer_size](https://ffmpeg.org/doxygen/7.1/group__lavu__picture.html#ga24a67963c3ae0054a2a4bab35930e694) - FFmpeg Doxygen
  * @see {@link avImageAlloc} To allocate the buffer
  */
 export function avImageGetBufferSize(pixFmt: AVPixelFormat, width: number, height: number, align: number): number {
@@ -347,6 +393,8 @@ export function avImageGetBufferSize(pixFmt: AVPixelFormat, width: number, heigh
  *   AV_PIX_FMT_YUV420P, 1920, 1080, 1
  * );
  * ```
+ *
+ * @see [av_image_copy_to_buffer](https://ffmpeg.org/doxygen/7.1/group__lavu__picture.html#ga6f8576f1ef0c2d9a9f7c5ac7f9a28c52) - FFmpeg Doxygen
  */
 export function avImageCopyToBuffer(
   dst: Buffer,
@@ -376,6 +424,8 @@ export function avImageCopyToBuffer(
  * const str1 = avTs2Str(1234567n);  // Returns "1234567"
  * const str2 = avTs2Str(null);      // Returns "NOPTS"
  * ```
+ *
+ * @see [av_ts2str](https://ffmpeg.org/doxygen/7.1/timestamp_8h.html#a86d797e907fa454ed5fd34bfb0bcd747) - FFmpeg Doxygen
  */
 export function avTs2Str(ts: bigint | number | null): string {
   return bindings.avTs2Str(ts);
@@ -397,6 +447,8 @@ export function avTs2Str(ts: bigint | number | null): string {
  * const timeStr = avTs2TimeStr(90000n, { num: 1, den: 90000 }); // Returns "1.000000"
  * const nopts = avTs2TimeStr(null, { num: 1, den: 1000 });      // Returns "NOPTS"
  * ```
+ *
+ * @see [av_ts2timestr](https://ffmpeg.org/doxygen/7.1/timestamp_8h.html#ad344b91ede6b86fc0a530611293f42da) - FFmpeg Doxygen
  */
 export function avTs2TimeStr(ts: bigint | number | null, timeBase: IRational | null): string {
   if (!timeBase) {
@@ -472,6 +524,8 @@ export function avImageAllocArrays(
  * );
  * // Returns 0 (equal)
  * ```
+ *
+ * @see [av_compare_ts](https://ffmpeg.org/doxygen/7.1/group__lavu__math.html#ga151744358fff630942b926e67e67c415) - FFmpeg Doxygen
  */
 export function avCompareTs(tsA: bigint | number | null, tbA: IRational, tsB: bigint | number | null, tbB: IRational): number {
   return bindings.avCompareTs(tsA, tbA, tsB, tbB);
@@ -499,6 +553,8 @@ export function avCompareTs(tsA: bigint | number | null, tbA: IRational, tsB: bi
  * );
  * // Returns 90000n
  * ```
+ *
+ * @see [av_rescale_q](https://ffmpeg.org/doxygen/7.1/group__lavu__math.html#gaf02994a8bbeaa91d4757df179cbe567f) - FFmpeg Doxygen
  */
 export function avRescaleQ(a: bigint | number | null, bq: IRational, cq: IRational): bigint {
   return bindings.avRescaleQ(a, bq, cq);
@@ -518,6 +574,8 @@ export function avRescaleQ(a: bigint | number | null, bq: IRational, cq: IRation
  * avUsleep(1000000); // Sleep for 1 second
  * avUsleep(16667);   // Sleep for ~16.67ms (60fps frame time)
  * ```
+ *
+ * @see [av_usleep](https://ffmpeg.org/doxygen/7.1/time_8c.html#a4eee9c65835652a808973f4bc1641a51) - FFmpeg Doxygen
  */
 export function avUsleep(usec: number): void {
   bindings.avUsleep(usec);
@@ -543,6 +601,8 @@ export function avUsleep(usec: number): void {
  * const rescaled = avRescaleRnd(1000n, 90000n, 1000n, AV_ROUND_NEAR_INF);
  * // Returns 90000n
  * ```
+ *
+ * @see [av_rescale_rnd](https://ffmpeg.org/doxygen/7.1/group__lavu__math.html#ga82d40664213508918093822461cc597e) - FFmpeg Doxygen
  */
 export function avRescaleRnd(a: bigint | number, b: bigint | number, c: bigint | number, rnd: number): bigint {
   return bindings.avRescaleRnd(a, b, c, rnd);
@@ -573,6 +633,7 @@ export function avRescaleRnd(a: bigint | number, b: bigint | number, c: bigint |
  * console.log(`Allocated ${data.length} buffers, ${size} bytes total`);
  * ```
  *
+ * @see [av_samples_alloc](https://ffmpeg.org/doxygen/7.1/group__lavu__sampmanip.html#ga4db4c77f928d32c7d8854732f50b8c04) - FFmpeg Doxygen
  * @see {@link avSamplesGetBufferSize} To calculate size without allocating
  */
 export function avSamplesAlloc(
@@ -617,6 +678,7 @@ export function avSamplesAlloc(
  * console.log(`Need ${size} bytes, ${linesize} per channel`);
  * ```
  *
+ * @see [av_samples_get_buffer_size](https://ffmpeg.org/doxygen/7.1/group__lavu__sampfmts.html#gaa7368bc4e3a366b688e81938ed55eb06) - FFmpeg Doxygen
  * @see {@link avSamplesAlloc} To allocate the buffer
  */
 export function avSamplesGetBufferSize(
@@ -650,6 +712,8 @@ export function avSamplesGetBufferSize(
  * const stereo = { nbChannels: 2, order: 1, u: { mask: 3n } };
  * const desc = avChannelLayoutDescribe(stereo); // Returns "stereo"
  * ```
+ *
+ * @see [av_channel_layout_describe](https://ffmpeg.org/doxygen/7.1/group__lavu__audio__channels.html#gacc7d7d1a280248aafb8f9196c9d4e24f) - FFmpeg Doxygen
  */
 export function avChannelLayoutDescribe(channelLayout: Partial<ChannelLayout>): string | null {
   return bindings.avChannelLayoutDescribe(channelLayout);
@@ -673,6 +737,8 @@ export function avChannelLayoutDescribe(channelLayout: Partial<ChannelLayout>): 
  *   console.log('SDP:\n' + sdp);
  * }
  * ```
+ *
+ * @see [av_sdp_create](https://ffmpeg.org/doxygen/7.1/group__lavf__misc.html#gaa2a7353a6bb0c8726797abd56b176af0) - FFmpeg Doxygen
  */
 export function avSdpCreate(contexts: FormatContext[]): string | null {
   if (!Array.isArray(contexts) || contexts.length === 0) {

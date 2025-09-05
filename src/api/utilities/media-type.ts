@@ -1,12 +1,3 @@
-/**
- * Media Type Utilities
- *
- * Provides utilities for working with media types in FFmpeg.
- * All methods are static and map directly to FFmpeg's libavutil functions.
- *
- * @module lib/media-type
- */
-
 import { bindings } from '../../lib/binding.js';
 
 import type { AVMediaType } from '../../constants/constants.js';
@@ -27,7 +18,7 @@ import type { AVMediaType } from '../../constants/constants.js';
  * console.log(MediaType.getString(AVMEDIA_TYPE_SUBTITLE));   // "subtitle"
  * ```
  */
-export class MediaType {
+export class MediaTypeUtils {
   // Private constructor to prevent instantiation
   private constructor() {}
 
