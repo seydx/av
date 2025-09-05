@@ -46,7 +46,7 @@
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "predocs": "typedoc && cpy README.md docs/api --rename=index.md",
+    "predocs": "typedoc && cpy README.md docs/ --rename=index.md",
     "release:patch": "node scripts/prepare-release.js patch && npm i --package-lock-only",
     "release:minor": "node scripts/prepare-release.js minor && npm i --package-lock-only",
     "release:major": "node scripts/prepare-release.js major && npm i --package-lock-only",
