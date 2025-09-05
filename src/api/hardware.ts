@@ -1,6 +1,16 @@
 import {
   AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
   AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX,
+  AV_CODEC_ID_AV1,
+  AV_CODEC_ID_H263,
+  AV_CODEC_ID_H264,
+  AV_CODEC_ID_HEVC,
+  AV_CODEC_ID_MJPEG,
+  AV_CODEC_ID_MPEG2VIDEO,
+  AV_CODEC_ID_MPEG4,
+  AV_CODEC_ID_PRORES,
+  AV_CODEC_ID_VP8,
+  AV_CODEC_ID_VP9,
   AV_HWDEVICE_TYPE_CUDA,
   AV_HWDEVICE_TYPE_D3D11VA,
   AV_HWDEVICE_TYPE_D3D12VA,
@@ -383,7 +393,7 @@ export class HardwareContext implements Disposable {
    * Returns null if no hardware encoder is available for the codec.
    * Automatically tests encoder viability before returning.
    *
-   * @param codecName - Generic codec name (e.g., 'h264', 'hevc', 'av1')
+   * @param codec - Generic codec name (e.g., 'h264', 'hevc', 'av1') or AVCodecID
    * @returns Hardware encoder codec or null if unsupported
    *
    * @example
@@ -408,16 +418,27 @@ export class HardwareContext implements Disposable {
    *
    * @see {@link Encoder.create} For using the codec
    */
-  async getEncoderCodec(codecName: BaseCodecName): Promise<Codec | null> {
+  async getEncoderCodec(codec: BaseCodecName | AVCodecID): Promise<Codec | null> {
     // Build the encoder name
+    let codecBaseName = '';
     let encoderSuffix = '';
+
+    if (typeof codec === 'number') {
+      codecBaseName = this.getBaseCodecName(codec) ?? '';
+    } else {
+      codecBaseName = codec;
+    }
+
+    if (!codecBaseName) {
+      return null;
+    }
 
     // We might only have hardware decode capabilities (d3d11va, d3d12va etc)
     // So we need to check for other hardware encoders
     const getAlternativeEncoder = (): string | null => {
-      const nvencCodecName = `${codecName}_nvenc` as FFEncoderCodec;
-      const qsvCodecName = `${codecName}_qsv` as FFEncoderCodec;
-      const amfCodecName = `${codecName}_amf` as FFEncoderCodec;
+      const nvencCodecName = `${codecBaseName}_nvenc` as FFEncoderCodec;
+      const qsvCodecName = `${codecBaseName}_qsv` as FFEncoderCodec;
+      const amfCodecName = `${codecBaseName}_amf` as FFEncoderCodec;
       const codecNames = [nvencCodecName, qsvCodecName, amfCodecName];
 
       let suffix = '';
@@ -450,7 +471,7 @@ export class HardwareContext implements Disposable {
 
       case AV_HWDEVICE_TYPE_D3D12VA:
         // D3D12VA currently only supports HEVC encoding
-        if (codecName === 'hevc') {
+        if (codecBaseName === 'hevc') {
           encoderSuffix = 'd3d12va';
         } else {
           encoderSuffix = getAlternativeEncoder() ?? '';
@@ -473,7 +494,7 @@ export class HardwareContext implements Disposable {
     }
 
     // Construct the encoder name
-    const encoderName = `${codecName}_${encoderSuffix}` as FFEncoderCodec;
+    const encoderName = `${codecBaseName}_${encoderSuffix}` as FFEncoderCodec;
     const encoderCodec = Codec.findEncoderByName(encoderName);
 
     if (!encoderCodec || !(await this.testHardwareEncoder(encoderName))) {
@@ -563,6 +584,44 @@ export class HardwareContext implements Disposable {
 
     this._deviceContext.free();
     this._isDisposed = true;
+  }
+
+  /**
+   * Map AVCodecID to base codec name for hardware encoder lookup.
+   *
+   * Converts codec IDs to generic codec names used for encoder naming.
+   * Used internally to find hardware-specific encoder implementations.
+   *
+   * @param codecId - AVCodecID enum value
+   * @returns Base codec name or null if unsupported
+   *
+   * @internal
+   */
+  private getBaseCodecName(codecId: AVCodecID): BaseCodecName | null {
+    switch (codecId) {
+      case AV_CODEC_ID_AV1:
+        return 'av1';
+      case AV_CODEC_ID_H264:
+        return 'h264';
+      case AV_CODEC_ID_HEVC:
+        return 'hevc';
+      case AV_CODEC_ID_H263:
+        return 'h263';
+      case AV_CODEC_ID_MPEG2VIDEO:
+        return 'mpeg2';
+      case AV_CODEC_ID_MPEG4:
+        return 'mpeg4';
+      case AV_CODEC_ID_VP8:
+        return 'vp8';
+      case AV_CODEC_ID_VP9:
+        return 'vp9';
+      case AV_CODEC_ID_MJPEG:
+        return 'mjpeg';
+      case AV_CODEC_ID_PRORES:
+        return 'prores';
+      default:
+        return null;
+    }
   }
 
   /**
