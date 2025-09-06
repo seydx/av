@@ -238,7 +238,8 @@
               "-Wl,-Bsymbolic",
               "-Wl,--allow-multiple-definition",
               "-Wl,-rpath,'$$ORIGIN'",
-              "-Wl,-z,origin"
+              "-Wl,-z,origin",
+              "-Wl,-z,notext"
             ],
             "conditions": [
               [
@@ -249,7 +250,8 @@
                     "-lva",
                     "-lva-drm",
                     "-lva-x11",
-                    "-ldrm"
+                    "-ldrm",
+                    "-lX11"
                   ]
                 }
               ],
