@@ -92,28 +92,7 @@ const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStream
 
 const control = pipeline(input, decoder, encoder, output);
 await control.completion;
-
-// The pipeline automatically handles:
-// - Flow control between components
-// - Resource management and cleanup
-// - Error propagation
-// - Backpressure handling
 ```
-
-## More Examples
-
-The `examples/` directory contains comprehensive examples for all API levels:
-
-**High-Level API** (`api-*.ts`)
-- Hardware acceleration, muxing, streaming, custom I/O, and more
-
-**Low-Level API** (direct FFmpeg bindings)
-- Ported FFmpeg C examples showing fine-grained control
-
-**Pipeline API** (`api-pipeline-*.ts`)
-- Complex workflows with automatic flow control
-
-See the [Examples Table](#examples) for a complete list.
 
 ## Hardware Acceleration
 
