@@ -39,20 +39,6 @@ extern "C" {
   __attribute__((weak)) double __pow_finite(double x, double y) {
     return pow(x, y);
   }
-  
-  // Weak symbols for VA-API - allows running without VA-API installed
-  __attribute__((weak)) void* vaGetDisplayDRM(int fd) {
-    return nullptr;
-  }
-  __attribute__((weak)) int vaInitialize(void* dpy, int* major, int* minor) {
-    return -1;
-  }
-  __attribute__((weak)) int vaTerminate(void* dpy) {
-    return -1;
-  }
-  __attribute__((weak)) void* vaGetDisplay(void* dpy) {
-    return nullptr;
-  }
 }
 #endif
 
