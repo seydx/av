@@ -42,6 +42,14 @@ extern "C" {
 }
 #endif
 
+#ifdef __linux__
+extern "C" {
+  // vaMapBuffer2 is only available in VA-API >= 1.21
+  // Provide weak symbol to avoid crashes with older versions
+  __attribute__((weak)) int vaMapBuffer2(void* dpy, unsigned int buf_id, void** pbuf, unsigned int flags);
+}
+#endif
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
