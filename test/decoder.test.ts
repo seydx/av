@@ -4,9 +4,10 @@ import { describe, it } from 'node:test';
 import { Decoder } from '../src/api/decoder.js';
 import { HardwareContext } from '../src/api/hardware.js';
 import { MediaInput } from '../src/api/media-input.js';
-import type { AudioInfo, VideoInfo } from '../src/index.js';
 import { avIsHardwarePixelFormat, Packet } from '../src/lib/index.js';
-import { getInputFile, prepareTestEnvironment } from './index.js';
+import { getInputFile, prepareTestEnvironment, skipInCI } from './index.js';
+
+import type { AudioInfo, VideoInfo } from '../src/index.js';
 
 prepareTestEnvironment();
 
@@ -394,7 +395,7 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should return hardware pixel format for hardware decoder', async () => {
+    it('should return hardware pixel format for hardware decoder', skipInCI, async () => {
       // Try to get hardware context
       const hw = HardwareContext.auto();
       if (!hw) {

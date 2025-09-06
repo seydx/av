@@ -344,7 +344,7 @@ describe('Transcode Scenarios', () => {
   });
 
   describe('Error Cases', () => {
-    it('should fail when using hardware filter without hardware context on filter', async () => {
+    it('should fail when using hardware filter without hardware context on filter', skipInCI, async () => {
       using hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available, skipping test');

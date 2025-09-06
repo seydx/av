@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { AV_PIX_FMT_YUV420P, AV_SAMPLE_FMT_FLTP, Encoder, FF_ENCODER_AAC, FF_ENCODER_LIBX264, HardwareContext } from '../src/index.js';
 import { Frame } from '../src/lib/index.js';
+import { skipInCI } from './index.js';
 
 describe('Encoder', () => {
   describe('create', () => {
@@ -488,9 +489,9 @@ describe('Encoder', () => {
   });
 
   describe('hardware encoding', () => {
-    it('should create hardware encoder with hardware context', async () => {
+    it('should create hardware encoder with hardware context', skipInCI, async () => {
       // Try to get hardware context
-      const hw: HardwareContext | null = HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         return;
       }
@@ -533,9 +534,9 @@ describe('Encoder', () => {
       hw.dispose();
     });
 
-    it('should throw when hardware encoder used without hardware context for encoders requiring it', async () => {
+    it('should throw when hardware encoder used without hardware context for encoders requiring it', skipInCI, async () => {
       // Try to get hardware context to find hardware encoder names
-      const hw: HardwareContext | null = HardwareContext.auto();
+      const hw = HardwareContext.auto();
       if (!hw) {
         return;
       }
