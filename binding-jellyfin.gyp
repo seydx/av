@@ -235,17 +235,17 @@
               "-fno-finite-math-only"
             ],
             "ldflags": [
+              "-Wl,-Bsymbolic",
               "-Wl,--allow-multiple-definition",
               "-Wl,-rpath,'$$ORIGIN'",
-              "-Wl,-z,origin",
-              "-Wl,--export-dynamic",
-              "-Wl,--as-needed"
+              "-Wl,-z,origin"
             ],
             "conditions": [
               [
                 "target_arch=='x64'",
                 {
                   "libraries": [
+                    "<!@(ls /opt/ffbuild/prefix/lib/libvpl.a 2>/dev/null || echo '')",
                     "-lva",
                     "-lva-drm",
                     "-lva-x11",
