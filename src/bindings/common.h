@@ -42,6 +42,17 @@ extern "C" {
 }
 #endif
 
+// Weak symbols for VA-API to prevent crashes when libraries are not installed
+// These will be overridden by the real functions if libva is available
+#ifdef __linux__
+extern "C" {
+  __attribute__((weak)) void* vaGetDisplayDRM(int fd);
+  __attribute__((weak)) int vaInitialize(void* dpy, int* major, int* minor);
+  __attribute__((weak)) int vaTerminate(void* dpy);
+  __attribute__((weak)) void* vaGetDisplay(void* dpy);
+}
+#endif
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
