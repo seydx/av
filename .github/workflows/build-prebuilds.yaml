@@ -279,10 +279,10 @@ jobs:
         include:
           - arch: x64
             target: amd64
-            runner: ubuntu-24.04
+            runner: ubuntu-22.04
           - arch: arm64
             target: arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v5
         with:
@@ -391,18 +391,18 @@ jobs:
           # Set up environment variables that node-gyp will use
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
 
-          # Use Clang to match the Docker build environment
-          export CC=clang-18
-          export CXX=clang++-18
-          export AR=llvm-ar-18
-          export NM=llvm-nm-18
-          export RANLIB=llvm-ranlib-18
+          # Use Clang 14 to match the Docker build environment (Ubuntu 22.04)
+          export CC=clang-14
+          export CXX=clang++-14
+          export AR=llvm-ar-14
+          export NM=llvm-nm-14
+          export RANLIB=llvm-ranlib-14
 
-          export LD=ld.lld-18
+          export LD=ld.lld-14
           # Use -Bsymbolic to bind symbols locally and avoid PIC issues
           # Use -z,notext to allow text relocations (needed for assembly code)
-          export LDFLAGS="-fuse-ld=lld-18 -Wl,-z,notext -Wl,-Bsymbolic"
-          BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-18 -Wl,--allow-multiple-definition -Wl,-z,notext -Wl,-Bsymbolic"
+          export LDFLAGS="-fuse-ld=lld-14 -Wl,-z,notext -Wl,-Bsymbolic"
+          BUILD_LDFLAGS="-L/opt/ffbuild/prefix/lib -fuse-ld=lld-14 -Wl,--allow-multiple-definition -Wl,-z,notext -Wl,-Bsymbolic"
 
           # Build N-API binary with proper include paths
           CFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
