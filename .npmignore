@@ -22,7 +22,7 @@ script.ts
 tsconfig*.json
 typedoc*.json
 *.txt
-CONTRIBUTION.md
+CONTRIBUTING.md
 INSTALLATION.md
 
 /src
@@ -44,3 +44,4 @@ INSTALLATION.md
 /prebuildify
 /*runner.txt
 /docs
+release_notes.md

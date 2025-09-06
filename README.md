@@ -288,7 +288,7 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTION.md](https://github.com/seydx/av/tree/main/CONTRIBUTION.md) for development setup, code standards, and contribution guidelines before submitting pull requests.
+Contributions are welcome! Please read [CONTRIBUTING.md](https://github.com/seydx/av/tree/main/CONTRIBUTING.md) for development setup, code standards, and contribution guidelines before submitting pull requests.
 
 ## Support
 
