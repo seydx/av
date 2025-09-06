@@ -12,6 +12,7 @@ export default [
   {
     ignores: [
       '**/dist/**',
+      '**/docs/**',
       '**/node_modules/**',
       '**/public/**',
       '**/build/**',
@@ -19,6 +20,7 @@ export default [
       '**/wasm/**',
       '**/.tmp/**',
       '**/externals/**',
+      '**/testdata/**',
       'script.ts',
       '**/prebuildify/**',
     ],
@@ -65,6 +67,14 @@ export default [
           // Require a return tag for all functions
           checkGetters: false,
           forceRequireReturn: false,
+        },
+      ],
+      'jsdoc/require-example': [
+        'warn',
+        {
+          checkConstructors: false,
+          enableFixer: false,
+          exemptedBy: ['internal'],
         },
       ],
     },

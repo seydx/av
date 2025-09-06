@@ -578,6 +578,8 @@ export class Decoder implements Disposable {
    *
    * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
    *
+   * @internal
+   *
    */
   private async receiveFrameInternal(): Promise<Frame | null> {
     // Clear previous frame data

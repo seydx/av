@@ -600,6 +600,8 @@ export class Encoder implements Disposable {
    * @returns Cloned packet or null
    *
    * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
+   *
+   * @internal
    */
   private async receivePacket(): Promise<Packet | null> {
     // Clear previous packet data

@@ -113,7 +113,10 @@ export class IOStream {
    *
    * @param buffer - Source buffer
    * @param bufferSize - Internal buffer size
+   *
    * @returns Configured I/O context
+   *
+   * @internal
    */
   private static createFromBuffer(buffer: Buffer, bufferSize: number): IOContext {
     let position = 0;
@@ -164,9 +167,12 @@ export class IOStream {
    *
    * @param callbacks - User I/O callbacks
    * @param bufferSize - Internal buffer size
+   *
    * @returns Configured I/O context
    *
    * @throws {Error} If read callback not provided
+   *
+   * @internal
    */
   private static createFromCallbacks(callbacks: IOInputCallbacks, bufferSize: number): IOContext {
     // We only support read mode in the high-level API

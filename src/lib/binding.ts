@@ -289,6 +289,8 @@ export type OptionCapableObject =
  * Load the native binding
  *
  * @returns The loaded native binding interface
+ *
+ * @internal
  */
 function loadBinding(): NativeBinding {
   const require = createRequire(import.meta.url);

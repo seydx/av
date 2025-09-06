@@ -612,8 +612,11 @@ export class FilterAPI implements Disposable {
    * For video, may use hardware frames context from first frame.
    *
    * @param firstFrame - First frame for hardware detection (video only)
+   *
    * @throws {Error} If initialization fails
    * @throws {FFmpegError} If configuration fails
+   *
+   * @internal
    */
   private async initialize(firstFrame: Frame | null): Promise<void> {
     // Create graph
@@ -667,8 +670,11 @@ export class FilterAPI implements Disposable {
    * Create buffer source with hardware frames context.
    *
    * @param frame - Frame with hw_frames_ctx
+   *
    * @throws {Error} If creation fails
    * @throws {FFmpegError} If configuration fails
+   *
+   * @internal
    */
   private createBufferSourceWithHwFrames(frame: Frame): void {
     const filterName = 'buffer';
@@ -705,6 +711,8 @@ export class FilterAPI implements Disposable {
    * Create standard buffer source.
    *
    * @throws {Error} If creation fails
+   *
+   * @internal
    */
   private createBufferSource(): void {
     const filterName = this.config.type === 'video' ? 'buffer' : 'abuffer';
@@ -743,6 +751,8 @@ export class FilterAPI implements Disposable {
    * Create buffer sink.
    *
    * @throws {Error} If creation fails
+   *
+   * @internal
    */
   private createBufferSink(): void {
     if (!this.graph) {
@@ -765,8 +775,11 @@ export class FilterAPI implements Disposable {
    * Parse filter description and build graph.
    *
    * @param description - Filter description string
+   *
    * @throws {Error} If parsing fails
    * @throws {FFmpegError} If graph construction fails
+   *
+   * @internal
    */
   private parseFilterDescription(description: string): void {
     if (!this.graph) {
@@ -812,7 +825,10 @@ export class FilterAPI implements Disposable {
    *
    * @param description - Filter description
    * @param options - Filter options
+   *
    * @throws {Error} If hardware requirements not met
+   *
+   * @internal
    */
   private checkHardwareRequirements(description: string, options: FilterOptions): void {
     if (this.config.type !== 'video') {

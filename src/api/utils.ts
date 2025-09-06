@@ -70,6 +70,8 @@ class BitWriter {
  * @param length - The number of bits to extract
  *
  * @returns The extracted bit value
+ *
+ * @internal
  */
 function getBit(bits: number, startIndex: number, length = 1): number {
   let bin = bits.toString(2).split('');

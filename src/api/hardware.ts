@@ -631,6 +631,8 @@ export class HardwareContext implements Disposable {
    * Used internally for frame format configuration.
    *
    * @returns Hardware-specific pixel format
+   *
+   * @internal
    */
   private getHardwareDecoderPixelFormat(): AVPixelFormat {
     switch (this._deviceType) {
@@ -670,7 +672,10 @@ export class HardwareContext implements Disposable {
    * Used internally by getEncoderCodec.
    *
    * @param encoderCodec - Encoder to test
+   *
    * @returns true if encoder can be initialized
+   *
+   * @internal
    */
   private async testHardwareEncoder(encoderCodec: FFEncoderCodec | AVCodecID | Codec): Promise<boolean> {
     let codec: Codec | null = null;
@@ -707,7 +712,10 @@ export class HardwareContext implements Disposable {
    * @param deviceType - AVHWDeviceType enum value
    * @param device - Optional device specifier
    * @param options - Optional device options
+   *
    * @returns Hardware context or null if creation fails
+   *
+   * @internal
    */
   private static createFromType(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): HardwareContext | null {
     const deviceCtx = new HardwareDeviceContext();
@@ -742,6 +750,8 @@ export class HardwareContext implements Disposable {
    * Ensures optimal hardware selection for each platform.
    *
    * @returns Array of AVHWDeviceType values in preference order
+   *
+   * @internal
    */
   private static getPreferenceOrder(): AVHWDeviceType[] {
     // Get all available hardware types on this system
