@@ -6,7 +6,7 @@ concurrency:
 
 env:
   CACHE_VERSION_WINDOWS: "v13"
-  CACHE_VERSION_LINUX: "v25"
+  CACHE_VERSION_LINUX: "v26"
   CACHE_VERSION_MACOS: "v11"
 
 on:
