@@ -126,7 +126,7 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * @example
  * ```typescript
  * const decoder = await Decoder.create(input.video());
- * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
  * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb');
  * const control = pipeline(input, decoder, encoder, bsf, output);
  * await control.completion;
@@ -149,7 +149,7 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder,
  * ```typescript
  * const decoder = await Decoder.create(input.video());
  * const filter = await FilterAPI.create('scale=640:480');
- * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
  * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb');
  * const control = pipeline(input, decoder, filter, encoder, bsf, output);
  * await control.completion;
@@ -180,7 +180,7 @@ export function pipeline(
  * const decoder = await Decoder.create(input.video());
  * const scaleFilter = await FilterAPI.create('scale=640:480');
  * const cropFilter = await FilterAPI.create('crop=640:360');
- * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
  * const control = pipeline(input, decoder, scaleFilter, cropFilter, encoder, output);
  * await control.completion;
  * ```
@@ -235,7 +235,7 @@ export function pipeline(source: MediaInput, bsf: BitStreamFilterAPI | BitStream
  * // Process frames from custom source
  * const frameSource = generateFrames(); // Your async frame generator
  * const filter = await FilterAPI.create('scale=1920:1080');
- * const encoder = await Encoder.create('libx264', streamInfo);
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
  * const control = pipeline(frameSource, filter, encoder, output);
  * await control.completion;
  * ```
@@ -254,7 +254,7 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * ```typescript
  * // Encode raw frames directly
  * const frameSource = generateFrames(); // Your async frame generator
- * const encoder = await Encoder.create('libx264', streamInfo);
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
  * const control = pipeline(frameSource, encoder, output);
  * await control.completion;
  * ```
@@ -317,7 +317,7 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * // Get encoded packets for custom output handling
  * const decoder = await Decoder.create(input.video());
  * const filter = await FilterAPI.create('scale=640:480');
- * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
  * const packets = pipeline(input, decoder, filter, encoder);
  * for await (const packet of packets) {
  *   // Handle encoded packet
@@ -339,7 +339,7 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * ```typescript
  * // Transcode to packets for custom output
  * const decoder = await Decoder.create(input.video());
- * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
  * const packets = pipeline(input, decoder, encoder);
  * for await (const packet of packets) {
  *   // Handle transcoded packet
@@ -381,7 +381,7 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * ```typescript
  * // Encode frames to packets
  * const frameSource = generateFrames();
- * const encoder = await Encoder.create('libx264', streamInfo);
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
  * const packets = pipeline(frameSource, encoder);
  * for await (const packet of packets) {
  *   // Handle encoded packet
@@ -404,7 +404,7 @@ export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder): AsyncG
  * // Process frames with filter and encode to packets
  * const frameSource = generateFrames();
  * const filter = await FilterAPI.create('scale=640:480');
- * const encoder = await Encoder.create('libx264', streamInfo);
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
  * const packets = pipeline(frameSource, filter, encoder);
  * for await (const packet of packets) {
  *   // Handle encoded packet

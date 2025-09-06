@@ -19,10 +19,10 @@ import type { EncoderOptions, StreamInfo } from './types.js';
  * @example
  * ```typescript
  * import { Encoder } from 'node-av/api';
- * import { AV_CODEC_ID_H264 } from 'node-av/constants';
+ * import { AV_CODEC_ID_H264, FF_ENCODER_LIBX264 } from 'node-av/constants';
  *
  * // Create H.264 encoder
- * const encoder = await Encoder.create('libx264', {
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
  *   type: 'video',
  *   width: 1920,
  *   height: 1080,
@@ -108,7 +108,7 @@ export class Encoder implements Disposable {
    * ```typescript
    * // From decoder stream info
    * const streamInfo = decoder.getOutputStreamInfo();
-   * const encoder = await Encoder.create('libx264', streamInfo, {
+   * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo, {
    *   bitrate: '5M',
    *   gopSize: 60,
    *   options: {
@@ -121,7 +121,7 @@ export class Encoder implements Disposable {
    * @example
    * ```typescript
    * // With custom stream info
-   * const encoder = await Encoder.create('aac', {
+   * const encoder = await Encoder.create(FF_ENCODER_AAC, {
    *   type: 'audio',
    *   sampleRate: 48000,
    *   sampleFormat: AV_SAMPLE_FMT_FLTP,
@@ -538,7 +538,7 @@ export class Encoder implements Disposable {
    *
    * @example
    * ```typescript
-   * const encoder = await Encoder.create('libx264', streamInfo);
+   * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
    * try {
    *   // Use encoder
    * } finally {
@@ -634,7 +634,7 @@ export class Encoder implements Disposable {
    * @example
    * ```typescript
    * {
-   *   using encoder = await Encoder.create('libx264', streamInfo);
+   *   using encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
    *   // Encode frames...
    * } // Automatically closed
    * ```

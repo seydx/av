@@ -21,7 +21,7 @@ import type { ChannelLayout, CodecProfile } from './types.js';
  * @example
  * ```typescript
  * import { Codec, FFmpegError } from 'node-av';
- * import { AV_CODEC_ID_H264 } from 'node-av/constants';
+ * import { AV_CODEC_ID_H264, FF_ENCODER_LIBX264 } from 'node-av/constants';
  *
  * // Find decoder by ID
  * const decoder = Codec.findDecoder(AV_CODEC_ID_H264);
@@ -30,7 +30,7 @@ import type { ChannelLayout, CodecProfile } from './types.js';
  * }
  *
  * // Find encoder by name
- * const encoder = Codec.findEncoderByName('libx264');
+ * const encoder = Codec.findEncoderByName(FF_ENCODER_LIBX264);
  * if (!encoder) {
  *   throw new Error('libx264 encoder not available');
  * }
@@ -169,7 +169,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * @example
    * ```typescript
    * // Find specific H.264 encoder
-   * const x264 = Codec.findEncoderByName('libx264');
+   * const x264 = Codec.findEncoderByName(FF_ENCODER_LIBX264);
    * if (x264) {
    *   console.log('Found x264 encoder');
    * }
@@ -405,7 +405,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    *
    * @example
    * ```typescript
-   * const codec = Codec.findEncoderByName('libx264');
+   * const codec = Codec.findEncoderByName(FF_ENCODER_LIBX264);
    * if (codec?.isEncoder()) {
    *   console.log('This is an encoder');
    * }
