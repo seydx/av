@@ -863,6 +863,7 @@ export interface NativeOption {
 
 /**
  * Interface for classes that wrap native objects
+ *
  * @internal
  */
 export interface NativeWrapper<T> {

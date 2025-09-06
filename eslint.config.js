@@ -51,13 +51,14 @@ export default [
         'always',
         {
           count: 0,
-          startLines: null,
-          endLines: null,
+          startLines: 1,
+          endLines: 1,
           applyToEndTag: false,
           tags: {
             param: { lines: 'always', count: 0 },
             example: { lines: 'always', count: 1 },
             returns: { lines: 'always', count: 1 },
+            throws: { lines: 'always', count: 1 },
           },
         },
       ],

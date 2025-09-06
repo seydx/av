@@ -162,6 +162,7 @@ export class MediaInput implements AsyncDisposable {
    * @returns Opened media input instance
    *
    * @throws {Error} If format not found or open fails
+   *
    * @throws {FFmpegError} If FFmpeg operations fail
    *
    * @example

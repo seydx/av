@@ -84,6 +84,7 @@ export class Decoder implements Disposable {
    * @returns Configured decoder instance
    *
    * @throws {Error} If decoder not found for codec
+   *
    * @throws {FFmpegError} If codec initialization fails
    *
    * @example
@@ -272,6 +273,7 @@ export class Decoder implements Disposable {
    * @returns Decoded frame or null if more data needed
    *
    * @throws {Error} If decoder is closed
+   *
    * @throws {FFmpegError} If decoding fails
    *
    * @example
@@ -410,6 +412,7 @@ export class Decoder implements Disposable {
    * @param packets - Async iterable of packets
    * @yields Decoded frames
    * @throws {Error} If decoder is closed
+   *
    * @throws {FFmpegError} If decoding fails
    *
    * @example

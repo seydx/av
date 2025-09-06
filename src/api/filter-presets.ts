@@ -15,6 +15,7 @@ import {
   AVFILTER_FLAG_HWDEVICE,
 } from '../constants/constants.js';
 import { Filter } from '../lib/filter.js';
+import { HardwareDeviceContext } from '../lib/hardware-device-context.js';
 import { avGetPixFmtName, avGetSampleFmtName } from '../lib/utilities.js';
 
 import type { AVHWDeviceType, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
@@ -2206,7 +2207,7 @@ export class FilterPresets extends FilterPresetBase {
  * @example
  * ```typescript
  * // Create hardware presets for CUDA
- * const hw = new HardwareFilterPresets(AV_HWDEVICE_TYPE_CUDA, 'cuda');
+ * const hw = new HardwareFilterPresets(AV_HWDEVICE_TYPE_CUDA);
  *
  * // Check capabilities
  * if (hw.support.scale) {
@@ -2229,12 +2230,12 @@ export class HardwareFilterPresets extends FilterPresetBase {
 
   /**
    * @param deviceType - Hardware device type enum
-   * @param deviceTypeName - Hardware device type name (e.g., 'cuda', 'vaapi')
+   * @param deviceTypeName - Optional hardware device type name (e.g., 'cuda', 'vaapi')
    */
-  constructor(deviceType: AVHWDeviceType, deviceTypeName: string) {
+  constructor(deviceType: AVHWDeviceType, deviceTypeName?: string) {
     super();
     this.deviceType = deviceType;
-    this.deviceTypeName = deviceTypeName;
+    this.deviceTypeName = deviceTypeName ?? HardwareDeviceContext.getTypeName(deviceType)!;
     this.support = this.getSupport();
   }
 

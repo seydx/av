@@ -72,6 +72,7 @@ export class BitStreamFilterAPI implements Disposable {
    * @returns Configured bitstream filter
    *
    * @throws {Error} If filter not found or initialization fails
+   *
    * @throws {FFmpegError} If allocation or initialization fails
    *
    * @example
@@ -188,6 +189,7 @@ export class BitStreamFilterAPI implements Disposable {
    * @returns Array of filtered packets
    *
    * @throws {Error} If filter is disposed
+   *
    * @throws {FFmpegError} If filtering fails
    *
    * @example
@@ -254,6 +256,7 @@ export class BitStreamFilterAPI implements Disposable {
    * @param packets - Async iterable of packets
    * @yields Filtered packets
    * @throws {Error} If filter is disposed
+   *
    * @throws {FFmpegError} If filtering fails
    *
    * @example

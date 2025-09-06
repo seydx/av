@@ -101,6 +101,7 @@ export class Encoder implements Disposable {
    * @returns Configured encoder instance
    *
    * @throws {Error} If encoder not found or unsupported format
+   *
    * @throws {FFmpegError} If codec initialization fails
    *
    * @example
@@ -311,6 +312,7 @@ export class Encoder implements Disposable {
    * @returns Encoded packet or null if more data needed
    *
    * @throws {Error} If encoder is closed
+   *
    * @throws {FFmpegError} If encoding fails
    *
    * @example
@@ -380,6 +382,7 @@ export class Encoder implements Disposable {
    * @param frames - Async iterable of frames (freed automatically)
    * @yields Encoded packets (caller must free)
    * @throws {Error} If encoder is closed
+   *
    * @throws {FFmpegError} If encoding fails
    *
    * @example

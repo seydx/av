@@ -325,6 +325,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Option value as string, or null
+   *
+   * @example
+   * ```typescript
+   * // Get codec preset option
+   * const preset = Option.get(codecContext, 'preset', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Codec preset:', preset); // 'medium', 'fast', etc.
+   * ```
    */
   static get(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): string | null {
     return bindings.Option.get(obj, name, searchFlags);
@@ -339,6 +346,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Option value as integer, or null
+   *
+   * @example
+   * ```typescript
+   * // Get codec GOP size
+   * const gopSize = Option.getInt(codecContext, 'g', AV_OPT_SEARCH_CHILDREN);
+   * console.log('GOP size:', gopSize); // 60, 120, etc.
+   * ```
    */
   static getInt(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number | null {
     return bindings.Option.getInt(obj, name, searchFlags);
@@ -353,6 +367,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Option value as double, or null
+   *
+   * @example
+   * ```typescript
+   * // Get codec quality scale
+   * const crf = Option.getDouble(codecContext, 'crf', AV_OPT_SEARCH_CHILDREN);
+   * console.log('CRF value:', crf); // 23.0, 18.0, etc.
+   * ```
    */
   static getDouble(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number | null {
     return bindings.Option.getDouble(obj, name, searchFlags);
@@ -367,6 +388,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Option value as rational, or null
+   *
+   * @example
+   * ```typescript
+   * // Get codec time base
+   * const timeBase = Option.getRational(codecContext, 'time_base', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Time base:', timeBase); // { num: 1, den: 30 }
+   * ```
    */
   static getRational(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): IRational | null {
     return bindings.Option.getRational(obj, name, searchFlags);
@@ -381,6 +409,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Pixel format value, or null
+   *
+   * @example
+   * ```typescript
+   * // Get filter pixel format
+   * const pixFmt = Option.getPixelFormat(filterContext, 'pix_fmt', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Pixel format:', pixFmt); // AV_PIX_FMT_YUV420P, etc.
+   * ```
    */
   static getPixelFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): AVPixelFormat | null {
     return bindings.Option.getPixelFormat(obj, name, searchFlags);
@@ -395,6 +430,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Sample format value, or null
+   *
+   * @example
+   * ```typescript
+   * // Get audio codec sample format
+   * const sampleFmt = Option.getSampleFormat(codecContext, 'sample_fmt', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Sample format:', sampleFmt); // AV_SAMPLE_FMT_FLTP, etc.
+   * ```
    */
   static getSampleFormat(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): AVSampleFormat | null {
     return bindings.Option.getSampleFormat(obj, name, searchFlags);
@@ -409,6 +451,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Width and height, or null
+   *
+   * @example
+   * ```typescript
+   * // Get filter output size
+   * const size = Option.getImageSize(filterContext, 'size', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Output size:', size); // { width: 1920, height: 1080 }
+   * ```
    */
   static getImageSize(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): { width: number; height: number } | null {
     return bindings.Option.getImageSize(obj, name, searchFlags);
@@ -423,6 +472,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Channel layout, or null
+   *
+   * @example
+   * ```typescript
+   * // Get audio channel layout
+   * const layout = Option.getChannelLayout(codecContext, 'channel_layout', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Channel layout:', layout); // stereo, 5.1, etc.
+   * ```
    */
   static getChannelLayout(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): ChannelLayout | null {
     return bindings.Option.getChannelLayout(obj, name, searchFlags);
@@ -437,6 +493,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns Dictionary value, or null
+   *
+   * @example
+   * ```typescript
+   * // Get metadata dictionary
+   * const metadata = Option.getDict(formatContext, 'metadata', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Metadata:', metadata?.get('title'));
+   * ```
    */
   static getDict(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): Dictionary | null {
     const native = bindings.Option.getDict(obj, name, searchFlags);
@@ -453,6 +516,13 @@ export class Option {
    * @param value - String value
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set codec preset
+   * const ret = Option.set(codecContext, 'preset', 'fast', AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set preset');
+   * ```
    */
   static set(obj: OptionCapableObject, name: string, value: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.set(obj, name, value, searchFlags);
@@ -468,6 +538,13 @@ export class Option {
    * @param value - Integer value
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set codec bitrate
+   * const ret = Option.setInt(codecContext, 'b', 2000000, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set bitrate');
+   * ```
    */
   static setInt(obj: OptionCapableObject, name: string, value: number | bigint, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setInt(obj, name, value, searchFlags);
@@ -483,6 +560,13 @@ export class Option {
    * @param value - Double value
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set codec CRF value
+   * const ret = Option.setDouble(codecContext, 'crf', 23.0, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set CRF');
+   * ```
    */
   static setDouble(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setDouble(obj, name, value, searchFlags);
@@ -498,6 +582,13 @@ export class Option {
    * @param value - Rational value
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set codec frame rate
+   * const ret = Option.setRational(codecContext, 'framerate', { num: 30, den: 1 }, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set framerate');
+   * ```
    */
   static setRational(obj: OptionCapableObject, name: string, value: IRational, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setRational(obj, name, value, searchFlags);
@@ -513,6 +604,13 @@ export class Option {
    * @param value - Pixel format
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set filter pixel format
+   * const ret = Option.setPixelFormat(filterContext, 'pix_fmt', AV_PIX_FMT_YUV420P, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set pixel format');
+   * ```
    */
   static setPixelFormat(obj: OptionCapableObject, name: string, value: AVPixelFormat, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setPixelFormat(obj, name, value, searchFlags);
@@ -528,6 +626,13 @@ export class Option {
    * @param value - Sample format
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set audio codec sample format
+   * const ret = Option.setSampleFormat(codecContext, 'sample_fmt', AV_SAMPLE_FMT_FLTP, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set sample format');
+   * ```
    */
   static setSampleFormat(obj: OptionCapableObject, name: string, value: AVSampleFormat, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setSampleFormat(obj, name, value, searchFlags);
@@ -544,6 +649,13 @@ export class Option {
    * @param height - Image height
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set filter output size
+   * const ret = Option.setImageSize(filterContext, 'size', 1920, 1080, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set image size');
+   * ```
    */
   static setImageSize(obj: OptionCapableObject, name: string, width: number, height: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setImageSize(obj, name, width, height, searchFlags);
@@ -559,6 +671,13 @@ export class Option {
    * @param value - Channel layout
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set audio channel layout to stereo
+   * const ret = Option.setChannelLayout(codecContext, 'channel_layout', AV_CHANNEL_LAYOUT_STEREO, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set channel layout');
+   * ```
    */
   static setChannelLayout(obj: OptionCapableObject, name: string, value: number, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setChannelLayout(obj, name, value, searchFlags);
@@ -574,6 +693,15 @@ export class Option {
    * @param value - Dictionary value
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set metadata dictionary
+   * const dict = new Dictionary();
+   * dict.set('title', 'My Video');
+   * const ret = Option.setDict(formatContext, 'metadata', dict, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set metadata');
+   * ```
    */
   static setDict(obj: OptionCapableObject, name: string, value: Dictionary, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setDict(obj, name, value.getNative(), searchFlags);
@@ -589,6 +717,14 @@ export class Option {
    * @param value - Binary data
    * @param searchFlags - Search flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Set binary extradata
+   * const extradata = Buffer.from([0x00, 0x01, 0x02, 0x03]);
+   * const ret = Option.setBin(codecContext, 'extradata', extradata, AV_OPT_SEARCH_CHILDREN);
+   * FFmpegError.throwIfError(ret, 'Failed to set extradata');
+   * ```
    */
   static setBin(obj: OptionCapableObject, name: string, value: Buffer, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): number {
     return bindings.Option.setBin(obj, name, value, searchFlags);
@@ -602,6 +738,12 @@ export class Option {
    * Direct mapping to av_opt_set_defaults().
    *
    * @param obj - Object to reset
+   *
+   * @example
+   * ```typescript
+   * // Reset all codec options to defaults
+   * Option.setDefaults(codecContext);
+   * ```
    */
   static setDefaults(obj: OptionCapableObject): void {
     bindings.Option.setDefaults(obj);
@@ -617,6 +759,13 @@ export class Option {
    * @param dest - Destination object
    * @param src - Source object
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Copy options from one codec context to another
+   * const ret = Option.copy(destCodecContext, srcCodecContext);
+   * FFmpegError.throwIfError(ret, 'Failed to copy options');
+   * ```
    */
   static copy(dest: OptionCapableObject, src: OptionCapableObject): number {
     return bindings.Option.copy(dest, src);
@@ -631,6 +780,13 @@ export class Option {
    * @param name - Option name
    * @param searchFlags - Search flags
    * @returns True if default, false if modified, null if not found
+   *
+   * @example
+   * ```typescript
+   * // Check if bitrate is at default value
+   * const isDefault = Option.isSetToDefault(codecContext, 'b', AV_OPT_SEARCH_CHILDREN);
+   * console.log('Bitrate is default:', isDefault);
+   * ```
    */
   static isSetToDefault(obj: OptionCapableObject, name: string, searchFlags: AVOptionSearchFlags = AVFLAG_NONE): boolean | null {
     return bindings.Option.isSetToDefault(obj, name, searchFlags);
@@ -647,6 +803,13 @@ export class Option {
    * @param keyValSep - Key-value separator
    * @param pairsSep - Pairs separator
    * @returns Serialized string, or null on error
+   *
+   * @example
+   * ```typescript
+   * // Serialize codec options to string
+   * const serialized = Option.serialize(codecContext, 0, 0, '=', ':');
+   * console.log('Options:', serialized); // 'bitrate=2000000:preset=fast'
+   * ```
    */
   static serialize(obj: OptionCapableObject, optFlags = 0, flags = 0, keyValSep = '=', pairsSep = ','): string | null {
     return bindings.Option.serialize(obj, optFlags, flags, keyValSep, pairsSep);
@@ -658,6 +821,12 @@ export class Option {
    * Direct mapping to av_opt_free().
    *
    * @param obj - Object to free options from
+   *
+   * @example
+   * ```typescript
+   * // Free codec context options
+   * Option.free(codecContext);
+   * ```
    */
   static free(obj: OptionCapableObject): void {
     bindings.Option.free(obj);
@@ -672,6 +841,13 @@ export class Option {
    * @param reqFlags - Required flags
    * @param rejFlags - Rejected flags
    * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * // Show all codec options for debugging
+   * const ret = Option.show(codecContext, 0, 0);
+   * FFmpegError.throwIfError(ret, 'Failed to show options');
+   * ```
    */
   static show(obj: OptionCapableObject, reqFlags = 0, rejFlags = 0): number {
     return bindings.Option.show(obj, reqFlags, rejFlags);

@@ -93,6 +93,7 @@ export class MediaOutput implements AsyncDisposable {
    * @returns Opened media output instance
    *
    * @throws {Error} If format required for custom I/O
+   *
    * @throws {FFmpegError} If allocation or opening fails
    *
    * @example
@@ -315,6 +316,7 @@ export class MediaOutput implements AsyncDisposable {
    * @param packet - Packet to write
    * @param streamIndex - Target stream index
    * @throws {Error} If stream invalid or called at wrong time
+   *
    * @throws {FFmpegError} If write fails
    *
    * @example
@@ -391,6 +393,7 @@ export class MediaOutput implements AsyncDisposable {
    * Direct mapping to avformat_write_header().
    *
    * @throws {Error} If already written or output closed
+   *
    * @throws {FFmpegError} If write fails
    *
    * @example
@@ -430,6 +433,7 @@ export class MediaOutput implements AsyncDisposable {
    * Direct mapping to av_write_trailer().
    *
    * @throws {Error} If header not written or already written
+   *
    * @throws {FFmpegError} If write fails
    *
    * @example

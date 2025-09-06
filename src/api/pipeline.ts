@@ -26,6 +26,7 @@ export type NamedOutputs<K extends StreamName = StreamName> = Pick<Record<Stream
 
 /**
  * Internal metadata for tracking stream components.
+ *
  * @internal
  */
 interface StreamMetadata {
@@ -121,6 +122,15 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * @param bsf - Bitstream filter for packet processing
  * @param output - Media output destination
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * const decoder = await Decoder.create(input.video());
+ * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb');
+ * const control = pipeline(input, decoder, encoder, bsf, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder, bsf: BitStreamFilterAPI | BitStreamFilterAPI[], output: MediaOutput): PipelineControl;
 
@@ -134,6 +144,16 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder,
  * @param bsf - Bitstream filter
  * @param output - Media output destination
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * const decoder = await Decoder.create(input.video());
+ * const filter = await FilterAPI.create('scale=640:480');
+ * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb');
+ * const control = pipeline(input, decoder, filter, encoder, bsf, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(
   source: MediaInput,
@@ -154,6 +174,16 @@ export function pipeline(
  * @param encoder - Encoder for encoding frames
  * @param output - Media output destination
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * const decoder = await Decoder.create(input.video());
+ * const scaleFilter = await FilterAPI.create('scale=640:480');
+ * const cropFilter = await FilterAPI.create('crop=640:360');
+ * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const control = pipeline(input, decoder, scaleFilter, cropFilter, encoder, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder, filter1: FilterAPI, filter2: FilterAPI, encoder: Encoder, output: MediaOutput): PipelineControl;
 
@@ -180,6 +210,14 @@ export function pipeline(source: MediaInput, output: MediaOutput): PipelineContr
  * @param bsf - Bitstream filter for packet processing
  * @param output - Media output destination
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * // Convert H.264 stream format while copying
+ * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb');
+ * const control = pipeline(input, bsf, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: MediaInput, bsf: BitStreamFilterAPI | BitStreamFilterAPI[], output: MediaOutput): PipelineControl;
 
@@ -191,6 +229,16 @@ export function pipeline(source: MediaInput, bsf: BitStreamFilterAPI | BitStream
  * @param encoder - Encoder for encoding frames
  * @param output - Media output destination
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * // Process frames from custom source
+ * const frameSource = generateFrames(); // Your async frame generator
+ * const filter = await FilterAPI.create('scale=1920:1080');
+ * const encoder = await Encoder.create('libx264', streamInfo);
+ * const control = pipeline(frameSource, filter, encoder, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | FilterAPI[], encoder: Encoder, output: MediaOutput): PipelineControl;
 
@@ -201,6 +249,15 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * @param encoder - Encoder for encoding frames
  * @param output - Media output destination
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * // Encode raw frames directly
+ * const frameSource = generateFrames(); // Your async frame generator
+ * const encoder = await Encoder.create('libx264', streamInfo);
+ * const control = pipeline(frameSource, encoder, output);
+ * await control.completion;
+ * ```
  */
 export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder, output: MediaOutput): PipelineControl;
 
@@ -210,6 +267,17 @@ export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder, output:
  * @param source - Media input source
  * @param decoder - Decoder for decoding packets
  * @returns Async generator of frames
+ *
+ * @example
+ * ```typescript
+ * // Get decoded frames for custom processing
+ * const decoder = await Decoder.create(input.video());
+ * const frames = pipeline(input, decoder);
+ * for await (const frame of frames) {
+ *   // Process frame
+ *   frame.free();
+ * }
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder): AsyncGenerator<Frame>;
 
@@ -220,6 +288,18 @@ export function pipeline(source: MediaInput, decoder: Decoder): AsyncGenerator<F
  * @param decoder - Decoder for decoding packets
  * @param filter - Filter or filter chain
  * @returns Async generator of frames
+ *
+ * @example
+ * ```typescript
+ * // Get filtered frames for custom processing
+ * const decoder = await Decoder.create(input.video());
+ * const filter = await FilterAPI.create('scale=640:480');
+ * const frames = pipeline(input, decoder, filter);
+ * for await (const frame of frames) {
+ *   // Process filtered frame
+ *   frame.free();
+ * }
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI | FilterAPI[]): AsyncGenerator<Frame>;
 
@@ -231,6 +311,19 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * @param filter - Filter or filter chain
  * @param encoder - Encoder for encoding frames
  * @returns Async generator of packets
+ *
+ * @example
+ * ```typescript
+ * // Get encoded packets for custom output handling
+ * const decoder = await Decoder.create(input.video());
+ * const filter = await FilterAPI.create('scale=640:480');
+ * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const packets = pipeline(input, decoder, filter, encoder);
+ * for await (const packet of packets) {
+ *   // Handle encoded packet
+ *   packet.free();
+ * }
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI | FilterAPI[], encoder: Encoder): AsyncGenerator<Packet>;
 
@@ -241,6 +334,18 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * @param decoder - Decoder for decoding packets
  * @param encoder - Encoder for encoding frames
  * @returns Async generator of packets
+ *
+ * @example
+ * ```typescript
+ * // Transcode to packets for custom output
+ * const decoder = await Decoder.create(input.video());
+ * const encoder = await Encoder.create('libx264', decoder.getOutputStreamInfo());
+ * const packets = pipeline(input, decoder, encoder);
+ * for await (const packet of packets) {
+ *   // Handle transcoded packet
+ *   packet.free();
+ * }
+ * ```
  */
 export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder): AsyncGenerator<Packet>;
 
@@ -250,6 +355,18 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder)
  * @param source - Frame source (async iterable)
  * @param filter - Filter or filter chain
  * @returns Async generator of filtered frames
+ *
+ * @example
+ * ```typescript
+ * // Filter frames from custom source
+ * const frameSource = generateFrames();
+ * const filter = await FilterAPI.create('scale=640:480');
+ * const filteredFrames = pipeline(frameSource, filter);
+ * for await (const frame of filteredFrames) {
+ *   // Process filtered frame
+ *   frame.free();
+ * }
+ * ```
  */
 export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | FilterAPI[]): AsyncGenerator<Frame>;
 
@@ -259,6 +376,18 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * @param source - Frame source (async iterable)
  * @param encoder - Encoder for encoding frames
  * @returns Async generator of packets
+ *
+ * @example
+ * ```typescript
+ * // Encode frames to packets
+ * const frameSource = generateFrames();
+ * const encoder = await Encoder.create('libx264', streamInfo);
+ * const packets = pipeline(frameSource, encoder);
+ * for await (const packet of packets) {
+ *   // Handle encoded packet
+ *   packet.free();
+ * }
+ * ```
  */
 export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder): AsyncGenerator<Packet>;
 
@@ -269,6 +398,19 @@ export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder): AsyncG
  * @param filter - Filter or filter chain
  * @param encoder - Encoder for encoding frames
  * @returns Async generator of packets
+ *
+ * @example
+ * ```typescript
+ * // Process frames with filter and encode to packets
+ * const frameSource = generateFrames();
+ * const filter = await FilterAPI.create('scale=640:480');
+ * const encoder = await Encoder.create('libx264', streamInfo);
+ * const packets = pipeline(frameSource, filter, encoder);
+ * for await (const packet of packets) {
+ *   // Handle encoded packet
+ *   packet.free();
+ * }
+ * ```
  */
 export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | FilterAPI[], encoder: Encoder): AsyncGenerator<Packet>;
 
@@ -283,6 +425,20 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * @param stages - Named processing stages for each stream
  * @param output - Single output destination for all streams
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * // Named pipeline for muxing
+ * const control = pipeline(
+ *   { video: videoInput, audio: audioInput },
+ *   {
+ *     video: [videoDecoder, scaleFilter, videoEncoder],
+ *     audio: [audioDecoder, volumeFilter, audioEncoder]
+ *   },
+ *   output
+ * );
+ * await control.completion;
+ * ```
  */
 export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: NamedStages<K>, output: MediaOutput): PipelineControl;
 
@@ -293,6 +449,20 @@ export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: N
  * @param stages - Named processing stages for each stream
  * @param outputs - Named output destinations
  * @returns Pipeline control for managing execution
+ *
+ * @example
+ * ```typescript
+ * // Named pipeline for audio/video processing
+ * const control = pipeline(
+ *   { video: videoInput, audio: audioInput },
+ *   {
+ *     video: [videoDecoder, scaleFilter, videoEncoder],
+ *     audio: [audioDecoder, volumeFilter, audioEncoder]
+ *   },
+ *   { video: videoOutput, audio: audioOutput }
+ * );
+ * await control.completion;
+ * ```
  */
 export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: NamedStages<K>, outputs: NamedOutputs<K>): PipelineControl;
 
@@ -302,6 +472,30 @@ export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: N
  * @param inputs - Named input sources
  * @param stages - Named processing stages
  * @returns Record of async generators for each stream
+ *
+ * @example
+ * ```typescript
+ * // Partial named pipeline
+ * const generators = pipeline(
+ *   { video: videoInput, audio: audioInput },
+ *   {
+ *     video: [videoDecoder, scaleFilter, videoEncoder],
+ *     audio: [audioDecoder, volumeFilter, audioEncoder]
+ *   }
+ * );
+ *
+ * // Access individual generators
+ * const videoGenerator = generators.video;
+ * const audioGenerator = generators.audio;
+ *
+ * // Use the generators
+ * for await (const packet of videoGenerator) {
+ *   // Process video packet
+ * }
+ * for await (const packet of audioGenerator) {
+ *   // Process audio packet
+ * }
+ * ```
  */
 export function pipeline<K extends StreamName, T extends Packet | Frame = Packet | Frame>(inputs: NamedInputs<K>, stages: NamedStages<K>): Record<K, AsyncGenerator<T>>;
 
@@ -376,6 +570,7 @@ export function pipeline(...args: any[]): PipelineControl | AsyncGenerator<Packe
 
 /**
  * Pipeline control implementation.
+ *
  * @internal
  */
 class PipelineControlImpl implements PipelineControl {
@@ -393,6 +588,14 @@ class PipelineControlImpl implements PipelineControl {
 
   /**
    * Stop the pipeline.
+   *
+   * @example
+   * ```typescript
+   * const control = pipeline(input, decoder, filter, encoder, output);
+   * control.stop();
+   * ```
+   *
+   * @see {@link PipelineControl.isStopped}
    */
   stop(): void {
     this._stopped = true;
@@ -402,6 +605,14 @@ class PipelineControlImpl implements PipelineControl {
    * Check if pipeline is stopped.
    *
    * @returns True if stopped
+   *
+   * @example
+   * ```typescript
+   * const control = pipeline(input, decoder, filter, encoder, output);
+   * const isStopped = control.isStopped();
+   * ```
+   *
+   * @see {@link PipelineControl.stop}
    */
   isStopped(): boolean {
     return this._stopped;

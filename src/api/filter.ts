@@ -84,6 +84,7 @@ export class FilterAPI implements Disposable {
    * @returns Configured filter instance
    *
    * @throws {Error} If filter creation or configuration fails
+   *
    * @throws {FFmpegError} If graph parsing or config fails
    *
    * @example
@@ -166,6 +167,7 @@ export class FilterAPI implements Disposable {
    * @returns Filtered frame or null if buffered
    *
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If processing fails
    *
    * @example
@@ -236,6 +238,7 @@ export class FilterAPI implements Disposable {
    * @returns Array of all output frames
    *
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If processing fails
    *
    * @example
@@ -280,6 +283,7 @@ export class FilterAPI implements Disposable {
    * @returns Buffered frame or null if none available
    *
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If receive fails
    *
    * @example
@@ -326,6 +330,7 @@ export class FilterAPI implements Disposable {
    * Direct mapping to av_buffersrc_add_frame(NULL).
    *
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If flush fails
    *
    * @example
@@ -360,6 +365,7 @@ export class FilterAPI implements Disposable {
    *
    * @yields Remaining frames from filter
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If flush fails
    *
    * @example
@@ -398,6 +404,7 @@ export class FilterAPI implements Disposable {
    * @param frames - Async generator of input frames
    * @yields Filtered frames
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If processing fails
    *
    * @example
@@ -469,6 +476,7 @@ export class FilterAPI implements Disposable {
    * @returns Response string from filter
    *
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If command fails
    *
    * @example
@@ -508,6 +516,7 @@ export class FilterAPI implements Disposable {
    * @param ts - Timestamp for execution
    * @param flags - Command flags
    * @throws {Error} If filter not ready
+   *
    * @throws {FFmpegError} If queue fails
    *
    * @example
@@ -614,6 +623,7 @@ export class FilterAPI implements Disposable {
    * @param firstFrame - First frame for hardware detection (video only)
    *
    * @throws {Error} If initialization fails
+   *
    * @throws {FFmpegError} If configuration fails
    *
    * @internal
@@ -672,6 +682,7 @@ export class FilterAPI implements Disposable {
    * @param frame - Frame with hw_frames_ctx
    *
    * @throws {Error} If creation fails
+   *
    * @throws {FFmpegError} If configuration fails
    *
    * @internal
@@ -777,6 +788,7 @@ export class FilterAPI implements Disposable {
    * @param description - Filter description string
    *
    * @throws {Error} If parsing fails
+   *
    * @throws {FFmpegError} If graph construction fails
    *
    * @internal
