@@ -43,7 +43,6 @@ debug.txt
 /build
 /build2
 .tmp
-go-astiav
 ffmpeg_examples
 /script.ts
 /output.txt
@@ -65,3 +64,4 @@ ffmpeg_examples
 /docs/highlevel
 /docs/api
 /docs/index.md
+/projects

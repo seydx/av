@@ -33,5 +33,6 @@
     "scripts",
     "test",
     "externals",
+    "projects",
   ]
 }
