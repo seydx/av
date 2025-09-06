@@ -134,7 +134,7 @@ export const AVERROR_ERANGE = getCachedError(PosixError.ERANGE);
  * console.error(`Error: ${errorMsg}`);
  * ```
  *
- * @see [av_strerror](https://ffmpeg.org/doxygen/trunk/group__lavu__error.html#ga5792b4a2d18d7d9cb0efbcfc335dce2d) - FFmpeg Doxygen
+ * @see [av_strerror](https://ffmpeg.org/doxygen/trunk/group__lavu__error.html) - FFmpeg Doxygen
  */
 export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegError> {
   private native: NativeFFmpegError;

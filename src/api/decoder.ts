@@ -1,5 +1,5 @@
-import { AVERROR_EOF, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
-import { AVERROR_EAGAIN, Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
+import { AVERROR_EAGAIN, AVERROR_EOF, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
+import { Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
 
 import type { Packet, Stream } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';

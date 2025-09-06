@@ -814,6 +814,11 @@ const __ffmpeg_brand = Symbol('__ffmpeg_brand');
     processedTypes.add('AVError');
   }
 
+  // Re-export errors from low level api
+  output += '// Re-exported FFmpeg errors\n';
+  output +=
+    "export { AVERROR_EACCES, AVERROR_EAGAIN, AVERROR_EBUSY, AVERROR_EEXIST, AVERROR_EINVAL, AVERROR_EIO, AVERROR_EISDIR, AVERROR_EMFILE, AVERROR_ENODEV, AVERROR_ENOENT, AVERROR_ENOMEM, AVERROR_ENOSPC, AVERROR_ENOTDIR, AVERROR_EPERM, AVERROR_EPIPE, AVERROR_ERANGE } from '../lib/error.js';\n\n";
+
   // Add special time constants
   output += '// Special time constants\n';
   output += 'export const AV_NOPTS_VALUE = -9223372036854775808n; // INT64_MIN\n\n';
