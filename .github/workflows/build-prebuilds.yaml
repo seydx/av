@@ -24,12 +24,14 @@ on:
       - "test/**"
       - "externals/jellyfin-ffmpeg/**"
       - ".github/workflows/build-prebuilds.yaml"
+      - "binding-jellyfin.gyp"
   pull_request:
     paths:
       - "src/**"
       - "test/**"
       - "externals/jellyfin-ffmpeg/**"
       - ".github/workflows/build-prebuilds.yaml"
+      - "binding-jellyfin.gyp"
 
 jobs:
   build_windows:
