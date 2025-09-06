@@ -391,7 +391,6 @@ jobs:
           # Set up environment variables that node-gyp will use
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
 
-          # Use Clang 14 to match the Docker build environment (Ubuntu 22.04)
           export CC=clang-14
           export CXX=clang++-14
           export AR=llvm-ar-14

@@ -248,7 +248,8 @@
                   "libraries": [
                     "-lva",
                     "-lva-drm",
-                    "-lva-x11"
+                    "-lva-x11",
+                    "-ldrm"
                   ]
                 }
               ],
