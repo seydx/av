@@ -38,7 +38,7 @@ import {
   AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_VULKAN,
 } from '../constants/constants.js';
-import { Codec, CodecContext, Dictionary, HardwareDeviceContext, Rational } from '../lib/index.js';
+import { Codec, CodecContext, Dictionary, FFmpegError, HardwareDeviceContext, Rational } from '../lib/index.js';
 import { HardwareFilterPresets } from './filter-presets.js';
 
 import type { AVCodecID, AVHWDeviceType, AVPixelFormat, FFEncoderCodec } from '../constants/index.js';
@@ -142,13 +142,7 @@ export class HardwareContext implements Disposable {
 
     for (const deviceType of preferenceOrder) {
       try {
-        const hw = this.createFromType(deviceType, options.device, options.options);
-        if (hw) {
-          return hw;
-        } else {
-          // Try next device type
-          continue;
-        }
+        return this.createFromType(deviceType, options.device, options.options);
       } catch {
         // Try next device type
         continue;
@@ -200,9 +194,12 @@ export class HardwareContext implements Disposable {
       throw new Error('Cannot create hardware context for unknown hardware device type');
     }
 
-    const hw = this.createFromType(deviceType, device, options);
-    if (!hw) {
-      throw new Error(`Failed to create hardware context for ${HardwareDeviceContext.getTypeName(deviceType) ?? 'unknown'} hardware`);
+    let hw: HardwareContext;
+
+    try {
+      hw = this.createFromType(deviceType, device, options);
+    } catch (err) {
+      throw new Error(`Failed to create hardware context for ${HardwareDeviceContext.getTypeName(deviceType) ?? 'unknown'}: ${(err as Error).message}`);
     }
 
     return hw;
@@ -717,7 +714,7 @@ export class HardwareContext implements Disposable {
    *
    * @internal
    */
-  private static createFromType(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): HardwareContext | null {
+  private static createFromType(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): HardwareContext {
     const deviceCtx = new HardwareDeviceContext();
 
     // Convert options to Dictionary if provided
@@ -737,7 +734,8 @@ export class HardwareContext implements Disposable {
 
     if (ret < 0 || !deviceTypeName) {
       deviceCtx.free();
-      return null;
+      FFmpegError.throwIfError(ret);
+      throw new Error('Unknown error creating hardware device context');
     }
 
     return new HardwareContext(deviceCtx, deviceType, deviceTypeName);
