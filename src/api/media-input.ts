@@ -247,13 +247,8 @@ export class MediaInput implements AsyncDisposable {
 
     try {
       // Create options dictionary if options are provided
-      if (options.options && Object.keys(options.options).length > 0) {
-        // Convert all values to strings for FFmpeg
-        const stringOptions: Record<string, string> = {};
-        for (const [key, value] of Object.entries(options.options)) {
-          stringOptions[key] = String(value);
-        }
-        optionsDict = Dictionary.fromObject(stringOptions);
+      if (options.options) {
+        optionsDict = Dictionary.fromObject(options.options);
       }
 
       // Find input format if specified
