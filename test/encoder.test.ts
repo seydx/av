@@ -8,22 +8,12 @@ import { skipInCI } from './index.js';
 describe('Encoder', () => {
   describe('create', () => {
     it('should create video encoder', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {
-          bitrate: '1M',
-          gopSize: 30,
-        },
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        bitrate: '1M',
+        gopSize: 30,
+      });
 
       assert.ok(encoder);
       assert.equal(encoder.isEncoderOpen, true);
@@ -33,19 +23,10 @@ describe('Encoder', () => {
     });
 
     it('should create audio encoder', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_AAC,
-        {
-          type: 'audio',
-          sampleRate: 44100,
-          sampleFormat: AV_SAMPLE_FMT_FLTP,
-          channelLayout: { nbChannels: 2, order: 1, mask: 3n }, // order: 1 for native layout
-          timeBase: { num: 1, den: 44100 },
-        },
-        {
-          bitrate: '128k',
-        },
-      );
+      const encoder = await Encoder.create(FF_ENCODER_AAC, {
+        timeBase: { num: 1, den: 44100 },
+        bitrate: '128k',
+      });
 
       assert.ok(encoder);
       assert.equal(encoder.isEncoderOpen, true);
@@ -55,45 +36,25 @@ describe('Encoder', () => {
     });
 
     it('should create encoder with thread options', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {
-          threads: 4,
-        },
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        threads: 4,
+      });
 
       assert.ok(encoder);
       encoder.close();
     });
 
     it('should create encoder with codec options', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        options: {
+          preset: 'fast',
+          crf: '23',
         },
-        {
-          options: {
-            preset: 'fast',
-            crf: '23',
-          },
-        },
-      );
+      });
 
       assert.ok(encoder);
       encoder.close();
@@ -109,19 +70,10 @@ describe('Encoder', () => {
       ];
 
       for (const { input, desc } of testCases) {
-        const encoder = await Encoder.create(
-          FF_ENCODER_AAC,
-          {
-            type: 'audio',
-            sampleRate: 44100,
-            sampleFormat: AV_SAMPLE_FMT_FLTP,
-            channelLayout: { nbChannels: 2, order: 1, mask: 3n },
-            timeBase: { num: 1, den: 44100 },
-          },
-          {
-            bitrate: input,
-          },
-        );
+        const encoder = await Encoder.create(FF_ENCODER_AAC, {
+          timeBase: { num: 1, den: 44100 },
+          bitrate: input,
+        });
 
         assert.ok(encoder, `Should create encoder with ${desc} bitrate`);
         encoder.close();
@@ -131,19 +83,9 @@ describe('Encoder', () => {
     it('should throw for unknown encoder', async () => {
       await assert.rejects(
         async () =>
-          await Encoder.create(
-            'unknown_encoder' as any,
-            {
-              type: 'video',
-              width: 640,
-              height: 480,
-              pixelFormat: AV_PIX_FMT_YUV420P,
-              frameRate: { num: 25, den: 1 },
-              timeBase: { num: 1, den: 25 },
-              sampleAspectRatio: { num: 1, den: 1 },
-            },
-            {},
-          ),
+          await Encoder.create('unknown_encoder' as any, {
+            timeBase: { num: 1, den: 25 },
+          }),
         /Encoder unknown_encoder not found/,
       );
     });
@@ -151,62 +93,23 @@ describe('Encoder', () => {
     it('should throw for invalid bitrate format', async () => {
       await assert.rejects(
         async () =>
-          await Encoder.create(
-            FF_ENCODER_AAC,
-            {
-              type: 'audio',
-              sampleRate: 44100,
-              sampleFormat: AV_SAMPLE_FMT_FLTP,
-              channelLayout: { nbChannels: 2, order: 1, mask: 3n },
-              timeBase: { num: 1, den: 44100 },
-            },
-            {
-              bitrate: 'invalid',
-            },
-          ),
+          await Encoder.create(FF_ENCODER_AAC, {
+            timeBase: { num: 1, den: 44100 },
+            bitrate: 'invalid',
+          }),
         /Invalid bitrate/,
-      );
-    });
-
-    it('should throw for invalid pixel format', async () => {
-      await assert.rejects(
-        async () =>
-          await Encoder.create(
-            FF_ENCODER_LIBX264,
-            {
-              type: 'video',
-              width: 640,
-              height: 480,
-              pixelFormat: -99 as any,
-              frameRate: { num: 25, den: 1 },
-              timeBase: { num: 1, den: 25 },
-              sampleAspectRatio: { num: 1, den: 1 },
-            },
-            {},
-          ),
-        /Unsupported pixel format/,
       );
     });
   });
 
   describe('encode', () => {
     it('should encode video frames', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {
-          bitrate: '500k',
-          gopSize: 10,
-        },
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        bitrate: '500k',
+        gopSize: 10,
+      });
 
       // Create test frame
       const frame = new Frame();
@@ -244,28 +147,15 @@ describe('Encoder', () => {
     });
 
     it('should encode audio frames', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_AAC,
-        {
-          type: 'audio',
-          sampleRate: 44100,
-          sampleFormat: AV_SAMPLE_FMT_FLTP,
-          channelLayout: { nbChannels: 2, order: 1, mask: 3n },
-          timeBase: { num: 1, den: 44100 },
-        },
-        {
-          bitrate: '128k',
-        },
-      );
+      const encoder = await Encoder.create(FF_ENCODER_AAC, {
+        timeBase: { num: 1, den: 44100 },
+        bitrate: '128k',
+      });
 
-      // AAC encoder might need to know frame size
-      const codecContext = encoder.getCodecContext();
-      const frameSize = codecContext?.frameSize ?? 1024;
-
-      // Create test frame
+      // Create test frame with typical AAC frame size
       const frame = new Frame();
       frame.alloc();
-      frame.nbSamples = frameSize;
+      frame.nbSamples = 1024; // Typical AAC frame size
       frame.sampleRate = 44100;
       frame.format = AV_SAMPLE_FMT_FLTP;
       frame.channelLayout = { nbChannels: 2, order: 1, mask: 3n };
@@ -283,19 +173,10 @@ describe('Encoder', () => {
     });
 
     it('should handle null packets gracefully', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+      });
 
       // Create and encode frame
       const frame = new Frame();
@@ -316,24 +197,28 @@ describe('Encoder', () => {
     });
 
     it('should throw when encoder is closed', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+      });
+
+      // Initialize encoder with a frame first
+      const initFrame = new Frame();
+      initFrame.alloc();
+      initFrame.width = 320;
+      initFrame.height = 240;
+      initFrame.format = AV_PIX_FMT_YUV420P;
+      initFrame.getBuffer();
+      await encoder.encode(initFrame);
+      initFrame.free();
 
       encoder.close();
 
       const frame = new Frame();
       frame.alloc();
+      frame.width = 320;
+      frame.height = 240;
+      frame.format = AV_PIX_FMT_YUV420P;
 
       await assert.rejects(async () => await encoder.encode(frame), /Encoder is closed/);
 
@@ -343,21 +228,11 @@ describe('Encoder', () => {
 
   describe('flush', () => {
     it('should flush remaining packets', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {
-          gopSize: 10,
-        },
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        gopSize: 10,
+      });
 
       // Encode some frames first
       for (let i = 0; i < 5; i++) {
@@ -378,8 +253,7 @@ describe('Encoder', () => {
 
       // Flush encoder
       let flushCount = 0;
-      let packet;
-      while ((packet = await encoder.flush()) !== null) {
+      for await (const packet of encoder.flushPackets()) {
         packet.free();
         flushCount++;
         if (flushCount > 20) break; // Safety limit
@@ -388,45 +262,27 @@ describe('Encoder', () => {
       encoder.close();
     });
 
-    it('should throw when encoder is closed', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
+    it('should handle flush when encoder is closed', async () => {
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+      });
 
       encoder.close();
 
-      await assert.rejects(async () => await encoder.flush(), /Encoder is closed/);
+      // flush() returns void now and doesn't throw when closed
+      await encoder.flush(); // Should not throw
     });
   });
 
   describe('async iterator', () => {
     it('should encode frames using iterator', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {
-          bitrate: '500k',
-          gopSize: 10,
-        },
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        bitrate: '500k',
+        gopSize: 10,
+      });
 
       // Create test frames
       async function* generateFrames() {
@@ -457,19 +313,10 @@ describe('Encoder', () => {
     });
 
     it('should handle empty frame stream', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+      });
 
       // Empty async generator
       async function* emptyFrames() {
@@ -497,29 +344,18 @@ describe('Encoder', () => {
       }
 
       // Get hardware encoder codec name
-      const encoderCodec = await hw.getEncoderCodec('h264');
+      const encoderCodec = hw.getEncoderCodec('h264');
       if (!encoderCodec) {
         hw.dispose();
         return;
       }
 
       try {
-        const encoder = await Encoder.create(
-          encoderCodec,
-          {
-            type: 'video',
-            width: 640,
-            height: 480,
-            pixelFormat: hw.devicePixelFormat,
-            frameRate: { num: 25, den: 1 },
-            timeBase: { num: 1, den: 25 },
-            sampleAspectRatio: { num: 1, den: 1 },
-          },
-          {
-            hardware: hw,
-            bitrate: '1M',
-          },
-        );
+        const encoder = await Encoder.create(encoderCodec, {
+          timeBase: { num: 1, den: 25 },
+          frameRate: { num: 25, den: 1 },
+          bitrate: '1M',
+        });
 
         assert.ok(encoder);
         assert.equal(encoder.isEncoderOpen, true);
@@ -533,79 +369,25 @@ describe('Encoder', () => {
 
       hw.dispose();
     });
-
-    it('should throw when hardware encoder used without hardware context for encoders requiring it', skipInCI, async () => {
-      // Try to get hardware context to find hardware encoder names
-      const hw = HardwareContext.auto();
-      if (!hw) {
-        return;
-      }
-
-      // Get hardware encoder codec name
-      const encoderCodec = await hw.getEncoderCodec('h264');
-      if (!encoderCodec) {
-        hw.dispose();
-        return;
-      }
-
-      // Try to create hardware encoder without hardware context
-      await assert.rejects(
-        async () => {
-          await Encoder.create(
-            encoderCodec,
-            {
-              type: 'video',
-              width: 640,
-              height: 480,
-              pixelFormat: hw.devicePixelFormat,
-              frameRate: { num: 25, den: 1 },
-              timeBase: { num: 1, den: 25 },
-              sampleAspectRatio: { num: 1, den: 1 },
-            },
-            {}, // No hardware context!
-          );
-        },
-        /requires a hardware context/,
-        'Should throw when hardware encoder used without hardware context',
-      );
-    });
   });
 
   describe('resource management', () => {
     it('should support Symbol.dispose', async () => {
       {
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            frameRate: { num: 25, den: 1 },
-            timeBase: { num: 1, den: 25 },
-            sampleAspectRatio: { num: 1, den: 1 },
-          },
-          {},
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 25 },
+          frameRate: { num: 25, den: 1 },
+        });
         assert.equal(encoder.isEncoderOpen, true);
         // Encoder will be closed automatically
       }
     });
 
     it('should handle multiple close calls', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+      });
 
       // Should not throw
       encoder.close();
@@ -615,21 +397,35 @@ describe('Encoder', () => {
       assert.equal(encoder.isEncoderOpen, false);
     });
 
-    it('should return null codec context when closed', async () => {
-      const encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {},
-      );
+    it('should return null codec context before initialization', async () => {
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+      });
 
+      // Before initialization, codec context should be null
+      assert.equal(encoder.getCodecContext(), null);
+
+      encoder.close();
+    });
+
+    it('should return null codec context when closed', async () => {
+      const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+      });
+
+      // Initialize encoder with a frame first
+      const frame = new Frame();
+      frame.alloc();
+      frame.width = 320;
+      frame.height = 240;
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.getBuffer();
+      await encoder.encode(frame);
+      frame.free();
+
+      // Now codec context should be available
       assert.ok(encoder.getCodecContext());
       encoder.close();
       assert.equal(encoder.getCodecContext(), null);

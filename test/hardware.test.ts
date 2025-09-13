@@ -6,7 +6,6 @@ import {
   AV_HWDEVICE_TYPE_NONE,
   AV_HWDEVICE_TYPE_VAAPI,
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-  AV_PIX_FMT_YUV420P,
   Decoder,
   Encoder,
   FF_ENCODER_LIBX264,
@@ -67,9 +66,9 @@ describe('HardwareContext', () => {
       const hw = HardwareContext.auto();
       if (hw) {
         // Test getting hardware encoder codec
-        const h264Encoder = await hw.getEncoderCodec('h264');
-        const hevcEncoder = await hw.getEncoderCodec('hevc');
-        const av1Encoder = await hw.getEncoderCodec('av1');
+        const h264Encoder = hw.getEncoderCodec('h264');
+        const hevcEncoder = hw.getEncoderCodec('hevc');
+        const av1Encoder = hw.getEncoderCodec('av1');
 
         console.log(`Hardware encoder codecs for ${hw.deviceTypeName}:`);
         console.log(`  h264: ${h264Encoder?.name ?? 'not supported'}`);
@@ -101,32 +100,6 @@ describe('HardwareContext', () => {
         assert.equal(hw.isDisposed, false, 'Should not be disposed initially');
         hw.dispose();
         assert.equal(hw.isDisposed, true, 'Should be disposed after calling dispose()');
-      }
-    });
-
-    it('should provide hardware filter presets', skipInCI, () => {
-      const hw = HardwareContext.auto();
-      if (hw) {
-        assert.ok(hw.filterPresets, 'Should have filter presets');
-        assert.ok(hw.filterPresets.support, 'Should have support information');
-
-        // Test building hardware filter chains using the chain builder
-        const chain = hw.filterPresets.chain();
-        assert.ok(chain, 'Should create chain builder');
-
-        // Build a hardware filter chain
-        const filterChain = chain.hwupload().scale(1280, 720).hwdownload().build();
-
-        console.log(`Hardware filter chain for ${hw.deviceTypeName}: ${filterChain}`);
-        assert.ok(typeof filterChain === 'string', 'Should return filter chain string');
-
-        // Check hardware filter support
-        console.log(`Hardware filter support for ${hw.deviceTypeName}:`);
-        console.log(`  Scale: ${hw.filterPresets.support.scale}`);
-        console.log(`  Overlay: ${hw.filterPresets.support.overlay}`);
-        console.log(`  Deinterlace: ${hw.filterPresets.support.deinterlace}`);
-
-        hw.dispose();
       }
     });
   });
@@ -202,6 +175,7 @@ describe('HardwareContext', () => {
       const videoStream = media.video(0);
       assert.ok(videoStream, 'Should have video stream');
 
+      // Decoder needs hardware context in options
       const decoder = await Decoder.create(videoStream, {
         hardware: hw,
       });
@@ -225,23 +199,12 @@ describe('HardwareContext', () => {
       }
 
       try {
-        // This test just checks disposal, software encoder is fine
-        const encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 640,
-            height: 480,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            frameRate: { num: 25, den: 1 },
-            timeBase: { num: 1, den: 25 },
-            sampleAspectRatio: { num: 1, den: 1 },
-          },
-          {
-            bitrate: '1M',
-            hardware: hw,
-          },
-        );
+        // Encoder detects hardware from frame's hw_frames_ctx
+        const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 25 },
+          frameRate: { num: 25, den: 1 },
+          bitrate: '1M',
+        });
 
         assert.ok(!hw.isDisposed, 'Hardware should not be disposed yet');
 
@@ -377,33 +340,23 @@ describe('HardwareContext', () => {
         return;
       }
 
-      const hwEncoderCodec = await hw.getEncoderCodec('h264');
+      const hwEncoderCodec = hw.getEncoderCodec('h264');
       if (!hwEncoderCodec) {
         console.log('Hardware encoder codec not available - skipping test');
         return;
       }
 
-      const encoder = await Encoder.create(
-        hwEncoderCodec,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: hw.devicePixelFormat,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {
-          bitrate: '1M',
-          hardware: hw,
-        },
-      );
+      const encoder = await Encoder.create(hwEncoderCodec, {
+        timeBase: { num: 1, den: 25 },
+        frameRate: { num: 25, den: 1 },
+        bitrate: '1M',
+      });
 
       // Just verify it was created successfully
       assert.ok(encoder, 'Should create hardware encoder');
 
       encoder.close();
+      hw.dispose();
     });
 
     it('should work with Encoder using auto hardware detection', skipInCI, async () => {
@@ -414,28 +367,17 @@ describe('HardwareContext', () => {
 
       try {
         // Use hardware-specific encoder codec if available
-        const hwEncoderCodec = await hw.getEncoderCodec('h264');
+        const hwEncoderCodec = hw.getEncoderCodec('h264');
         if (!hwEncoderCodec) {
           hw.dispose();
           return;
         }
 
-        const encoder = await Encoder.create(
-          hwEncoderCodec,
-          {
-            type: 'video',
-            width: 640,
-            height: 480,
-            pixelFormat: hw.devicePixelFormat,
-            frameRate: { num: 25, den: 1 },
-            timeBase: { num: 1, den: 25 },
-            sampleAspectRatio: { num: 1, den: 1 },
-          },
-          {
-            bitrate: '1M',
-            hardware: hw ?? undefined,
-          },
-        );
+        const encoder = await Encoder.create(hwEncoderCodec, {
+          timeBase: { num: 1, den: 25 },
+          frameRate: { num: 25, den: 1 },
+          bitrate: '1M',
+        });
 
         // Just verify it was created
         assert.ok(encoder, 'Should create encoder');
@@ -473,7 +415,7 @@ describe('HardwareContext', () => {
 
         // Create hardware encoder
         // Use hardware-specific encoder codec
-        const hwEncoderCodec = await hw.getEncoderCodec('h264');
+        const hwEncoderCodec = hw.getEncoderCodec('h264');
 
         if (!hwEncoderCodec) {
           // Not supported, skip
@@ -483,22 +425,11 @@ describe('HardwareContext', () => {
           return;
         }
 
-        const encoder = await Encoder.create(
-          hwEncoderCodec,
-          {
-            type: 'video',
-            width: videoStream.codecpar.width,
-            height: videoStream.codecpar.height,
-            pixelFormat: hw.devicePixelFormat,
-            frameRate: { num: 25, den: 1 },
-            timeBase: { num: 1, den: 25 },
-            sampleAspectRatio: { num: 1, den: 1 },
-          },
-          {
-            bitrate: '2M',
-            hardware: hw,
-          },
-        );
+        const encoder = await Encoder.create(hwEncoderCodec, {
+          timeBase: { num: 1, den: 25 },
+          frameRate: { num: 25, den: 1 },
+          bitrate: '2M',
+        });
 
         let decodedFrames = 0;
         let encodedPackets = 0;
@@ -535,8 +466,7 @@ describe('HardwareContext', () => {
         }
 
         // Flush encoder
-        let flushPacket;
-        while ((flushPacket = await encoder.flush()) !== null) {
+        for await (const flushPacket of encoder.flushPackets()) {
           encodedPackets++;
           flushPacket.free();
         }
@@ -626,27 +556,16 @@ describe('HardwareContext', () => {
       console.log(`Hardware ${hw.deviceTypeName} codec support:`);
 
       // Test getting hardware encoder codecs
-      const h264HwCodec = await hw.getEncoderCodec('h264');
+      const h264HwCodec = hw.getEncoderCodec('h264');
       if (!h264HwCodec) {
         return;
       }
 
-      const encoder = await Encoder.create(
-        h264HwCodec,
-        {
-          type: 'video',
-          width: 640,
-          height: 480,
-          pixelFormat: hw.devicePixelFormat,
-          frameRate: { num: 25, den: 1 },
-          timeBase: { num: 1, den: 25 },
-          sampleAspectRatio: { num: 1, den: 1 },
-        },
-        {
-          bitrate: '1M',
-          hardware: hw,
-        },
-      );
+      const encoder = await Encoder.create(h264HwCodec, {
+        frameRate: { num: 25, den: 1 },
+        timeBase: { num: 1, den: 25 },
+        bitrate: '1M',
+      });
 
       assert.ok(encoder, 'Should create hardware encoder');
       encoder.close();

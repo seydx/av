@@ -1,386 +1,440 @@
-import assert from 'node:assert';
+import { strictEqual } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { HardwareFilterPresets } from '../src/api/filter-presets.js';
-import {
-  AV_HWDEVICE_TYPE_CUDA,
-  AV_HWDEVICE_TYPE_QSV,
-  AV_HWDEVICE_TYPE_VAAPI,
-  AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-  AV_PIX_FMT_NV12,
-  AV_PIX_FMT_YUV420P,
-  AV_SAMPLE_FMT_FLTP,
-  AV_SAMPLE_FMT_S16,
-  FilterPresets,
-} from '../src/index.js';
-import { prepareTestEnvironment } from './index.js';
+import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV444P, AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16, FilterPreset } from '../src/index.js';
 
-prepareTestEnvironment();
-
-describe('FilterPresets', () => {
-  describe('Software Filter Presets', () => {
-    it('should create scale filter', () => {
-      const filter = FilterPresets.scale(1920, 1080);
-      assert.strictEqual(filter, 'scale=1920:1080');
-
-      const filterWithFlags = FilterPresets.scale(1280, 720, 'bicubic');
-      assert.strictEqual(filterWithFlags, 'scale=1280:720:flags=bicubic');
+describe('FilterPreset', () => {
+  describe('chain()', () => {
+    it('should create an empty filter chain', () => {
+      const chain = FilterPreset.chain();
+      const graph = chain.build();
+      strictEqual(graph, '');
     });
 
-    it('should create crop filter', () => {
-      const filter = FilterPresets.crop(640, 480, 100, 50);
-      assert.strictEqual(filter, 'crop=640:480:100:50');
-
-      const filterNoOffset = FilterPresets.crop(640, 480);
-      assert.strictEqual(filterNoOffset, 'crop=640:480:0:0');
-    });
-
-    it('should create fps filter', () => {
-      const filter = FilterPresets.fps(30);
-      assert.strictEqual(filter, 'fps=30');
-    });
-
-    it('should create format filter with single format', () => {
-      const filterString = FilterPresets.format('yuv420p');
-      assert.strictEqual(filterString, 'format=yuv420p');
-
-      const filterEnum = FilterPresets.format(AV_PIX_FMT_YUV420P);
-      assert.strictEqual(filterEnum, 'format=yuv420p');
-    });
-
-    it('should create format filter with multiple formats', () => {
-      const filter = FilterPresets.format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]);
-      assert.strictEqual(filter, 'format=nv12,format=yuv420p');
-
-      const filterMixed = FilterPresets.format(['nv12', AV_PIX_FMT_YUV420P]);
-      assert.strictEqual(filterMixed, 'format=nv12,format=yuv420p');
-    });
-
-    it('should create rotate filter', () => {
-      const filter = FilterPresets.rotate(90);
-      assert.strictEqual(filter, 'rotate=90*PI/180');
-    });
-
-    it('should create flip filters', () => {
-      const hflip = FilterPresets.hflip();
-      assert.strictEqual(hflip, 'hflip');
-
-      const vflip = FilterPresets.vflip();
-      assert.strictEqual(vflip, 'vflip');
-    });
-
-    it('should create fade filter', () => {
-      const fadeIn = FilterPresets.fade('in', 0, 2);
-      assert.strictEqual(fadeIn, 'fade=t=in:st=0:d=2');
-
-      const fadeOut = FilterPresets.fade('out', 10, 1);
-      assert.strictEqual(fadeOut, 'fade=t=out:st=10:d=1');
-    });
-
-    it('should create overlay filter', () => {
-      const basic = FilterPresets.overlay();
-      assert.strictEqual(basic, 'overlay=0:0');
-
-      const positioned = FilterPresets.overlay(100, 50);
-      assert.strictEqual(positioned, 'overlay=100:50');
-
-      // Note: Static method doesn't support options, only instance method does
-      // For options, use chain builder
-      const chain = FilterPresets.chain().overlay(10, 10, { format: 'rgb' }).build();
-      assert.strictEqual(chain, 'overlay=10:10:format=rgb');
+    it('should create a chain with custom filter', () => {
+      const chain = FilterPreset.chain();
+      chain.custom('scale=640:480');
+      const graph = chain.build();
+      strictEqual(graph, 'scale=640:480');
     });
   });
 
-  describe('Audio Filter Presets', () => {
-    it('should create volume filter', () => {
-      const filter = FilterPresets.volume(0.5);
-      assert.strictEqual(filter, 'volume=0.5');
-    });
-
-    it('should create aformat filter', () => {
-      const basic = FilterPresets.aformat('s16');
-      assert.strictEqual(basic, 'aformat=sample_fmts=s16');
-
-      const withEnum = FilterPresets.aformat(AV_SAMPLE_FMT_S16);
-      assert.strictEqual(withEnum, 'aformat=sample_fmts=s16');
-
-      const withRate = FilterPresets.aformat('fltp', 48000);
-      assert.strictEqual(withRate, 'aformat=sample_fmts=fltp:sample_rates=48000');
-
-      const full = FilterPresets.aformat(AV_SAMPLE_FMT_FLTP, 44100, 'stereo');
-      assert.strictEqual(full, 'aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo');
-    });
-
-    it('should create atempo filter', () => {
-      const filter = FilterPresets.atempo(1.5);
-      assert.strictEqual(filter, 'atempo=1.5');
-    });
-
-    it('should create afade filter', () => {
-      const fadeIn = FilterPresets.afade('in', 0, 3);
-      assert.strictEqual(fadeIn, 'afade=t=in:st=0:d=3');
-
-      const fadeOut = FilterPresets.afade('out', 20, 2);
-      assert.strictEqual(fadeOut, 'afade=t=out:st=20:d=2');
-    });
-
-    it('should create amix filter', () => {
-      const basic = FilterPresets.amix();
-      assert.strictEqual(basic, 'amix=inputs=2:duration=longest');
-
-      const custom = FilterPresets.amix(3, 'first');
-      assert.strictEqual(custom, 'amix=inputs=3:duration=first');
-    });
-  });
-
-  describe('Filter Chain Builder', () => {
-    it('should build simple filter chain', () => {
-      const chain = FilterPresets.chain().scale(1920, 1080).format(AV_PIX_FMT_YUV420P).build();
-
-      assert.strictEqual(chain, 'scale=1920:1080,format=yuv420p');
-    });
-
-    it('should build complex filter chain', () => {
-      const chain = FilterPresets.chain().scale(1280, 720).crop(640, 480, 320, 120).fps(30).format(['nv12', 'yuv420p']).fade('in', 0, 1).build();
-
-      assert.strictEqual(chain, 'scale=1280:720,crop=640:480:320:120,fps=30,format=nv12,format=yuv420p,fade=t=in:st=0:d=1');
-    });
-
-    it('should support custom filters in chain', () => {
-      const chain = FilterPresets.chain().scale(1920, 1080).custom('unsharp=5:5:1.0').format('yuv420p').build();
-
-      assert.strictEqual(chain, 'scale=1920:1080,unsharp=5:5:1.0,format=yuv420p');
-    });
-
-    it('should build audio filter chain', () => {
-      const chain = FilterPresets.chain().volume(0.8).aformat('fltp', 48000, 'stereo').atempo(1.25).afade('in', 0, 2).build();
-
-      assert.strictEqual(chain, 'volume=0.8,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,atempo=1.25,afade=t=in:st=0:d=2');
-    });
-
-    it('should handle mixed video and audio filters', () => {
-      const chain = FilterPresets.chain().scale(1920, 1080).volume(0.5).format('yuv420p').aformat('s16', 44100).build();
-
-      assert.strictEqual(chain, 'scale=1920:1080,volume=0.5,format=yuv420p,aformat=sample_fmts=s16:sample_rates=44100');
-    });
-
-    it('should support custom separator', () => {
-      const chain = FilterPresets.chain().scale(1920, 1080).format('yuv420p').build(';');
-
-      assert.strictEqual(chain, 'scale=1920:1080;format=yuv420p');
-    });
-
-    it('should return filter array', () => {
-      const filters = FilterPresets.chain().scale(1920, 1080).format('yuv420p').fps(30).toArray();
-
-      assert.deepStrictEqual(filters, ['scale=1920:1080', 'format=yuv420p', 'fps=30']);
-    });
-
-    it('should skip null filters', () => {
-      const chain = FilterPresets.chain();
-      chain.add('scale=1920:1080');
-      chain.add(null);
-      chain.add(undefined);
-      chain.add('format=yuv420p');
-
-      assert.strictEqual(chain.build(), 'scale=1920:1080,format=yuv420p');
-    });
-
-    it('should support hardware upload/download in chain', () => {
-      const chain = FilterPresets.chain().hwupload().scale(1920, 1080).hwdownload().format('yuv420p').build();
-
-      assert.strictEqual(chain, 'hwupload,scale=1920:1080,hwdownload,format=yuv420p');
-    });
-  });
-
-  describe('Hardware Filter Presets', () => {
-    describe('CUDA', () => {
-      const cuda = new HardwareFilterPresets(AV_HWDEVICE_TYPE_CUDA, 'cuda');
-
-      it('should create CUDA scale filter', () => {
-        const filter = cuda.scale(1920, 1080);
-        assert.strictEqual(filter, 'scale_cuda=1920:1080');
-
-        const withOptions = cuda.scale(1280, 720, { interp_algo: 'lanczos' });
-        assert.strictEqual(withOptions, 'scale_cuda=1280:720:interp_algo=lanczos');
+  describe('Video Filters', () => {
+    describe('scale()', () => {
+      it('should add scale filter with dimensions', () => {
+        const graph = FilterPreset.chain().scale(1920, 1080).build();
+        strictEqual(graph, 'scale=1920:1080');
       });
 
-      it('should create CUDA overlay filter', () => {
-        const filter = cuda.overlay(100, 50);
-        assert.strictEqual(filter, 'overlay_cuda=100:50');
+      it('should add scale filter with options', () => {
+        const graph = FilterPreset.chain().scale(1920, 1080, { flags: 'bicubic' }).build();
+        strictEqual(graph, 'scale=1920:1080:flags=bicubic');
       });
 
-      it('should create CUDA tonemap filter', () => {
-        const filter = cuda.tonemap();
-        assert.strictEqual(filter, 'tonemap_cuda');
-
-        const withOptions = cuda.tonemap({ tonemap: 'hable', desat: '0' });
-        assert.strictEqual(withOptions, 'tonemap_cuda=tonemap=hable:desat=0');
-      });
-
-      it('should build CUDA filter chain', () => {
-        const chain = cuda.chain().hwupload().scale(1920, 1080).overlay(0, 0).hwdownload().build();
-
-        assert.strictEqual(chain, 'hwupload_cuda,scale_cuda=1920:1080,overlay_cuda=0:0,hwdownload');
+      it('should handle -1 for maintaining aspect ratio', () => {
+        const graph = FilterPreset.chain().scale(1920, -1).build();
+        strictEqual(graph, 'scale=1920:-1');
       });
     });
 
-    describe('VideoToolbox', () => {
-      const vt = new HardwareFilterPresets(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, 'videotoolbox');
-
-      it('should create VideoToolbox scale filter', () => {
-        const filter = vt.scale(1920, 1080);
-        assert.strictEqual(filter, 'scale_vt=1920:1080');
+    describe('format()', () => {
+      it('should add format filter with pixel format', () => {
+        const graph = FilterPreset.chain().format(AV_PIX_FMT_YUV420P).build();
+        strictEqual(graph, 'format=yuv420p');
       });
 
-      it('should support overlay and tonemap filters', () => {
-        const overlay = vt.overlay();
-        assert.strictEqual(overlay, 'overlay_videotoolbox=0:0');
-
-        const tonemap = vt.tonemap();
-        assert.strictEqual(tonemap, 'tonemap_videotoolbox');
-      });
-
-      it('should build VideoToolbox filter chain', () => {
-        const chain = vt.chain().hwupload().scale(1920, 1080).overlay(50, 50).tonemap().hwdownload().build();
-
-        assert.strictEqual(chain, 'hwupload,scale_vt=1920:1080,overlay_videotoolbox=50:50,tonemap_videotoolbox,hwdownload');
+      it('should handle multiple pixel formats', () => {
+        const graph = FilterPreset.chain().format([AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV444P]).build();
+        strictEqual(graph, 'format=yuv420p,format=yuv444p');
       });
     });
 
-    describe('QSV', () => {
-      const qsv = new HardwareFilterPresets(AV_HWDEVICE_TYPE_QSV, 'qsv');
-
-      it('should create QSV scale filter', () => {
-        const filter = qsv.scale(1920, 1080);
-        assert.strictEqual(filter, 'scale_qsv=1920:1080');
+    describe('fps()', () => {
+      it('should add fps filter with frame rate', () => {
+        const graph = FilterPreset.chain().fps(30).build();
+        strictEqual(graph, 'fps=30');
       });
 
-      it('should create QSV deinterlace filter', () => {
-        const filter = qsv.deinterlace();
-        assert.strictEqual(filter, 'deinterlace_qsv');
-
-        const withMode = qsv.deinterlace('bob');
-        assert.strictEqual(withMode, 'deinterlace_qsv=mode=bob');
+      it('should handle decimal frame rate', () => {
+        const graph = FilterPreset.chain().fps(29.97).build();
+        strictEqual(graph, 'fps=29.97');
       });
 
-      it('should create QSV overlay filter', () => {
-        const filter = qsv.overlay(100, 50);
-        assert.strictEqual(filter, 'overlay_qsv=100:50');
+      // fps() doesn't support options in current implementation
+    });
+
+    describe('crop()', () => {
+      it('should add crop filter', () => {
+        const graph = FilterPreset.chain().crop(640, 480, 100, 50).build();
+        strictEqual(graph, 'crop=640:480:100:50');
       });
 
-      it('should build QSV filter chain', () => {
-        const chain = qsv.chain().hwupload().scale(1920, 1080).deinterlace().overlay(0, 0).hwdownload().build();
-
-        assert.strictEqual(chain, 'hwupload,scale_qsv=1920:1080,deinterlace_qsv,overlay_qsv=0:0,hwdownload');
+      it('should handle crop without position', () => {
+        const graph = FilterPreset.chain().crop(640, 480).build();
+        strictEqual(graph, 'crop=640:480:0:0');
       });
     });
 
-    describe('VAAPI', () => {
-      const vaapi = new HardwareFilterPresets(AV_HWDEVICE_TYPE_VAAPI, 'vaapi');
-
-      it('should create VAAPI scale filter', () => {
-        const filter = vaapi.scale(1920, 1080);
-        assert.strictEqual(filter, 'scale_vaapi=1920:1080');
+    describe('pad()', () => {
+      it('should add pad filter', () => {
+        const graph = FilterPreset.chain().pad(1920, 1080, '100', '50').build();
+        strictEqual(graph, 'pad=1920:1080:100:50:black');
       });
 
-      it('should create VAAPI deinterlace filter', () => {
-        const filter = vaapi.deinterlace();
-        assert.strictEqual(filter, 'deinterlace_vaapi');
-
-        const withMode = vaapi.deinterlace('motion_adaptive');
-        assert.strictEqual(withMode, 'deinterlace_vaapi=mode=motion_adaptive');
-      });
-
-      it('should create VAAPI tonemap filter', () => {
-        const filter = vaapi.tonemap();
-        assert.strictEqual(filter, 'tonemap_vaapi');
-      });
-
-      it('should build VAAPI filter chain', () => {
-        const chain = vaapi.chain().hwupload().scale(1920, 1080).deinterlace().tonemap().hwdownload().build();
-
-        assert.strictEqual(chain, 'hwupload,scale_vaapi=1920:1080,deinterlace_vaapi,tonemap_vaapi,hwdownload');
+      it('should handle pad with color', () => {
+        const graph = FilterPreset.chain().pad(1920, 1080, '0', '0', 'white').build();
+        strictEqual(graph, 'pad=1920:1080:0:0:white');
       });
     });
 
-    describe('Hardware capabilities', () => {
-      it('should have correct support flags for CUDA', () => {
-        const cuda = new HardwareFilterPresets(AV_HWDEVICE_TYPE_CUDA, 'cuda');
-
-        assert.strictEqual(cuda.support.scale, true);
-        assert.strictEqual(cuda.support.overlay, true);
-        assert.strictEqual(cuda.support.tonemap, true);
-        assert.strictEqual(cuda.support.deinterlace, true);
-      });
-
-      it('should have correct support flags for VideoToolbox', () => {
-        const vt = new HardwareFilterPresets(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, 'videotoolbox');
-
-        assert.strictEqual(vt.support.scale, true);
-        assert.strictEqual(vt.support.overlay, true); // Updated based on patches
-        assert.strictEqual(vt.support.tonemap, true); // Updated based on patches
-        assert.strictEqual(vt.support.deinterlace, true); // yadif_videotoolbox
-      });
-
-      it('should have correct support flags for QSV', () => {
-        const qsv = new HardwareFilterPresets(AV_HWDEVICE_TYPE_QSV, 'qsv');
-
-        assert.strictEqual(qsv.support.scale, true);
-        assert.strictEqual(qsv.support.overlay, true);
-        assert.strictEqual(qsv.support.deinterlace, true);
-        assert.strictEqual(qsv.support.tonemap, false);
-      });
-    });
-
-    describe('Hardware filter chain with fallbacks', () => {
-      it('should build VideoToolbox chain with supported filters', () => {
-        const vt = new HardwareFilterPresets(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, 'videotoolbox');
-        const chain = vt
-          .chain()
-          .scale(1920, 1080) // supported
-          .overlay(0, 0) // supported
-          .tonemap() // supported
+    describe('rotate()', () => {
+      it('should add rotate filter', () => {
+        const graph = FilterPreset.chain()
+          .rotate(90)
           .build();
-
-        assert.strictEqual(chain, 'scale_vt=1920:1080,overlay_videotoolbox=0:0,tonemap_videotoolbox');
+        strictEqual(graph, 'rotate=90*PI/180');
       });
 
-      it('should build complex hardware chain with format conversions', () => {
-        const cuda = new HardwareFilterPresets(AV_HWDEVICE_TYPE_CUDA, 'cuda');
-        const chain = cuda.chain().hwupload().scale(3840, 2160).tonemap({ tonemap: 'reinhard' }).scale(1920, 1080).hwdownload().format(['nv12', 'yuv420p']).build();
+      // rotate() doesn't support options in current implementation
+    });
 
-        assert.strictEqual(chain, 'hwupload_cuda,scale_cuda=3840:2160,tonemap_cuda=tonemap=reinhard,scale_cuda=1920:1080,hwdownload,format=nv12,format=yuv420p');
+    describe('flip()', () => {
+      it('should add hflip', () => {
+        const graph = FilterPreset.chain().flip('h').build();
+        strictEqual(graph, 'hflip');
+      });
+
+      it('should add vflip', () => {
+        const graph = FilterPreset.chain().flip('v').build();
+        strictEqual(graph, 'vflip');
+      });
+
+      // flip() only supports 'h' or 'v', not 'both'
+    });
+
+    describe('overlay()', () => {
+      it('should add overlay filter', () => {
+        const graph = FilterPreset.chain().overlay(100, 50).build();
+        strictEqual(graph, 'overlay=100:50');
+      });
+
+      it('should handle overlay with options', () => {
+        const graph = FilterPreset.chain().overlay(100, 50, { format: 'rgb' }).build();
+        strictEqual(graph, 'overlay=100:50:format=rgb');
+      });
+    });
+
+    describe('drawtext()', () => {
+      it('should add drawtext filter', () => {
+        const graph = FilterPreset.chain().drawtext('Hello World', { x: 10, y: 10 }).build();
+        strictEqual(graph, "drawtext=text='Hello World':x=10:y=10");
+      });
+
+      it('should handle complex text options', () => {
+        const graph = FilterPreset.chain()
+          .drawtext('Test', {
+            x: 10,
+            y: 10,
+            fontsize: 24,
+            fontcolor: 'white',
+            fontfile: '/path/to/font.ttf',
+          })
+          .build();
+        strictEqual(graph, "drawtext=text='Test':x=10:y=10:fontsize=24:fontcolor=white:fontfile='/path/to/font.ttf'");
+      });
+    });
+
+    describe('setpts()', () => {
+      it('should add setpts filter', () => {
+        const graph = FilterPreset.chain().setpts('PTS*2').build();
+        strictEqual(graph, 'setpts=PTS*2');
+      });
+    });
+
+    describe('trim()', () => {
+      it('should add trim filter', () => {
+        const graph = FilterPreset.chain().trim(10, 20).build();
+        strictEqual(graph, 'trim=start=10:end=20');
+      });
+
+      it('should handle trim with only start', () => {
+        const graph = FilterPreset.chain().trim(10).build();
+        strictEqual(graph, 'trim=start=10');
+      });
+
+      it('should handle trim with duration', () => {
+        const graph = FilterPreset.chain().trim(10, undefined, 5).build();
+        strictEqual(graph, 'trim=start=10:duration=5');
+      });
+    });
+
+    describe('deinterlace()', () => {
+      it('should add yadif filter', () => {
+        const graph = FilterPreset.chain().deinterlace().build();
+        strictEqual(graph, 'yadif');
+      });
+
+      it('should add bwdif filter', () => {
+        const graph = FilterPreset.chain().deinterlace('bwdif').build();
+        strictEqual(graph, 'bwdif');
+      });
+
+      it('should handle deinterlace options', () => {
+        const graph = FilterPreset.chain().deinterlace('yadif', { mode: 1, parity: 0 }).build();
+        strictEqual(graph, 'yadif=mode=1:parity=0');
       });
     });
   });
 
-  describe('Static helper methods', () => {
-    it('should detect hardware filters using FFmpeg flags', () => {
-      // Test some known hardware filters
-      // Note: These tests depend on what filters are actually available in the FFmpeg build
+  describe('Audio Filters', () => {
+    describe('aformat()', () => {
+      it('should add aformat with sample format', () => {
+        const graph = FilterPreset.chain().aformat(AV_SAMPLE_FMT_FLTP).build();
+        strictEqual(graph, 'aformat=sample_fmts=fltp');
+      });
 
-      // Hardware filters should return true
-      const hwFilters = ['scale_cuda', 'scale_vaapi', 'scale_qsv', 'overlay_cuda', 'hwupload', 'hwupload_cuda', 'hwdownload'];
+      it('should add aformat with sample rate', () => {
+        const graph = FilterPreset.chain().aformat(AV_SAMPLE_FMT_FLTP, 48000).build();
+        strictEqual(graph, 'aformat=sample_fmts=fltp:sample_rates=48000');
+      });
 
-      for (const filterName of hwFilters) {
-        const result = HardwareFilterPresets.isHardwareFilter(filterName);
-        // We can't assert true/false directly since it depends on FFmpeg build
-        // Just check that it returns a boolean
-        assert.strictEqual(typeof result, 'boolean', `isHardwareFilter('${filterName}') should return a boolean`);
-      }
+      it('should add aformat with channel layout', () => {
+        const graph = FilterPreset.chain().aformat(AV_SAMPLE_FMT_FLTP, 48000, 'stereo').build();
+        strictEqual(graph, 'aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo');
+      });
 
-      // Software filters should return false
-      const swFilters = ['scale', 'crop', 'overlay', 'format', 'fps', 'rotate'];
+      it('should combine all aformat options', () => {
+        const graph = FilterPreset.chain().aformat(AV_SAMPLE_FMT_FLTP, 48000, 'stereo').build();
+        strictEqual(graph, 'aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo');
+      });
 
-      for (const filterName of swFilters) {
-        const result = HardwareFilterPresets.isHardwareFilter(filterName);
-        assert.strictEqual(result, false, `isHardwareFilter('${filterName}') should return false for software filter`);
-      }
+      it('should handle multiple sample formats', () => {
+        const graph = FilterPreset.chain().aformat([AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_S16]).build();
+        strictEqual(graph, 'aformat=sample_fmts=fltp|s16');
+      });
+    });
 
-      // Non-existent filters should return false
-      assert.strictEqual(HardwareFilterPresets.isHardwareFilter('nonexistent_filter'), false);
-      assert.strictEqual(HardwareFilterPresets.isHardwareFilter(''), false);
+    describe('aresample()', () => {
+      it('should add aresample filter', () => {
+        const graph = FilterPreset.chain().aresample(48000).build();
+        strictEqual(graph, 'aresample=48000');
+      });
+
+      // aresample() doesn't support options in current implementation
+    });
+
+    describe('volume()', () => {
+      it('should add volume filter', () => {
+        const graph = FilterPreset.chain().volume(0.5).build();
+        strictEqual(graph, 'volume=0.5');
+      });
+
+      it('should handle volume factor', () => {
+        const graph = FilterPreset.chain().volume(2.0).build();
+        strictEqual(graph, 'volume=2');
+      });
+    });
+
+    describe('atempo()', () => {
+      it('should add atempo filter', () => {
+        const graph = FilterPreset.chain().atempo(1.5).build();
+        strictEqual(graph, 'atempo=1.5');
+      });
+
+      // atempo() doesn't automatically chain in current implementation
+      // values must be between 0.5 and 2.0
+    });
+
+    describe('adelay()', () => {
+      it('should add adelay filter', () => {
+        const graph = FilterPreset.chain().adelay(100).build();
+        strictEqual(graph, 'adelay=100');
+      });
+
+      it('should handle multiple channel delays', () => {
+        const graph = FilterPreset.chain().adelay([100, 200]).build();
+        strictEqual(graph, 'adelay=100|200');
+      });
+    });
+
+    describe('aecho()', () => {
+      it('should add aecho filter', () => {
+        const graph = FilterPreset.chain().aecho(0.8, 0.9, 1000, 0.3).build();
+        strictEqual(graph, 'aecho=0.8:0.9:1000:0.3');
+      });
+    });
+
+    describe('highpass()', () => {
+      it('should add highpass filter', () => {
+        const graph = FilterPreset.chain().highpass(200).build();
+        strictEqual(graph, 'highpass=f=200');
+      });
+
+      it('should handle highpass with options', () => {
+        const graph = FilterPreset.chain().highpass(200, { width_type: 'q', width: 1 }).build();
+        strictEqual(graph, 'highpass=f=200:width_type=q:width=1');
+      });
+    });
+
+    describe('lowpass()', () => {
+      it('should add lowpass filter', () => {
+        const graph = FilterPreset.chain().lowpass(5000).build();
+        strictEqual(graph, 'lowpass=f=5000');
+      });
+    });
+
+    describe('bandpass()', () => {
+      it('should add bandpass filter', () => {
+        const graph = FilterPreset.chain().bandpass(1000).build();
+        strictEqual(graph, 'bandpass=f=1000');
+      });
+    });
+
+    describe('equalizer()', () => {
+      it('should add equalizer filter', () => {
+        const graph = FilterPreset.chain().equalizer(1000, 2, 5).build();
+        strictEqual(graph, 'equalizer=f=1000:width=2:gain=5');
+      });
+
+      it('should handle equalizer with width_type', () => {
+        const graph = FilterPreset.chain().equalizer(1000, 2, 5, 'q').build();
+        strictEqual(graph, 'equalizer=f=1000:width_type=q:width=2:gain=5');
+      });
+    });
+
+    describe('compressor()', () => {
+      it('should add compressor filter with default options', () => {
+        const graph = FilterPreset.chain().compressor().build();
+        strictEqual(graph, 'acompressor');
+      });
+
+      it('should add compressor with options', () => {
+        const graph = FilterPreset.chain()
+          .compressor({
+            threshold: 0.5,
+            ratio: 4,
+            attack: 5,
+            release: 50,
+          })
+          .build();
+        strictEqual(graph, 'acompressor=threshold=0.5:ratio=4:attack=5:release=50');
+      });
+    });
+
+    describe('asetnsamples()', () => {
+      it('should add asetnsamples filter with padding', () => {
+        const graph = FilterPreset.chain().asetnsamples(1024).build();
+        strictEqual(graph, 'asetnsamples=n=1024:p=1');
+      });
+
+      it('should add asetnsamples filter without padding', () => {
+        const graph = FilterPreset.chain().asetnsamples(1024, false).build();
+        strictEqual(graph, 'asetnsamples=n=1024:p=0');
+      });
+    });
+
+    describe('asetpts()', () => {
+      it('should add asetpts filter', () => {
+        const graph = FilterPreset.chain().asetpts('PTS*2').build();
+        strictEqual(graph, 'asetpts=PTS*2');
+      });
+    });
+
+    describe('atrim()', () => {
+      it('should add atrim filter', () => {
+        const graph = FilterPreset.chain().atrim(10, 20).build();
+        strictEqual(graph, 'atrim=start=10:end=20');
+      });
+    });
+  });
+
+  describe('Generic Filters', () => {
+    describe('select()', () => {
+      it('should add select filter', () => {
+        const graph = FilterPreset.chain().select('eq(pict_type,I)').build();
+        strictEqual(graph, "select='eq(pict_type,I)'");
+      });
+    });
+
+    describe('concat()', () => {
+      it('should add concat filter', () => {
+        const graph = FilterPreset.chain().concat(2, 1, 1).build();
+        strictEqual(graph, 'concat=n=2:v=1:a=1');
+      });
+    });
+
+    describe('split()', () => {
+      it('should add split filter', () => {
+        const graph = FilterPreset.chain().split(2).build();
+        strictEqual(graph, 'split=2');
+      });
+
+      it('should default to 2 outputs', () => {
+        const graph = FilterPreset.chain().split().build();
+        strictEqual(graph, 'split=2');
+      });
+    });
+
+    describe('asplit()', () => {
+      it('should add asplit filter', () => {
+        const graph = FilterPreset.chain().asplit(3).build();
+        strictEqual(graph, 'asplit=3');
+      });
+    });
+
+    describe('custom()', () => {
+      it('should add custom filter', () => {
+        const graph = FilterPreset.chain().custom('customfilter=option1=value1:option2=value2').build();
+        strictEqual(graph, 'customfilter=option1=value1:option2=value2');
+      });
+    });
+  });
+
+  describe('Complex Chains', () => {
+    it('should chain multiple filters', () => {
+      const graph = FilterPreset.chain().scale(1920, 1080).format(AV_PIX_FMT_YUV420P).fps(30).build();
+      strictEqual(graph, 'scale=1920:1080,format=yuv420p,fps=30');
+    });
+
+    it('should handle mixed audio and video filters', () => {
+      const graph = FilterPreset.chain().scale(1920, 1080).aformat(AV_SAMPLE_FMT_FLTP, 48000).volume(0.8).build();
+      strictEqual(graph, 'scale=1920:1080,aformat=sample_fmts=fltp:sample_rates=48000,volume=0.8');
+    });
+
+    it('should handle complex filter chain', () => {
+      const graph = FilterPreset.chain()
+        .scale(1280, 720)
+        .crop(1024, 576)
+        .pad(1920, 1080, '448', '252')
+        .format(AV_PIX_FMT_YUV420P)
+        .fps(25)
+        .build();
+
+      strictEqual(graph, 'scale=1280:720,crop=1024:576:0:0,pad=1920:1080:448:252:black,format=yuv420p,fps=25');
+    });
+  });
+
+  // Preset methods are not implemented in current FilterPreset class
+
+  describe('Edge Cases', () => {
+    it('should handle empty chain', () => {
+      const graph = FilterPreset.chain().build();
+      strictEqual(graph, '');
+    });
+
+    it('should handle filter with no options', () => {
+      const graph = FilterPreset.chain().custom('simplefilter').build();
+      strictEqual(graph, 'simplefilter');
+    });
+
+    it('should escape special characters in text', () => {
+      const graph = FilterPreset.chain().drawtext("Test's \"quoted\" text", { x: 10, y: 10 }).build();
+      strictEqual(graph, "drawtext=text='Test\\'s \\\"quoted\\\" text':x=10:y=10");
+    });
+
+    it('should handle undefined/null values gracefully', () => {
+      const graph = FilterPreset.chain().scale(1920, -1).trim(0, undefined, 10).build();
+      strictEqual(graph, 'scale=1920:-1,trim=start=0:duration=10');
     });
   });
 });

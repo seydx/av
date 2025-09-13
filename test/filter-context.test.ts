@@ -5,6 +5,7 @@ import {
   AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
   AV_OPT_TYPE_BINARY_INT_ARRAY,
   AV_PIX_FMT_RGB24,
+  AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_YUV420P,
   AV_SAMPLE_FMT_S16,
   Filter,
@@ -1330,7 +1331,7 @@ describe('FilterContext', () => {
       const params = {
         width: 1280,
         height: 720,
-        format: 160, // AV_PIX_FMT_VIDEOTOOLBOX
+        format: AV_PIX_FMT_VIDEOTOOLBOX,
         timeBase: { num: 1, den: 25 },
         frameRate: { num: 25, den: 1 },
         sampleAspectRatio: { num: 1, den: 1 },

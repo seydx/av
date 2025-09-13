@@ -1,10 +1,8 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, FilterAPI, FilterPresets, HardwareContext, MediaInput } from '../src/index.js';
+import { AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, FilterAPI, FilterPreset, HardwareContext, MediaInput } from '../src/index.js';
 import { getInputFile, prepareTestEnvironment, skipInCI } from './index.js';
-
-import type { VideoInfo } from '../src/index.js';
 
 prepareTestEnvironment();
 
@@ -82,18 +80,15 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream);
     assert.ok(decoder, 'Should create decoder');
 
-    const filterChain = FilterPresets.chain().scale(100, 100).format(AV_PIX_FMT_YUV420P).build();
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo());
+    const filterChain = FilterPreset.chain().scale(100, 100).format(AV_PIX_FMT_YUV420P).build();
+    using filter = await FilterAPI.create(filterChain, {
+      timeBase: { num: 1, den: 30 },
+    });
     assert.ok(filter, 'Should create filter');
 
     using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
-      type: 'video',
-      width: 100,
-      height: 100,
-      pixelFormat: AV_PIX_FMT_YUV420P,
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
-      sampleAspectRatio: { num: 1, den: 1 },
     });
     assert.ok(encoder, 'Should create encoder');
 
@@ -109,15 +104,9 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream);
     assert.ok(decoder, 'Should create decoder');
 
-    const streamInfo = decoder.getOutputStreamInfo() as VideoInfo;
     using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
-      type: 'video',
-      width: streamInfo.width,
-      height: streamInfo.height,
-      pixelFormat: AV_PIX_FMT_YUV420P,
-      frameRate: streamInfo.frameRate,
-      timeBase: streamInfo.timeBase,
-      sampleAspectRatio: streamInfo.sampleAspectRatio,
+      frameRate: { num: 30, den: 1 },
+      timeBase: { num: 1, den: 30 },
     });
     assert.ok(encoder, 'Should create encoder');
 
@@ -139,19 +128,16 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream, { hardware: hw });
     assert.ok(decoder, 'Should create hardware decoder');
 
-    const filterChain = hw.filterPresets.chain().scale(100, 100).hwdownload().format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]).build();
+    const filterChain = FilterPreset.chain(hw).scale(100, 100).hwdownload().format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]).build();
 
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), { hardware: hw });
+    using filter = await FilterAPI.create(filterChain, {
+      timeBase: { num: 1, den: 30 },
+    });
     assert.ok(filter, 'Should create filter with hardware context');
 
     using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
-      type: 'video',
-      width: 100,
-      height: 100,
-      pixelFormat: AV_PIX_FMT_YUV420P,
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
-      sampleAspectRatio: { num: 1, den: 1 },
     });
     assert.ok(encoder, 'Should create software encoder');
 
@@ -173,33 +159,25 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream);
     assert.ok(decoder, 'Should create software decoder');
 
-    const filterChain = hw.filterPresets.chain().hwupload().scale(100, 100).build();
+    const filterChain = FilterPreset.chain(hw).hwupload().scale(100, 100).build();
 
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), { hardware: hw });
+    using filter = await FilterAPI.create(filterChain, {
+      timeBase: { num: 1, den: 30 },
+      hardware: hw,
+    });
     assert.ok(filter, 'Should create filter with hardware upload');
 
-    const encoderCodec = await hw.getEncoderCodec('h264');
+    const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
       return;
     }
 
-    using encoder = await Encoder.create(
-      encoderCodec,
-      {
-        type: 'video',
-        width: 100,
-        height: 100,
-        pixelFormat: hw.devicePixelFormat,
-        frameRate: { num: 30, den: 1 },
-        timeBase: { num: 1, den: 30 },
-        sampleAspectRatio: { num: 1, den: 1 },
-      },
-      {
-        hardware: hw,
-      },
-    );
+    using encoder = await Encoder.create(encoderCodec, {
+      frameRate: { num: 30, den: 1 },
+      timeBase: { num: 1, den: 30 },
+    });
     assert.ok(encoder, 'Should create hardware encoder');
 
     const frameCount = await processFrames(input, decoder, filter, encoder, videoStream.index);
@@ -220,33 +198,24 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream, { hardware: hw });
     assert.ok(decoder, 'Should create hardware decoder');
 
-    const filterChain = hw.filterPresets.chain().scale(100, 100).build();
+    const filterChain = FilterPreset.chain(hw).scale(100, 100).build();
 
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), { hardware: hw });
+    using filter = await FilterAPI.create(filterChain, {
+      timeBase: { num: 1, den: 30 },
+    });
     assert.ok(filter, 'Should create hardware filter');
 
-    const encoderCodec = await hw.getEncoderCodec('h264');
+    const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
       return;
     }
 
-    using encoder = await Encoder.create(
-      encoderCodec,
-      {
-        type: 'video',
-        width: 100,
-        height: 100,
-        pixelFormat: hw.devicePixelFormat,
-        frameRate: { num: 30, den: 1 },
-        timeBase: { num: 1, den: 30 },
-        sampleAspectRatio: { num: 1, den: 1 },
-      },
-      {
-        hardware: hw,
-      },
-    );
+    using encoder = await Encoder.create(encoderCodec, {
+      frameRate: { num: 30, den: 1 },
+      timeBase: { num: 1, den: 30 },
+    });
     assert.ok(encoder, 'Should create hardware encoder');
 
     const frameCount = await processFrames(input, decoder, filter, encoder, videoStream.index);
@@ -267,29 +236,17 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream, { hardware: hw });
     assert.ok(decoder, 'Should create hardware decoder');
 
-    const encoderCodec = await hw.getEncoderCodec('h264');
+    const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
       return;
     }
 
-    const streamInfo = decoder.getOutputStreamInfo() as VideoInfo;
-    using encoder = await Encoder.create(
-      encoderCodec,
-      {
-        type: 'video',
-        width: streamInfo.width,
-        height: streamInfo.height,
-        pixelFormat: streamInfo.pixelFormat,
-        frameRate: streamInfo.frameRate,
-        timeBase: streamInfo.timeBase,
-        sampleAspectRatio: streamInfo.sampleAspectRatio,
-      },
-      {
-        hardware: hw,
-      },
-    );
+    using encoder = await Encoder.create(encoderCodec, {
+      frameRate: { num: 30, den: 1 },
+      timeBase: { num: 1, den: 30 },
+    });
     assert.ok(encoder, 'Should create hardware encoder');
 
     const frameCount = await processFrames(input, decoder, null, encoder, videoStream.index);
@@ -310,33 +267,25 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream);
     assert.ok(decoder, 'Should create software decoder');
 
-    const filterChain = FilterPresets.chain().scale(100, 100).hwupload().build();
+    const filterChain = FilterPreset.chain().scale(100, 100).hwupload().build();
 
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), { hardware: hw });
+    using filter = await FilterAPI.create(filterChain, {
+      timeBase: { num: 1, den: 30 },
+      hardware: hw,
+    });
     assert.ok(filter, 'Should create software filter');
 
-    const encoderCodec = await hw.getEncoderCodec('h264');
+    const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
       console.log('No hardware encoder codec available');
       console.log('No hardware available - skipping test');
       return;
     }
 
-    using encoder = await Encoder.create(
-      encoderCodec,
-      {
-        type: 'video',
-        width: 100,
-        height: 100,
-        pixelFormat: hw.devicePixelFormat,
-        frameRate: { num: 30, den: 1 },
-        timeBase: { num: 1, den: 30 },
-        sampleAspectRatio: { num: 1, den: 1 },
-      },
-      {
-        hardware: hw,
-      },
-    );
+    using encoder = await Encoder.create(encoderCodec, {
+      frameRate: { num: 30, den: 1 },
+      timeBase: { num: 1, den: 30 },
+    });
     assert.ok(encoder, 'Should create hardware encoder');
 
     const frameCount = await processFrames(input, decoder, filter, encoder, videoStream.index);
@@ -344,7 +293,7 @@ describe('Transcode Scenarios', () => {
   });
 
   describe('Error Cases', () => {
-    it('should fail when using hardware filter without hardware context on filter', skipInCI, async () => {
+    it('should handle software frame with hardware filter gracefully', skipInCI, async () => {
       using hw = HardwareContext.auto();
       if (!hw) {
         console.log('No hardware available, skipping test');
@@ -355,15 +304,19 @@ describe('Transcode Scenarios', () => {
       const videoStream = input.video();
       assert.ok(videoStream, 'Should have video stream');
 
-      using decoder = await Decoder.create(videoStream, { hardware: hw });
+      // Software decoder - produces software frames
+      using decoder = await Decoder.create(videoStream);
 
-      const filterChain = hw.filterPresets.chain().scale(100, 100).hwdownload().format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]).build();
+      // Hardware filter chain without hwupload
+      const filterChain = FilterPreset.chain(hw).scale(100, 100).build();
 
-      // This should fail - using hardware filter chain without passing hardware context
+      // This should fail - hardware filter with software frames
       await assert.rejects(
         async () => {
-          using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo());
-          // Try to process a frame
+          using filter = await FilterAPI.create(filterChain, {
+            timeBase: { num: 1, den: 30 },
+          });
+          // Try to process a software frame with hardware filter
           for await (const packet of input.packets()) {
             if (packet.streamIndex === videoStream.index) {
               using decodedFrame = await decoder.decode(packet);
@@ -375,10 +328,10 @@ describe('Transcode Scenarios', () => {
           }
         },
         () => {
-          // Should fail because hardware context wasn't passed to filter
+          // Should fail because software frame used with hardware filter
           return true;
         },
-        'Should fail when hardware filter is used without hardware context',
+        'Should fail when software frame is used with hardware filter',
       );
 
       hw.dispose();
@@ -391,15 +344,10 @@ describe('Transcode Scenarios', () => {
 
       using decoder = await Decoder.create(videoStream);
 
-      // Create encoder with mismatched parameters
+      // Create encoder - it will use lazy initialization from first frame
       using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
-        type: 'video',
-        width: 1920, // Different from decoded size
-        height: 1080, // Different from decoded size
-        pixelFormat: AV_PIX_FMT_YUV420P,
         frameRate: { num: 60, den: 1 }, // Different frame rate
         timeBase: { num: 1, den: 60 },
-        sampleAspectRatio: { num: 1, den: 1 },
       });
 
       // Should still work, encoder will handle the mismatch

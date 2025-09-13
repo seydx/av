@@ -2,12 +2,9 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { Decoder } from '../src/api/decoder.js';
-import { HardwareContext } from '../src/api/hardware.js';
 import { MediaInput } from '../src/api/media-input.js';
-import { avIsHardwarePixelFormat, Packet } from '../src/lib/index.js';
-import { getInputFile, prepareTestEnvironment, skipInCI } from './index.js';
-
-import type { AudioInfo, VideoInfo } from '../src/index.js';
+import { Packet } from '../src/lib/index.js';
+import { getInputFile, prepareTestEnvironment } from './index.js';
 
 prepareTestEnvironment();
 
@@ -26,7 +23,7 @@ describe('Decoder', () => {
       const decoder = await Decoder.create(videoStream);
       assert.ok(decoder);
       assert.equal(decoder.isDecoderOpen, true);
-      assert.equal(decoder.getStreamIndex(), videoStream.index);
+      assert.equal(decoder.getStream().index, videoStream.index);
 
       decoder.close();
       await media.close();
@@ -196,8 +193,7 @@ describe('Decoder', () => {
 
       // Flush decoder
       let flushCount = 0;
-      let frame;
-      while ((frame = await decoder.flush()) !== null) {
+      for await (const frame of decoder.flushFrames()) {
         assert.ok(frame.width > 0);
         frame.free();
         flushCount++;
@@ -216,7 +212,8 @@ describe('Decoder', () => {
       const decoder = await Decoder.create(videoStream);
       decoder.close();
 
-      await assert.rejects(async () => await decoder.flush(), /Decoder is closed/);
+      // flush() returns void now, just check it doesn't throw
+      await decoder.flush(); // Should not throw even when closed
 
       await media.close();
     });
@@ -344,115 +341,12 @@ describe('Decoder', () => {
       const videoDecoder = await Decoder.create(videoStream);
       const audioDecoder = await Decoder.create(audioStream);
 
-      assert.equal(videoDecoder.getStreamIndex(), videoStream.index);
-      assert.equal(audioDecoder.getStreamIndex(), audioStream.index);
-      assert.notEqual(videoDecoder.getStreamIndex(), audioDecoder.getStreamIndex());
+      assert.equal(videoDecoder.getStream().index, videoStream.index);
+      assert.equal(audioDecoder.getStream().index, audioStream.index);
+      assert.notEqual(videoDecoder.getStream().index, audioDecoder.getStream().index);
 
       videoDecoder.close();
       audioDecoder.close();
-      await media.close();
-    });
-  });
-
-  describe('getOutputStreamInfo', () => {
-    it('should return correct output format for software decoder', async () => {
-      const media = await MediaInput.open(inputFile);
-      const videoStream = media.video();
-      assert.ok(videoStream);
-
-      const decoder = await Decoder.create(videoStream);
-      const outputInfo = decoder.getOutputStreamInfo() as VideoInfo;
-
-      assert.equal(outputInfo.type, 'video');
-      assert.ok(outputInfo.width > 0);
-      assert.ok(outputInfo.height > 0);
-      assert.ok(outputInfo.pixelFormat !== undefined);
-      assert.ok(outputInfo.timeBase);
-      assert.ok(outputInfo.frameRate);
-
-      // For software decoder, output format should be same as stream format
-      assert.equal(avIsHardwarePixelFormat(outputInfo.pixelFormat), false);
-
-      decoder.close();
-      await media.close();
-    });
-
-    it('should return correct output format for audio decoder', async () => {
-      const media = await MediaInput.open(inputFile);
-      const audioStream = media.audio();
-      assert.ok(audioStream);
-
-      const decoder = await Decoder.create(audioStream);
-      const outputInfo = decoder.getOutputStreamInfo() as AudioInfo;
-
-      assert.equal(outputInfo.type, 'audio');
-      assert.ok(outputInfo.sampleRate > 0);
-      assert.ok(outputInfo.sampleFormat !== undefined);
-      assert.ok(outputInfo.channelLayout);
-      assert.ok(outputInfo.timeBase);
-
-      decoder.close();
-      await media.close();
-    });
-
-    it('should return hardware pixel format for hardware decoder', skipInCI, async () => {
-      // Try to get hardware context
-      const hw = HardwareContext.auto();
-      if (!hw) {
-        console.log('Skipping hardware test - no hardware context available');
-        return;
-      }
-
-      const media = await MediaInput.open(inputFile);
-      const videoStream = media.video();
-      assert.ok(videoStream);
-
-      try {
-        const decoder = await Decoder.create(videoStream, { hardware: hw });
-        const outputInfo = decoder.getOutputStreamInfo() as VideoInfo;
-
-        assert.equal(outputInfo.type, 'video');
-        assert.ok(outputInfo.width > 0);
-        assert.ok(outputInfo.height > 0);
-
-        // For hardware decoder, output should be hardware pixel format
-        assert.ok(avIsHardwarePixelFormat(outputInfo.pixelFormat), `Expected hardware pixel format, got ${outputInfo.pixelFormat}`);
-
-        decoder.close();
-      } catch (error) {
-        // Hardware decoder creation might fail on some systems
-        console.log('Hardware decoder creation failed:', error.message);
-      }
-
-      await media.close();
-      hw.dispose();
-    });
-
-    it('should match actual decoded frame format', async () => {
-      const media = await MediaInput.open(inputFile);
-      const videoStream = media.video();
-      assert.ok(videoStream);
-
-      const decoder = await Decoder.create(videoStream);
-      const outputInfo = decoder.getOutputStreamInfo() as VideoInfo;
-
-      // Decode one frame and compare
-      for await (const packet of media.packets()) {
-        if (packet.streamIndex === videoStream.index) {
-          const frame = await decoder.decode(packet);
-          if (frame) {
-            // Compare output info with actual frame
-            assert.equal(outputInfo.width, frame.width);
-            assert.equal(outputInfo.height, frame.height);
-            assert.equal(outputInfo.pixelFormat, frame.format);
-
-            frame.free();
-            break;
-          }
-        }
-      }
-
-      decoder.close();
       await media.close();
     });
   });

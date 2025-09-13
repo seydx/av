@@ -4,12 +4,8 @@ import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 
 import {
-  AV_CHANNEL_LAYOUT_MONO,
-  AV_CHANNEL_LAYOUT_STEREO,
   AV_CODEC_ID_H264,
-  AV_PIX_FMT_NV12,
   AV_PIX_FMT_YUV420P,
-  AV_SAMPLE_FMT_FLTP,
   BitStreamFilterAPI,
   Decoder,
   Encoder,
@@ -130,21 +126,12 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         using decoder = await Decoder.create(videoStream);
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: videoStream.codecpar.width,
-            height: videoStream.codecpar.height,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: videoStream.timeBase,
-            frameRate: videoStream.avgFrameRate,
-          },
-          {
-            bitrate: '1M',
-            gopSize: 30,
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: videoStream.timeBase,
+          frameRate: videoStream.avgFrameRate,
+          bitrate: '1M',
+          gopSize: 30,
+        });
 
         const control = pipeline(input, decoder, encoder, output);
         await control.completion;
@@ -177,22 +164,16 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Create a simple scale filter
-        using filter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
+        using filter = await FilterAPI.create('scale=320:240', {
+          frameRate: videoStream.avgFrameRate,
+          timeBase: videoStream.timeBase,
+        });
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          frameRate: videoStream.avgFrameRate,
+          timeBase: videoStream.timeBase,
+          bitrate: '500k',
+        });
 
         const control = pipeline(input, decoder, filter, encoder, output);
         await control.completion;
@@ -253,20 +234,11 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using decoder = await Decoder.create(videoStream);
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: videoStream.codecpar.width,
-            height: videoStream.codecpar.height,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '1M',
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '1M',
+        });
 
         // Create BSF for the encoded stream
         // Note: We use the null filter which works with any stream
@@ -287,9 +259,9 @@ describe('Pipeline - Comprehensive Tests', () => {
       const outputFile = getTestOutputPath('named-multi.mp4');
 
       try {
-        const videoInput = await MediaInput.open(inputFile);
-        const audioInput = await MediaInput.open(inputFile);
-        const output = await MediaOutput.open(outputFile);
+        await using videoInput = await MediaInput.open(inputFile);
+        await using audioInput = await MediaInput.open(inputFile);
+        await using output = await MediaOutput.open(outputFile);
 
         const videoStream = videoInput.video();
         const audioStream = audioInput.audio();
@@ -299,36 +271,18 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         // Create processing stages
-        const videoDecoder = await Decoder.create(videoStream);
-        const videoEncoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '1M',
-          },
-        );
+        using videoDecoder = await Decoder.create(videoStream);
+        using videoEncoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '1M',
+        });
 
-        const audioDecoder = await Decoder.create(audioStream);
-        const audioEncoder = await Encoder.create(
-          FF_ENCODER_AAC,
-          {
-            type: 'audio',
-            sampleRate: 44100,
-            sampleFormat: AV_SAMPLE_FMT_FLTP,
-            channelLayout: AV_CHANNEL_LAYOUT_MONO,
-            timeBase: { num: 1, den: 44100 },
-          },
-          {
-            bitrate: '128k',
-          },
-        );
+        using audioDecoder = await Decoder.create(audioStream);
+        using audioEncoder = await Encoder.create(FF_ENCODER_AAC, {
+          timeBase: { num: 1, den: 44100 },
+          bitrate: '128k',
+        });
 
         // const audioFilter = await FilterAPI.create('aformat=sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=0', audioStream);
 
@@ -360,7 +314,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
       try {
         await using input = await MediaInput.open(inputFile);
-        await using output = await MediaOutput.open(outputFile);
+        const output = await MediaOutput.open(outputFile);
 
         const videoStream = input.video();
         const audioStream = input.audio();
@@ -371,20 +325,11 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         // Process video, passthrough audio
         using videoDecoder = await Decoder.create(videoStream);
-        using videoEncoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-          },
-        );
+        using videoEncoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+        });
 
         const control = pipeline(
           { video: input, audio: input },
@@ -431,21 +376,15 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using decoder = await Decoder.create(videoStream);
-        using filter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-          },
-        );
+        using filter = await FilterAPI.create('scale=320:240', {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+        });
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+        });
 
         const control = pipeline({ video: input }, { video: [decoder, filter, encoder] }, output);
 
@@ -495,7 +434,10 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       using decoder = await Decoder.create(videoStream);
-      using filter = await FilterAPI.create('scale=160:120', decoder.getOutputStreamInfo());
+      using filter = await FilterAPI.create('scale=160:120', {
+        timeBase: videoStream.timeBase,
+        frameRate: videoStream.avgFrameRate,
+      });
 
       // Partial pipeline with filter
       const frameGenerator = pipeline(input, decoder, filter);
@@ -522,21 +464,15 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       using decoder = await Decoder.create(videoStream);
-      using filter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
-      using encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          timeBase: { num: 1, den: 30 },
-          frameRate: { num: 30, den: 1 },
-        },
-        {
-          bitrate: '500k',
-        },
-      );
+      using filter = await FilterAPI.create('scale=320:240', {
+        timeBase: videoStream.timeBase,
+        frameRate: videoStream.avgFrameRate,
+      });
+      using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: videoStream.timeBase,
+        frameRate: videoStream.avgFrameRate,
+        bitrate: '500k',
+      });
 
       // Partial pipeline returns packets
       const packetGenerator = pipeline(input, decoder, filter, encoder);
@@ -561,20 +497,11 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       using decoder = await Decoder.create(videoStream);
-      using encoder = await Encoder.create(
-        FF_ENCODER_LIBX264,
-        {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
-          timeBase: { num: 1, den: 30 },
-          frameRate: { num: 30, den: 1 },
-        },
-        {
-          bitrate: '1M',
-        },
-      );
+      using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+        bitrate: '1M',
+      });
 
       // Named partial pipeline
       const generators = pipeline({ video: input }, { video: [decoder, encoder] });
@@ -611,23 +538,20 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Chain multiple filters
-        using scaleFilter = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
-        using rotateFilter = await FilterAPI.create('transpose=1', decoder.getOutputStreamInfo()); // 90 degree rotation
+        using scaleFilter = await FilterAPI.create('scale=320:240', {
+          timeBase: videoStream.timeBase,
+          frameRate: videoStream.avgFrameRate,
+        });
+        using rotateFilter = await FilterAPI.create('transpose=1', {
+          timeBase: videoStream.timeBase,
+          frameRate: videoStream.avgFrameRate,
+        });
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 240, // Note: swapped due to rotation
-            height: 320,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+        });
 
         const control = pipeline(input, decoder, scaleFilter, rotateFilter, encoder, output);
         await control.completion;
@@ -653,24 +577,21 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Array of filters
-        const filter1 = await FilterAPI.create('scale=320:240', decoder.getOutputStreamInfo());
-        const filter2 = await FilterAPI.create('format=yuv420p', decoder.getOutputStreamInfo());
+        const filter1 = await FilterAPI.create('scale=320:240', {
+          timeBase: videoStream.timeBase,
+          frameRate: videoStream.avgFrameRate,
+        });
+        const filter2 = await FilterAPI.create('format=yuv420p', {
+          timeBase: videoStream.timeBase,
+          frameRate: videoStream.avgFrameRate,
+        });
         const filters = [filter1, filter2];
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+        });
 
         const control = pipeline(input, decoder, filters, encoder, output);
         await control.completion;
@@ -713,22 +634,13 @@ describe('Pipeline - Comprehensive Tests', () => {
           }
         }
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-            gopSize: 10,
-            maxBFrames: 0,
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+          gopSize: 10,
+          maxBFrames: 0,
+        });
 
         const control = pipeline(generateFrames(), encoder, output);
         await control.completion;
@@ -793,22 +705,16 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         using decoder = await Decoder.create(videoStream, { hardware: hw });
 
-        using filter = await FilterAPI.create('hwdownload,format=nv12', decoder.getOutputStreamInfo(), { hardware: hw });
+        using filter = await FilterAPI.create('hwdownload,format=nv12', {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+        });
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_NV12,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '1M',
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '1M',
+        });
 
         const control = pipeline(input, decoder, filter, encoder, output);
         await control.completion;
@@ -875,29 +781,16 @@ describe('Pipeline - Comprehensive Tests', () => {
 
           // Create filter and encoder
           using filter = await FilterAPI.create('scale=160:120', {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
             timeBase: { num: 1, den: 30 },
           });
 
-          using encoder = await Encoder.create(
-            FF_ENCODER_LIBX264,
-            {
-              type: 'video',
-              width: 160,
-              height: 120,
-              pixelFormat: AV_PIX_FMT_YUV420P,
-              timeBase: { num: 1, den: 30 },
-              frameRate: { num: 30, den: 1 },
-            },
-            {
-              bitrate: '500k',
-              gopSize: 10,
-              maxBFrames: 0,
-            },
-          );
+          using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+            timeBase: { num: 1, den: 30 },
+            frameRate: { num: 30, den: 1 },
+            bitrate: '500k',
+            gopSize: 10,
+            maxBFrames: 0,
+          });
 
           // Pipeline: frames → filter → encoder → output
           const control = pipeline(generateFrames(), filter, encoder, output);
@@ -930,10 +823,6 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using filter = await FilterAPI.create('scale=160:120', {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
           timeBase: { num: 1, den: 30 },
         });
 
@@ -972,22 +861,13 @@ describe('Pipeline - Comprehensive Tests', () => {
           }
         }
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-            gopSize: 10,
-            maxBFrames: 0,
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+          gopSize: 10,
+          maxBFrames: 0,
+        });
 
         // Partial pipeline: frames → encoder (returns packets)
         const packets = pipeline(generateFrames(), encoder);
@@ -1024,29 +904,16 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using filter = await FilterAPI.create('scale=160:120', {
-          type: 'video',
-          width: 320,
-          height: 240,
-          pixelFormat: AV_PIX_FMT_YUV420P,
           timeBase: { num: 1, den: 30 },
         });
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 160,
-            height: 120,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-            gopSize: 10,
-            maxBFrames: 0,
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+          gopSize: 10,
+          maxBFrames: 0,
+        });
 
         // Partial pipeline: frames → filter → encoder (returns packets)
         const packets = pipeline(generateFrames(), filter, encoder);
@@ -1090,34 +957,16 @@ describe('Pipeline - Comprehensive Tests', () => {
           const videoDecoder = await Decoder.create(videoStream);
           const audioDecoder = await Decoder.create(audioStream);
 
-          const videoEncoder = await Encoder.create(
-            FF_ENCODER_LIBX264,
-            {
-              type: 'video',
-              width: 320,
-              height: 240,
-              pixelFormat: AV_PIX_FMT_YUV420P,
-              timeBase: { num: 1, den: 30 },
-              frameRate: { num: 30, den: 1 },
-            },
-            {
-              bitrate: '500k',
-            },
-          );
+          const videoEncoder = await Encoder.create(FF_ENCODER_LIBX264, {
+            timeBase: { num: 1, den: 30 },
+            frameRate: { num: 30, den: 1 },
+            bitrate: '500k',
+          });
 
-          const audioEncoder = await Encoder.create(
-            FF_ENCODER_AAC,
-            {
-              type: 'audio',
-              sampleRate: 44100,
-              sampleFormat: AV_SAMPLE_FMT_FLTP,
-              channelLayout: AV_CHANNEL_LAYOUT_STEREO,
-              timeBase: { num: 1, den: 44100 },
-            },
-            {
-              bitrate: '128k',
-            },
-          );
+          const audioEncoder = await Encoder.create(FF_ENCODER_AAC, {
+            timeBase: { num: 1, den: 44100 },
+            bitrate: '128k',
+          });
 
           // Named pipeline with multiple outputs
           const control = pipeline(
@@ -1160,20 +1009,11 @@ describe('Pipeline - Comprehensive Tests', () => {
           }
 
           using decoder = await Decoder.create(videoStream);
-          using encoder = await Encoder.create(
-            FF_ENCODER_LIBX264,
-            {
-              type: 'video',
-              width: 320,
-              height: 240,
-              pixelFormat: AV_PIX_FMT_YUV420P,
-              timeBase: { num: 1, den: 30 },
-              frameRate: { num: 30, den: 1 },
-            },
-            {
-              bitrate: '1M',
-            },
-          );
+          using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+            timeBase: { num: 1, den: 30 },
+            frameRate: { num: 30, den: 1 },
+            bitrate: '1M',
+          });
 
           const control = pipeline(input, decoder, encoder, output);
 
@@ -1200,20 +1040,11 @@ describe('Pipeline - Comprehensive Tests', () => {
           // Yield nothing
         }
 
-        using encoder = await Encoder.create(
-          FF_ENCODER_LIBX264,
-          {
-            type: 'video',
-            width: 320,
-            height: 240,
-            pixelFormat: AV_PIX_FMT_YUV420P,
-            timeBase: { num: 1, den: 30 },
-            frameRate: { num: 30, den: 1 },
-          },
-          {
-            bitrate: '500k',
-          },
-        );
+        using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+          timeBase: { num: 1, den: 30 },
+          frameRate: { num: 30, den: 1 },
+          bitrate: '500k',
+        });
 
         // Partial pipeline with empty input
         const packets = pipeline(emptyFrames(), encoder);
@@ -1254,22 +1085,13 @@ describe('Pipeline - Comprehensive Tests', () => {
             }
           }
 
-          using encoder = await Encoder.create(
-            FF_ENCODER_LIBX264,
-            {
-              type: 'video',
-              width: 320,
-              height: 240,
-              pixelFormat: AV_PIX_FMT_YUV420P,
-              timeBase: { num: 1, den: 30 },
-              frameRate: { num: 30, den: 1 },
-            },
-            {
-              bitrate: '500k',
-              gopSize: 30,
-              maxBFrames: 0,
-            },
-          );
+          using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+            timeBase: { num: 1, den: 30 },
+            frameRate: { num: 30, den: 1 },
+            bitrate: '500k',
+            gopSize: 30,
+            maxBFrames: 0,
+          });
 
           const control = pipeline(generateManyFrames(), encoder, output);
           await control.completion;
