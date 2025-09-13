@@ -126,7 +126,7 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * @example
  * ```typescript
  * const decoder = await Decoder.create(input.video());
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb');
  * const control = pipeline(input, decoder, encoder, bsf, output);
  * await control.completion;
@@ -148,8 +148,8 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder,
  * @example
  * ```typescript
  * const decoder = await Decoder.create(input.video());
- * const filter = await FilterAPI.create('scale=640:480');
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
+ * const filter = await FilterAPI.create('scale=640:480', { ... });
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const bsf = await BitStreamFilterAPI.create('h264_mp4toannexb');
  * const control = pipeline(input, decoder, filter, encoder, bsf, output);
  * await control.completion;
@@ -178,9 +178,9 @@ export function pipeline(
  * @example
  * ```typescript
  * const decoder = await Decoder.create(input.video());
- * const scaleFilter = await FilterAPI.create('scale=640:480');
- * const cropFilter = await FilterAPI.create('crop=640:360');
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
+ * const scaleFilter = await FilterAPI.create('scale=640:480', { ... });
+ * const cropFilter = await FilterAPI.create('crop=640:360', { ... });
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const control = pipeline(input, decoder, scaleFilter, cropFilter, encoder, output);
  * await control.completion;
  * ```
@@ -234,8 +234,8 @@ export function pipeline(source: MediaInput, bsf: BitStreamFilterAPI | BitStream
  * ```typescript
  * // Process frames from custom source
  * const frameSource = generateFrames(); // Your async frame generator
- * const filter = await FilterAPI.create('scale=1920:1080');
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
+ * const filter = await FilterAPI.create('scale=1920:1080', { ... });
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const control = pipeline(frameSource, filter, encoder, output);
  * await control.completion;
  * ```
@@ -254,7 +254,7 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * ```typescript
  * // Encode raw frames directly
  * const frameSource = generateFrames(); // Your async frame generator
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const control = pipeline(frameSource, encoder, output);
  * await control.completion;
  * ```
@@ -293,7 +293,7 @@ export function pipeline(source: MediaInput, decoder: Decoder): AsyncGenerator<F
  * ```typescript
  * // Get filtered frames for custom processing
  * const decoder = await Decoder.create(input.video());
- * const filter = await FilterAPI.create('scale=640:480');
+ * const filter = await FilterAPI.create('scale=640:480', { ... });
  * const frames = pipeline(input, decoder, filter);
  * for await (const frame of frames) {
  *   // Process filtered frame
@@ -316,8 +316,8 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * ```typescript
  * // Get encoded packets for custom output handling
  * const decoder = await Decoder.create(input.video());
- * const filter = await FilterAPI.create('scale=640:480');
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
+ * const filter = await FilterAPI.create('scale=640:480', { ... });
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const packets = pipeline(input, decoder, filter, encoder);
  * for await (const packet of packets) {
  *   // Handle encoded packet
@@ -339,7 +339,7 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * ```typescript
  * // Transcode to packets for custom output
  * const decoder = await Decoder.create(input.video());
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo());
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const packets = pipeline(input, decoder, encoder);
  * for await (const packet of packets) {
  *   // Handle transcoded packet
@@ -360,7 +360,7 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder)
  * ```typescript
  * // Filter frames from custom source
  * const frameSource = generateFrames();
- * const filter = await FilterAPI.create('scale=640:480');
+ * const filter = await FilterAPI.create('scale=640:480', { ... });
  * const filteredFrames = pipeline(frameSource, filter);
  * for await (const frame of filteredFrames) {
  *   // Process filtered frame
@@ -381,7 +381,7 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * ```typescript
  * // Encode frames to packets
  * const frameSource = generateFrames();
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const packets = pipeline(frameSource, encoder);
  * for await (const packet of packets) {
  *   // Handle encoded packet
@@ -403,8 +403,8 @@ export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder): AsyncG
  * ```typescript
  * // Process frames with filter and encode to packets
  * const frameSource = generateFrames();
- * const filter = await FilterAPI.create('scale=640:480');
- * const encoder = await Encoder.create(FF_ENCODER_LIBX264, streamInfo);
+ * const filter = await FilterAPI.create('scale=640:480', { ... });
+ * const encoder = await Encoder.create(FF_ENCODER_LIBX264, { ... });
  * const packets = pipeline(frameSource, filter, encoder);
  * for await (const packet of packets) {
  *   // Handle encoded packet
@@ -682,11 +682,6 @@ async function runMediaInputPipelineAsync(input: MediaInput, output: MediaOutput
     }
   }
 
-  // Write header
-  if (!output.isHeaderWritten()) {
-    await output.writeHeader();
-  }
-
   // Copy all packets
   for await (const packet of input.packets()) {
     // Check if we should stop
@@ -703,10 +698,7 @@ async function runMediaInputPipelineAsync(input: MediaInput, output: MediaOutput
     packet.free(); // Free packet after processing
   }
 
-  // Write trailer
-  if (!output.isTrailerWritten()) {
-    await output.writeTrailer();
-  }
+  await output.close();
 }
 
 // ============================================================================
@@ -852,11 +844,6 @@ async function consumeSimplePipeline(stream: AsyncIterable<Packet | Frame>, outp
     throw new Error('Cannot determine stream configuration. This is likely a bug in the pipeline.');
   }
 
-  // Write header if needed
-  if (!output.isHeaderWritten()) {
-    await output.writeHeader();
-  }
-
   // Process stream
   for await (const item of stream) {
     // Check if we should stop
@@ -878,10 +865,7 @@ async function consumeSimplePipeline(stream: AsyncIterable<Packet | Frame>, outp
     }
   }
 
-  // Write trailer if needed
-  if (!output.isTrailerWritten()) {
-    await output.writeTrailer();
-  }
+  await output.close();
 }
 
 // ============================================================================
@@ -1214,11 +1198,6 @@ async function consumeNamedStream(stream: AsyncIterable<Packet>, output: MediaOu
   // Store for later use
   metadata.streamIndex = streamIndex;
 
-  // Write header if needed
-  if (!output.isHeaderWritten()) {
-    await output.writeHeader();
-  }
-
   // Write all packets
   for await (const packet of stream) {
     // Check if we should stop
@@ -1277,11 +1256,6 @@ async function interleaveToOutput(
       // This should not happen
       throw new Error(`Cannot determine stream configuration for ${name}. This is likely a bug in the pipeline.`);
     }
-  }
-
-  // Write header
-  if (!output.isHeaderWritten()) {
-    await output.writeHeader();
   }
 
   // Create packet queues for each stream
@@ -1387,10 +1361,7 @@ async function interleaveToOutput(
     }
   }
 
-  // Write trailer
-  if (!output.isTrailerWritten()) {
-    await output.writeTrailer();
-  }
+  await output.close();
 }
 
 // ============================================================================
@@ -1426,10 +1397,11 @@ async function* decodeStream(packets: AsyncIterable<Packet>, decoder: Decoder): 
       yield frame;
     }
   } else {
-    // Fallback to loop
-    let frame;
-    while ((frame = await decoder.flush()) !== null) {
-      yield frame;
+    // Fallback to manual flush + receive
+    await decoder.flush();
+    let packet;
+    while ((packet = await decoder.receive()) !== null) {
+      yield packet;
     }
   }
 }
@@ -1463,9 +1435,10 @@ async function* encodeStream(frames: AsyncIterable<Frame>, encoder: Encoder): As
       yield packet;
     }
   } else {
-    // Fallback to loop
+    // Fallback to manual flush + receive
+    await encoder.flush();
     let packet;
-    while ((packet = await encoder.flush()) !== null) {
+    while ((packet = await encoder.receive()) !== null) {
       yield packet;
     }
   }
@@ -1640,7 +1613,7 @@ function isBitStreamFilterAPI(obj: any): obj is BitStreamFilterAPI {
  * @internal
  */
 function isMediaOutput(obj: any): obj is MediaOutput {
-  return obj && typeof obj.writePacket === 'function' && typeof obj.writeHeader === 'function';
+  return obj && typeof obj.writePacket === 'function' && typeof obj.addStream === 'function';
 }
 
 /**
