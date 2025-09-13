@@ -9,16 +9,21 @@ import type { IRational, Packet, Stream } from '../lib/index.js';
 import type { IOOutputCallbacks, MediaOutputOptions } from './types.js';
 
 export interface StreamDescription {
+  initialized: boolean;
   stream: Stream;
-  timeBase: IRational;
-  isStreamCopy: boolean;
+  source: Encoder | Stream;
+  timeBase?: IRational;
   sourceTimeBase?: IRational;
+  isStreamCopy: boolean;
+  bufferedPackets: Packet[];
 }
 
 /**
  * High-level media output for writing and muxing media files.
  *
  * Provides simplified access to media muxing and file writing operations.
+ * Automatically manages header and trailer writing - header is written on first packet,
+ * trailer is written on close. Supports lazy initialization for both encoders and streams.
  * Handles stream configuration, packet writing, and format management.
  * Supports files, URLs, and custom I/O with automatic cleanup.
  * Essential component for media encoding pipelines and transcoding.
@@ -34,14 +39,11 @@ export interface StreamDescription {
  * const videoIdx = output.addStream(videoEncoder);
  * const audioIdx = output.addStream(audioEncoder);
  *
- * // Write header
- * await output.writeHeader();
- *
- * // Write packets
+ * // Write packets - header written automatically on first packet
  * await output.writePacket(packet, videoIdx);
  *
- * // Write trailer and close
- * await output.writeTrailer();
+ * // Close - trailer written automatically
+ * // (automatic with await using)
  * ```
  *
  * @example
@@ -52,8 +54,8 @@ export interface StreamDescription {
  *
  * // Copy stream configuration
  * const videoIdx = output.addStream(input.video());
- * await output.writeHeader();
  *
+ * // Process packets - header/trailer handled automatically
  * for await (const packet of input.packets()) {
  *   await output.writePacket(packet, videoIdx);
  *   packet.free();
@@ -70,7 +72,8 @@ export class MediaOutput implements AsyncDisposable {
   private ioContext?: IOContext;
   private headerWritten = false;
   private trailerWritten = false;
-  private closed = false;
+  private isClosed = false;
+  private headerWritePromise?: Promise<void>;
 
   /**
    * @internal
@@ -213,21 +216,25 @@ export class MediaOutput implements AsyncDisposable {
    * Add a stream to the output.
    *
    * Configures output stream from encoder or input stream.
-   * Must be called before writeHeader().
+   * Must be called before writing any packets.
    * Returns stream index for packet writing.
    *
-   * Direct mapping to avformat_new_stream() and avcodec_parameters_copy().
+   * Streams are initialized lazily - codec parameters are configured
+   * automatically when the first packet is written. This allows encoders
+   * to be initialized from frame properties.
+   *
+   * Direct mapping to avformat_new_stream().
    *
    * @param source - Encoder or stream to add
    * @param options - Stream configuration options
    * @param options.timeBase - Optional custom timebase for the stream
    * @returns Stream index for packet writing
    *
-   * @throws {Error} If called after header written or output closed
+   * @throws {Error} If called after packets have been written or output closed
    *
    * @example
    * ```typescript
-   * // Add stream from encoder
+   * // Add stream from encoder (lazy initialization)
    * const videoIdx = output.addStream(videoEncoder);
    * const audioIdx = output.addStream(audioEncoder);
    * ```
@@ -249,12 +256,12 @@ export class MediaOutput implements AsyncDisposable {
       timeBase?: IRational;
     },
   ): number {
-    if (this.closed) {
+    if (this.isClosed) {
       throw new Error('MediaOutput is closed');
     }
 
     if (this.headerWritten) {
-      throw new Error('Cannot add streams after header is written');
+      throw new Error('Cannot add streams after packets have been written');
     }
 
     const stream = this.formatContext.newStream(null);
@@ -262,44 +269,38 @@ export class MediaOutput implements AsyncDisposable {
       throw new Error('Failed to create new stream');
     }
 
-    let isStreamCopy = false;
-    let sourceTimeBase: IRational | undefined;
+    const isStreamCopy = !(source instanceof Encoder);
 
-    if (source instanceof Encoder) {
-      // Transcoding with encoder
-      const codecContext = source.getCodecContext();
-      if (!codecContext) {
-        throw new Error('Failed to get codec context from encoder');
-      }
-
-      const ret = stream.codecpar.fromContext(codecContext);
-      FFmpegError.throwIfError(ret, 'Failed to copy codec parameters from encoder');
-
-      // Store the encoder's timebase as source (we'll need it for rescaling)
-      sourceTimeBase = codecContext.timeBase;
-
-      // Output stream uses encoder's timebase (or custom if specified)
-      stream.timeBase = options?.timeBase ? new Rational(options.timeBase.num, options.timeBase.den) : codecContext.timeBase;
-    } else {
-      // Stream copy
-      const ret = source.codecpar.copy(stream.codecpar);
+    // For stream copy, initialize immediately since we have all the info
+    if (isStreamCopy) {
+      const inputStream = source;
+      const ret = inputStream.codecpar.copy(stream.codecpar);
       FFmpegError.throwIfError(ret, 'Failed to copy codec parameters');
 
-      // Store the input stream's timebase as source (we'll need it for rescaling)
-      sourceTimeBase = source.timeBase;
+      // Set the timebases
+      const sourceTimeBase = inputStream.timeBase;
+      stream.timeBase = options?.timeBase ? new Rational(options.timeBase.num, options.timeBase.den) : inputStream.timeBase;
 
-      // Output stream uses input stream's timebase (or custom if specified)
-      stream.timeBase = options?.timeBase ? new Rational(options.timeBase.num, options.timeBase.den) : source.timeBase;
-      stream.codecpar.codecTag = 0; // Important for format compatibility
-      isStreamCopy = true;
+      this.streams.set(stream.index, {
+        initialized: true,
+        stream,
+        source,
+        timeBase: options?.timeBase,
+        sourceTimeBase,
+        isStreamCopy: true,
+        bufferedPackets: [],
+      });
+    } else {
+      this.streams.set(stream.index, {
+        initialized: false,
+        stream,
+        source,
+        timeBase: options?.timeBase,
+        sourceTimeBase: undefined, // Will be set on initialization
+        isStreamCopy: false,
+        bufferedPackets: [],
+      });
     }
-
-    this.streams.set(stream.index, {
-      stream,
-      timeBase: stream.timeBase,
-      isStreamCopy,
-      sourceTimeBase,
-    });
 
     return stream.index;
   }
@@ -308,20 +309,26 @@ export class MediaOutput implements AsyncDisposable {
    * Write a packet to the output.
    *
    * Writes muxed packet to the specified stream.
-   * Automatically handles timestamp rescaling.
-   * Must be called after writeHeader() and before writeTrailer().
+   * Automatically handles:
+   * - Stream initialization on first packet (lazy initialization)
+   * - Codec parameter configuration from encoder or input stream
+   * - Header writing on first packet
+   * - Timestamp rescaling between source and output timebases
    *
-   * Direct mapping to av_interleaved_write_frame().
+   * For encoder sources, the encoder must have processed at least one frame
+   * before packets can be written (encoder must be initialized).
+   *
+   * Direct mapping to avformat_write_header() (on first packet) and av_interleaved_write_frame().
    *
    * @param packet - Packet to write
    * @param streamIndex - Target stream index
-   * @throws {Error} If stream invalid or called at wrong time
+   * @throws {Error} If stream invalid or encoder not initialized
    *
    * @throws {FFmpegError} If write fails
    *
    * @example
    * ```typescript
-   * // Write encoded packet
+   * // Write encoded packet - header written automatically on first packet
    * const packet = await encoder.encode(frame);
    * if (packet) {
    *   await output.writePacket(packet, videoIdx);
@@ -341,133 +348,110 @@ export class MediaOutput implements AsyncDisposable {
    * ```
    *
    * @see {@link addStream} For adding streams
-   * @see {@link writeHeader} Must be called first
    */
   async writePacket(packet: Packet, streamIndex: number): Promise<void> {
-    if (this.closed) {
+    if (this.isClosed) {
       throw new Error('MediaOutput is closed');
     }
 
-    if (!this.headerWritten) {
-      throw new Error('Header must be written before packets');
-    }
-
     if (this.trailerWritten) {
-      throw new Error('Cannot write packets after trailer');
+      throw new Error('Cannot write packets after output is finalized');
     }
 
-    const streamInfo = this.streams.get(streamIndex);
-    if (!streamInfo) {
-      throw new Error(`Invalid stream index: ${streamIndex}`);
+    if (!this.streams.get(streamIndex)) {
+      throw new Error(`Stream index ${streamIndex} does not exist in this output`);
+    }
+
+    // Initialize any encoder streams that are ready
+    for (const streamInfo of this.streams.values()) {
+      if (!streamInfo.initialized && streamInfo.source instanceof Encoder) {
+        const encoder = streamInfo.source;
+        const codecContext = encoder.getCodecContext();
+
+        // Skip if encoder not ready yet
+        if (!encoder.isEncoderInitialized || !codecContext) {
+          continue;
+        }
+
+        // This encoder is ready, initialize it now
+        const ret = streamInfo.stream.codecpar.fromContext(codecContext);
+        FFmpegError.throwIfError(ret, 'Failed to copy codec parameters from encoder');
+
+        // Update the timebase from the encoder
+        streamInfo.sourceTimeBase = codecContext.timeBase;
+
+        // Output stream uses encoder's timebase (or custom if specified)
+        streamInfo.stream.timeBase = streamInfo.timeBase ? new Rational(streamInfo.timeBase.num, streamInfo.timeBase.den) : codecContext.timeBase;
+
+        // Mark as initialized
+        streamInfo.initialized = true;
+      }
+    }
+
+    const streamInfo = this.streams.get(streamIndex)!;
+
+    // Check if any streams are still uninitialized
+    const uninitialized = Array.from(this.streams.values()).some((s) => !s.initialized);
+    if (uninitialized) {
+      const clonedPacket = packet.clone();
+      packet.free();
+      if (clonedPacket) {
+        streamInfo.bufferedPackets.push(clonedPacket);
+      }
+      return;
+    }
+
+    // Automatically write header if not written yet
+    // Use a promise to ensure only one thread writes the header
+    if (!this.headerWritten) {
+      this.headerWritePromise ??= (async () => {
+        const ret = await this.formatContext.writeHeader();
+        FFmpegError.throwIfError(ret, 'Failed to write header');
+        this.headerWritten = true;
+      })();
+      // All threads wait for the header to be written
+      await this.headerWritePromise;
     }
 
     // Set stream index
     packet.streamIndex = streamIndex;
 
-    // Rescale packet timestamps if source and output timebases differ
-    // Note: The stream's timebase may have been changed by writeHeader (e.g., MP4 uses 1/time_scale)
-    if (streamInfo.sourceTimeBase) {
-      const outputStream = this.formatContext.streams?.[streamIndex];
-      if (outputStream) {
-        // Only rescale if timebases actually differ
-        const srcTb = streamInfo.sourceTimeBase;
-        const dstTb = outputStream.timeBase;
-        if (srcTb.num !== dstTb.num || srcTb.den !== dstTb.den) {
-          packet.rescaleTs(streamInfo.sourceTimeBase, outputStream.timeBase);
+    const write = async (pkt: Packet) => {
+      // Rescale packet timestamps if source and output timebases differ
+      // Note: The stream's timebase may have been changed by writeHeader (e.g., MP4 uses 1/time_scale)
+      if (streamInfo.sourceTimeBase) {
+        const outputStream = this.formatContext.streams?.[streamIndex];
+        if (outputStream) {
+          // Only rescale if timebases actually differ
+          const srcTb = streamInfo.sourceTimeBase;
+          const dstTb = outputStream.timeBase;
+          if (srcTb.num !== dstTb.num || srcTb.den !== dstTb.den) {
+            pkt.rescaleTs(streamInfo.sourceTimeBase, outputStream.timeBase);
+          }
         }
       }
+
+      // Write the packet
+      const ret = await this.formatContext.interleavedWriteFrame(pkt);
+      FFmpegError.throwIfError(ret, 'Failed to write packet');
+    };
+
+    // Write any buffered packets first
+    for (const bufferedPacket of streamInfo.bufferedPackets) {
+      await write(bufferedPacket);
+      bufferedPacket.free();
     }
+    streamInfo.bufferedPackets = [];
 
-    // Write the packet
-    const ret = await this.formatContext.interleavedWriteFrame(packet);
-    FFmpegError.throwIfError(ret, 'Failed to write packet');
-  }
-
-  /**
-   * Write file header.
-   *
-   * Writes format header with stream configuration.
-   * Must be called after adding all streams and before writing packets.
-   * Finalizes stream parameters and initializes muxer.
-   *
-   * Direct mapping to avformat_write_header().
-   *
-   * @throws {Error} If already written or output closed
-   *
-   * @throws {FFmpegError} If write fails
-   *
-   * @example
-   * ```typescript
-   * // Standard workflow
-   * const output = await MediaOutput.open('output.mp4');
-   * output.addStream(encoder);
-   * await output.writeHeader();
-   * // Now ready to write packets
-   * ```
-   *
-   * @see {@link addStream} Must add streams first
-   * @see {@link writePacket} Can write packets after
-   * @see {@link writeTrailer} Must call at end
-   */
-  async writeHeader(): Promise<void> {
-    if (this.closed) {
-      throw new Error('MediaOutput is closed');
-    }
-
-    if (this.headerWritten) {
-      throw new Error('Header already written');
-    }
-
-    const ret = await this.formatContext.writeHeader();
-    FFmpegError.throwIfError(ret, 'Failed to write header');
-    this.headerWritten = true;
-  }
-
-  /**
-   * Write file trailer.
-   *
-   * Writes format trailer and finalizes the file.
-   * Must be called after all packets are written.
-   * Flushes any buffered data and updates file headers.
-   *
-   * Direct mapping to av_write_trailer().
-   *
-   * @throws {Error} If header not written or already written
-   *
-   * @throws {FFmpegError} If write fails
-   *
-   * @example
-   * ```typescript
-   * // Finalize output
-   * await output.writeTrailer();
-   * await output.close();
-   * ```
-   *
-   * @see {@link writeHeader} Must be called first
-   * @see {@link close} For cleanup after trailer
-   */
-  async writeTrailer(): Promise<void> {
-    if (this.closed) {
-      throw new Error('MediaOutput is closed');
-    }
-
-    if (!this.headerWritten) {
-      throw new Error('Cannot write trailer without header');
-    }
-
-    if (this.trailerWritten) {
-      throw new Error('Trailer already written');
-    }
-
-    const ret = await this.formatContext.writeTrailer();
-    FFmpegError.throwIfError(ret, 'Failed to write trailer');
-    this.trailerWritten = true;
+    // Write the current packet
+    await write(packet);
   }
 
   /**
    * Close media output and free resources.
    *
-   * Writes trailer if needed and releases all resources.
+   * Automatically writes trailer if header was written.
+   * Closes the output file and releases all resources.
    * Safe to call multiple times.
    * Automatically called by Symbol.asyncDispose.
    *
@@ -475,7 +459,7 @@ export class MediaOutput implements AsyncDisposable {
    * ```typescript
    * const output = await MediaOutput.open('output.mp4');
    * try {
-   *   // Use output
+   *   // Use output - trailer written automatically on close
    * } finally {
    *   await output.close();
    * }
@@ -484,16 +468,17 @@ export class MediaOutput implements AsyncDisposable {
    * @see {@link Symbol.asyncDispose} For automatic cleanup
    */
   async close(): Promise<void> {
-    if (this.closed) {
+    if (this.isClosed) {
       return;
     }
 
-    this.closed = true;
+    this.isClosed = true;
 
     // Try to write trailer if header was written but trailer wasn't
     try {
       if (this.headerWritten && !this.trailerWritten) {
         await this.formatContext.writeTrailer();
+        this.trailerWritten = true;
       }
     } catch {
       // Ignore errors
@@ -534,73 +519,6 @@ export class MediaOutput implements AsyncDisposable {
         // Ignore errors
       }
     }
-  }
-
-  /**
-   * Get stream information.
-   *
-   * Returns internal stream info for the specified index.
-   *
-   * @param streamIndex - Stream index
-   * @returns Stream info or undefined
-   *
-   * @example
-   * ```typescript
-   * const info = output.getStreamInfo(0);
-   * console.log(`Stream 0 timebase: ${info?.timeBase.num}/${info?.timeBase.den}`);
-   * ```
-   */
-  getStreamInfo(streamIndex: number): StreamDescription | undefined {
-    return this.streams.get(streamIndex);
-  }
-
-  /**
-   * Get all stream indices.
-   *
-   * Returns array of all added stream indices.
-   *
-   * @returns Array of stream indices
-   *
-   * @example
-   * ```typescript
-   * const indices = output.getStreamIndices();
-   * console.log(`Output has ${indices.length} streams`);
-   * ```
-   */
-  getStreamIndices(): number[] {
-    return Array.from(this.streams.keys());
-  }
-
-  /**
-   * Check if header has been written.
-   *
-   * @returns true if header written
-   *
-   * @example
-   * ```typescript
-   * if (!output.isHeaderWritten()) {
-   *   await output.writeHeader();
-   * }
-   * ```
-   */
-  isHeaderWritten(): boolean {
-    return this.headerWritten;
-  }
-
-  /**
-   * Check if trailer has been written.
-   *
-   * @returns true if trailer written
-   *
-   * @example
-   * ```typescript
-   * if (!output.isTrailerWritten()) {
-   *   await output.writeTrailer();
-   * }
-   * ```
-   */
-  isTrailerWritten(): boolean {
-    return this.trailerWritten;
   }
 
   /**
