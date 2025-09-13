@@ -56,4 +56,5 @@
   },
   "eslint.debug": false,
   "typescript.tsdk": "node_modules/typescript/lib",
+  "github.copilot.chat.localeOverride": "en"
 }
