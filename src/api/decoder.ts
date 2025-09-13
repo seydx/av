@@ -1,9 +1,9 @@
-import { AVERROR_EAGAIN, AVERROR_EOF, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
-import { Codec, CodecContext, FFmpegError, Frame } from '../lib/index.js';
+import { AVERROR_EAGAIN, AVERROR_EOF } from '../constants/constants.js';
+import { Codec, CodecContext, Dictionary, FFmpegError, Frame } from '../lib/index.js';
 
 import type { Packet, Stream } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
-import type { DecoderOptions, StreamInfo } from './types.js';
+import type { DecoderOptions } from './types.js';
 
 /**
  * High-level decoder for audio and video streams.
@@ -49,24 +49,26 @@ import type { DecoderOptions, StreamInfo } from './types.js';
  */
 export class Decoder implements Disposable {
   private codecContext: CodecContext;
+  private codec: Codec;
   private frame: Frame;
-  private streamIndex: number;
   private stream: Stream;
-  private isOpen = true;
+  private initialized = true;
+  private isClosed = false;
   private hardware?: HardwareContext | null;
 
   /**
    * @param codecContext - Configured codec context
+   * @param codec - Codec being used
    * @param stream - Media stream being decoded
    * @param hardware - Optional hardware context
    * Use {@link create} factory method
    *
    * @internal
    */
-  private constructor(codecContext: CodecContext, stream: Stream, hardware?: HardwareContext | null) {
+  private constructor(codecContext: CodecContext, codec: Codec, stream: Stream, hardware?: HardwareContext | null) {
     this.codecContext = codecContext;
+    this.codec = codec;
     this.stream = stream;
-    this.streamIndex = stream.index;
     this.hardware = hardware;
     this.frame = new Frame();
     this.frame.alloc();
@@ -156,22 +158,16 @@ export class Decoder implements Disposable {
       codecContext.hwDeviceCtx = options.hardware.deviceContext;
     }
 
-    // Apply codec-specific options via AVOptions
-    if (options.options) {
-      for (const [key, value] of Object.entries(options.options)) {
-        codecContext.setOption(key, value.toString());
-      }
-    }
+    const opts = options.options ? Dictionary.fromObject(options.options) : undefined;
 
     // Open codec
-    const openRet = await codecContext.open2(codec, null);
+    const openRet = await codecContext.open2(codec, opts);
     if (openRet < 0) {
       codecContext.freeContext();
       FFmpegError.throwIfError(openRet, 'Failed to open codec');
     }
 
-    const decoder = new Decoder(codecContext, stream, isHWDecoder ? options.hardware : undefined);
-    return decoder;
+    return new Decoder(codecContext, codec, stream, isHWDecoder ? options.hardware : undefined);
   }
 
   /**
@@ -187,59 +183,26 @@ export class Decoder implements Disposable {
    * ```
    */
   get isDecoderOpen(): boolean {
-    return this.isOpen;
+    return !this.isClosed;
   }
 
   /**
-   * Get output stream information.
+   * Check if decoder has been initialized.
    *
-   * Returns format information about decoded frames.
-   * For hardware decoding, returns the hardware pixel format.
-   * Essential for configuring downstream components like encoders or filters.
+   * Returns true if decoder is initialized (true by default for decoders).
+   * Decoders are pre-initialized from stream parameters.
    *
-   * @returns Stream format information
-   *
-   * @example
-   * ```typescript
-   * const info = decoder.getOutputStreamInfo();
-   * if (info.type === 'video') {
-   *   console.log(`Video: ${info.width}x${info.height} @ ${info.pixelFormat}`);
-   *   console.log(`Frame rate: ${info.frameRate.num}/${info.frameRate.den}`);
-   * }
-   * ```
+   * @returns true if decoder has been initialized
    *
    * @example
    * ```typescript
-   * const info = decoder.getOutputStreamInfo();
-   * if (info.type === 'audio') {
-   *   console.log(`Audio: ${info.sampleRate}Hz ${info.sampleFormat}`);
-   *   console.log(`Channels: ${info.channelLayout}`);
+   * if (decoder.isDecoderInitialized) {
+   *   console.log('Decoder is ready to process frames');
    * }
    * ```
-   *
-   * @see {@link StreamInfo} For format details
-   * @see {@link Encoder.create} For matching encoder configuration
    */
-  getOutputStreamInfo(): StreamInfo {
-    if (this.stream.codecpar.codecType === AVMEDIA_TYPE_VIDEO) {
-      return {
-        type: 'video',
-        width: this.codecContext.width,
-        height: this.codecContext.height,
-        pixelFormat: this.hardware?.devicePixelFormat ?? this.codecContext.pixelFormat,
-        timeBase: this.stream.timeBase,
-        frameRate: this.stream.rFrameRate,
-        sampleAspectRatio: this.codecContext.sampleAspectRatio,
-      };
-    } else {
-      return {
-        type: 'audio',
-        sampleRate: this.codecContext.sampleRate,
-        sampleFormat: this.codecContext.sampleFormat,
-        channelLayout: this.codecContext.channelLayout,
-        timeBase: this.stream.timeBase,
-      };
-    }
+  get isDecoderInitialized(): boolean {
+    return this.initialized;
   }
 
   /**
@@ -257,7 +220,23 @@ export class Decoder implements Disposable {
    * @see {@link HardwareContext} For hardware setup
    */
   isHardware(): boolean {
-    return !!this.hardware;
+    return !!this.hardware && this.codec.isHardwareAcceleratedDecoder();
+  }
+
+  /**
+   * Check if decoder is ready for processing.
+   *
+   * @returns true if initialized and ready
+   *
+   * @example
+   * ```typescript
+   * if (decoder.isReady()) {
+   *   const frame = await decoder.decode(packet);
+   * }
+   * ```
+   */
+  isReady(): boolean {
+    return this.initialized && !this.isClosed;
   }
 
   /**
@@ -288,7 +267,7 @@ export class Decoder implements Disposable {
    * @example
    * ```typescript
    * for await (const packet of input.packets()) {
-   *   if (packet.streamIndex === decoder.getStreamIndex()) {
+   *   if (packet.streamIndex === decoder.getStream().index) {
    *     const frame = await decoder.decode(packet);
    *     if (frame) {
    *       await processFrame(frame);
@@ -303,7 +282,7 @@ export class Decoder implements Disposable {
    * @see {@link flush} For end-of-stream handling
    */
   async decode(packet: Packet): Promise<Frame | null> {
-    if (!this.isOpen) {
+    if (this.isClosed) {
       throw new Error('Decoder is closed');
     }
 
@@ -311,7 +290,7 @@ export class Decoder implements Disposable {
     const sendRet = await this.codecContext.sendPacket(packet);
     if (sendRet < 0 && sendRet !== AVERROR_EOF) {
       // Decoder might be full, try to receive first
-      const frame = await this.receiveFrameInternal();
+      const frame = await this.receive();
       if (frame) {
         return frame;
       }
@@ -323,82 +302,8 @@ export class Decoder implements Disposable {
     }
 
     // Try to receive frame
-    const frame = await this.receiveFrameInternal();
+    const frame = await this.receive();
     return frame;
-  }
-
-  /**
-   * Flush decoder and get buffered frame.
-   *
-   * Signals end-of-stream and retrieves remaining frames.
-   * Call repeatedly until null to get all buffered frames.
-   * Essential for ensuring all frames are decoded.
-   *
-   * Direct mapping to avcodec_send_packet(NULL).
-   *
-   * @returns Buffered frame or null if none remaining
-   *
-   * @throws {Error} If decoder is closed
-   *
-   * @example
-   * ```typescript
-   * // After all packets processed
-   * let frame;
-   * while ((frame = await decoder.flush()) !== null) {
-   *   console.log('Got buffered frame');
-   *   await processFrame(frame);
-   *   frame.free();
-   * }
-   * ```
-   *
-   * @see {@link flushFrames} For async iteration
-   * @see {@link frames} For complete decoding pipeline
-   */
-  async flush(): Promise<Frame | null> {
-    if (!this.isOpen) {
-      throw new Error('Decoder is closed');
-    }
-
-    // Send flush packet (null)
-    await this.codecContext.sendPacket(null);
-
-    // Receive frame
-    const frame = await this.receiveFrameInternal();
-    return frame;
-  }
-
-  /**
-   * Flush all buffered frames as async generator.
-   *
-   * Convenient async iteration over remaining frames.
-   * Automatically handles repeated flush calls.
-   * Useful for end-of-stream processing.
-   *
-   * @yields Buffered frames
-   * @throws {Error} If decoder is closed
-   *
-   * @example
-   * ```typescript
-   * // Flush at end of decoding
-   * for await (const frame of decoder.flushFrames()) {
-   *   console.log('Processing buffered frame');
-   *   await encoder.encode(frame);
-   *   frame.free();
-   * }
-   * ```
-   *
-   * @see {@link flush} For single frame flush
-   * @see {@link frames} For complete pipeline
-   */
-  async *flushFrames(): AsyncGenerator<Frame> {
-    if (!this.isOpen) {
-      throw new Error('Decoder is closed');
-    }
-
-    let frame;
-    while ((frame = await this.flush()) !== null) {
-      yield frame;
-    }
   }
 
   /**
@@ -430,7 +335,7 @@ export class Decoder implements Disposable {
    * ```typescript
    * for await (const frame of decoder.frames(input.packets())) {
    *   // Process frame
-   *   await filter.filterFrame(frame);
+   *   await filter.process(frame);
    *
    *   // Frame automatically freed
    *   frame.free();
@@ -454,15 +359,11 @@ export class Decoder implements Disposable {
    * @see {@link MediaInput.packets} For packet source
    */
   async *frames(packets: AsyncIterable<Packet>): AsyncGenerator<Frame> {
-    if (!this.isOpen) {
-      throw new Error('Decoder is closed');
-    }
-
     // Process packets
     for await (const packet of packets) {
       try {
         // Only process packets for our stream
-        if (packet.streamIndex === this.streamIndex) {
+        if (packet.streamIndex === this.stream.index) {
           const frame = await this.decode(packet);
           if (frame) {
             yield frame;
@@ -475,9 +376,139 @@ export class Decoder implements Disposable {
     }
 
     // Flush decoder after all packets
+    await this.flush();
+    while (true) {
+      const remaining = await this.receive();
+      if (!remaining) break;
+      yield remaining;
+    }
+  }
+
+  /**
+   * Flush decoder and signal end-of-stream.
+   *
+   * Sends null packet to decoder to signal end-of-stream.
+   * Does nothing if decoder is closed.
+   * Must use receive() or flushFrames() to get remaining buffered frames.
+   *
+   * Direct mapping to avcodec_send_packet(NULL).
+   *
+   * @throws {FFmpegError} If flush fails
+   *
+   * @example
+   * ```typescript
+   * // Signal end of stream
+   * await decoder.flush();
+   *
+   * // Then get remaining frames
+   * let frame;
+   * while ((frame = await decoder.receive()) !== null) {
+   *   console.log('Got buffered frame');
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link flushFrames} For convenient async iteration
+   * @see {@link receive} For getting buffered frames
+   */
+  async flush(): Promise<void> {
+    if (this.isClosed) {
+      return;
+    }
+
+    // Send flush packet (null)
+    const ret = await this.codecContext.sendPacket(null);
+    if (ret < 0 && ret !== AVERROR_EOF) {
+      if (ret !== AVERROR_EAGAIN) {
+        FFmpegError.throwIfError(ret, 'Failed to flush decoder');
+      }
+    }
+  }
+
+  /**
+   * Flush all buffered frames as async generator.
+   *
+   * Convenient async iteration over remaining frames.
+   * Automatically sends flush signal and retrieves buffered frames.
+   * Useful for end-of-stream processing.
+   *
+   * @yields Buffered frames
+   *
+   * @example
+   * ```typescript
+   * // Flush at end of decoding
+   * for await (const frame of decoder.flushFrames()) {
+   *   console.log('Processing buffered frame');
+   *   await encoder.encode(frame);
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link flush} For signaling end-of-stream
+   * @see {@link frames} For complete pipeline
+   */
+  async *flushFrames(): AsyncGenerator<Frame> {
+    // Send flush signal
+    await this.flush();
+
     let frame;
-    while ((frame = await this.flush()) !== null) {
+    while ((frame = await this.receive()) !== null) {
       yield frame;
+    }
+  }
+
+  /**
+   * Receive frame from decoder.
+   *
+   * Gets decoded frames from the codec's internal buffer.
+   * Handles frame cloning and error checking.
+   * Hardware frames include hw_frames_ctx reference.
+   * Call repeatedly until null to drain all buffered frames.
+   *
+   * Direct mapping to avcodec_receive_frame().
+   *
+   * @returns Cloned frame or null if no frames available
+   *
+   * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
+   *
+   * @example
+   * ```typescript
+   * const frame = await decoder.receive();
+   * if (frame) {
+   *   console.log('Got decoded frame');
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Drain all buffered frames
+   * let frame;
+   * while ((frame = await decoder.receive()) !== null) {
+   *   console.log(`Frame PTS: ${frame.pts}`);
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link decode} For sending packets and receiving frames
+   * @see {@link flush} For signaling end-of-stream
+   */
+  async receive(): Promise<Frame | null> {
+    // Clear previous frame data
+    this.frame.unref();
+
+    const ret = await this.codecContext.receiveFrame(this.frame);
+
+    if (ret === 0) {
+      // Got a frame, clone it for the user
+      return this.frame.clone();
+    } else if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+      // Need more data or end of stream
+      return null;
+    } else {
+      // Error
+      FFmpegError.throwIfError(ret, 'Failed to receive frame');
+      return null;
     }
   }
 
@@ -501,35 +532,16 @@ export class Decoder implements Disposable {
    * @see {@link Symbol.dispose} For automatic cleanup
    */
   close(): void {
-    if (!this.isOpen) {
+    if (this.isClosed) {
       return;
     }
+
+    this.isClosed = true;
 
     this.frame.free();
     this.codecContext.freeContext();
 
-    this.isOpen = false;
-  }
-
-  /**
-   * Get stream index.
-   *
-   * Returns the index of the stream being decoded.
-   * Used for packet filtering in multi-stream files.
-   *
-   * @returns Stream index
-   *
-   * @example
-   * ```typescript
-   * if (packet.streamIndex === decoder.getStreamIndex()) {
-   *   const frame = await decoder.decode(packet);
-   * }
-   * ```
-   *
-   * @see {@link getStream} For full stream object
-   */
-  getStreamIndex(): number {
-    return this.streamIndex;
+    this.initialized = false;
   }
 
   /**
@@ -540,70 +552,45 @@ export class Decoder implements Disposable {
    *
    * @returns Stream object
    *
-   * @example
-   * ```typescript
-   * const stream = decoder.getStream();
-   * console.log(`Duration: ${stream.duration}`);
-   * console.log(`Time base: ${stream.timeBase.num}/${stream.timeBase.den}`);
-   * ```
+   * @internal
    *
-   * @see {@link Stream} For stream properties
-   * @see {@link getStreamIndex} For index only
+   * @see {@link Stream} For stream details
    */
   getStream(): Stream {
     return this.stream;
   }
 
   /**
-   * Get underlying codec context.
+   * Get decoder codec.
    *
-   * Returns the internal codec context for advanced operations.
-   * Returns null if decoder is closed.
+   * Returns the codec used by this decoder.
+   * Useful for checking codec capabilities and properties.
    *
-   * @returns Codec context or null
+   * @returns Codec instance
    *
    * @internal
+   *
+   * @see {@link Codec} For codec details
    */
-  getCodecContext(): CodecContext | null {
-    return this.isOpen ? this.codecContext : null;
+  getCodec(): Codec {
+    return this.codec;
   }
 
   /**
-   * Receive frame from decoder.
+   * Get underlying codec context.
    *
-   * Internal method to get decoded frames from codec.
-   * Handles frame cloning and error checking.
-   * Hardware frames include hw_frames_ctx reference.
+   * Returns the codec context for advanced operations.
+   * Useful for accessing low-level codec properties and settings.
+   * Returns null if decoder is closed.
    *
-   * Direct mapping to avcodec_receive_frame().
-   *
-   * @returns Cloned frame or null
-   *
-   * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
+   * @returns Codec context or null if closed
    *
    * @internal
    *
+   * @see {@link CodecContext} For context details
    */
-  private async receiveFrameInternal(): Promise<Frame | null> {
-    // Clear previous frame data
-    this.frame.unref();
-
-    const ret = await this.codecContext.receiveFrame(this.frame);
-
-    if (ret === 0) {
-      // Note: hw_frames_ctx is now available in the frame
-      // Other components should get it directly from frames, not from HardwareContext
-
-      // Got a frame, clone it for the user
-      return this.frame.clone();
-    } else if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
-      // Need more data or end of stream
-      return null;
-    } else {
-      // Error
-      FFmpegError.throwIfError(ret, 'Failed to receive frame');
-      return null;
-    }
+  getCodecContext(): CodecContext | null {
+    return !this.isClosed && this.initialized ? this.codecContext : null;
   }
 
   /**
