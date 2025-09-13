@@ -135,9 +135,11 @@
             "xcode_settings": {
               "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
               "CLANG_CXX_LIBRARY": "libc++",
+              "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
               "MACOSX_DEPLOYMENT_TARGET": "12.0",
               "OTHER_LDFLAGS": [
-                "-Wl,-dead_strip"
+                "-Wl,-dead_strip",
+                "-Wl,-no_warn_duplicate_libraries"
               ],
               "CONDITIONS": [
                 [
@@ -246,7 +248,8 @@
             "cflags_cc": [
               "-fPIC",
               "-O3",
-              "-fno-finite-math-only"
+              "-fno-finite-math-only",
+              "-std=c++17"
             ],
             "ldflags": [
               "-Wl,-Bsymbolic",
