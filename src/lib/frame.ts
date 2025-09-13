@@ -1,3 +1,4 @@
+import { AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_UNKNOWN, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
 import { bindings } from './binding.js';
 import { HardwareFramesContext } from './hardware-frames-context.js';
 import { Rational } from './rational.js';
@@ -9,6 +10,7 @@ import type {
   AVColorSpace,
   AVColorTransferCharacteristic,
   AVFrameSideDataType,
+  AVMediaType,
   AVPictureType,
   AVPixelFormat,
   AVSampleFormat,
@@ -417,6 +419,59 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
     this.native.hwFramesCtx = value?.getNative() ?? null;
     // Clear the cache as the underlying context has changed
     this._hwFramesCtx = undefined;
+  }
+
+  /**
+   * Check if this is a video frame.
+   *
+   * Video frames have width and height > 0.
+   *
+   * @returns true if this is a video frame
+   *
+   * @example
+   * ```typescript
+   * if (frame.isVideo()) {
+   *   console.log(`Video frame: ${frame.width}x${frame.height}`);
+   * }
+   * ```
+   */
+  isVideo(): boolean {
+    return this.width > 0 && this.height > 0;
+  }
+
+  /**
+   * Check if this is an audio frame.
+   *
+   * Audio frames have sampleRate > 0 and nbSamples > 0.
+   *
+   * @returns true if this is an audio frame
+   *
+   * @example
+   * ```typescript
+   * if (frame.isAudio()) {
+   *   console.log(`Audio frame: ${frame.sampleRate}Hz, ${frame.nbSamples} samples`);
+   * }
+   * ```
+   */
+  isAudio(): boolean {
+    return this.sampleRate > 0 && this.nbSamples > 0;
+  }
+
+  /**
+   * Get the media type of this frame.
+   *
+   * @returns AVMEDIA_TYPE_VIDEO for video frames, AVMEDIA_TYPE_AUDIO for audio frames, or AVMEDIA_TYPE_UNKNOWN
+   *
+   * @example
+   * ```typescript
+   * const type = frame.getMediaType();
+   * console.log(`Frame type: ${type}`);
+   * ```
+   */
+  getMediaType(): AVMediaType {
+    if (this.isVideo()) return AVMEDIA_TYPE_VIDEO;
+    if (this.isAudio()) return AVMEDIA_TYPE_AUDIO;
+    return AVMEDIA_TYPE_UNKNOWN;
   }
 
   /**
