@@ -14,199 +14,148 @@
  */
 
 import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
+import { AV_LOG_DEBUG, Log } from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
-/**
- *
- * @param inputFile
- * @param outputFile
- */
-async function softwareDecodeHwEncode(inputFile: string, outputFile: string) {
-  console.log('🎬 Software Decode + Hardware Encode Example');
-  console.log(`Input: ${inputFile}`);
-  console.log(`Output: ${outputFile}`);
-  console.log('');
+const inputFile = process.argv[2];
+const outputFile = process.argv[3];
 
-  // Check for hardware availability
-  const hw = HardwareContext.auto();
-  if (!hw) {
-    console.log('❌ No hardware acceleration available');
-    console.log('   This example requires hardware acceleration for encoding.');
-    return;
-  }
+if (!inputFile || !outputFile) {
+  console.log('Usage: tsx api-sw-decode-hw-encode.ts <input> <output>');
+  console.log('Example: tsx api-sw-decode-hw-encode.ts input.mp4 output.mp4');
+  process.exit(1);
+}
 
-  console.log(`✅ Hardware detected: ${hw.deviceTypeName}`);
-  console.log('');
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
 
-  // Open input file
-  const media = await MediaInput.open(inputFile);
-  const videoStream = media.video();
-  const audioStream = media.audio();
+console.log(`Input: ${inputFile}`);
+console.log(`Output: ${outputFile}`);
 
-  if (!videoStream) {
-    throw new Error('No video stream found in input file');
-  }
+// Check for hardware availability
+const hw = HardwareContext.auto();
+if (!hw) {
+  throw new Error('No hardware acceleration available! This example requires hardware acceleration for encoding.');
+}
 
-  console.log('📊 Input Information:');
-  console.log(`  Format: ${media.formatLongName}`);
-  console.log(`  Duration: ${media.duration.toFixed(2)} seconds`);
-  console.log(`  Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
-  if (audioStream) {
-    console.log(`  Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
-  }
-  console.log('');
+console.log(`Hardware detected: ${hw.deviceTypeName}`);
 
-  // Create software decoder
-  console.log('🔧 Setting up software decoder...');
-  const decoder = await Decoder.create(videoStream);
-  console.log('  ✓ Software decoder created (CPU)');
+// Open input file
+await using input = await MediaInput.open(inputFile);
+const videoStream = input.video();
+const audioStream = input.audio();
 
-  // Create filter to upload frames to hardware
-  console.log('🔧 Setting up hardware upload filter...');
-  const filter = await FilterAPI.create('hwupload', decoder.getOutputStreamInfo(), { hardware: hw });
-  console.log('  ✓ Hardware upload filter created (CPU→HW)');
+if (!videoStream) {
+  throw new Error('No video stream found in input file');
+}
 
-  // Create hardware encoder (GPU)
-  console.log('🔧 Setting up hardware encoder...');
+console.log('Input Information:');
+console.log(`Format: ${input.formatLongName}`);
+console.log(`Duration: ${input.duration.toFixed(2)} seconds`);
+console.log(`Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
+if (audioStream) {
+  console.log(`Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
+}
 
-  // Select appropriate hardware encoder based on platform
-  const encoderCodec = await hw.getEncoderCodec('h264');
-  if (!encoderCodec) {
-    throw new Error(`Unsupported hardware type: ${hw.deviceTypeName}`);
-  }
+// Create software decoder
+console.log('Setting up software decoder...');
+using decoder = await Decoder.create(videoStream);
 
-  // Hardware encoder needs hardware context
-  const encoder = await Encoder.create(encoderCodec, decoder.getOutputStreamInfo(), {
-    bitrate: '4M',
-    gopSize: 60,
-    hardware: hw,
-  });
-  console.log(`  ✓ Hardware encoder created (${encoderCodec.name})`);
-  console.log('');
+// Create filter to upload frames to hardware
+console.log('Setting up hardware upload filter...');
+using filter = await FilterAPI.create('hwupload', {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  hardware: hw,
+});
 
-  // Create output using MediaOutput
-  const output = await MediaOutput.open(outputFile);
-  const outputStreamIndex = output.addStream(encoder);
+// Create hardware encoder (GPU)
+console.log('Setting up hardware encoder...');
 
-  // Write header
-  await output.writeHeader();
+// Select appropriate hardware encoder based on platform
+const encoderCodec = hw.getEncoderCodec('h264');
+if (!encoderCodec) {
+  throw new Error(`Unsupported hardware type: ${hw.deviceTypeName}`);
+}
 
-  // Process video
-  console.log('🎥 Processing video...');
-  console.log('  Software decoding → Hardware upload → Hardware encoding');
-  console.log('');
+// Hardware encoder needs hardware context (will take from filter)
+using encoder = await Encoder.create(encoderCodec, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  bitrate: '4M',
+  gopSize: 60,
+});
 
-  let frameCount = 0;
-  let packetCount = 0;
-  const startTime = Date.now();
+// Create output using MediaOutput
+await using output = await MediaOutput.open(outputFile);
+const outputStreamIndex = output.addStream(encoder);
 
-  for await (const packet of media.packets()) {
-    if (packet.streamIndex === videoStream.index) {
-      // Software decode
-      const frame = await decoder.decode(packet);
-      if (frame) {
-        // Upload to hardware
-        const hwFrame = await filter.process(frame);
-        if (hwFrame) {
-          frameCount++;
+// Process video
+console.log('Processing...');
 
-          // Hardware encode
-          const encodedPacket = await encoder.encode(hwFrame);
-          if (encodedPacket) {
-            // Write to output
-            await output.writePacket(encodedPacket, outputStreamIndex);
-            packetCount++;
-            encodedPacket.free();
-          }
+let frameCount = 0;
+let packetCount = 0;
+const startTime = Date.now();
 
-          hwFrame.free();
-        }
-        frame.free();
-
-        // Progress indicator
-        if (frameCount % 30 === 0) {
-          const elapsed = (Date.now() - startTime) / 1000;
-          const fps = frameCount / elapsed;
-          process.stdout.write(`\r  Processed ${frameCount} frames @ ${fps.toFixed(1)} fps`);
-        }
-      }
-    }
-  }
-
-  // Flush decoder
-  let flushFrame;
-  while ((flushFrame = await decoder.flush()) !== null) {
-    const hwFrame = await filter.process(flushFrame);
+for await (using packet of input.packets(videoStream.index)) {
+  // Software decode
+  using frame = await decoder.decode(packet);
+  if (frame) {
+    // Upload to hardware
+    using hwFrame = await filter.process(frame);
     if (hwFrame) {
-      const encodedPacket = await encoder.encode(hwFrame);
+      frameCount++;
+
+      // Hardware encode
+      using encodedPacket = await encoder.encode(hwFrame);
       if (encodedPacket) {
+        // Write to output
         await output.writePacket(encodedPacket, outputStreamIndex);
         packetCount++;
-        encodedPacket.free();
       }
-      hwFrame.free();
     }
-    flushFrame.free();
-  }
 
-  // Flush filter
-  for await (const hwFrame of filter.flushFrames()) {
-    const encodedPacket = await encoder.encode(hwFrame);
+    // Progress indicator
+    if (frameCount % 30 === 0) {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const fps = frameCount / elapsed;
+      console.log(`Processed ${frameCount} frames @ ${fps.toFixed(1)} fps`);
+    }
+  }
+}
+
+// Flush decoder
+for await (using flushFrame of decoder.flushFrames()) {
+  using hwFrame = await filter.process(flushFrame);
+  if (hwFrame) {
+    using encodedPacket = await encoder.encode(hwFrame);
     if (encodedPacket) {
       await output.writePacket(encodedPacket, outputStreamIndex);
       packetCount++;
-      encodedPacket.free();
     }
-    hwFrame.free();
   }
+}
 
-  // Flush encoder
-  let flushPacket;
-  while ((flushPacket = await encoder.flush()) !== null) {
-    await output.writePacket(flushPacket, outputStreamIndex);
+// Flush filter
+for await (using hwFrame of filter.flushFrames()) {
+  using encodedPacket = await encoder.encode(hwFrame);
+  if (encodedPacket) {
+    await output.writePacket(encodedPacket, outputStreamIndex);
     packetCount++;
-    flushPacket.free();
   }
-
-  // Write trailer
-  await output.writeTrailer();
-
-  const elapsed = (Date.now() - startTime) / 1000;
-  const avgFps = frameCount / elapsed;
-
-  console.log('\n');
-  console.log('✅ Transcoding complete!');
-  console.log(`  Frames processed: ${frameCount}`);
-  console.log(`  Packets written: ${packetCount}`);
-  console.log(`  Time: ${elapsed.toFixed(2)} seconds`);
-  console.log(`  Average FPS: ${avgFps.toFixed(1)}`);
-  console.log('');
-  console.log('📊 Performance characteristics:');
-  console.log('  - Flexible software decoding (CPU)');
-  console.log('  - Fast hardware encoding (GPU)');
-  console.log('  - CPU→GPU memory transfer overhead');
-  console.log('  - Good for real-time streaming');
-
-  // Cleanup
-  decoder.close();
-  encoder.close();
-  hw.dispose();
-  await output.close();
-  await media.close();
 }
 
-// Run example
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.log('Usage: tsx api-sw-decode-hw-encode.ts <input> <output>');
-    console.log('Example: tsx api-sw-decode-hw-encode.ts input.mp4 output.mp4');
-    process.exit(1);
-  }
-
-  softwareDecodeHwEncode(args[0], args[1]).catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+// Flush encoder
+for await (using flushPacket of encoder.flushPackets()) {
+  await output.writePacket(flushPacket, outputStreamIndex);
+  packetCount++;
 }
 
-export { softwareDecodeHwEncode };
+const elapsed = (Date.now() - startTime) / 1000;
+const avgFps = frameCount / elapsed;
+
+console.log('Done!');
+console.log(`Frames processed: ${frameCount}`);
+console.log(`Packets written: ${packetCount}`);
+console.log(`Time: ${elapsed.toFixed(2)} seconds`);
+console.log(`Average FPS: ${avgFps.toFixed(1)}`);

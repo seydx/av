@@ -11,20 +11,25 @@
 import { mkdir, writeFile } from 'fs/promises';
 
 import {
+  AV_LOG_DEBUG,
   AV_PICTURE_TYPE_B,
   AV_PICTURE_TYPE_I,
   AV_PICTURE_TYPE_NONE,
   AV_PICTURE_TYPE_P,
   AV_PIX_FMT_RGB24,
-  AV_PIX_FMT_YUVJ420P,
+  AV_PIX_FMT_RGB8,
   Decoder,
   Encoder,
+  FF_ENCODER_GIF,
   FF_ENCODER_MJPEG,
   FF_ENCODER_PNG,
+  FilterAPI,
+  FilterPreset,
+  Log,
   MediaInput,
+  MediaOutput,
 } from '../src/index.js';
-
-import type { VideoInfo } from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
 const inputFile = process.argv[2];
 const outputDir = process.argv[3];
@@ -34,166 +39,132 @@ if (!inputFile || !outputDir) {
   process.exit(1);
 }
 
-/**
- * Extract specific frame as PNG
- * @param frameNumber
- */
 async function extractFrameAsPNG(frameNumber: number) {
-  console.log(`\n=== Extracting frame ${frameNumber} as PNG ===`);
+  await using input = await MediaInput.open(inputFile);
 
-  const media = await MediaInput.open(inputFile);
-  const videoStream = media.video(0);
-
+  const videoStream = input.video(0);
   if (!videoStream) {
     throw new Error('No video stream found');
   }
 
   // Create decoder
-  const decoder = await Decoder.create(videoStream);
+  using decoder = await Decoder.create(videoStream);
+
+  // Create filter to convert to RGB24
+  const filterChain = FilterPreset.chain().format(AV_PIX_FMT_RGB24).build();
+  using filter = await FilterAPI.create(filterChain, {
+    timeBase: videoStream.timeBase,
+    frameRate: videoStream.avgFrameRate,
+  });
 
   // Create PNG encoder
-  const pngEncoder = await Encoder.create(FF_ENCODER_PNG, {
-    ...(decoder.getOutputStreamInfo() as VideoInfo),
-    pixelFormat: AV_PIX_FMT_RGB24,
+  using pngEncoder = await Encoder.create(FF_ENCODER_PNG, {
+    timeBase: videoStream.timeBase,
+    frameRate: videoStream.avgFrameRate,
   });
 
   let currentFrame = 0;
-  for await (const packet of media.packets()) {
-    if (packet.streamIndex === videoStream.index) {
-      const frame = await decoder.decode(packet);
-      if (frame) {
+  for await (using packet of input.packets(videoStream.index)) {
+    using frame = await decoder.decode(packet);
+    if (frame) {
+      using filteredFrame = await filter.process(frame);
+      if (filteredFrame) {
         if (currentFrame === frameNumber) {
-          console.log(`  Frame ${frameNumber}: ${frame.width}x${frame.height}, PTS: ${frame.pts}`);
+          console.log(`Frame ${frameNumber}: ${filteredFrame.width}x${filteredFrame.height}, PTS: ${filteredFrame.pts}`);
 
           // Encode frame as PNG
-          const pngPacket = await pngEncoder.encode(frame);
+          using pngPacket = await pngEncoder.encode(filteredFrame);
           if (pngPacket?.data) {
             const filename = `${outputDir}/frame_${frameNumber}.png`;
             await writeFile(filename, pngPacket.data);
-            console.log(`  ✅ Saved to ${filename}`);
-            pngPacket.free();
+            console.log(`Saved to ${filename}`);
           }
 
           // Flush encoder for single frame
-          let flushPacket;
-          while ((flushPacket = await pngEncoder.flush()) !== null) {
+          for await (using flushPacket of pngEncoder.flushPackets()) {
             if (flushPacket.data) {
               const filename = `${outputDir}/frame_${frameNumber}_flush.png`;
               await writeFile(filename, flushPacket.data);
+              console.log(`Saved to ${filename}`);
             }
-            flushPacket.free();
           }
 
-          frame.free();
           break;
         }
         currentFrame++;
-        frame.free();
       }
     }
-    packet.free();
   }
-
-  decoder.close();
-  pngEncoder.close();
-  media.close();
 }
 
-/**
- * Extract frames at regular intervals
- * @param intervalSeconds
- * @param count
- */
 async function extractFramesAtInterval(intervalSeconds: number, count: number) {
-  console.log(`\n=== Extracting ${count} frames every ${intervalSeconds}s ===`);
+  await using input = await MediaInput.open(inputFile);
 
-  const media = await MediaInput.open(inputFile);
-  const videoStream = media.video(0);
-
+  const videoStream = input.video(0);
   if (!videoStream) {
     throw new Error('No video stream found');
   }
 
   // Get frame rate from the stream
-  const fps = videoStream.codecpar.frameRate.toDouble();
+  const fps = videoStream.avgFrameRate.toDouble();
   const frameInterval = Math.floor(fps * intervalSeconds);
 
-  console.log(`  Video FPS: ~${fps.toFixed(1)}`);
-  console.log(`  Frame interval: ${frameInterval} frames`);
+  console.log(`Video FPS: ~${fps.toFixed(1)}`);
+  console.log(`Frame interval: ${frameInterval} frames`);
 
   // Create decoder
-  const decoder = await Decoder.create(videoStream);
+  using decoder = await Decoder.create(videoStream);
 
   // Create JPEG encoder for thumbnails
-  const jpegEncoder = await Encoder.create(
-    FF_ENCODER_MJPEG,
-    {
-      ...(decoder.getOutputStreamInfo() as VideoInfo),
-      pixelFormat: AV_PIX_FMT_YUVJ420P, // MJPEG needs full-range YUV
+  using jpegEncoder = await Encoder.create(FF_ENCODER_MJPEG, {
+    timeBase: videoStream.timeBase,
+    frameRate: videoStream.avgFrameRate,
+    bitrate: '2M',
+    options: {
+      strict: 'experimental',
     },
-    {
-      bitrate: '2M', // Higher bitrate = better quality
-      options: {
-        strict: '-2', // Allow non-standard compliance for MJPEG
-      },
-    },
-  );
+  });
 
   let currentFrame = 0;
   let extractedCount = 0;
 
-  for await (const packet of media.packets()) {
-    if (packet.streamIndex === videoStream.index) {
-      const frame = await decoder.decode(packet);
-      if (frame) {
-        if (currentFrame % frameInterval === 0 && extractedCount < count) {
-          console.log(`  Extracting frame ${currentFrame} (${(currentFrame / fps).toFixed(1)}s)`);
+  for await (using packet of input.packets(videoStream.index)) {
+    using frame = await decoder.decode(packet);
+    if (frame) {
+      if (currentFrame % frameInterval === 0 && extractedCount < count) {
+        console.log(`Extracting frame ${currentFrame} (${(currentFrame / fps).toFixed(1)}s)`);
 
-          // Encode frame as JPEG
-          const jpegPacket = await jpegEncoder.encode(frame);
-          if (jpegPacket?.data) {
-            const filename = `${outputDir}/thumb_${extractedCount}.jpg`;
-            await writeFile(filename, jpegPacket.data);
-            console.log(`    Saved: ${filename}`);
-            jpegPacket.free();
-          }
-
-          extractedCount++;
+        // Encode frame as JPEG
+        using jpegPacket = await jpegEncoder.encode(frame);
+        if (jpegPacket?.data) {
+          const filename = `${outputDir}/thumb_${extractedCount}.jpg`;
+          await writeFile(filename, jpegPacket.data);
+          console.log(`Saved: ${filename}`);
         }
-        currentFrame++;
-        frame.free();
 
-        if (extractedCount >= count) {
-          break;
-        }
+        extractedCount++;
+      }
+      currentFrame++;
+
+      if (extractedCount >= count) {
+        break;
       }
     }
-    packet.free();
   }
 
-  decoder.close();
-  jpegEncoder.close();
-  media.close();
-
-  console.log(`  ✅ Extracted ${extractedCount} thumbnails`);
+  console.log(`Extracted ${extractedCount} thumbnails`);
 }
 
-/**
- * Analyze frame properties
- * @param count
- */
 async function analyzeFrames(count: number) {
-  console.log(`\n=== Analyzing first ${count} frames ===`);
+  await using input = await MediaInput.open(inputFile);
 
-  const media = await MediaInput.open(inputFile);
-  const videoStream = media.video(0);
-
+  const videoStream = input.video(0);
   if (!videoStream) {
     throw new Error('No video stream found');
   }
 
   // Create decoder
-  const decoder = await Decoder.create(videoStream);
+  using decoder = await Decoder.create(videoStream);
 
   const frameTypes: Record<string, number> = {};
   let minPts = Number.MAX_SAFE_INTEGER;
@@ -201,130 +172,113 @@ async function analyzeFrames(count: number) {
   let totalSize = 0;
   let analyzedFrames = 0;
 
-  for await (const packet of media.packets()) {
-    if (packet.streamIndex === videoStream.index) {
-      const frame = await decoder.decode(packet);
-      if (frame) {
-        // Analyze frame
-        const frameType = frame.pictType === AV_PICTURE_TYPE_I ? 'I' : frame.pictType === AV_PICTURE_TYPE_P ? 'P' : frame.pictType === AV_PICTURE_TYPE_B ? 'B' : 'Other';
-        frameTypes[frameType] = (frameTypes[frameType] || AV_PICTURE_TYPE_NONE) + 1;
+  for await (using packet of input.packets(videoStream.index)) {
+    using frame = await decoder.decode(packet);
+    if (frame) {
+      // Analyze frame
+      const frameType = frame.pictType === AV_PICTURE_TYPE_I ? 'I' : frame.pictType === AV_PICTURE_TYPE_P ? 'P' : frame.pictType === AV_PICTURE_TYPE_B ? 'B' : 'Other';
+      frameTypes[frameType] = (frameTypes[frameType] || AV_PICTURE_TYPE_NONE) + 1;
 
-        if (frame.pts !== null && frame.pts !== undefined) {
-          minPts = Math.min(minPts, Number(frame.pts));
-          maxPts = Math.max(maxPts, Number(frame.pts));
-        }
+      if (frame.pts !== null && frame.pts !== undefined) {
+        minPts = Math.min(minPts, Number(frame.pts));
+        maxPts = Math.max(maxPts, Number(frame.pts));
+      }
 
-        // Calculate frame size (approximate)
-        if (frame.linesize?.[0]) {
-          totalSize += frame.linesize[0] * frame.height;
-        }
+      // Calculate frame size (approximate)
+      if (frame.linesize?.[0]) {
+        totalSize += frame.linesize[0] * frame.height;
+      }
 
-        analyzedFrames++;
-        frame.free();
-
-        if (analyzedFrames >= count) {
-          break;
-        }
+      analyzedFrames++;
+      if (analyzedFrames >= count) {
+        break;
       }
     }
-    packet.free();
   }
 
-  decoder.close();
-  media.close();
-
-  console.log('\n  Frame Statistics:');
-  console.log(`    Total frames analyzed: ${analyzedFrames}`);
-  console.log('    Frame types:', frameTypes);
-  console.log(`    PTS range: ${minPts} - ${maxPts}`);
-  console.log(`    Average frame size: ${(totalSize / analyzedFrames / 1024).toFixed(2)} KB`);
+  console.log('Frame Statistics:');
+  console.log(`Total frames analyzed: ${analyzedFrames}`);
+  console.log('Frame types:', frameTypes);
+  console.log(`PTS range: ${minPts} - ${maxPts}`);
+  console.log(`Average frame size: ${(totalSize / analyzedFrames / 1024).toFixed(2)} KB`);
 }
 
-/**
- * Generate animated GIF from video segment
- * @param startTime
- * @param duration
- */
 async function generateGIF(startTime: number, duration: number) {
-  console.log(`\n=== Generating GIF from ${startTime}s for ${duration}s ===`);
+  await using input = await MediaInput.open(inputFile);
+  await using output = await MediaOutput.open(`${outputDir}/output.gif`);
 
-  const media = await MediaInput.open(inputFile);
-  const videoStream = media.video(0);
-
+  const videoStream = input.video(0);
   if (!videoStream) {
     throw new Error('No video stream found');
   }
 
   // Get frame rate from the stream
-  const fps = videoStream.codecpar.frameRate.toDouble();
+  const fps = videoStream.avgFrameRate.toDouble();
   const startFrame = Math.floor(startTime * fps);
   const endFrame = Math.floor((startTime + duration) * fps);
 
-  console.log(`  Processing frames ${startFrame} to ${endFrame}`);
+  console.log(`Processing frames ${startFrame} to ${endFrame}`);
 
   // Create decoder
-  const decoder = await Decoder.create(videoStream);
+  using decoder = await Decoder.create(videoStream);
 
-  // Create GIF encoder (using libx264 as example, real GIF would need gif encoder)
-  // For demo purposes, we'll just extract the frames
-  let framesAmount = 0;
-  let currentFrame = 0;
+  // Create filter to convert to RGB24 (GIF requires this)
+  const filterChain = FilterPreset.chain().format(AV_PIX_FMT_RGB8).build();
+  using filter = await FilterAPI.create(filterChain, {
+    timeBase: videoStream.timeBase,
+    frameRate: videoStream.avgFrameRate,
+  });
 
-  for await (const packet of media.packets()) {
-    if (packet.streamIndex === videoStream.index) {
-      const frame = await decoder.decode(packet);
-      if (frame) {
-        if (currentFrame >= startFrame && currentFrame < endFrame) {
-          framesAmount++;
-        }
-        currentFrame++;
-        frame.free();
+  // Create encoder
+  using encoder = await Encoder.create(FF_ENCODER_GIF, {
+    timeBase: videoStream.timeBase,
+    frameRate: videoStream.avgFrameRate,
+    options: {
+      // GIF specific options can be set here
+      // e.g., loop count, palette size, etc.
+      // For simplicity, we use defaults
+    },
+  });
 
-        if (currentFrame >= endFrame) {
-          break;
+  const outputStreamIndex = output.addStream(encoder);
+
+  for await (using packet of input.packets(videoStream.index)) {
+    using frame = await decoder.decode(packet);
+    if (frame) {
+      using filteredFrame = await filter.process(frame);
+      if (filteredFrame) {
+        using encodedPacket = await encoder.encode(filteredFrame);
+        if (encodedPacket) {
+          await output.writePacket(encodedPacket, outputStreamIndex);
         }
       }
     }
-    packet.free();
-  }
-
-  console.log(`  Collected ${framesAmount} frames`);
-  console.log('  (In a real implementation, these would be encoded as GIF)');
-
-  decoder.close();
-  media.close();
-}
-
-/**
- *
- */
-async function main() {
-  try {
-    console.log('High-Level API: Frame Extraction Example');
-    console.log('========================================');
-    console.log('Input:', inputFile);
-    console.log('Output Directory:', outputDir);
-
-    // Create output directory
-    await mkdir(outputDir, { recursive: true });
-
-    // Extract specific frame
-    await extractFrameAsPNG(10);
-
-    // Extract thumbnails
-    await extractFramesAtInterval(2, 5);
-
-    // Analyze frames
-    await analyzeFrames(30);
-
-    // Generate GIF (demo)
-    await generateGIF(0, 3);
-
-    console.log('\n✅ All operations completed!');
-  } catch (error) {
-    console.error('\n❌ Error:', error);
-    process.exit(1);
   }
 }
 
-main();
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
+
+console.log('Input:', inputFile);
+console.log('Output Directory:', outputDir);
+
+// Create output directory
+await mkdir(outputDir, { recursive: true });
+
+// Extract specific frame
+console.log('Extracting specific frame:');
+await extractFrameAsPNG(10);
+
+// Extract thumbnails
+console.log('Extracting thumbnails:');
+await extractFramesAtInterval(2, 5);
+
+// Analyze frames
+console.log('Analyzing frames:');
+await analyzeFrames(30);
+
+// Generate GIF (demo)
+console.log('Generating GIF:');
+await generateGIF(0, 3);
+
+console.log('Done!');

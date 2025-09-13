@@ -8,7 +8,8 @@
  * Example: tsx examples/api-hw-transcode.ts testdata/video.mp4 examples/.tmp/api-hw-transcode.mp4
  */
 
-import { Decoder, Encoder, FF_ENCODER_LIBX264, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
+import { AV_LOG_DEBUG, Decoder, Encoder, FF_ENCODER_LIBX264, HardwareContext, Log, MediaInput, MediaOutput } from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
 import type { FFEncoderCodec } from '../src/index.js';
 
@@ -20,173 +21,133 @@ if (!inputFile || !outputFile) {
   process.exit(1);
 }
 
-/**
- *
- */
-async function main() {
-  let hw: HardwareContext | null = null;
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
 
-  try {
-    console.log('High-Level API: Hardware-Accelerated Transcoding');
-    console.log('================================================\n');
+// Auto-detect best available hardware
+console.log('Detecting hardware acceleration...');
+const hw = HardwareContext.auto();
+if (!hw) {
+  console.log('No hardware acceleration available, falling back to software');
+} else {
+  console.log(`Using hardware: ${hw.deviceTypeName}`);
 
-    // Auto-detect best available hardware
-    console.log('Detecting hardware acceleration...');
-    hw = HardwareContext.auto();
+  // List supported codecs
+  const encoders = hw.findSupportedCodecs(true);
+  const decoders = hw.findSupportedCodecs(false);
+  console.log(`Supported decoders: ${decoders.slice(0, 5).join(', ')}${decoders.length > 5 ? '...' : ''}`);
+  console.log(`Supported encoders: ${encoders.slice(0, 5).join(', ')}${encoders.length > 5 ? '...' : ''}`);
+}
 
-    if (!hw) {
-      console.log('⚠️  No hardware acceleration available, falling back to software');
-    } else {
-      console.log(`✅ Using hardware: ${hw.deviceTypeName}`);
+// Open input media
+console.log('Opening input:', inputFile);
+await using input = await MediaInput.open(inputFile);
 
-      // List supported codecs
-      const encoders = hw.findSupportedCodecs(true);
-      const decoders = hw.findSupportedCodecs(false);
-      console.log(`   Supported decoders: ${decoders.slice(0, 5).join(', ')}${decoders.length > 5 ? '...' : ''}`);
-      console.log(`   Supported encoders: ${encoders.slice(0, 5).join(', ')}${encoders.length > 5 ? '...' : ''}`);
-    }
+// Get video stream
+const videoStream = input.video();
+if (!videoStream) {
+  throw new Error('No video stream found');
+}
 
-    // Open input media
-    console.log('\nOpening input:', inputFile);
-    const input = await MediaInput.open(inputFile);
+// Get audio stream
+const audioStream = input.audio();
+if (!audioStream) {
+  throw new Error('No audio stream found');
+}
 
-    // Get video stream
-    const videoStream = input.video();
-    if (!videoStream) {
-      throw new Error('No video stream found');
-    }
+console.log(`Input video: ${videoStream.codecpar.width}x${videoStream.codecpar.height} ${videoStream.codecpar.codecId}`);
+console.log(`Input audio: ${audioStream.codecpar.sampleRate}Hz ${audioStream.codecpar.channels}ch ${audioStream.codecpar.codecId}`);
 
-    // Get audio stream
-    const audioStream = input.audio();
-    if (!audioStream) {
-      throw new Error('No audio stream found');
-    }
+// Create hardware decoder
+console.log('Creating hardware decoder...');
+using decoder = await Decoder.create(videoStream, {
+  hardware: hw,
+});
 
-    console.log(`Input video: ${videoStream.codecpar.width}x${videoStream.codecpar.height} ${videoStream.codecpar.codecId}`);
+// Determine encoder based on hardware availability
+let encoderName: FFEncoderCodec = FF_ENCODER_LIBX264; // Default software encoder
 
-    // Create hardware decoder
-    console.log('\nCreating hardware decoder...');
-    const decoder = await Decoder.create(videoStream, {
-      hardware: hw,
-    });
-
-    // Hardware context is now initialized automatically when hardware is provided
-    if (hw) {
-      console.log('Hardware context initialized for zero-copy transcoding');
-    }
-
-    // Determine encoder based on hardware availability
-    let encoderName: FFEncoderCodec = FF_ENCODER_LIBX264; // Default software encoder
-
-    if (hw) {
-      const encoderCodec = await hw.getEncoderCodec('h264');
-      if (encoderCodec?.isHardwareAcceleratedEncoder()) {
-        encoderName = encoderCodec.name as FFEncoderCodec;
-      }
-    }
-
-    console.log(`Creating encoder: ${encoderName}...`);
-
-    // Create encoder with shared decoder for zero-copy when both use hardware
-    const encoder = await Encoder.create(encoderName, decoder.getOutputStreamInfo(), {
-      hardware: hw,
-    });
-
-    // Create output using MediaOutput
-    const output = await MediaOutput.open(outputFile);
-    const videoOutputIndex = output.addStream(encoder);
-    const audioOutputIndex = output.addStream(audioStream);
-
-    // Write header
-    await output.writeHeader();
-
-    // Process frames
-    console.log('\nTranscoding with hardware acceleration...');
-    let decodedFrames = 0;
-    let encodedPackets = 0;
-    let hardwareFrames = 0;
-    let audioFrames = 0;
-
-    const startTime = Date.now();
-
-    for await (const packet of input.packets()) {
-      if (packet.streamIndex === videoStream.index) {
-        // Decode packet to frame
-        const frame = await decoder.decode(packet);
-        if (frame) {
-          decodedFrames++;
-
-          // Check if frame is on GPU (zero-copy path)
-          if (frame.isHwFrame()) {
-            hardwareFrames++;
-          }
-
-          // Re-encode frame (zero-copy if both on same GPU)
-          const encodedPacket = await encoder.encode(frame);
-          if (encodedPacket) {
-            // Write packet (MediaOutput handles timestamp rescaling)
-            await output.writePacket(encodedPacket, videoOutputIndex);
-            encodedPackets++;
-            encodedPacket.free();
-          }
-
-          frame.free();
-        }
-      } else if (packet.streamIndex === audioStream.index) {
-        await output.writePacket(packet, audioOutputIndex);
-        audioFrames++;
-      }
-      packet.free();
-    }
-
-    // Flush decoder
-    console.log('\n\nFlushing decoder...');
-    let flushFrame;
-    while ((flushFrame = await decoder.flush()) !== null) {
-      const encodedPacket = await encoder.encode(flushFrame);
-      if (encodedPacket) {
-        await output.writePacket(encodedPacket, videoOutputIndex);
-        encodedPackets++;
-        encodedPacket.free();
-      }
-      flushFrame.free();
-    }
-
-    // Flush encoder
-    console.log('Flushing encoder...');
-    let flushPacket;
-    while ((flushPacket = await encoder.flush()) !== null) {
-      await output.writePacket(flushPacket, videoOutputIndex);
-      encodedPackets++;
-      flushPacket.free();
-    }
-
-    // Write trailer
-    await output.writeTrailer();
-
-    const elapsed = (Date.now() - startTime) / 1000;
-    const avgFps = (decodedFrames / elapsed).toFixed(1);
-
-    // Clean up
-    decoder.close();
-    encoder.close();
-    hw?.dispose();
-    await input.close();
-    await output.close();
-
-    console.log('\n✅ Transcoding complete!');
-    console.log(`   Hardware: ${hw ? hw.deviceTypeName : 'none (software)'}`);
-    console.log(`   Decoded: ${decodedFrames} frames`);
-    console.log(`   Encoded: ${encodedPackets} packets`);
-    console.log(`   GPU frames: ${hardwareFrames} (${((hardwareFrames / decodedFrames) * 100).toFixed(1)}% zero-copy)`);
-    console.log(`   Audio frames: ${audioFrames}`);
-    console.log(`   Time: ${elapsed.toFixed(2)}s`);
-    console.log(`   Average FPS: ${avgFps}`);
-    console.log(`   Output: ${outputFile}`);
-  } catch (error) {
-    console.error('\n❌ Error:', error);
-    process.exit(1);
+if (hw) {
+  const encoderCodec = hw.getEncoderCodec('h264');
+  if (encoderCodec?.isHardwareAcceleratedEncoder()) {
+    encoderName = encoderCodec.name as FFEncoderCodec;
   }
 }
 
-main();
+// Create encoder
+console.log(`Creating encoder: ${encoderName}...`);
+using encoder = await Encoder.create(encoderName, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+});
+
+// Create output using MediaOutput
+console.log('Creating output:', outputFile);
+await using output = await MediaOutput.open(outputFile);
+const videoOutputIndex = output.addStream(encoder);
+const audioOutputIndex = output.addStream(audioStream);
+
+// Process frames
+console.log('Processing frames...');
+let decodedFrames = 0;
+let encodedPackets = 0;
+let hardwareFrames = 0;
+let audioFrames = 0;
+
+const startTime = Date.now();
+
+for await (using packet of input.packets()) {
+  if (packet.streamIndex === videoStream.index) {
+    // Decode packet to frame
+    using frame = await decoder.decode(packet);
+    if (frame) {
+      decodedFrames++;
+
+      // Check if frame is on GPU (zero-copy path)
+      if (frame.isHwFrame()) {
+        hardwareFrames++;
+      }
+
+      // Re-encode frame (zero-copy if both on same GPU)
+      using encodedPacket = await encoder.encode(frame);
+      if (encodedPacket) {
+        // Write packet (MediaOutput handles timestamp rescaling)
+        await output.writePacket(encodedPacket, videoOutputIndex);
+        encodedPackets++;
+      }
+    }
+  } else if (packet.streamIndex === audioStream.index) {
+    await output.writePacket(packet, audioOutputIndex);
+    audioFrames++;
+  }
+}
+
+// Flush decoder
+console.log('Flushing decoder...');
+for await (using flushFrame of decoder.flushFrames()) {
+  using encodedPacket = await encoder.encode(flushFrame);
+  if (encodedPacket) {
+    await output.writePacket(encodedPacket, videoOutputIndex);
+    encodedPackets++;
+  }
+}
+
+// Flush encoder
+console.log('Flushing encoder...');
+for await (using flushPacket of encoder.flushPackets()) {
+  await output.writePacket(flushPacket, videoOutputIndex);
+  encodedPackets++;
+}
+
+const elapsed = (Date.now() - startTime) / 1000;
+const avgFps = (decodedFrames / elapsed).toFixed(1);
+
+console.log('Done!');
+console.log(`Hardware: ${hw ? hw.deviceTypeName : 'none (software)'}`);
+console.log(`Decoded: ${decodedFrames} frames`);
+console.log(`Encoded: ${encodedPackets} packets`);
+console.log(`GPU frames: ${hardwareFrames} (${((hardwareFrames / decodedFrames) * 100).toFixed(1)}% zero-copy)`);
+console.log(`Audio frames: ${audioFrames}`);
+console.log(`Time: ${elapsed.toFixed(2)}s`);
+console.log(`Average FPS: ${avgFps}`);
+console.log(`Output: ${outputFile}`);

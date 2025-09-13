@@ -11,6 +11,8 @@
 import { readFile } from 'fs/promises';
 
 import { MediaInput } from '../src/api/index.js';
+import { AV_LOG_DEBUG, Log } from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
 const inputFile = process.argv[2];
 if (!inputFile) {
@@ -18,56 +20,32 @@ if (!inputFile) {
   process.exit(1);
 }
 
-/**
- *
- */
-async function processFromBuffer() {
-  console.log('\n=== Reading from Buffer ===\n');
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
 
-  // Read entire file into buffer
-  const buffer = await readFile(inputFile);
-  console.log(`Buffer size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+// Read entire file into buffer
+const buffer = await readFile(inputFile);
+console.log(`Buffer size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
 
-  // Open media from buffer
-  const media = await MediaInput.open(buffer);
+// Open media from buffer
+await using input = await MediaInput.open(buffer);
 
-  // Count packets by type
-  const packetCounts: Record<string, number> = {};
-  let totalPackets = 0;
+// Count packets by type
+const packetCounts: Record<string, number> = {};
+let totalPackets = 0;
 
-  for await (const packet of media.packets()) {
-    const streamInfo = media.streams[packet.streamIndex];
-    if (streamInfo) {
-      packetCounts[streamInfo.codecpar.codecType] = (packetCounts[streamInfo.codecpar.codecType] || 0) + 1;
-    }
-    packet.free();
-    totalPackets++;
-    if (totalPackets >= 100) break; // Limit to prevent reading entire file
+for await (using packet of input.packets()) {
+  const streamInfo = input.streams[packet.streamIndex];
+  if (streamInfo) {
+    packetCounts[streamInfo.codecpar.codecType] = (packetCounts[streamInfo.codecpar.codecType] || 0) + 1;
   }
-
-  console.log('Packet counts:');
-  for (const [type, count] of Object.entries(packetCounts)) {
-    console.log(`  ${type}: ${count} packets`);
-  }
-
-  media.close();
-}
-
-/**
- *
- */
-async function main() {
-  try {
-    console.log('High-Level API: Stream Input Example');
-    console.log('=====================================\n');
-
-    await processFromBuffer();
-
-    console.log('\n✅ Done!');
-  } catch (error) {
-    console.error('\n❌ Error:', error);
-    process.exit(1);
+  totalPackets++;
+  if (totalPackets >= 100) {
+    break; // Limit to prevent reading entire file
   }
 }
 
-main();
+console.log('Packet counts:');
+for (const [type, count] of Object.entries(packetCounts)) {
+  console.log(`  ${type}: ${count} packets`);
+}

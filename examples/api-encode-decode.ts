@@ -8,7 +8,8 @@
  * Example: tsx examples/api-encode-decode.ts testdata/video.mp4 examples/.tmp/api-encode-decode.mp4
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, MediaInput, MediaOutput } from '../src/index.js';
+import { AV_LOG_DEBUG, Decoder, Encoder, FF_ENCODER_LIBX264, Log, MediaInput, MediaOutput } from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
 const inputFile = process.argv[2];
 const outputFile = process.argv[3];
@@ -18,133 +19,106 @@ if (!inputFile || !outputFile) {
   process.exit(1);
 }
 
-/**
- *
- */
-async function main() {
-  try {
-    console.log('High-Level API: Encode/Decode Example');
-    console.log('======================================\n');
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
 
-    // Open input media
-    console.log('Opening input:', inputFile);
-    const media = await MediaInput.open(inputFile);
+// Open input media
+console.log('Opening input:', inputFile);
+await using input = await MediaInput.open(inputFile);
 
-    // Get video stream
-    const videoStream = media.video(0);
-    if (!videoStream) {
-      throw new Error('No video stream found');
-    }
+// Get video stream
+const videoStream = input.video(0);
+if (!videoStream) {
+  throw new Error('No video stream found');
+}
 
-    console.log(`Input video: ${videoStream.codecpar.width}x${videoStream.codecpar.height} ${videoStream.codecpar.codecId}`);
+// Get audio stream
+const audioStream = input.audio(0);
 
-    // Create decoder
-    console.log('\nCreating decoder...');
-    const decoder = await Decoder.create(videoStream);
+console.log(`Input video: ${videoStream.codecpar.width}x${videoStream.codecpar.height} ${videoStream.codecpar.codecId}`);
+if (audioStream) {
+  console.log(`Input audio: ${audioStream.codecpar.sampleRate}Hz ${audioStream.codecpar.channels}ch ${audioStream.codecpar.codecId}`);
+}
 
-    // Create encoder with different settings
-    console.log('Creating encoder...');
-    const encoder = await Encoder.create(
-      FF_ENCODER_LIBX264,
-      {
-        type: 'video',
-        width: Math.floor(videoStream.codecpar.width / 2), // Half resolution
-        height: Math.floor(videoStream.codecpar.height / 2),
-        pixelFormat: AV_PIX_FMT_YUV420P,
-        frameRate: videoStream.codecpar.frameRate,
-        timeBase: videoStream.timeBase, // Use input stream's timebase
-      },
-      {
-        bitrate: '1M',
-        gopSize: 60,
-        options: {
-          preset: 'fast',
-          crf: '23',
-        },
-      },
-    );
+// Create decoder
+console.log('Creating decoder...');
+using decoder = await Decoder.create(videoStream);
 
-    // Create output using MediaOutput
-    console.log('Creating output:', outputFile);
-    const output = await MediaOutput.open(outputFile);
+// Create encoder
+console.log('Creating encoder...');
+using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+  frameRate: videoStream.avgFrameRate,
+  timeBase: videoStream.timeBase,
+  bitrate: '1M',
+  gopSize: 60,
+  options: {
+    preset: 'fast',
+    crf: '23',
+  },
+});
 
-    // Add encoder stream to output
-    const outputStreamIndex = output.addStream(encoder);
+// Create output
+console.log('Creating output:', outputFile);
+await using output = await MediaOutput.open(outputFile);
 
-    // Write header
-    await output.writeHeader();
+// Add stream(s) to output
+const outputVideoStreamIndex = output.addStream(encoder);
+let outputAudioStreamIndex = -1;
+if (audioStream) {
+  outputAudioStreamIndex = output.addStream(audioStream);
+}
 
-    // Process frames
-    console.log('\nProcessing frames...');
-    let decodedFrames = 0;
-    let encodedPackets = 0;
+// Process frames
+console.log('Processing frames...');
+let decodedFrames = 0;
+let encodedPackets = 0;
+let processedAudioPackets = 0;
 
-    for await (const packet of media.packets()) {
-      if (packet.streamIndex === videoStream.index) {
-        // Decode packet to frame
-        const frame = await decoder.decode(packet);
-        if (frame) {
-          decodedFrames++;
+for await (using packet of input.packets()) {
+  if (packet.streamIndex === videoStream.index) {
+    // Decode packet to frame
+    using frame = await decoder.decode(packet);
+    if (frame) {
+      decodedFrames++;
 
-          // Re-encode frame
-          const encodedPacket = await encoder.encode(frame);
-          if (encodedPacket) {
-            // Write packet to output (MediaOutput handles timestamp rescaling)
-            await output.writePacket(encodedPacket, outputStreamIndex);
-            encodedPackets++;
-            encodedPacket.free();
-          }
-
-          frame.free();
-
-          // Progress
-          if (decodedFrames % 10 === 0) {
-            process.stdout.write(`\rDecoded: ${decodedFrames} frames, Encoded: ${encodedPackets} packets`);
-          }
-        }
-      }
-      packet.free();
-    }
-
-    // Flush decoder
-    console.log('\n\nFlushing decoder...');
-    let flushFrame;
-    while ((flushFrame = await decoder.flush()) !== null) {
-      const encodedPacket = await encoder.encode(flushFrame);
+      // Re-encode frame
+      using encodedPacket = await encoder.encode(frame);
       if (encodedPacket) {
-        await output.writePacket(encodedPacket, outputStreamIndex);
+        // Write packet to output
+        await output.writePacket(encodedPacket, outputVideoStreamIndex);
         encodedPackets++;
-        encodedPacket.free();
       }
-      flushFrame.free();
+
+      // Progress
+      if (decodedFrames % 10 === 0) {
+        console.log(`Decoded: ${decodedFrames} frames, Encoded: ${encodedPackets} packets`);
+      }
     }
-
-    // Flush encoder
-    console.log('Flushing encoder...');
-    let flushPacket;
-    while ((flushPacket = await encoder.flush()) !== null) {
-      await output.writePacket(flushPacket, outputStreamIndex);
-      encodedPackets++;
-      flushPacket.free();
-    }
-
-    // Write trailer
-    await output.writeTrailer();
-
-    // Clean up
-    decoder.close();
-    encoder.close();
-    await media.close();
-    await output.close();
-
-    console.log('\n✅ Done!');
-    console.log(`   Decoded ${decodedFrames} frames`);
-    console.log(`   Encoded ${encodedPackets} packets`);
-    console.log(`   Output: ${outputFile}`);
-  } catch (error) {
-    console.error('\n❌ Error:', error);
-    process.exit(1);
+  } else if (audioStream && packet.streamIndex === audioStream.index) {
+    await output.writePacket(packet, outputAudioStreamIndex);
+    processedAudioPackets++;
   }
 }
 
-main();
+// Flush decoder
+console.log('Flushing decoder...');
+for await (using flushFrame of decoder.flushFrames()) {
+  using encodedPacket = await encoder.encode(flushFrame);
+  if (encodedPacket) {
+    await output.writePacket(encodedPacket, outputVideoStreamIndex);
+    encodedPackets++;
+  }
+}
+
+// Flush encoder
+console.log('Flushing encoder...');
+for await (using flushPacket of encoder.flushPackets()) {
+  await output.writePacket(flushPacket, outputVideoStreamIndex);
+  encodedPackets++;
+}
+
+console.log('Done!');
+console.log(`Decoded ${decodedFrames} frames`);
+console.log(`Encoded ${encodedPackets} packets`);
+console.log(`Processed audio packets: ${processedAudioPackets}`);
+console.log(`Output: ${outputFile}`);

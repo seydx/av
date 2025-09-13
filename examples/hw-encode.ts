@@ -39,7 +39,7 @@ import {
   Rational,
 } from '../src/index.js';
 
-import type { AVCodecID, AVHWDeviceType, AVPixelFormat, FFEncoderCodec } from '../src/index.js';
+import type { AVHWDeviceType, AVPixelFormat, FFEncoderCodec } from '../src/index.js';
 
 let hwDeviceCtx: HardwareDeviceContext | null = null;
 let width: number;
@@ -66,7 +66,7 @@ function getHardwarePixelFormat(deviceType: AVHWDeviceType): AVPixelFormat {
 /**
  * Get encoder name for hardware type and codec
  */
-async function getEncoderCodec(deviceCtx: HardwareDeviceContext, deviceType: AVHWDeviceType, codecName: string): Promise<Codec | null> {
+function getEncoderCodec(deviceType: AVHWDeviceType, codecName: string): Codec | null {
   // Build the encoder name
   let encoderSuffix = '';
 
@@ -136,41 +136,11 @@ async function getEncoderCodec(deviceCtx: HardwareDeviceContext, deviceType: AVH
   const encoderName = `${codecName}_${encoderSuffix}` as FFEncoderCodec;
   const encoderCodec = Codec.findEncoderByName(encoderName);
 
-  if (!encoderCodec || !(await testHardwareEncoder(deviceCtx, encoderName))) {
+  if (!encoderCodec?.isHardwareAcceleratedEncoder()) {
     return null;
   }
 
   return encoderCodec;
-}
-
-/**
- * Test if hardware encoder is supported
- */
-async function testHardwareEncoder(deviceCtx: HardwareDeviceContext, encoderCodec: FFEncoderCodec | AVCodecID | Codec): Promise<boolean> {
-  let codec: Codec | null = null;
-
-  if (encoderCodec instanceof Codec) {
-    codec = encoderCodec;
-  } else if (typeof encoderCodec === 'string') {
-    codec = Codec.findEncoderByName(encoderCodec);
-  } else {
-    codec = Codec.findEncoder(encoderCodec);
-  }
-
-  if (!codec?.pixelFormats || !codec.isHardwareAcceleratedEncoder()) {
-    return false;
-  }
-
-  const codecContext = new CodecContext();
-  codecContext.allocContext3(codec);
-  codecContext.hwDeviceCtx = deviceCtx;
-  codecContext.timeBase = new Rational(1, 30);
-  codecContext.pixelFormat = codec.pixelFormats[0];
-  codecContext.width = 100;
-  codecContext.height = 100;
-  const ret = await codecContext.open2(codec);
-  codecContext.freeContext();
-  return ret >= 0;
 }
 
 /**
@@ -294,7 +264,7 @@ async function main(): Promise<number> {
     }
 
     // Find encoder
-    const codec = await getEncoderCodec(hwDeviceCtx, type, codecName);
+    const codec = getEncoderCodec(type, codecName);
     if (!codec) {
       console.error(`Could not find encoder: ${codecName}`);
       return -1;

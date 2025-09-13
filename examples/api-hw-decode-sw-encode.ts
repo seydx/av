@@ -13,200 +13,146 @@
  * Example: tsx examples/api-hw-decode-sw-encode.ts testdata/video.mp4 examples/.tmp/api-hw-decode-sw-encode.mp4
  */
 
-import { AV_PIX_FMT_YUV420P, Decoder, Encoder, FF_ENCODER_LIBX264, FilterAPI, HardwareContext, MediaInput, MediaOutput, type VideoInfo } from '../src/index.js';
+import {
+  AV_LOG_DEBUG,
+  AV_PIX_FMT_NV12,
+  AV_PIX_FMT_YUV420P,
+  Decoder,
+  Encoder,
+  FF_ENCODER_LIBX264,
+  FilterAPI,
+  FilterPreset,
+  HardwareContext,
+  Log,
+  MediaInput,
+  MediaOutput,
+} from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
-/**
- *
- * @param inputFile
- * @param outputFile
- */
-async function hwDecodeSoftwareEncode(inputFile: string, outputFile: string) {
-  console.log('🎬 Hardware Decode + Software Encode Example');
-  console.log(`Input: ${inputFile}`);
-  console.log(`Output: ${outputFile}`);
-  console.log('');
+const inputFile = process.argv[2];
+const outputFile = process.argv[3];
 
-  // Check for hardware availability
-  const hw = HardwareContext.auto();
-  if (!hw) {
-    console.log('❌ No hardware acceleration available');
-    console.log('   This example requires hardware acceleration for decoding.');
-    return;
-  }
+if (!inputFile || !outputFile) {
+  console.log('Usage: tsx api-hw-decode-sw-encode.ts <input> <output>');
+  process.exit(1);
+}
 
-  console.log(`✅ Hardware detected: ${hw.deviceTypeName}`);
-  console.log('');
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
 
-  // Open input file
-  const media = await MediaInput.open(inputFile);
-  const videoStream = media.video();
-  const audioStream = media.audio();
+// Check for hardware availability
+console.log('Checking for hardware acceleration...');
+using hw = HardwareContext.auto();
+if (!hw) {
+  throw new Error('No hardware acceleration available! This example requires hardware acceleration for decoding.');
+}
 
-  if (!videoStream) {
-    throw new Error('No video stream found in input file');
-  }
+console.log(`Hardware detected: ${hw.deviceTypeName}`);
 
-  console.log('📊 Input Information:');
-  console.log(`  Format: ${media.formatLongName}`);
-  console.log(`  Duration: ${media.duration.toFixed(2)} seconds`);
-  console.log(`  Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
-  if (audioStream) {
-    console.log(`  Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
-  }
-  console.log('');
+// Open input file
+await using input = await MediaInput.open(inputFile);
 
-  // Create hardware decoder
-  console.log('🔧 Setting up hardware decoder...');
-  const decoder = await Decoder.create(videoStream, {
-    hardware: hw,
-  });
-  console.log(`  ✓ Hardware decoder created (${hw.deviceTypeName})`);
+const audioStream = input.audio();
+const videoStream = input.video();
+if (!videoStream) {
+  throw new Error('No video stream found in input file');
+}
 
-  // Create filter to convert from hardware to software format
-  console.log('🔧 Setting up format conversion filter...');
-  const filter = await FilterAPI.create('hwdownload,format=nv12,format=yuv420p', decoder.getOutputStreamInfo(), { hardware: hw });
-  console.log('  ✓ Format conversion filter created (HW→CPU)');
+console.log(`Input video: ${videoStream.codecpar.width}x${videoStream.codecpar.height} ${videoStream.codecpar.codecId}`);
+if (audioStream) {
+  console.log(`Input audio: ${audioStream.codecpar.sampleRate}Hz ${audioStream.codecpar.channels}ch ${audioStream.codecpar.codecId}`);
+}
 
-  // Create software encoder (CPU)
-  console.log('🔧 Setting up software encoder...');
-  const encoder = await Encoder.create(
-    FF_ENCODER_LIBX264,
-    {
-      ...(decoder.getOutputStreamInfo() as VideoInfo),
-      pixelFormat: AV_PIX_FMT_YUV420P, // Changed through filter
-    },
-    {
-      options: {
-        preset: 'medium',
-        crf: '23',
-      },
-    },
-  );
-  console.log('  ✓ Software encoder created (libx264)');
-  console.log('');
+// Create hardware decoder
+console.log('Setting up hardware decoder...');
+const decoder = await Decoder.create(videoStream, {
+  hardware: hw,
+});
 
-  // Create output using MediaOutput
-  const output = await MediaOutput.open(outputFile);
-  const outputStreamIndex = output.addStream(encoder);
+// Create filter to convert from hardware to software format
+console.log('Setting up format conversion filter...');
+const filterChain = FilterPreset.chain(hw).hwdownload().format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]).build();
+using filter = await FilterAPI.create(filterChain, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  hardware: hw,
+});
 
-  // Write header
-  await output.writeHeader();
+// Create software encoder (CPU)
+console.log('Setting up software encoder...');
+using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  options: {
+    preset: 'medium',
+    crf: '23',
+  },
+});
 
-  // Process video
-  console.log('🎥 Processing video...');
-  console.log('  Hardware decoding → CPU transfer → Software encoding');
-  console.log('');
+// Create output using MediaOutput
+await using output = await MediaOutput.open(outputFile);
+const outputVideoStreamIndex = output.addStream(encoder);
+const outputAudioStreamIndex = audioStream ? output.addStream(audioStream) : -1;
 
-  let frameCount = 0;
-  let packetCount = 0;
-  const startTime = Date.now();
+// Process video
+console.log('Processing video...');
 
-  for await (const packet of media.packets()) {
-    if (packet.streamIndex === videoStream.index) {
-      // Hardware decode
-      const frame = await decoder.decode(packet);
-      if (frame) {
-        // Convert from hardware to CPU format
-        const cpuFrame = await filter.process(frame);
-        if (cpuFrame) {
-          frameCount++;
+let frameCount = 0;
+const startTime = Date.now();
 
-          // Software encode
-          const encodedPacket = await encoder.encode(cpuFrame);
-          if (encodedPacket) {
-            // Write to output
-            await output.writePacket(encodedPacket, outputStreamIndex);
-            packetCount++;
-            encodedPacket.free();
-          }
+for await (using packet of input.packets()) {
+  if (packet.streamIndex === videoStream.index) {
+    // Hardware decode
+    using frame = await decoder.decode(packet);
+    if (frame) {
+      // Convert from hardware to CPU format
+      using cpuFrame = await filter.process(frame);
+      if (cpuFrame) {
+        frameCount++;
 
-          cpuFrame.free();
-        }
-        frame.free();
-
-        // Progress indicator
-        if (frameCount % 30 === 0) {
-          const elapsed = (Date.now() - startTime) / 1000;
-          const fps = frameCount / elapsed;
-          process.stdout.write(`\r  Processed ${frameCount} frames @ ${fps.toFixed(1)} fps`);
+        // Software encode
+        using encodedPacket = await encoder.encode(cpuFrame);
+        if (encodedPacket) {
+          // Write to output
+          await output.writePacket(encodedPacket, outputVideoStreamIndex);
         }
       }
-    }
-  }
 
-  // Flush decoder
-  let flushFrame;
-  while ((flushFrame = await decoder.flush()) !== null) {
-    const cpuFrame = await filter.process(flushFrame);
-    if (cpuFrame) {
-      const encodedPacket = await encoder.encode(cpuFrame);
-      if (encodedPacket) {
-        await output.writePacket(encodedPacket, outputStreamIndex);
-        packetCount++;
-        encodedPacket.free();
+      // Progress indicator
+      if (frameCount % 30 === 0) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const fps = frameCount / elapsed;
+        console.log(`Processed ${frameCount} frames @ ${fps.toFixed(1)} fps`);
       }
-      cpuFrame.free();
     }
-    flushFrame.free();
+  } else if (audioStream && packet.streamIndex === audioStream.index) {
+    // Pass through audio packets directly
+    await output.writePacket(packet, outputAudioStreamIndex);
   }
+}
 
-  // Flush filter
-  for await (const cpuFrame of filter.flushFrames()) {
-    const encodedPacket = await encoder.encode(cpuFrame);
+// Flush decoder
+for await (using flushFrame of decoder.flushFrames()) {
+  using cpuFrame = await filter.process(flushFrame);
+  if (cpuFrame) {
+    using encodedPacket = await encoder.encode(cpuFrame);
     if (encodedPacket) {
-      await output.writePacket(encodedPacket, outputStreamIndex);
-      packetCount++;
-      encodedPacket.free();
+      await output.writePacket(encodedPacket, outputVideoStreamIndex);
     }
-    cpuFrame.free();
   }
-
-  // Flush encoder
-  let flushPacket;
-  while ((flushPacket = await encoder.flush()) !== null) {
-    await output.writePacket(flushPacket, outputStreamIndex);
-    packetCount++;
-    flushPacket.free();
-  }
-
-  // Write trailer
-  await output.writeTrailer();
-
-  const elapsed = (Date.now() - startTime) / 1000;
-  const avgFps = frameCount / elapsed;
-
-  console.log('\n');
-  console.log('✅ Transcoding complete!');
-  console.log(`  Frames processed: ${frameCount}`);
-  console.log(`  Packets written: ${packetCount}`);
-  console.log(`  Time: ${elapsed.toFixed(2)} seconds`);
-  console.log(`  Average FPS: ${avgFps.toFixed(1)}`);
-  console.log('');
-  console.log('📊 Performance characteristics:');
-  console.log('  - Fast hardware decoding (GPU)');
-  console.log('  - High-quality software encoding (CPU)');
-  console.log('  - GPU→CPU memory transfer overhead');
-  console.log('  - Good for quality-critical encoding');
-
-  // Cleanup
-  decoder.close();
-  encoder.close();
-  hw.dispose();
-  await output.close();
-  await media.close();
 }
 
-// Run example
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.log('Usage: tsx api-hw-decode-sw-encode.ts <input> <output>');
-    console.log('Example: tsx api-hw-decode-sw-encode.ts input.mp4 output.mp4');
-    process.exit(1);
+// Flush filter
+for await (using cpuFrame of filter.flushFrames()) {
+  using encodedPacket = await encoder.encode(cpuFrame);
+  if (encodedPacket) {
+    await output.writePacket(encodedPacket, outputVideoStreamIndex);
   }
-
-  hwDecodeSoftwareEncode(args[0], args[1]).catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
 }
+
+// Flush encoder
+for await (using flushPacket of encoder.flushPackets()) {
+  await output.writePacket(flushPacket, outputVideoStreamIndex);
+}
+
+console.log('Done!');

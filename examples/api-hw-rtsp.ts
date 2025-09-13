@@ -11,14 +11,15 @@
  *   --scale <WxH>    Scale video to WxH (default: 640x360)
  *
  * Examples:
- *   tsx examples/api-hw-rtsp.ts rtsp://camera.local/stream examples/.tmp/hw-rtsp-output.mp4
+ *   tsx examples/api-hw-rtsp.ts rtsp://camera.local/stream examples/.tmp/api-hw-rtsp-output.mp4
  *   tsx examples/api-hw-rtsp.ts rtsp://admin:pass@192.168.1.100/ch1 output.mp4 --duration 30
  *   tsx examples/api-hw-rtsp.ts rtsp://server/live output.mp4 --scale 1280x720
  */
 
-import { Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/index.js';
+import { AV_LOG_DEBUG, Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, FilterPreset, HardwareContext, Log, MediaInput, MediaOutput } from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
-import type { FFEncoderCodec, VideoInfo } from '../src/index.js';
+import type { FFEncoderCodec } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -48,202 +49,162 @@ if (scaleIndex !== -1) {
 
 let stop = false;
 
-/**
- *
- */
-async function processRtsp() {
-  try {
-    console.log('High-Level API: Hardware-Accelerated RTSP Streaming');
-    console.log('====================================================\n');
-    console.log(`Input: ${rtspUrl}`);
-    console.log(`Output: ${outputFile}`);
-    console.log(`Duration: ${duration} seconds`);
-    console.log(`Scale to: ${scaleWidth}x${scaleHeight}\n`);
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
 
-    // Open RTSP stream
-    console.log('Connecting to RTSP stream...');
-    await using input = await MediaInput.open(rtspUrl, {
-      options: {
-        rtsp_transport: 'tcp', // Use TCP for more reliable streaming
-        analyzeduration: '5000000', // 5 seconds analyze duration
-        probesize: '5000000', // 5MB probe size
-      },
-    });
-    console.log('Connected!\n');
+console.log(`Input: ${rtspUrl}`);
+console.log(`Output: ${outputFile}`);
+console.log(`Duration: ${duration} seconds`);
+console.log(`Scale to: ${scaleWidth}x${scaleHeight}`);
 
-    // Get streams
-    const videoStream = input.video();
-    if (!videoStream) {
-      throw new Error('No video stream found in RTSP source');
-    }
+// Open RTSP stream
+console.log('Connecting to RTSP stream...');
+await using input = await MediaInput.open(rtspUrl, {
+  options: {
+    rtsp_transport: 'tcp',
+  },
+});
 
-    const audioStream = input.audio();
-    if (!audioStream) {
-      console.warn('⚠️  No audio stream found, processing video only\n');
-    }
+// Get streams
+const videoStream = input.video();
+if (!videoStream) {
+  throw new Error('No video stream found in RTSP source');
+}
 
-    // Display input information
-    console.log('Input Information:');
-    console.log(`  Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
-    console.log(`  Codec: ${videoStream.codecpar.codecId}`);
-    console.log(`  Format: ${videoStream.codecpar.format}`);
-    console.log(`  Time base: ${videoStream.timeBase.num}/${videoStream.timeBase.den}`);
-    console.log(`  Frame rate: ${videoStream.avgFrameRate.num}/${videoStream.avgFrameRate.den}`);
-    if (audioStream) {
-      console.log(`  Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
-      console.log(`  Audio codec: ${audioStream.codecpar.codecId}`);
-    }
-    console.log();
+const audioStream = input.audio();
+if (!audioStream) {
+  console.warn('No audio stream found, processing video only');
+}
 
-    // Auto-detect hardware
-    console.log('Detecting hardware acceleration...');
-    using hardware = HardwareContext.auto();
-    if (hardware) {
-      console.log(`Using hardware: ${hardware.deviceTypeName}\n`);
-    } else {
-      console.log('No hardware acceleration available, using software\n');
-    }
+// Display input information
+console.log('Input Information:');
+console.log(`Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
+console.log(`Codec: ${videoStream.codecpar.codecId}`);
+console.log(`Format: ${videoStream.codecpar.format}`);
+console.log(`Time base: ${videoStream.timeBase.num}/${videoStream.timeBase.den}`);
+console.log(`Frame rate: ${videoStream.avgFrameRate.num}/${videoStream.avgFrameRate.den}`);
+if (audioStream) {
+  console.log(`Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
+  console.log(`Audio codec: ${audioStream.codecpar.codecId}`);
+}
 
-    // Create decoder
-    console.log('Creating video decoder...');
-    using decoder = await Decoder.create(videoStream, {
-      hardware,
-    });
-    console.log('Video decoder created\n');
+// Auto-detect hardware
+console.log('Detecting hardware acceleration...');
+using hardware = HardwareContext.auto();
+if (hardware) {
+  console.log(`Using hardware: ${hardware.deviceTypeName}`);
+} else {
+  console.log('No hardware acceleration available, using software');
+}
 
-    // Determine encoder based on hardware
-    let encoderName: FFEncoderCodec = FF_ENCODER_LIBX265; // Default software encoder
-    let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
+// Create decoder
+console.log('Creating video decoder...');
+using decoder = await Decoder.create(videoStream, {
+  hardware,
+});
 
-    if (hardware) {
-      const encoderCodec = await hardware.getEncoderCodec('hevc');
-      if (encoderCodec?.isHardwareAcceleratedEncoder()) {
-        encoderName = encoderCodec.name as FFEncoderCodec;
-        filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
+// Determine encoder based on hardware
+let encoderName: FFEncoderCodec = FF_ENCODER_LIBX265; // Default software encoder
+let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
+
+if (hardware) {
+  const encoderCodec = hardware.getEncoderCodec('hevc');
+  if (encoderCodec?.isHardwareAcceleratedEncoder()) {
+    encoderName = encoderCodec.name as FFEncoderCodec;
+    filterChain = FilterPreset.chain(hardware).scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
+  }
+}
+
+// Create filter
+console.log(`Creating filter: ${filterChain}`);
+using filter = await FilterAPI.create(filterChain, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  hardware,
+});
+
+// Create encoder
+console.log(`Creating encoder: ${encoderName}...`);
+using encoder = await Encoder.create(encoderName, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  bitrate: '2M',
+  gopSize: 60,
+});
+
+// Create output
+console.log('Creating output file...');
+await using output = await MediaOutput.open(outputFile);
+
+// Add video stream
+const videoOutputIndex = output.addStream(encoder);
+
+// Add audio stream if available (direct copy)
+let audioOutputIndex = -1;
+if (audioStream) {
+  audioOutputIndex = output.addStream(audioStream);
+  console.log('Audio stream will be copied directly');
+}
+
+// Set up timeout for recording duration
+const timeout = setTimeout(() => {
+  console.log(`Recording duration reached (${duration}s), stopping...`);
+  stop = true;
+}, duration * 1000);
+
+// Process streams
+console.log('Recording started...');
+const startTime = Date.now();
+let videoPackets = 0;
+let audioPackets = 0;
+
+try {
+  // Create video processing pipeline
+  const videoInputGenerator = input.packets(videoStream.index);
+  const videoDecoderGenerator = decoder.frames(videoInputGenerator);
+  const videoFilterGenerator = filter.frames(videoDecoderGenerator);
+  const videoEncoderGenerator = encoder.packets(videoFilterGenerator);
+
+  // Process video and audio in parallel
+  const processVideo = async () => {
+    for await (const packet of videoEncoderGenerator) {
+      if (stop) break;
+      await output.writePacket(packet, videoOutputIndex);
+      videoPackets++;
+
+      // Progress indicator
+      if (videoPackets % 30 === 0) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        console.log(`Recording: ${elapsed.toFixed(1)}s - Video: ${videoPackets} packets`);
       }
     }
+  };
 
-    // Create filter
-    console.log(`Creating filter: ${filterChain}`);
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), {
-      hardware,
-    });
-    console.log('Filter created\n');
+  const processAudio = async () => {
+    if (audioOutputIndex === -1) return;
 
-    // Create encoder
-    console.log(`Creating encoder: ${encoderName}...`);
-    using encoder = await Encoder.create(
-      encoderName,
-      {
-        ...(decoder.getOutputStreamInfo() as VideoInfo),
-        width: scaleWidth, // After scaling
-        height: scaleHeight,
-      },
-      {
-        hardware,
-        bitrate: '2M',
-        gopSize: 60,
-      },
-    );
-    console.log('Encoder created\n');
-
-    // Create output
-    console.log('Creating output file...');
-    await using output = await MediaOutput.open(outputFile);
-
-    // Add video stream
-    const videoOutputIndex = output.addStream(encoder);
-
-    // Add audio stream if available (direct copy)
-    let audioOutputIndex = -1;
-    if (audioStream) {
-      audioOutputIndex = output.addStream(audioStream);
-      console.log('Audio stream will be copied directly');
+    for await (const packet of input.packets(audioStream!.index)) {
+      if (stop) break;
+      await output.writePacket(packet, audioOutputIndex);
+      audioPackets++;
     }
+  };
 
-    await output.writeHeader();
-    console.log('Output file ready\n');
-
-    // Set up timeout for recording duration
-    const timeout = setTimeout(() => {
-      console.log(`\n⏱️  Recording duration reached (${duration}s), stopping...`);
-      stop = true;
-    }, duration * 1000);
-
-    // Process streams
-    console.log('Recording started...');
-    const startTime = Date.now();
-    let videoPackets = 0;
-    let audioPackets = 0;
-
-    try {
-      // Create video processing pipeline
-      const videoInputGenerator = input.packets(videoStream.index);
-      const videoDecoderGenerator = decoder.frames(videoInputGenerator);
-      const videoFilterGenerator = filter.frames(videoDecoderGenerator);
-      const videoEncoderGenerator = encoder.packets(videoFilterGenerator);
-
-      // Process video and audio in parallel
-      const processVideo = async () => {
-        for await (const packet of videoEncoderGenerator) {
-          if (stop) break;
-          await output.writePacket(packet, videoOutputIndex);
-          videoPackets++;
-
-          // Progress indicator
-          if (videoPackets % 30 === 0) {
-            const elapsed = (Date.now() - startTime) / 1000;
-            process.stdout.write(`\rRecording: ${elapsed.toFixed(1)}s - Video: ${videoPackets} packets`);
-          }
-        }
-      };
-
-      const processAudio = async () => {
-        if (audioOutputIndex === -1) return;
-
-        for await (const packet of input.packets(audioStream!.index)) {
-          if (stop) break;
-          await output.writePacket(packet, audioOutputIndex);
-          audioPackets++;
-        }
-      };
-
-      // Run both in parallel
-      await Promise.all([processVideo(), processAudio()]);
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    await output.writeTrailer();
-
-    const elapsed = (Date.now() - startTime) / 1000;
-
-    console.log('\n');
-    console.log('✅ Recording complete!');
-    console.log(`  Duration: ${elapsed.toFixed(2)} seconds`);
-    console.log(`  Video packets: ${videoPackets}`);
-    if (audioPackets > 0) {
-      console.log(`  Audio packets: ${audioPackets}`);
-    }
-    console.log(`  Output file: ${outputFile}`);
-    if (hardware) {
-      console.log(`  Hardware used: ${hardware.deviceTypeName}`);
-    }
-  } catch (error) {
-    console.error('\n❌ Error:', error);
-    throw error;
-  }
+  // Run both in parallel
+  await Promise.all([processVideo(), processAudio()]);
+} finally {
+  clearTimeout(timeout);
 }
 
-/**
- *
- */
-async function main() {
-  try {
-    await processRtsp();
-  } catch {
-    process.exit(1);
-  }
-}
+const elapsed = (Date.now() - startTime) / 1000;
 
-main();
+console.log('Recording complete!');
+console.log(`Duration: ${elapsed.toFixed(2)} seconds`);
+console.log(`Video packets: ${videoPackets}`);
+if (audioPackets > 0) {
+  console.log(`Audio packets: ${audioPackets}`);
+}
+console.log(`Output file: ${outputFile}`);
+if (hardware) {
+  console.log(`Hardware used: ${hardware.deviceTypeName}`);
+}

@@ -16,9 +16,10 @@
  *   tsx examples/api-pipeline-hw-rtsp.ts rtsp://server/live output.mp4 --scale 1280x720
  */
 
-import { Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, HardwareContext, MediaInput, MediaOutput, pipeline } from '../src/index.js';
+import { AV_LOG_DEBUG, Decoder, Encoder, FF_ENCODER_LIBX265, FilterAPI, FilterPreset, HardwareContext, Log, MediaInput, MediaOutput, pipeline } from '../src/index.js';
+import { prepareTestEnvironment } from './index.js';
 
-import type { FFEncoderCodec, PipelineControl, VideoInfo } from '../src/index.js';
+import type { FFEncoderCodec, PipelineControl } from '../src/index.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -46,181 +47,141 @@ if (scaleIndex !== -1) {
   scaleHeight = parseInt(h);
 }
 
+prepareTestEnvironment();
+Log.setLevel(AV_LOG_DEBUG);
+
 let pipelineControl: PipelineControl | undefined;
 
-/**
- *
- */
-async function processRtsp() {
-  try {
-    console.log('High-Level API: Pipeline with Hardware-Accelerated RTSP');
-    console.log('========================================================\n');
-    console.log(`Input: ${rtspUrl}`);
-    console.log(`Output: ${outputFile}`);
-    console.log(`Duration: ${duration} seconds`);
-    console.log(`Scale to: ${scaleWidth}x${scaleHeight}\n`);
+console.log(`Input: ${rtspUrl}`);
+console.log(`Output: ${outputFile}`);
+console.log(`Duration: ${duration} seconds`);
+console.log(`Scale to: ${scaleWidth}x${scaleHeight}`);
 
-    // Open RTSP stream
-    console.log('Connecting to RTSP stream...');
-    await using input = await MediaInput.open(rtspUrl, {
-      options: {
-        rtsp_transport: 'tcp',
-        analyzeduration: '5000000',
-        probesize: '5000000',
-      },
-    });
-    console.log('Connected!\n');
+// Open RTSP stream
+console.log('Connecting to RTSP stream...');
+await using input = await MediaInput.open(rtspUrl, {
+  options: {
+    rtsp_transport: 'tcp',
+  },
+});
 
-    // Get streams
-    const videoStream = input.video();
-    if (!videoStream) {
-      throw new Error('No video stream found in RTSP source');
-    }
+// Get streams
+const videoStream = input.video();
+if (!videoStream) {
+  throw new Error('No video stream found in RTSP source');
+}
 
-    const audioStream = input.audio();
-    if (!audioStream) {
-      console.warn('⚠️  No audio stream found, processing video only\n');
-    }
+const audioStream = input.audio();
+if (!audioStream) {
+  console.warn('No audio stream found, processing video only');
+}
 
-    // Display input information
-    console.log('Input Information:');
-    console.log(`  Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
-    console.log(`  Codec: ${videoStream.codecpar.codecId}`);
-    console.log(`  Time base: ${videoStream.timeBase.num}/${videoStream.timeBase.den}`);
-    console.log(`  Frame rate: ${videoStream.avgFrameRate.num}/${videoStream.avgFrameRate.den}`);
-    if (audioStream) {
-      console.log(`  Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
-    }
-    console.log();
+// Display input information
+console.log('Input Information:');
+console.log(`Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
+console.log(`Codec: ${videoStream.codecpar.codecId}`);
+console.log(`Time base: ${videoStream.timeBase.num}/${videoStream.timeBase.den}`);
+console.log(`Frame rate: ${videoStream.avgFrameRate.num}/${videoStream.avgFrameRate.den}`);
+if (audioStream) {
+  console.log(`Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
+}
 
-    // Auto-detect hardware
-    console.log('Detecting hardware acceleration...');
-    using hardware = HardwareContext.auto();
-    if (hardware) {
-      console.log(`Using hardware: ${hardware.deviceTypeName}\n`);
-    } else {
-      console.log('No hardware acceleration available, using software\n');
-    }
+// Auto-detect hardware
+console.log('Detecting hardware acceleration...');
+using hardware = HardwareContext.auto();
+if (hardware) {
+  console.log(`Using hardware: ${hardware.deviceTypeName}`);
+} else {
+  console.log('No hardware acceleration available, using software');
+}
 
-    // Create components
-    console.log('Creating pipeline components...');
+// Create components
+console.log('Creating pipeline components...');
 
-    using decoder = await Decoder.create(videoStream, {
-      hardware,
-    });
-    console.log('  ✓ Decoder created');
+using decoder = await Decoder.create(videoStream, {
+  hardware,
+});
 
-    // Determine encoder and filter based on hardware
-    let encoderName: FFEncoderCodec = FF_ENCODER_LIBX265;
-    let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
+// Determine encoder and filter based on hardware
+let encoderName: FFEncoderCodec = FF_ENCODER_LIBX265;
+let filterChain = `scale=${scaleWidth}:${scaleHeight},setpts=N/FRAME_RATE/TB`;
 
-    if (hardware) {
-      const encoderCodec = await hardware.getEncoderCodec('hevc');
-      if (encoderCodec?.isHardwareAcceleratedEncoder()) {
-        encoderName = encoderCodec.name as FFEncoderCodec;
-        filterChain = hardware.filterPresets.chain().scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
-      }
-    }
+if (hardware) {
+  const encoderCodec = hardware.getEncoderCodec('hevc');
+  if (encoderCodec?.isHardwareAcceleratedEncoder()) {
+    encoderName = encoderCodec.name as FFEncoderCodec;
+    filterChain = FilterPreset.chain(hardware).scale(scaleWidth, scaleHeight).custom('setpts=N/FRAME_RATE/TB').build();
+  }
+}
 
-    using filter = await FilterAPI.create(filterChain, decoder.getOutputStreamInfo(), {
-      hardware,
-    });
-    console.log(`  ✓ Filter created: ${filterChain}`);
+using filter = await FilterAPI.create(filterChain, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  hardware,
+});
 
-    using encoder = await Encoder.create(
-      encoderName,
-      {
-        ...(decoder.getOutputStreamInfo() as VideoInfo),
-        width: scaleWidth,
-        height: scaleHeight,
-      },
-      {
-        hardware,
-        bitrate: '2M',
-        gopSize: 60,
-      },
-    );
-    console.log(`  ✓ Encoder created: ${encoderName}\n`);
+using encoder = await Encoder.create(encoderName, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  bitrate: '2M',
+  gopSize: 60,
+});
 
-    // Create output
-    console.log('Creating output file...');
-    await using output = await MediaOutput.open(outputFile);
+// Create output
+await using output = await MediaOutput.open(outputFile);
 
-    // Setup pipeline based on available streams
-    console.log('Setting up pipeline...\n');
+// Setup pipeline based on available streams
+console.log('Setting up pipeline...');
 
-    if (audioStream) {
-      // Pipeline with audio passthrough
-      console.log('Using named pipeline with audio passthrough');
-      pipelineControl = pipeline(
-        { video: input, audio: input },
-        {
-          video: [decoder, filter, encoder],
-          audio: 'passthrough', // Direct stream copy for audio
-        },
-        output,
-      );
-    } else {
-      // Video-only pipeline
-      console.log('Using simple pipeline (video only)');
-      pipelineControl = pipeline(input, decoder, filter, encoder, output);
-    }
+if (audioStream) {
+  // Pipeline with audio passthrough
+  console.log('Using named pipeline with audio passthrough');
+  pipelineControl = pipeline(
+    { video: input, audio: input },
+    {
+      video: [decoder, filter, encoder],
+      audio: 'passthrough', // Direct stream copy for audio
+    },
+    output,
+  );
+} else {
+  // Video-only pipeline
+  console.log('Using simple pipeline (video only)');
+  pipelineControl = pipeline(input, decoder, filter, encoder, output);
+}
 
-    console.log('Pipeline started, recording...\n');
-    const startTime = Date.now();
+console.log('Pipeline started, recording...');
+const startTime = Date.now();
 
-    // Set up timeout for recording duration
-    const timeout = setTimeout(() => {
-      console.log(`\n⏱️  Recording duration reached (${duration}s), stopping...`);
-      if (pipelineControl) {
-        pipelineControl.stop();
-      }
-    }, duration * 1000);
+// Set up timeout for recording duration
+const timeout = setTimeout(() => {
+  console.log(`Recording duration reached (${duration}s), stopping...`);
+  if (pipelineControl) {
+    pipelineControl.stop();
+  }
+}, duration * 1000);
 
-    // Show progress
-    const progressInterval = setInterval(() => {
-      if (pipelineControl && !pipelineControl.isStopped()) {
-        const elapsed = (Date.now() - startTime) / 1000;
-        process.stdout.write(`\rRecording: ${elapsed.toFixed(1)}s / ${duration}s`);
-      }
-    }, 100);
-
-    try {
-      // Wait for pipeline to complete
-      await pipelineControl.completion;
-    } finally {
-      clearTimeout(timeout);
-      clearInterval(progressInterval);
-    }
-
+// Show progress
+const progressInterval = setInterval(() => {
+  if (pipelineControl && !pipelineControl.isStopped()) {
     const elapsed = (Date.now() - startTime) / 1000;
-
-    console.log('\n');
-    console.log('✅ Recording complete!');
-    console.log(`  Duration: ${elapsed.toFixed(2)} seconds`);
-    console.log(`  Output file: ${outputFile}`);
-    if (hardware) {
-      console.log(`  Hardware used: ${hardware.deviceTypeName}`);
-    }
-  } catch (error) {
-    console.error('\n❌ Error:', error);
-    throw error;
+    console.log(`Recording: ${elapsed.toFixed(1)}s / ${duration}s`);
   }
+}, 100);
+
+try {
+  // Wait for pipeline to complete
+  await pipelineControl.completion;
+} finally {
+  clearTimeout(timeout);
+  clearInterval(progressInterval);
 }
 
-/**
- *
- */
-async function main() {
-  try {
-    await processRtsp();
-  } catch {
-    // Stop pipeline if error occurs
-    if (pipelineControl) {
-      pipelineControl.stop();
-    }
-    process.exit(1);
-  }
-}
+const elapsed = (Date.now() - startTime) / 1000;
 
-main();
+console.log('Done!');
+console.log(`Duration: ${elapsed.toFixed(2)} seconds`);
+console.log(`Output file: ${outputFile}`);
+if (hardware) {
+  console.log(`Hardware used: ${hardware.deviceTypeName}`);
+}

@@ -15,161 +15,110 @@
 
 import { Decoder, Encoder, FF_ENCODER_LIBX264, MediaInput, MediaOutput } from '../src/index.js';
 
-/**
- *
- * @param inputFile
- * @param outputFile
- */
-async function softwareTranscode(inputFile: string, outputFile: string) {
-  console.log('🎬 Full Software Transcode Example');
-  console.log(`Input: ${inputFile}`);
-  console.log(`Output: ${outputFile}`);
-  console.log('');
+const inputFile = process.argv[2];
+const outputFile = process.argv[3];
 
-  // Open input file
-  const media = await MediaInput.open(inputFile);
-  const videoStream = media.video();
-  const audioStream = media.audio();
+if (!inputFile || !outputFile) {
+  console.log('Usage: tsx api-sw-transcode.ts <input> <output>');
+  console.log('Example: tsx api-sw-transcode.ts input.mp4 output.mp4');
+  process.exit(1);
+}
 
-  if (!videoStream) {
-    throw new Error('No video stream found in input file');
-  }
+console.log(`Input: ${inputFile}`);
+console.log(`Output: ${outputFile}`);
 
-  console.log('📊 Input Information:');
-  console.log(`  Format: ${media.formatLongName}`);
-  console.log(`  Duration: ${media.duration.toFixed(2)} seconds`);
-  console.log(`  Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
-  if (audioStream) {
-    console.log(`  Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
-  }
-  console.log('');
+// Open input file
+await using input = await MediaInput.open(inputFile);
+const videoStream = input.video();
+const audioStream = input.audio();
 
-  // Create software decoder (CPU)
-  console.log('🔧 Setting up software decoder...');
-  const decoder = await Decoder.create(videoStream);
-  console.log('  ✓ Software decoder created (CPU)');
+if (!videoStream) {
+  throw new Error('No video stream found in input file');
+}
 
-  // Create software encoder (CPU)
-  console.log('🔧 Setting up software encoder...');
-  const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo(), {
-    bitrate: '2M',
-    gopSize: 60,
-    options: {
-      preset: 'medium',
-      crf: 23,
-      profile: 'high',
-      level: '4.1',
-    },
-  });
-  console.log('  ✓ Software encoder created (libx264)');
-  console.log('');
+console.log('Input Information:');
+console.log(`Format: ${input.formatLongName}`);
+console.log(`Duration: ${input.duration.toFixed(2)} seconds`);
+console.log(`Video: ${videoStream.codecpar.width}x${videoStream.codecpar.height}`);
+if (audioStream) {
+  console.log(`Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
+}
 
-  // Create output using MediaOutput
-  const output = await MediaOutput.open(outputFile);
-  const outputStreamIndex = output.addStream(encoder);
+// Create software decoder (CPU)
+console.log('Setting up software decoder...');
+const decoder = await Decoder.create(videoStream);
 
-  // Write header
-  await output.writeHeader();
+// Create software encoder (CPU)
+console.log('Setting up software encoder...');
+const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+  bitrate: '2M',
+  gopSize: 60,
+  options: {
+    preset: 'medium',
+    crf: 23,
+    profile: 'high',
+    level: '4.1',
+  },
+});
 
-  // Process video
-  console.log('🎥 Processing video...');
-  console.log('  Pure software pipeline: CPU decode → CPU encode');
-  console.log('');
+// Create output using MediaOutput
+await using output = await MediaOutput.open(outputFile);
+const outputStreamIndex = output.addStream(encoder);
 
-  let frameCount = 0;
-  let packetCount = 0;
-  const startTime = Date.now();
+// Process video
+console.log('🎥 Processing video...');
+console.log('  Pure software pipeline: CPU decode → CPU encode');
+console.log('');
 
-  for await (const packet of media.packets()) {
-    if (packet.streamIndex === videoStream.index) {
-      // Software decode
-      const frame = await decoder.decode(packet);
-      if (frame) {
-        frameCount++;
+let frameCount = 0;
+let packetCount = 0;
+const startTime = Date.now();
 
-        // Software encode (encoder handles PTS rescaling automatically)
-        const encodedPacket = await encoder.encode(frame);
-        if (encodedPacket) {
-          // Write to output (MediaOutput handles timestamp rescaling)
-          await output.writePacket(encodedPacket, outputStreamIndex);
-          packetCount++;
-          encodedPacket.free();
-        }
+for await (using packet of input.packets(videoStream.index)) {
+  // Software decode
+  using frame = await decoder.decode(packet);
+  if (frame) {
+    frameCount++;
 
-        frame.free();
-
-        // Progress indicator
-        if (frameCount % 30 === 0) {
-          const elapsed = (Date.now() - startTime) / 1000;
-          const fps = frameCount / elapsed;
-          process.stdout.write(`\r  Processed ${frameCount} frames @ ${fps.toFixed(1)} fps`);
-        }
-      }
-    }
-  }
-
-  // Flush decoder
-  let flushFrame;
-  while ((flushFrame = await decoder.flush()) !== null) {
-    const encodedPacket = await encoder.encode(flushFrame);
+    // Software encode (encoder handles PTS rescaling automatically)
+    using encodedPacket = await encoder.encode(frame);
     if (encodedPacket) {
+      // Write to output (MediaOutput handles timestamp rescaling)
       await output.writePacket(encodedPacket, outputStreamIndex);
       packetCount++;
-      encodedPacket.free();
     }
-    flushFrame.free();
-  }
 
-  // Flush encoder
-  let flushPacket;
-  while ((flushPacket = await encoder.flush()) !== null) {
-    await output.writePacket(flushPacket, outputStreamIndex);
+    // Progress indicator
+    if (frameCount % 30 === 0) {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const fps = frameCount / elapsed;
+      console.log(`Processed ${frameCount} frames @ ${fps.toFixed(1)} fps`);
+    }
+  }
+}
+
+// Flush decoder
+for await (using flushFrame of decoder.flushFrames()) {
+  using encodedPacket = await encoder.encode(flushFrame);
+  if (encodedPacket) {
+    await output.writePacket(encodedPacket, outputStreamIndex);
     packetCount++;
-    flushPacket.free();
   }
-
-  // Write trailer
-  await output.writeTrailer();
-
-  const elapsed = (Date.now() - startTime) / 1000;
-  const avgFps = frameCount / elapsed;
-
-  console.log('\n');
-  console.log('✅ Transcoding complete!');
-  console.log(`  Frames processed: ${frameCount}`);
-  console.log(`  Packets written: ${packetCount}`);
-  console.log(`  Time: ${elapsed.toFixed(2)} seconds`);
-  console.log(`  Average FPS: ${avgFps.toFixed(1)}`);
-  console.log('');
-  console.log('📊 Performance characteristics:');
-  console.log('  - Maximum compatibility');
-  console.log('  - Full codec feature support');
-  console.log('  - Predictable performance');
-  console.log('  - No hardware dependencies');
-  console.log('');
-  console.log('💡 Tips:');
-  console.log('  - Use preset "ultrafast" for speed');
-  console.log('  - Use preset "veryslow" for quality');
-  console.log('  - Adjust CRF (18-28) for quality/size balance');
-
-  // Cleanup
-  decoder.close();
-  encoder.close();
-  await output.close();
-  await media.close();
 }
 
-// Run example
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.log('Usage: tsx api-sw-transcode.ts <input> <output>');
-    console.log('Example: tsx api-sw-transcode.ts input.mp4 output.mp4');
-    process.exit(1);
-  }
-
-  softwareTranscode(args[0], args[1]).catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+// Flush encoder
+for await (using flushPacket of encoder.flushPackets()) {
+  await output.writePacket(flushPacket, outputStreamIndex);
+  packetCount++;
 }
+
+const elapsed = (Date.now() - startTime) / 1000;
+const avgFps = frameCount / elapsed;
+
+console.log('Done!');
+console.log(`Frames processed: ${frameCount}`);
+console.log(`Packets written: ${packetCount}`);
+console.log(`Time: ${elapsed.toFixed(2)} seconds`);
+console.log(`Average FPS: ${avgFps.toFixed(1)}`);
