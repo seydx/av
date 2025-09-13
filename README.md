@@ -34,46 +34,45 @@ await using input = await MediaInput.open('input.mp4');
 await using output = await MediaOutput.open('output.mp4');
 
 // Get video stream
-const videoStream = input.video();
+const videoStream = input.video()!;
 
-// Create decoder/encoder
-using decoder = await Decoder.create(videoStream!);
-using encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo(), {
-  bitrate: '2M',
-  gopSize: 60,
+// Create decoder
+using decoder = await Decoder.create(videoStream);
+
+// Create encoder
+using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
 });
 
 // Add stream to output
 const outputIndex = output.addStream(encoder);
-await output.writeHeader();
 
 // Process packets
-for await (const packet of input.packets()) {
-  if (packet.streamIndex === videoStream!.index) {
-    using frame = await decoder.decode(packet);
-    if (frame) {
-      using encoded = await encoder.encode(frame);
-      if (encoded) {
-        await output.writePacket(encoded, outputIndex);
-      }
+for await (using packet of input.packets(videoStream.index)) {
+  using frame = await decoder.decode(packet);
+  if (frame) {
+    using encoded = await encoder.encode(frame);
+    if (encoded) {
+      await output.writePacket(encoded, outputIndex);
     }
   }
 }
 
-// Flush decoder/encoder
-for await (const frame of decoder.flushFrames()) {
+// Flush decoder
+for await (using frame of decoder.flushFrames()) {
   using encoded = await encoder.encode(frame);
   if (encoded) {
     await output.writePacket(encoded, outputIndex);
   }
 }
 
-for await (const packet of encoder.flushPackets()) {
+// Flush encoder
+for await (using packet of encoder.flushPackets()) {
   await output.writePacket(packet, outputIndex);
 }
 
-// End
-await output.writeTrailer();
+// Done
 ```
 
 ### Pipeline API
@@ -85,9 +84,9 @@ import { pipeline, MediaInput, MediaOutput, Decoder, Encoder } from 'node-av/api
 const input = await MediaInput.open('input.mp4');
 const output = await MediaOutput.open('output.mp4');
 const decoder = await Decoder.create(input.video());
-const encoder = await Encoder.create(FF_ENCODER_LIBX264, decoder.getOutputStreamInfo(), {
-  bitrate: '2M',
-  gopSize: 60
+const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
 });
 
 const control = pipeline(input, decoder, encoder, output);
@@ -102,23 +101,23 @@ The library supports all hardware acceleration methods available in FFmpeg. The 
 
 ```typescript
 import { HardwareContext } from 'node-av/api';
-import { FF_ENCODER_H264_VIDEOTOOLBOX } from 'node-av/constants';
+import { FF_ENCODER_LIBX264 } from 'node-av/constants';
 
 // Automatically detect best available hardware
 const hw = HardwareContext.auto();
-if (hw) {
-  console.log(`Using hardware: ${hw.deviceTypeName}`);
-  
-  // Use with decoder
-  const decoder = await Decoder.create(stream, {
-    hardware: hw
-  });
-  
-  // Use with encoder (use hardware-specific codec)
-  const encoder = await Encoder.create(FF_ENCODER_H264_VIDEOTOOLBOX, decoder.getOutputStreamInfo(), {
-    hardware: hw
-  });
-}
+console.log(`Using hardware: ${hw.deviceTypeName}`);
+
+// Use with decoder
+const decoder = await Decoder.create(stream, {
+  hardware: hw
+});
+
+// Use with encoder (use hardware-specific codec)
+const encoderCodec = hw?.getEncoderCodec('h264') ?? FF_ENCODER_LIBX264;
+const encoder = await Encoder.create(encoderCodec, {
+  timeBase: videoStream.timeBase,
+  frameRate: videoStream.avgFrameRate,
+});
 ```
 
 ### Specific Hardware
