@@ -1,6 +1,6 @@
 {
   "name": "node-av",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "FFmpeg bindings for Node.js",
   "author": "seydx (https://github.com/seydx/av)",
   "type": "module",
@@ -55,12 +55,12 @@
     "update": "updates --update ./"
   },
   "optionalDependencies": {
-    "@seydx/node-av-darwin-arm64": "^1.3.0",
-    "@seydx/node-av-darwin-x64": "^1.3.0",
-    "@seydx/node-av-linux-arm64": "^1.3.0",
-    "@seydx/node-av-linux-x64": "^1.3.0",
-    "@seydx/node-av-win32-arm64": "^1.3.0",
-    "@seydx/node-av-win32-x64": "^1.3.0"
+    "@seydx/node-av-darwin-arm64": "^2.0.0",
+    "@seydx/node-av-darwin-x64": "^2.0.0",
+    "@seydx/node-av-linux-arm64": "^2.0.0",
+    "@seydx/node-av-linux-x64": "^2.0.0",
+    "@seydx/node-av-win32-arm64": "^2.0.0",
+    "@seydx/node-av-win32-x64": "^2.0.0"
   },
   "devDependencies": {
     "@camera.ui/ffmpeg": "^0.0.14",
