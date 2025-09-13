@@ -782,7 +782,7 @@ function runSimplePipeline(args: any[]): PipelineControl | AsyncGenerator<Packet
  *
  * @param source - Source of packets or frames
  * @param stages - Processing stages
- * @yields Processed packets or frames
+ * @yields {Packet | Frame} Processed packets or frames
  * @internal
  */
 async function* buildSimplePipeline(
@@ -1072,7 +1072,7 @@ async function runNamedPipelineAsync<K extends StreamName>(
  * @param source - Source packets
  * @param stages - Processing stages
  * @param metadata - Stream metadata
- * @yields Processed packets or frames
+ * @yields {Packet | Frame} Processed packets or frames
  * @internal
  */
 async function* buildFlexibleNamedStreamPipeline(
@@ -1116,7 +1116,7 @@ async function* buildFlexibleNamedStreamPipeline(
  * @param source - Source packets
  * @param stages - Processing stages
  * @param metadata - Stream metadata
- * @yields Processed packets
+ * @yields {Packet} Processed packets
  * @internal
  */
 async function* buildNamedStreamPipeline(
@@ -1373,7 +1373,7 @@ async function interleaveToOutput(
  *
  * @param packets - Input packets
  * @param decoder - Decoder instance
- * @yields Decoded frames
+ * @yields {Frame} Decoded frames
  * @internal
  */
 async function* decodeStream(packets: AsyncIterable<Packet>, decoder: Decoder): AsyncGenerator<Frame> {
@@ -1411,7 +1411,7 @@ async function* decodeStream(packets: AsyncIterable<Packet>, decoder: Decoder): 
  *
  * @param frames - Input frames
  * @param encoder - Encoder instance
- * @yields Encoded packets
+ * @yields {Packet} Encoded packets
  * @internal
  */
 async function* encodeStream(frames: AsyncIterable<Frame>, encoder: Encoder): AsyncGenerator<Packet> {
@@ -1449,7 +1449,7 @@ async function* encodeStream(frames: AsyncIterable<Frame>, encoder: Encoder): As
  *
  * @param frames - Input frames
  * @param filter - Filter instance
- * @yields Filtered frames
+ * @yields {Frame} Filtered frames
  * @internal
  */
 async function* filterStream(frames: AsyncIterable<Frame>, filter: FilterAPI): AsyncGenerator<Frame> {
@@ -1493,7 +1493,7 @@ async function* filterStream(frames: AsyncIterable<Frame>, filter: FilterAPI): A
  *
  * @param packets - Input packets
  * @param bsf - Bitstream filter instance
- * @yields Filtered packets
+ * @yields {Packet} Filtered packets
  * @internal
  */
 async function* bitStreamFilterStream(packets: AsyncIterable<Packet>, bsf: BitStreamFilterAPI): AsyncGenerator<Packet> {

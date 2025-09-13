@@ -501,7 +501,7 @@ export class MediaInput implements AsyncDisposable {
    * Direct mapping to av_read_frame().
    *
    * @param index - Optional stream index to filter
-   * @yields Demuxed packets (must be freed by caller)
+   * @yields {Packet} Demuxed packets (must be freed by caller)
    * @throws {Error} If packet cloning fails
    *
    * @example

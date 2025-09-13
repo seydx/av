@@ -362,7 +362,7 @@ export class Encoder implements Disposable {
    * Primary interface for stream-based encoding.
    *
    * @param frames - Async iterable of frames (freed automatically)
-   * @yields Encoded packets (caller must free)
+   * @yields {Packet} Encoded packets (caller must free)
    * @throws {Error} If encoder is closed
    *
    * @throws {FFmpegError} If encoding fails
@@ -482,7 +482,7 @@ export class Encoder implements Disposable {
    * Automatically handles flush and repeated receive calls.
    * Returns immediately if encoder was never initialized or is closed.
    *
-   * @yields Buffered packets
+   * @yields {Packet} Buffered packets
    *
    * @example
    * ```typescript

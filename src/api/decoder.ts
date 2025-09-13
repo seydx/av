@@ -315,7 +315,7 @@ export class Decoder implements Disposable {
    * Primary interface for stream-based decoding.
    *
    * @param packets - Async iterable of packets
-   * @yields Decoded frames
+   * @yields {Frame} Decoded frames
    * @throws {Error} If decoder is closed
    *
    * @throws {FFmpegError} If decoding fails
@@ -432,7 +432,7 @@ export class Decoder implements Disposable {
    * Automatically sends flush signal and retrieves buffered frames.
    * Useful for end-of-stream processing.
    *
-   * @yields Buffered frames
+   * @yields {Frame} Buffered frames
    *
    * @example
    * ```typescript

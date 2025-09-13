@@ -333,7 +333,7 @@ export class FilterAPI implements Disposable {
    * Frees input frames after processing.
    *
    * @param frames - Async generator of input frames
-   * @yields Filtered frames
+   * @yields {Frame} Filtered frames
    * @throws {Error} If filter not ready
    *
    * @throws {FFmpegError} If processing fails
@@ -439,7 +439,7 @@ export class FilterAPI implements Disposable {
    * Combines flush and receive operations.
    * Returns immediately if filter is closed or was never initialized.
    *
-   * @yields Remaining frames from filter
+   * @yields {Frame} Remaining frames from filter
    *
    * @throws {FFmpegError} If flush fails
    *

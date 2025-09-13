@@ -254,7 +254,7 @@ export class BitStreamFilterAPI implements Disposable {
    * Yields filtered packets ready for output.
    *
    * @param packets - Async iterable of packets
-   * @yields Filtered packets
+   * @yields {Packet} Filtered packets
    * @throws {Error} If filter is disposed
    *
    * @throws {FFmpegError} If filtering fails
@@ -353,7 +353,7 @@ export class BitStreamFilterAPI implements Disposable {
    * Convenient async iteration over remaining packets.
    * Combines flush and iteration.
    *
-   * @yields Remaining packets
+   * @yields {Packet} Remaining packets
    * @throws {Error} If filter is disposed
    *
    * @example
