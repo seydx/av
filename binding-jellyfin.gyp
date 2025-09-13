@@ -135,9 +135,23 @@
             "xcode_settings": {
               "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
               "CLANG_CXX_LIBRARY": "libc++",
-              "MACOSX_DEPLOYMENT_TARGET": "14.0",
+              "MACOSX_DEPLOYMENT_TARGET": "12.0",
               "OTHER_LDFLAGS": [
                 "-Wl,-dead_strip"
+              ],
+              "CONDITIONS": [
+                [
+                  "target_arch=='x64'",
+                  {
+                    "ARCHS": ["x86_64"]
+                  }
+                ],
+                [
+                  "target_arch=='arm64'",
+                  {
+                    "ARCHS": ["arm64"]
+                  }
+                ]
               ]
             }
           }

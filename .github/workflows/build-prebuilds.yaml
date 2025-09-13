@@ -456,15 +456,11 @@ jobs:
 
   build_macos:
     name: "macOS ${{ matrix.arch }}"
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: x64
-            runner: macos-13
-          - arch: arm64
-            runner: macos-14
+        arch: [x64, arm64]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -476,22 +472,6 @@ jobs:
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
-
-      - name: Install build dependencies
-        run: |
-          # Install the same dependencies that Jellyfin's 00-dep.sh installs
-          # This ensures they're in PATH for all subsequent steps
-          # Check each package and only install if not already present
-          PACKAGES="wget subversion mercurial autoconf automake cmake meson ninja pkg-config coreutils gcc make python-setuptools pcre2 libtool gnu-sed gnu-tar nasm quilt texinfo"
-
-          for pkg in $PACKAGES; do
-            if brew ls --versions "$pkg" > /dev/null 2>&1; then
-              echo "$pkg is already installed, skipping..."
-            else
-              echo "Installing $pkg..."
-              brew install "$pkg"
-            fi
-          done
 
       - name: Get Jellyfin FFmpeg commit hash
         id: ffmpeg-hash
@@ -530,7 +510,16 @@ jobs:
           fi
 
           # Set deployment target to ensure proper platform load commands in libraries
-          export MACOSX_DEPLOYMENT_TARGET="14.0"
+          export MACOSX_DEPLOYMENT_TARGET="12.0"  # Use 12.0 for wider compatibility
+
+          # For x64 builds on ARM64 runner, we need to set up cross-compilation
+          if [ "$ARCH_NAME" = "x86_64" ] && [ "$(uname -m)" = "arm64" ]; then
+            echo "Setting up cross-compilation for x86_64 on ARM64 host"
+            export CFLAGS="-arch x86_64"
+            export CXXFLAGS="-arch x86_64"
+            export LDFLAGS="-arch x86_64"
+            export CMAKE_OSX_ARCHITECTURES="x86_64"
+          fi
 
           # Run Jellyfin build script
           ./buildmac.sh $ARCH_NAME
@@ -563,10 +552,24 @@ jobs:
           cp binding-jellyfin.gyp binding.gyp
 
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          export CFLAGS="-I/opt/ffbuild/prefix/include"
-          export CXXFLAGS="-I/opt/ffbuild/prefix/include"
-          export LDFLAGS="-L/opt/ffbuild/prefix/lib"
-          export MACOSX_DEPLOYMENT_TARGET="14.0"
+          export MACOSX_DEPLOYMENT_TARGET="12.0"
+
+          # For x64 builds on ARM64 runner, set up cross-compilation
+          if [ "${{ matrix.arch }}" = "x64" ] && [ "$(uname -m)" = "arm64" ]; then
+            echo "Setting up Node.js cross-compilation for x86_64"
+            export CFLAGS="-arch x86_64 -I/opt/ffbuild/prefix/include"
+            export CXXFLAGS="-arch x86_64 -I/opt/ffbuild/prefix/include"
+            export LDFLAGS="-arch x86_64 -L/opt/ffbuild/prefix/lib"
+            export npm_config_arch=x64
+            export npm_config_target_arch=x64
+            export npm_config_disturl=https://nodejs.org/dist
+            export npm_config_runtime=node
+            export npm_config_build_from_source=true
+          else
+            export CFLAGS="-I/opt/ffbuild/prefix/include"
+            export CXXFLAGS="-I/opt/ffbuild/prefix/include"
+            export LDFLAGS="-L/opt/ffbuild/prefix/lib"
+          fi
 
           # Build N-API binary
           prebuildify \
