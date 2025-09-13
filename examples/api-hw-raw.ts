@@ -19,6 +19,7 @@
 
 import {
   AV_LOG_DEBUG,
+  AV_PIX_FMT_NV12,
   AV_PIX_FMT_YUV420P,
   Decoder,
   Encoder,
@@ -108,7 +109,7 @@ if (hardware) {
   const encoderCodec = hardware.getEncoderCodec('hevc');
   if (encoderCodec?.isHardwareAcceleratedEncoder()) {
     encoderName = encoderCodec.name as FFEncoderCodec;
-    filterChain = FilterPreset.chain(hardware).hwupload().scale(640, 360).custom('setpts=N/FRAME_RATE/TB').build();
+    filterChain = FilterPreset.chain(hardware).format(AV_PIX_FMT_NV12).hwupload().scale(640, 360).custom('setpts=N/FRAME_RATE/TB').build();
   }
 }
 

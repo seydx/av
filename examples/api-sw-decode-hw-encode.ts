@@ -13,8 +13,8 @@
  * Example: tsx examples/api-sw-decode-hw-encode.ts testdata/video.mp4 examples/.tmp/api-sw-decode-hw-encode.mp4
  */
 
-import { Decoder, Encoder, FilterAPI, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
-import { AV_LOG_DEBUG, Log } from '../src/index.js';
+import { Decoder, Encoder, FilterAPI, FilterPreset, HardwareContext, MediaInput, MediaOutput } from '../src/api/index.js';
+import { AV_LOG_DEBUG, AV_PIX_FMT_NV12, Log } from '../src/index.js';
 import { prepareTestEnvironment } from './index.js';
 
 const inputFile = process.argv[2];
@@ -63,7 +63,8 @@ using decoder = await Decoder.create(videoStream);
 
 // Create filter to upload frames to hardware
 console.log('Setting up hardware upload filter...');
-using filter = await FilterAPI.create('hwupload', {
+const filterChain = FilterPreset.chain(hw).format(AV_PIX_FMT_NV12).hwupload().build();
+using filter = await FilterAPI.create(filterChain, {
   timeBase: videoStream.timeBase,
   frameRate: videoStream.avgFrameRate,
   hardware: hw,
