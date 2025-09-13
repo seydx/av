@@ -26,7 +26,7 @@ const encoder = await Encoder.create(encoderCodec.name, streamInfo, {
 // After (v2.0)
 const hw = HardwareContext.auto();
 const encoderCodec = hw.getEncoderCodec('h264');
-const encoder = await Encoder.create(encoderCodec.name, {
+const encoder = await Encoder.create(encoderCodec, {
   bitrate: 5000000
 });
 // Hardware context automatically detected from input frames
@@ -47,8 +47,7 @@ const filter = hwFilter.scale(1920, 1080);
 
 // After (v2.0)
 const hw = HardwareContext.auto();
-const filter = new FilterPreset().scale(1920, 1080);
-const filterGraph = await filter.chain(hw); // Pass hardware context to chain
+const filterChain = FilterPreset.chain(hw).scale(1920, 1080).build(); // Pass hardware context to chain
 ```
 
 ##### MediaOutput Automatic Management
