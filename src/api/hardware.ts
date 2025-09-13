@@ -75,7 +75,6 @@ import type { BaseCodecName, HardwareOptions } from './types.js';
  *
  * @see {@link Decoder} For hardware-accelerated decoding
  * @see {@link Encoder} For hardware-accelerated encoding
- * @see {@link HardwareFilterPresets} For hardware filter operations
  */
 export class HardwareContext implements Disposable {
   private _deviceContext: HardwareDeviceContext;
