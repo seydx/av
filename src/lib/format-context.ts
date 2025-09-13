@@ -397,27 +397,6 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
-   * Close an input format context.
-   *
-   * Closes input file and releases resources.
-   *
-   * Direct mapping to avformat_close_input().
-   *
-   * @returns Promise that resolves when closed
-   *
-   * @example
-   * ```typescript
-   * await ctx.closeInput();
-   * // Input closed and context freed
-   * ```
-   *
-   * @see {@link openInput} To open input
-   */
-  async closeInput(): Promise<void> {
-    return await this.native.closeInput();
-  }
-
-  /**
    * Open output file for writing.
    *
    * Opens the output file specified in url.
@@ -495,6 +474,27 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    */
   async openInput(url: string, fmt: InputFormat | null = null, options: Dictionary | null = null): Promise<number> {
     return await this.native.openInput(url, fmt?.getNative() ?? null, options?.getNative() ?? null);
+  }
+
+  /**
+   * Close an input format context.
+   *
+   * Closes input file and releases resources.
+   *
+   * Direct mapping to avformat_close_input().
+   *
+   * @returns Promise that resolves when closed
+   *
+   * @example
+   * ```typescript
+   * await ctx.closeInput();
+   * // Input closed and context freed
+   * ```
+   *
+   * @see {@link openInput} To open input
+   */
+  async closeInput(): Promise<void> {
+    return await this.native.closeInput();
   }
 
   /**

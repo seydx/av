@@ -73,15 +73,15 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * // Use for codec options
    * const options = Dictionary.fromObject({
    *   'preset': 'medium',
-   *   'crf': '23',
+   *   'crf': 23,
    *   'profile': 'high'
    * });
    * ```
    */
-  static fromObject(obj: Record<string, string>, flags: AVDictFlag = AVFLAG_NONE): Dictionary {
+  static fromObject(obj: Record<string, string | number>, flags: AVDictFlag = AVFLAG_NONE): Dictionary {
     const dict = new Dictionary();
     for (const [key, value] of Object.entries(obj)) {
-      dict.set(key, value, flags);
+      dict.set(key, value.toString(), flags);
     }
     return dict;
   }
