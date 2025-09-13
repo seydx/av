@@ -126,6 +126,12 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
+          # Clear out MSYS2 ffbuild to avoid conflicts
+          rm -rf /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild/lib/pkgconfig
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild/include
+          mkdir -p /${{ matrix.os.msystem == 'CLANG64' && 'clang64' || 'clangarm64' }}/ffbuild/bin
+
           cd externals/jellyfin-ffmpeg/msys2
 
           # Run Jellyfin build script
@@ -316,6 +322,12 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          # Clear out /opt/ffbuild to avoid conflicts
+          sudo rm -rf /opt/ffbuild
+          sudo mkdir -p /opt/ffbuild/prefix
+          sudo chown -R $USER:$USER /opt/ffbuild
+          sudo chmod -R 755 /opt/ffbuild
+
           cd externals/jellyfin-ffmpeg/builder
 
           # Determine target
@@ -503,6 +515,12 @@ jobs:
         id: build-ffmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          # Clear out /opt/ffbuild to avoid conflicts
+          sudo rm -rf /opt/ffbuild
+          sudo mkdir -p /opt/ffbuild/prefix
+          sudo chown -R $USER:staff /opt/ffbuild
+          sudo chmod -R 755 /opt/ffbuild
+
           cd externals/jellyfin-ffmpeg/builder
 
           # Map our arch names to Jellyfin's
