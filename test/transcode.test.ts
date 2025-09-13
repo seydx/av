@@ -89,6 +89,7 @@ describe('Transcode Scenarios', () => {
     using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
+      maxBFrames: 0,
     });
     assert.ok(encoder, 'Should create encoder');
 
@@ -107,6 +108,7 @@ describe('Transcode Scenarios', () => {
     using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
+      maxBFrames: 0,
     });
     assert.ok(encoder, 'Should create encoder');
 
@@ -132,12 +134,14 @@ describe('Transcode Scenarios', () => {
 
     using filter = await FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
+      hardware: hw,
     });
     assert.ok(filter, 'Should create filter with hardware context');
 
     using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
+      maxBFrames: 0,
     });
     assert.ok(encoder, 'Should create software encoder');
 
@@ -159,7 +163,7 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream);
     assert.ok(decoder, 'Should create software decoder');
 
-    const filterChain = FilterPreset.chain(hw).hwupload().scale(100, 100).build();
+    const filterChain = FilterPreset.chain(hw).format(AV_PIX_FMT_NV12).hwupload().scale(100, 100).build();
 
     using filter = await FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
@@ -169,14 +173,17 @@ describe('Transcode Scenarios', () => {
 
     const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
-      console.log('No hardware encoder codec available');
-      console.log('No hardware available - skipping test');
+      console.log('No hardware encoder codec available - skipping test');
       return;
     }
 
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
+      maxBFrames: 0,
+      options: {
+        'forced-idr': 1,
+      },
     });
     assert.ok(encoder, 'Should create hardware encoder');
 
@@ -202,19 +209,20 @@ describe('Transcode Scenarios', () => {
 
     using filter = await FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
+      hardware: hw,
     });
     assert.ok(filter, 'Should create hardware filter');
 
     const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
-      console.log('No hardware encoder codec available');
-      console.log('No hardware available - skipping test');
+      console.log('No hardware encoder codec available - skipping test');
       return;
     }
 
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
+      maxBFrames: 0,
     });
     assert.ok(encoder, 'Should create hardware encoder');
 
@@ -238,14 +246,14 @@ describe('Transcode Scenarios', () => {
 
     const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
-      console.log('No hardware encoder codec available');
-      console.log('No hardware available - skipping test');
+      console.log('No hardware encoder codec available - skipping test');
       return;
     }
 
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
+      maxBFrames: 0,
     });
     assert.ok(encoder, 'Should create hardware encoder');
 
@@ -267,7 +275,7 @@ describe('Transcode Scenarios', () => {
     using decoder = await Decoder.create(videoStream);
     assert.ok(decoder, 'Should create software decoder');
 
-    const filterChain = FilterPreset.chain().scale(100, 100).hwupload().build();
+    const filterChain = FilterPreset.chain().format(AV_PIX_FMT_NV12).scale(100, 100).hwupload().build();
 
     using filter = await FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
@@ -277,14 +285,17 @@ describe('Transcode Scenarios', () => {
 
     const encoderCodec = hw.getEncoderCodec('h264');
     if (!encoderCodec) {
-      console.log('No hardware encoder codec available');
-      console.log('No hardware available - skipping test');
+      console.log('No hardware encoder codec available - skipping test');
       return;
     }
 
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
+      maxBFrames: 0,
+      options: {
+        'forced-idr': 1,
+      },
     });
     assert.ok(encoder, 'Should create hardware encoder');
 
@@ -348,6 +359,7 @@ describe('Transcode Scenarios', () => {
       using encoder = await Encoder.create(FF_ENCODER_LIBX264, {
         frameRate: { num: 60, den: 1 }, // Different frame rate
         timeBase: { num: 1, den: 60 },
+        maxBFrames: 0,
       });
 
       // Should still work, encoder will handle the mismatch

@@ -18,7 +18,7 @@ import type { Frame } from '../src/lib/index.js';
 
 prepareTestEnvironment();
 
-const inputFile = getInputFile('demux.mp4');
+const inputFile = getInputFile('video.mp4');
 
 describe('HardwareContext', () => {
   describe('static methods', () => {
