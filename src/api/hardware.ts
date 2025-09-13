@@ -38,8 +38,7 @@ import {
   AV_PIX_FMT_VIDEOTOOLBOX,
   AV_PIX_FMT_VULKAN,
 } from '../constants/constants.js';
-import { Codec, CodecContext, Dictionary, FFmpegError, HardwareDeviceContext, Rational } from '../lib/index.js';
-import { HardwareFilterPresets } from './filter-presets.js';
+import { Codec, Dictionary, FFmpegError, HardwareDeviceContext } from '../lib/index.js';
 
 import type { AVCodecID, AVHWDeviceType, AVPixelFormat, FFEncoderCodec } from '../constants/index.js';
 import type { BaseCodecName, HardwareOptions } from './types.js';
@@ -68,11 +67,10 @@ import type { BaseCodecName, HardwareOptions } from './types.js';
  * @example
  * ```typescript
  * // Use specific hardware type
- * const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
- * const encoder = await Encoder.create('h264_nvenc', streamInfo, {
- *   hardware: cuda
- * });
- * cuda.dispose();
+ * const hw = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+ * const encoderCodec = hw.getEncoderCodec('h264') ?? FF_ENCODER_LIBX264;
+ * const encoder = await Encoder.create(encoderCodec, { ... });
+ * hw.dispose();
  * ```
  *
  * @see {@link Decoder} For hardware-accelerated decoding
@@ -80,12 +78,6 @@ import type { BaseCodecName, HardwareOptions } from './types.js';
  * @see {@link HardwareFilterPresets} For hardware filter operations
  */
 export class HardwareContext implements Disposable {
-  /**
-   * Hardware-specific filter presets for this device.
-   * Provides convenient filter builders for hardware-accelerated operations.
-   */
-  public readonly filterPresets: HardwareFilterPresets;
-
   private _deviceContext: HardwareDeviceContext;
   private _deviceType: AVHWDeviceType;
   private _deviceTypeName: string;
@@ -103,7 +95,6 @@ export class HardwareContext implements Disposable {
     this._deviceType = deviceType;
     this._deviceTypeName = deviceTypeName;
     this._devicePixelFormat = this.getHardwareDecoderPixelFormat();
-    this.filterPresets = new HardwareFilterPresets(deviceType, deviceTypeName);
   }
 
   /**
@@ -395,7 +386,7 @@ export class HardwareContext implements Disposable {
    *
    * @example
    * ```typescript
-   * const encoderCodec = await hw.getEncoderCodec('h264');
+   * const encoderCodec = hw.getEncoderCodec('h264');
    * if (encoderCodec) {
    *   console.log(`Using encoder: ${encoderCodec.name}`);
    *   // e.g., "h264_nvenc" for CUDA
@@ -405,17 +396,15 @@ export class HardwareContext implements Disposable {
    * @example
    * ```typescript
    * // Use with Encoder.create
-   * const codec = await hw.getEncoderCodec('hevc');
+   * const codec = hw.getEncoderCodec('hevc');
    * if (codec) {
-   *   const encoder = await Encoder.create(codec, streamInfo, {
-   *     hardware: hw
-   *   });
+   *   const encoder = await Encoder.create(codec, { ... });
    * }
    * ```
    *
    * @see {@link Encoder.create} For using the codec
    */
-  async getEncoderCodec(codec: BaseCodecName | AVCodecID): Promise<Codec | null> {
+  getEncoderCodec(codec: BaseCodecName | AVCodecID): Codec | null {
     // Build the encoder name
     let codecBaseName = '';
     let encoderSuffix = '';
@@ -494,7 +483,7 @@ export class HardwareContext implements Disposable {
     const encoderName = `${codecBaseName}_${encoderSuffix}` as FFEncoderCodec;
     const encoderCodec = Codec.findEncoderByName(encoderName);
 
-    if (!encoderCodec || !(await this.testHardwareEncoder(encoderName))) {
+    if (!encoderCodec?.isHardwareAcceleratedEncoder()) {
       return null;
     }
 
@@ -660,45 +649,6 @@ export class HardwareContext implements Disposable {
       default:
         return AV_PIX_FMT_NV12; // Common hardware format
     }
-  }
-
-  /**
-   * Test if a hardware encoder can be created.
-   *
-   * Attempts to initialize the encoder to verify support.
-   * Used internally by getEncoderCodec.
-   *
-   * @param encoderCodec - Encoder to test
-   *
-   * @returns true if encoder can be initialized
-   *
-   * @internal
-   */
-  private async testHardwareEncoder(encoderCodec: FFEncoderCodec | AVCodecID | Codec): Promise<boolean> {
-    let codec: Codec | null = null;
-
-    if (encoderCodec instanceof Codec) {
-      codec = encoderCodec;
-    } else if (typeof encoderCodec === 'string') {
-      codec = Codec.findEncoderByName(encoderCodec);
-    } else {
-      codec = Codec.findEncoder(encoderCodec);
-    }
-
-    if (!codec?.pixelFormats || !codec.isHardwareAcceleratedEncoder()) {
-      return false;
-    }
-
-    const codecContext = new CodecContext();
-    codecContext.allocContext3(codec);
-    codecContext.hwDeviceCtx = this._deviceContext;
-    codecContext.timeBase = new Rational(1, 30);
-    codecContext.pixelFormat = codec.pixelFormats[0];
-    codecContext.width = 100;
-    codecContext.height = 100;
-    const ret = await codecContext.open2(codec);
-    codecContext.freeContext();
-    return ret >= 0;
   }
 
   /**
