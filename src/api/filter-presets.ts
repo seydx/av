@@ -1043,6 +1043,7 @@ export class FilterPreset {
    * Essential for processing interlaced content.
    *
    * @param mode - Deinterlace mode (default: 'yadif')
+   * @param options - Additional options for the filter
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1053,7 +1054,7 @@ export class FilterPreset {
    *
    * @see {@link https://ffmpeg.org/ffmpeg-filters.html#yadif | FFmpeg yadif filter}
    */
-  deinterlace(mode: 'yadif' | 'bwdif' | 'w3fdif' = 'yadif'): FilterPreset {
+  deinterlace(mode: 'yadif' | 'bwdif' | 'w3fdif' = 'yadif', options?: Record<string, any>): FilterPreset {
     if (!this.support.deinterlace) {
       return this;
     }
@@ -1082,10 +1083,28 @@ export class FilterPreset {
       }
 
       if (filter) {
+        if (options) {
+          const params: string[] = [];
+          for (const [key, value] of Object.entries(options)) {
+            params.push(`${key}=${value}`);
+          }
+          filter += '=' + params.join(':');
+        }
+
         this.add(filter);
       }
     } else {
-      this.add(mode);
+      let filter = mode;
+
+      if (options) {
+        const params: string[] = [];
+        for (const [key, value] of Object.entries(options)) {
+          params.push(`${key}=${value}`);
+        }
+        filter += '=' + params.join(':');
+      }
+
+      this.add(filter);
     }
 
     return this;
@@ -1252,6 +1271,279 @@ export class FilterPreset {
   compand(attacks: string, decays: string, points: string, gain?: number): FilterPreset {
     let filter = `compand=attacks=${attacks}:decays=${decays}:points=${points}`;
     if (gain !== undefined) filter += `:gain=${gain}`;
+    this.add(filter);
+    return this;
+  }
+
+  /**
+   * Adds a drawtext filter to overlay text on video.
+   *
+   * @param text - Text to display
+   * @param options - Text rendering options
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.drawtext('Hello World', { x: 10, y: 10, fontsize: 24 })
+   * chain.drawtext('Timestamp', {
+   *   x: 10,
+   *   y: 10,
+   *   fontsize: 24,
+   *   fontcolor: 'white',
+   *   fontfile: '/path/to/font.ttf'
+   * })
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#drawtext | FFmpeg drawtext filter}
+   */
+  drawtext(text: string, options: Record<string, any>): FilterPreset {
+    let filter = `drawtext=text='${text.replace(/'/g, "\\'").replace(/"/g, '\\"')}'`;
+    for (const [key, value] of Object.entries(options)) {
+      if (key === 'fontfile' && typeof value === 'string') {
+        filter += `:${key}='${value}'`;
+      } else {
+        filter += `:${key}=${value}`;
+      }
+    }
+    this.add(filter);
+    return this;
+  }
+
+  /**
+   * Adds a split filter to duplicate a video stream.
+   *
+   * @param outputs - Number of output streams (default: 2)
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.split()    // Split into 2 outputs
+   * chain.split(3)   // Split into 3 outputs
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#split | FFmpeg split filter}
+   */
+  split(outputs = 2): FilterPreset {
+    this.add(`split=${outputs}`);
+    return this;
+  }
+
+  /**
+   * Adds an asplit filter to duplicate an audio stream.
+   *
+   * @param outputs - Number of output streams (default: 2)
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.asplit()   // Split into 2 outputs
+   * chain.asplit(3)  // Split into 3 outputs
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#asplit | FFmpeg asplit filter}
+   */
+  asplit(outputs = 2): FilterPreset {
+    this.add(`asplit=${outputs}`);
+    return this;
+  }
+
+  /**
+   * Adds an adelay filter to delay audio by specified milliseconds.
+   *
+   * @param delays - Delay in milliseconds (single value or array for multiple channels)
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.adelay(100)        // Delay all channels by 100ms
+   * chain.adelay([100, 200]) // Delay first channel by 100ms, second by 200ms
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#adelay | FFmpeg adelay filter}
+   */
+  adelay(delays: number | number[]): FilterPreset {
+    const delayStr = Array.isArray(delays) ? delays.join('|') : delays.toString();
+    this.add(`adelay=${delayStr}`);
+    return this;
+  }
+
+  /**
+   * Adds an aecho filter for audio echo effect.
+   *
+   * @param in_gain - Input gain (0-1)
+   * @param out_gain - Output gain (0-1)
+   * @param delays - Delay in milliseconds
+   * @param decays - Decay factor (0-1)
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.aecho(0.8, 0.9, 1000, 0.3)  // Echo with 1 second delay
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#aecho | FFmpeg aecho filter}
+   */
+  aecho(in_gain: number, out_gain: number, delays: number, decays: number): FilterPreset {
+    this.add(`aecho=${in_gain}:${out_gain}:${delays}:${decays}`);
+    return this;
+  }
+
+  /**
+   * Adds a highpass filter to remove low frequencies.
+   *
+   * @param frequency - Cutoff frequency in Hz
+   * @param options - Additional filter options
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.highpass(200)  // Remove frequencies below 200Hz
+   * chain.highpass(200, { width_type: 'q', width: 1 })
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#highpass | FFmpeg highpass filter}
+   */
+  highpass(frequency: number, options?: Record<string, any>): FilterPreset {
+    let filter = `highpass=f=${frequency}`;
+    if (options) {
+      for (const [key, value] of Object.entries(options)) {
+        filter += `:${key}=${value}`;
+      }
+    }
+    this.add(filter);
+    return this;
+  }
+
+  /**
+   * Adds a lowpass filter to remove high frequencies.
+   *
+   * @param frequency - Cutoff frequency in Hz
+   * @param options - Additional filter options
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.lowpass(5000)  // Remove frequencies above 5000Hz
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#lowpass | FFmpeg lowpass filter}
+   */
+  lowpass(frequency: number, options?: Record<string, any>): FilterPreset {
+    let filter = `lowpass=f=${frequency}`;
+    if (options) {
+      for (const [key, value] of Object.entries(options)) {
+        filter += `:${key}=${value}`;
+      }
+    }
+    this.add(filter);
+    return this;
+  }
+
+  /**
+   * Adds a bandpass filter to keep only a frequency band.
+   *
+   * @param frequency - Center frequency in Hz
+   * @param options - Additional filter options
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.bandpass(1000)  // Keep frequencies around 1000Hz
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#bandpass | FFmpeg bandpass filter}
+   */
+  bandpass(frequency: number, options?: Record<string, any>): FilterPreset {
+    let filter = `bandpass=f=${frequency}`;
+    if (options) {
+      for (const [key, value] of Object.entries(options)) {
+        filter += `:${key}=${value}`;
+      }
+    }
+    this.add(filter);
+    return this;
+  }
+
+  /**
+   * Adds an equalizer filter for frequency band adjustment.
+   *
+   * @param frequency - Center frequency in Hz
+   * @param width - Band width
+   * @param gain - Gain in dB
+   * @param width_type - Width type (optional)
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.equalizer(1000, 2, 5)        // Boost 1000Hz by 5dB
+   * chain.equalizer(1000, 2, 5, 'q')   // Use Q factor for width
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#equalizer | FFmpeg equalizer filter}
+   */
+  equalizer(frequency: number, width: number, gain: number, width_type?: string): FilterPreset {
+    let filter = `equalizer=f=${frequency}`;
+    if (width_type) {
+      filter += `:width_type=${width_type}`;
+    }
+    filter += `:width=${width}:gain=${gain}`;
+    this.add(filter);
+    return this;
+  }
+
+  /**
+   * Adds a compressor filter for dynamic range compression.
+   *
+   * @param options - Compressor parameters
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.compressor()  // Default compression
+   * chain.compressor({
+   *   threshold: 0.5,
+   *   ratio: 4,
+   *   attack: 5,
+   *   release: 50
+   * })
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#acompressor | FFmpeg acompressor filter}
+   */
+  compressor(options?: Record<string, any>): FilterPreset {
+    if (!options || Object.keys(options).length === 0) {
+      this.add('acompressor');
+    } else {
+      let filter = 'acompressor';
+      const params: string[] = [];
+      for (const [key, value] of Object.entries(options)) {
+        params.push(`${key}=${value}`);
+      }
+      filter += '=' + params.join(':');
+      this.add(filter);
+    }
+    return this;
+  }
+
+  /**
+   * Adds an atrim filter to trim audio.
+   *
+   * @param start - Start time in seconds
+   * @param end - End time in seconds (optional)
+   * @param duration - Duration in seconds (optional)
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * chain.atrim(10, 20)  // Extract audio from 10s to 20s
+   * ```
+   *
+   * @see {@link https://ffmpeg.org/ffmpeg-filters.html#atrim | FFmpeg atrim filter}
+   */
+  atrim(start: number, end?: number, duration?: number): FilterPreset {
+    let filter = `atrim=start=${start}`;
+    if (end !== undefined) filter += `:end=${end}`;
+    if (duration !== undefined) filter += `:duration=${duration}`;
     this.add(filter);
     return this;
   }
