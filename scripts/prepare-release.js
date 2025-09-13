@@ -82,6 +82,10 @@ if (existsSync(changelogPath)) {
 // Stage the changes
 execSync('git add package.json', { cwd: rootDir });
 
+// Regenerate package-lock.json
+execSync('npm i --package-lock-only', { cwd: rootDir });
+execSync('git add package-lock.json', { cwd: rootDir });
+
 // Also stage CHANGELOG.md if it was updated
 if (existsSync(changelogPath)) {
   execSync('git add CHANGELOG.md', { cwd: rootDir });

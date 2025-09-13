@@ -47,9 +47,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "predocs": "typedoc && cpy README.md docs/ --rename=index.md",
-    "release:patch": "node scripts/prepare-release.js patch && npm i --package-lock-only",
-    "release:minor": "node scripts/prepare-release.js minor && npm i --package-lock-only",
-    "release:major": "node scripts/prepare-release.js major && npm i --package-lock-only",
+    "release:patch": "node scripts/prepare-release.js patch",
+    "release:minor": "node scripts/prepare-release.js minor",
+    "release:major": "node scripts/prepare-release.js major",
     "test": "tsx --test test/*.test.ts",
     "test:all": "npm run generate && npm run build:tests && npm run build:tsc && tsx --test test/*.test.ts",
     "update": "updates --update ./"
