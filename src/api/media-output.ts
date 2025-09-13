@@ -359,7 +359,7 @@ export class MediaOutput implements AsyncDisposable {
     }
 
     if (!this.streams.get(streamIndex)) {
-      throw new Error(`Stream index ${streamIndex} does not exist in this output`);
+      throw new Error(`Invalid stream index: ${streamIndex}`);
     }
 
     // Initialize any encoder streams that are ready
@@ -473,6 +473,15 @@ export class MediaOutput implements AsyncDisposable {
     }
 
     this.isClosed = true;
+
+    // Free any buffered packets
+    for (const streamInfo of this.streams.values()) {
+      // Free any buffered packets
+      for (const pkt of streamInfo.bufferedPackets) {
+        pkt.free();
+      }
+      streamInfo.bufferedPackets = [];
+    }
 
     // Try to write trailer if header was written but trailer wasn't
     try {
