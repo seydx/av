@@ -590,9 +590,17 @@ jobs:
           fi
 
       - name: Run Tests
+        # Only run tests when building for the native architecture
+        if: matrix.arch == 'arm64'  # macos-latest runs on ARM64
         run: |
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
           npm run test:all
+
+      - name: Skip Tests (Cross-compilation)
+        if: matrix.arch == 'x64'  # x64 is cross-compiled on ARM64 runners
+        run: |
+          echo "⚠️ Skipping tests for x64 build on ARM64 runner"
+          echo "Cross-compiled binary (x64) cannot be tested on ARM64 host"
 
       - name: Upload Prebuild
         uses: actions/upload-artifact@v4
