@@ -13,14 +13,7 @@ export { Encoder } from './encoder.js';
 export { HardwareContext } from './hardware.js';
 
 // Filter
-export {
-  FilterPresets,
-  HardwareFilterPresets,
-  type FilterChainBuilder,
-  type FilterPresetBase,
-  type HardwareFilterChainBuilder,
-  type HardwareFilterSupport,
-} from './filter-presets.js';
+export { FilterPreset, type FilterSupport } from './filter-presets.js';
 export { FilterAPI } from './filter.js';
 
 // BitStreamFilter

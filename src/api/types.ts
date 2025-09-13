@@ -1,65 +1,6 @@
 import type { AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
-import type { ChannelLayout, IRational } from '../lib/index.js';
+import type { IRational } from '../lib/index.js';
 import type { HardwareContext } from './hardware.js';
-
-/**
- * Video stream information.
- *
- * Contains all necessary parameters to describe a video stream.
- * Used for encoder and filter initialization.
- *
- */
-export interface VideoInfo {
-  /** Discriminator for TypeScript type narrowing */
-  type: 'video';
-
-  /** Video width in pixels */
-  width: number;
-
-  /** Video height in pixels */
-  height: number;
-
-  /** Pixel format */
-  pixelFormat: AVPixelFormat;
-
-  /** Time base (required for timing) */
-  timeBase: IRational;
-
-  /** Frame rate (optional, can be derived from timeBase) */
-  frameRate?: IRational;
-
-  /** Sample aspect ratio (optional, defaults to 1:1) */
-  sampleAspectRatio?: IRational;
-}
-
-/**
- * Audio stream information.
- *
- * Contains all necessary parameters to describe an audio stream.
- * Used for encoder and filter initialization.
- *
- */
-export interface AudioInfo {
-  /** Discriminator for TypeScript type narrowing */
-  type: 'audio';
-
-  /** Sample rate in Hz */
-  sampleRate: number;
-
-  /** Sample format */
-  sampleFormat: AVSampleFormat;
-
-  /** Channel layout configuration */
-  channelLayout: ChannelLayout;
-
-  /** Time base (required for timing) */
-  timeBase: IRational;
-
-  /** Number of samples per frame */
-  frameSize?: number;
-}
-
-export type StreamInfo = VideoInfo | AudioInfo;
 
 /**
  * Raw video data configuration.
@@ -162,7 +103,7 @@ export interface DecoderOptions {
   /** Additional codec-specific options (passed to AVOptions) */
   options?: Record<string, string | number>;
 
-  /** Hardware acceleration: Pass a HardwareContext instance (user is responsible for disposal) */
+  /** Hardware acceleration: Pass a HardwareContext instance */
   hardware?: HardwareContext | null;
 }
 
@@ -177,6 +118,15 @@ export interface EncoderOptions {
   /** Target bitrate (number, bigint, or string like '5M') */
   bitrate?: number | bigint | string;
 
+  /** Minimum bitrate (number, bigint, or string like '5M') */
+  minRate?: number | bigint | string;
+
+  /** Maximum bitrate (number, bigint, or string like '5M') */
+  maxRate?: number | bigint | string;
+
+  /** Buffer size (number, bigint, or string like '5M') */
+  bufSize?: number | bigint | string;
+
   /** Group of Pictures size */
   gopSize?: number;
 
@@ -186,17 +136,14 @@ export interface EncoderOptions {
   /** Number of threads (0 for auto) */
   threads?: number;
 
-  /**
-   * Override output timebase (rational {num, den})
-   * If not set, uses the stream's timebase
-   */
-  timeBase?: IRational;
+  /** Timebase (rational {num, den}) */
+  timeBase: IRational;
+
+  /** Frame rate (rational {num, den}) */
+  frameRate?: IRational;
 
   /** Additional codec-specific options (passed to AVOptions) */
   options?: Record<string, string | number>;
-
-  /** Hardware acceleration: Pass a HardwareContext instance (user is responsible for disposal) */
-  hardware?: HardwareContext | null;
 }
 
 /**
@@ -232,8 +179,6 @@ export interface MediaOutputOptions {
 /**
  * Options for creating a filter instance.
  *
- * Configuration for filter graph initialization and hardware acceleration.
- *
  */
 export interface FilterOptions {
   /**
@@ -248,7 +193,13 @@ export interface FilterOptions {
    */
   scaleSwsOpts?: string;
 
-  /** Hardware acceleration: Pass a HardwareContext instance (user is responsible for disposal) */
+  /** Timebase (rational {num, den}) */
+  timeBase: IRational;
+
+  /** Frame rate (rational {num, den}) */
+  frameRate?: IRational;
+
+  /** Hardware acceleration: Pass a HardwareContext instance */
   hardware?: HardwareContext | null;
 }
 
