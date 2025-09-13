@@ -1,10 +1,10 @@
-import { AVERROR_EAGAIN, AVERROR_EOF, AVFILTER_FLAG_HWDEVICE, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO } from '../constants/constants.js';
-import { avGetSampleFmtName, avIsHardwarePixelFormat, FFmpegError, Filter, FilterGraph, FilterInOut, Frame } from '../lib/index.js';
+import { AVERROR_EAGAIN, AVERROR_EOF, AVFILTER_FLAG_HWDEVICE } from '../constants/constants.js';
+import { FFmpegError, Filter, FilterGraph, FilterInOut, Frame } from '../lib/index.js';
+import { avGetSampleFmtName } from '../lib/utilities.js';
 
-import type { AVFilterCmdFlag, AVMediaType } from '../constants/constants.js';
+import type { AVFilterCmdFlag, AVSampleFormat } from '../constants/constants.js';
 import type { FilterContext } from '../lib/index.js';
-import type { HardwareContext } from './hardware.js';
-import type { FilterOptions, StreamInfo, VideoInfo } from './types.js';
+import type { FilterOptions } from './types.js';
 
 /**
  * High-level filter API for audio and video processing.
@@ -18,10 +18,12 @@ import type { FilterOptions, StreamInfo, VideoInfo } from './types.js';
  * ```typescript
  * import { FilterAPI } from 'node-av/api';
  *
- * // Create video filter
- * const filter = await FilterAPI.create('scale=1280:720', videoInfo);
+ * // Create video filter - initializes on first frame
+ * const filter = await FilterAPI.create('scale=1280:720', {
+ *   timeBase: video.timeBase,
+ * });
  *
- * // Process frame
+ * // Process frame - first frame configures filter graph
  * const output = await filter.process(inputFrame);
  * if (output) {
  *   console.log(`Filtered frame: ${output.width}x${output.height}`);
@@ -31,56 +33,48 @@ import type { FilterOptions, StreamInfo, VideoInfo } from './types.js';
  *
  * @example
  * ```typescript
- * // Hardware-accelerated filtering
- * const hw = HardwareContext.auto();
- * const filter = await FilterAPI.create(
- *   'hwupload,scale_cuda=1920:1080,hwdownload',
- *   videoInfo,
- *   { hardware: hw }
- * );
+ * // Hardware-accelerated filtering - hw context detected from frame
+ * const filter = await FilterAPI.create('hwupload,scale_cuda=1920:1080,hwdownload', {
+ *   timeBase: video.timeBase,
+ * });
+ * // Hardware frames context will be automatically detected from first frame
  * ```
  *
  * @see {@link FilterGraph} For low-level filter graph API
- * @see {@link HardwareContext} For hardware acceleration
  * @see {@link Frame} For frame operations
  */
 export class FilterAPI implements Disposable {
-  private graph: FilterGraph | null = null;
-  private buffersrcCtx: FilterContext | null = null;
-  private buffersinkCtx: FilterContext | null = null;
-  private config: StreamInfo;
-  private mediaType: AVMediaType;
-  private initialized = false;
-  private hardware?: HardwareContext | null;
+  private graph: FilterGraph;
   private description: string;
   private options: FilterOptions;
+  private buffersrcCtx: FilterContext | null = null;
+  private buffersinkCtx: FilterContext | null = null;
+  private initialized = false;
+  private isClosed = false;
 
   /**
-   * @param config - Stream configuration
+   * @param graph - Filter graph instance
    * @param description - Filter description string
    * @param options - Filter options
    * @internal
    */
-  private constructor(config: StreamInfo, description: string, options: FilterOptions) {
-    this.config = config;
+  private constructor(graph: FilterGraph, description: string, options: FilterOptions) {
+    this.graph = graph;
     this.description = description;
     this.options = options;
-    this.hardware = options.hardware;
-    this.mediaType = config.type === 'video' ? AVMEDIA_TYPE_VIDEO : AVMEDIA_TYPE_AUDIO;
   }
 
   /**
    * Create a filter with specified description and configuration.
    *
-   * Constructs filter graph from description string.
-   * Configures input/output buffers and threading.
-   * For video filters, uses lazy initialization to detect hardware frames.
+   * Creates and allocates filter graph immediately.
+   * Filter configuration is completed on first frame with frame properties.
+   * Hardware frames context is automatically detected from input frames.
    *
    * Direct mapping to avfilter_graph_parse_ptr() and avfilter_graph_config().
    *
    * @param description - Filter graph description
-   * @param input - Input stream configuration
-   * @param options - Filter options
+   * @param options - Filter options including required timeBase
    * @returns Configured filter instance
    *
    * @throws {Error} If filter creation or configuration fails
@@ -90,83 +84,132 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * // Simple video filter
-   * const filter = await FilterAPI.create('scale=640:480', videoInfo);
+   * const filter = await FilterAPI.create('scale=640:480', {
+   *   timeBase: video.timeBase
+   * });
    * ```
    *
    * @example
    * ```typescript
    * // Complex filter chain
-   * const filter = await FilterAPI.create(
-   *   'crop=640:480:0:0,rotate=PI/4',
-   *   videoInfo
-   * );
+   * const filter = await FilterAPI.create('crop=640:480:0:0,rotate=PI/4', {
+   *   timeBase: video.timeBase
+   * });
    * ```
    *
    * @example
    * ```typescript
    * // Audio filter
-   * const filter = await FilterAPI.create(
-   *   'volume=0.5,aecho=0.8:0.9:1000:0.3',
-   *   audioInfo
-   * );
+   * const filter = await FilterAPI.create('volume=0.5,aecho=0.8:0.9:1000:0.3', {
+   *   timeBase: audio.timeBase
+   * });
    * ```
    *
    * @see {@link process} For frame processing
    * @see {@link FilterOptions} For configuration options
    */
-  static async create(description: string, input: StreamInfo, options: FilterOptions = {}): Promise<FilterAPI> {
-    let config: StreamInfo;
+  static async create(description: string, options: FilterOptions): Promise<FilterAPI> {
+    // Create graph
+    const graph = new FilterGraph();
+    graph.alloc();
 
-    if (input.type === 'video') {
-      config = {
-        type: 'video',
-        width: input.width,
-        height: input.height,
-        pixelFormat: input.pixelFormat,
-        timeBase: input.timeBase,
-        frameRate: input.frameRate,
-        sampleAspectRatio: input.sampleAspectRatio,
-      };
-    } else {
-      config = {
-        type: 'audio',
-        sampleRate: input.sampleRate,
-        sampleFormat: input.sampleFormat,
-        channelLayout: input.channelLayout,
-        timeBase: input.timeBase,
-      };
+    // Configure threading
+    if (options.threads !== undefined) {
+      graph.nbThreads = options.threads;
     }
 
-    const filter = new FilterAPI(config, description, options);
-
-    // Check if any filters in the chain require hardware context
-    if (config.type === 'video') {
-      filter.checkHardwareRequirements(description, options);
+    // Configure scaler options
+    if (options.scaleSwsOpts) {
+      graph.scaleSwsOpts = options.scaleSwsOpts;
     }
 
-    // For video filters, always use lazy initialization to properly detect hardware requirements
-    // For audio filters, initialize immediately (no hardware audio processing)
-    if (config.type === 'audio') {
-      await filter.initialize(null);
-    }
-    // For video: wait for first frame to detect if hw_frames_ctx is present
+    return new FilterAPI(graph, description, options);
+  }
 
-    return filter;
+  /**
+   * Check if filter is open.
+   *
+   * @example
+   * ```typescript
+   * if (filter.isFilterOpen) {
+   *   const output = await filter.process(frame);
+   * }
+   * ```
+   */
+  get isFilterOpen(): boolean {
+    return !this.isClosed;
+  }
+
+  /**
+   * Check if filter has been initialized.
+   *
+   * Returns true after first frame has been processed and filter graph configured.
+   * Useful for checking if filter has received frame properties.
+   *
+   * @returns true if filter graph has been built from first frame
+   *
+   * @example
+   * ```typescript
+   * if (!filter.isFilterInitialized) {
+   *   console.log('Filter will initialize on first frame');
+   * }
+   * ```
+   */
+  get isFilterInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * Check if filter is ready for processing.
+   *
+   * @returns true if initialized and ready
+   *
+   * @example
+   * ```typescript
+   * if (filter.isReady()) {
+   *   const output = await filter.process(frame);
+   * }
+   * ```
+   */
+  isReady(): boolean {
+    return this.initialized && this.buffersrcCtx !== null && this.buffersinkCtx !== null && !this.isClosed;
+  }
+
+  /**
+   * Get filter graph description.
+   *
+   * Returns human-readable graph structure.
+   * Useful for debugging filter chains.
+   *
+   * Direct mapping to avfilter_graph_dump().
+   *
+   * @returns Graph description or null if closed
+   *
+   * @example
+   * ```typescript
+   * const description = filter.getGraphDescription();
+   * console.log('Filter graph:', description);
+   * ```
+   */
+  getGraphDescription(): string | null {
+    return !this.isClosed && this.initialized ? this.graph.dump() : null;
   }
 
   /**
    * Process a frame through the filter.
    *
    * Applies filter operations to input frame.
+   * On first frame, automatically builds filter graph with frame properties.
    * May buffer frames internally before producing output.
-   * For video, performs lazy initialization on first frame.
+   * Hardware frames context is automatically detected from frame.
+   * Returns null if filter is closed and frame is null.
    *
    * Direct mapping to av_buffersrc_add_frame() and av_buffersink_get_frame().
    *
-   * @param frame - Input frame to process
+   * @param frame - Input frame to process (or null to flush)
    * @returns Filtered frame or null if buffered
    *
-   * @throws {Error} If filter not ready
+   * @throws {Error} If filter is closed with non-null frame
    *
    * @throws {FFmpegError} If processing fails
    *
@@ -181,27 +224,37 @@ export class FilterAPI implements Disposable {
    *
    * @example
    * ```typescript
-   * // Process and drain
+   * // Process frame - may buffer internally
    * const output = await filter.process(frame);
-   * if (output) yield output;
-   *
-   * // Drain buffered frames
-   * let buffered;
-   * while ((buffered = await filter.receive()) !== null) {
-   *   yield buffered;
+   * if (output) {
+   *   // Got output immediately
+   *   yield output;
    * }
+   * // For buffered frames, use the frames() async generator
    * ```
    *
-   * @see {@link receive} For draining buffered frames
-   * @see {@link frames} For stream processing
+   * @see {@link frames} For processing frame streams
+   * @see {@link flush} For end-of-stream handling
    */
-  async process(frame: Frame): Promise<Frame | null> {
-    // Lazy initialization for video filters (detect hardware from first frame)
-    if (!this.initialized && this.config.type === 'video') {
+  async process(frame: Frame | null): Promise<Frame | null> {
+    if (this.isClosed) {
+      if (!frame) {
+        return null;
+      }
+
+      throw new Error('Filter is closed');
+    }
+
+    // Open filter if not already done
+    if (!this.initialized) {
+      if (!frame) {
+        return null;
+      }
+
       await this.initialize(frame);
     }
 
-    if (!this.initialized || !this.buffersrcCtx || !this.buffersinkCtx) {
+    if (!this.buffersrcCtx || !this.buffersinkCtx) {
       throw new Error('Filter not initialized');
     }
 
@@ -273,128 +326,6 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Receive buffered frame from filter.
-   *
-   * Drains frames buffered by the filter.
-   * Call repeatedly until null to get all buffered frames.
-   *
-   * Direct mapping to av_buffersink_get_frame().
-   *
-   * @returns Buffered frame or null if none available
-   *
-   * @throws {Error} If filter not ready
-   *
-   * @throws {FFmpegError} If receive fails
-   *
-   * @example
-   * ```typescript
-   * // Drain buffered frames
-   * let frame;
-   * while ((frame = await filter.receive()) !== null) {
-   *   console.log(`Buffered frame: pts=${frame.pts}`);
-   *   frame.free();
-   * }
-   * ```
-   *
-   * @see {@link process} For input processing
-   * @see {@link flush} For end-of-stream
-   */
-  async receive(): Promise<Frame | null> {
-    if (!this.initialized || !this.buffersinkCtx) {
-      throw new Error('Filter not initialized');
-    }
-
-    const frame = new Frame();
-    frame.alloc();
-
-    const ret = await this.buffersinkCtx.buffersinkGetFrame(frame);
-
-    if (ret >= 0) {
-      return frame;
-    } else {
-      frame.free();
-      if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
-        return null;
-      }
-      FFmpegError.throwIfError(ret, 'Failed to receive frame from filter');
-      return null;
-    }
-  }
-
-  /**
-   * Flush filter and signal end-of-stream.
-   *
-   * Sends null frame to flush buffered data.
-   * Must call receive() to get flushed frames.
-   *
-   * Direct mapping to av_buffersrc_add_frame(NULL).
-   *
-   * @throws {Error} If filter not ready
-   *
-   * @throws {FFmpegError} If flush fails
-   *
-   * @example
-   * ```typescript
-   * await filter.flush();
-   * // Get remaining frames
-   * let frame;
-   * while ((frame = await filter.receive()) !== null) {
-   *   frame.free();
-   * }
-   * ```
-   *
-   * @see {@link flushFrames} For async iteration
-   * @see {@link receive} For draining frames
-   */
-  async flush(): Promise<void> {
-    if (!this.initialized || !this.buffersrcCtx) {
-      throw new Error('Filter not initialized');
-    }
-
-    const ret = await this.buffersrcCtx.buffersrcAddFrame(null);
-    if (ret < 0 && ret !== AVERROR_EOF) {
-      FFmpegError.throwIfError(ret, 'Failed to flush filter');
-    }
-  }
-
-  /**
-   * Flush filter and yield remaining frames.
-   *
-   * Convenient async generator for flushing.
-   * Combines flush and receive operations.
-   *
-   * @yields Remaining frames from filter
-   * @throws {Error} If filter not ready
-   *
-   * @throws {FFmpegError} If flush fails
-   *
-   * @example
-   * ```typescript
-   * for await (const frame of filter.flushFrames()) {
-   *   console.log(`Flushed frame: pts=${frame.pts}`);
-   *   frame.free();
-   * }
-   * ```
-   *
-   * @see {@link flush} For manual flush
-   * @see {@link frames} For complete pipeline
-   */
-  async *flushFrames(): AsyncGenerator<Frame> {
-    if (!this.initialized || !this.buffersrcCtx) {
-      throw new Error('Filter not initialized');
-    }
-
-    // Send flush signal
-    await this.flush();
-
-    // Yield all remaining frames
-    let frame;
-    while ((frame = await this.receive()) !== null) {
-      yield frame;
-    }
-  }
-
-  /**
    * Process frame stream through filter.
    *
    * High-level async generator for filtering frame streams.
@@ -419,8 +350,12 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * // Chain filters
-   * const filter1 = await FilterAPI.create('scale=640:480', info);
-   * const filter2 = await FilterAPI.create('rotate=PI/4', info);
+   * const filter1 = await FilterAPI.create('scale=640:480', {
+   *   timeBase: video.timeBase
+   * });
+   * const filter2 = await FilterAPI.create('rotate=PI/4', {
+   *   timeBase: video.timeBase
+   * });
    *
    * for await (const frame of filter2.frames(filter1.frames(input))) {
    *   // Process filtered frames
@@ -462,6 +397,119 @@ export class FilterAPI implements Disposable {
   }
 
   /**
+   * Flush filter and signal end-of-stream.
+   *
+   * Sends null frame to flush buffered data.
+   * Must call receive() to get flushed frames.
+   * Does nothing if filter is closed or was never initialized.
+   *
+   * Direct mapping to av_buffersrc_add_frame(NULL).
+   *
+   * @throws {FFmpegError} If flush fails
+   *
+   * @example
+   * ```typescript
+   * await filter.flush();
+   * // Get remaining frames
+   * let frame;
+   * while ((frame = await filter.receive()) !== null) {
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link flushFrames} For async iteration
+   * @see {@link frames} For complete pipeline
+   */
+  async flush(): Promise<void> {
+    if (this.isClosed || !this.initialized || !this.buffersrcCtx) {
+      return;
+    }
+
+    // Send flush frame (null)
+    const ret = await this.buffersrcCtx.buffersrcAddFrame(null);
+    if (ret < 0 && ret !== AVERROR_EOF) {
+      FFmpegError.throwIfError(ret, 'Failed to flush filter');
+    }
+  }
+
+  /**
+   * Flush filter and yield remaining frames.
+   *
+   * Convenient async generator for flushing.
+   * Combines flush and receive operations.
+   * Returns immediately if filter is closed or was never initialized.
+   *
+   * @yields Remaining frames from filter
+   *
+   * @throws {FFmpegError} If flush fails
+   *
+   * @example
+   * ```typescript
+   * for await (const frame of filter.flushFrames()) {
+   *   console.log(`Flushed frame: pts=${frame.pts}`);
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link flush} For manual flush
+   * @see {@link frames} For complete pipeline
+   */
+  async *flushFrames(): AsyncGenerator<Frame> {
+    // Send flush signal
+    await this.flush();
+
+    // Yield all remaining frames
+    let frame;
+    while ((frame = await this.receive()) !== null) {
+      yield frame;
+    }
+  }
+
+  /**
+   * Receive buffered frame from filter.
+   *
+   * Drains frames buffered by the filter.
+   * Call repeatedly until null to get all buffered frames.
+   * Returns null if filter is closed, not initialized, or no frames available.
+   *
+   * Direct mapping to av_buffersink_get_frame().
+   *
+   * @returns Buffered frame or null if none available
+   *
+   * @throws {FFmpegError} If receiving fails
+   *
+   * @example
+   * ```typescript
+   * let frame;
+   * while ((frame = await filter.receive()) !== null) {
+   *   console.log(`Received frame: pts=${frame.pts}`);
+   *   frame.free();
+   * }
+   * ```
+   */
+  async receive(): Promise<Frame | null> {
+    if (this.isClosed || !this.initialized || !this.buffersinkCtx) {
+      return null;
+    }
+
+    const frame = new Frame();
+    frame.alloc();
+
+    const ret = await this.buffersinkCtx.buffersinkGetFrame(frame);
+
+    if (ret >= 0) {
+      return frame;
+    } else {
+      frame.free();
+      if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+        return null;
+      }
+      FFmpegError.throwIfError(ret, 'Failed to receive frame from filter');
+      return null;
+    }
+  }
+
+  /**
    * Send command to filter.
    *
    * Sends runtime command to specific filter in graph.
@@ -489,7 +537,11 @@ export class FilterAPI implements Disposable {
    * @see {@link queueCommand} For delayed commands
    */
   sendCommand(target: string, cmd: string, arg: string, flags?: AVFilterCmdFlag): string {
-    if (!this.initialized || !this.graph) {
+    if (this.isClosed) {
+      throw new Error('Filter is closed');
+    }
+
+    if (!this.initialized) {
       throw new Error('Filter not initialized');
     }
 
@@ -528,67 +580,16 @@ export class FilterAPI implements Disposable {
    * @see {@link sendCommand} For immediate commands
    */
   queueCommand(target: string, cmd: string, arg: string, ts: number, flags?: AVFilterCmdFlag): void {
-    if (!this.initialized || !this.graph) {
+    if (this.isClosed) {
+      throw new Error('Filter is closed');
+    }
+
+    if (!this.initialized) {
       throw new Error('Filter not initialized');
     }
 
     const ret = this.graph.queueCommand(target, cmd, arg, ts, flags);
     FFmpegError.throwIfError(ret, 'Failed to queue filter command');
-  }
-
-  /**
-   * Get filter graph description.
-   *
-   * Returns human-readable graph structure.
-   * Useful for debugging filter chains.
-   *
-   * Direct mapping to avfilter_graph_dump().
-   *
-   * @returns Graph description or null if not initialized
-   *
-   * @example
-   * ```typescript
-   * const description = filter.getGraphDescription();
-   * console.log('Filter graph:', description);
-   * ```
-   */
-  getGraphDescription(): string | null {
-    if (!this.initialized || !this.graph) {
-      return null;
-    }
-    return this.graph.dump();
-  }
-
-  /**
-   * Check if filter is ready for processing.
-   *
-   * @returns true if initialized and ready
-   *
-   * @example
-   * ```typescript
-   * if (filter.isReady()) {
-   *   const output = await filter.process(frame);
-   * }
-   * ```
-   */
-  isReady(): boolean {
-    return this.initialized && this.buffersrcCtx !== null && this.buffersinkCtx !== null;
-  }
-
-  /**
-   * Get media type of filter.
-   *
-   * @returns AVMEDIA_TYPE_VIDEO or AVMEDIA_TYPE_AUDIO
-   *
-   * @example
-   * ```typescript
-   * if (filter.getMediaType() === AVMEDIA_TYPE_VIDEO) {
-   *   console.log('Video filter');
-   * }
-   * ```
-   */
-  getMediaType(): AVMediaType {
-    return this.mediaType;
   }
 
   /**
@@ -599,28 +600,33 @@ export class FilterAPI implements Disposable {
    *
    * @example
    * ```typescript
-   * filter.free();
+   * filter.close();
    * ```
    *
    * @see {@link Symbol.dispose} For automatic cleanup
    */
-  free(): void {
-    if (this.graph) {
-      this.graph.free();
-      this.graph = null;
+  close(): void {
+    if (this.isClosed) {
+      return;
     }
+
+    this.isClosed = true;
+
+    this.graph.free();
     this.buffersrcCtx = null;
     this.buffersinkCtx = null;
+
     this.initialized = false;
   }
 
   /**
-   * Initialize filter graph.
+   * Initialize filter graph from first frame.
    *
    * Creates and configures filter graph components.
-   * For video, may use hardware frames context from first frame.
+   * Sets buffer source parameters from frame properties.
+   * Automatically configures hardware frames context if present.
    *
-   * @param firstFrame - First frame for hardware detection (video only)
+   * @param frame - First frame to process, provides format and hw context
    *
    * @throws {Error} If initialization fails
    *
@@ -628,43 +634,23 @@ export class FilterAPI implements Disposable {
    *
    * @internal
    */
-  private async initialize(firstFrame: Frame | null): Promise<void> {
-    // Create graph
-    this.graph = new FilterGraph();
-    this.graph.alloc();
-
-    // Configure threading
-    if (this.options.threads !== undefined) {
-      this.graph.nbThreads = this.options.threads;
-    }
-
-    // Configure scaler options
-    if (this.options.scaleSwsOpts) {
-      this.graph.scaleSwsOpts = this.options.scaleSwsOpts;
-    }
-
-    // Create buffer source with hw_frames_ctx if needed
-    if (firstFrame?.hwFramesCtx && this.config.type === 'video') {
-      this.createBufferSourceWithHwFrames(firstFrame);
-    } else {
-      this.createBufferSource();
-    }
+  private async initialize(frame: Frame): Promise<void> {
+    // Create buffer source
+    this.createBufferSource(frame);
 
     // Create buffer sink
-    this.createBufferSink();
+    this.createBufferSink(frame);
 
     // Parse filter description
     this.parseFilterDescription(this.description);
 
     // Set hw_device_ctx on hardware filters
-    if (this.hardware?.deviceContext) {
-      const filters = this.graph.filters;
-      if (filters) {
-        for (const filterCtx of filters) {
-          const filter = filterCtx.filter;
-          if (filter && (filter.flags & AVFILTER_FLAG_HWDEVICE) !== 0) {
-            filterCtx.hwDeviceCtx = this.hardware.deviceContext;
-          }
+    const filters = this.graph.filters;
+    if (filters) {
+      for (const filterCtx of filters) {
+        const filter = filterCtx.filter;
+        if (filter && (filter.flags & AVFILTER_FLAG_HWDEVICE) !== 0) {
+          filterCtx.hwDeviceCtx = frame.hwFramesCtx?.deviceRef ?? this.options.hardware?.deviceContext ?? null;
         }
       }
     }
@@ -677,9 +663,12 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Create buffer source with hardware frames context.
+   * Create buffer source with frame parameters.
    *
-   * @param frame - Frame with hw_frames_ctx
+   * Configures buffer source with frame properties including hardware context.
+   * Automatically detects video/audio and sets appropriate parameters.
+   *
+   * @param frame - Frame providing format, dimensions, and hw_frames_ctx
    *
    * @throws {Error} If creation fails
    *
@@ -687,90 +676,61 @@ export class FilterAPI implements Disposable {
    *
    * @internal
    */
-  private createBufferSourceWithHwFrames(frame: Frame): void {
-    const filterName = 'buffer';
+  private createBufferSource(frame: Frame): void {
+    const filterName = frame.isVideo() ? 'buffer' : 'abuffer';
     const bufferFilter = Filter.getByName(filterName);
     if (!bufferFilter) {
       throw new Error(`${filterName} filter not found`);
     }
 
-    // Allocate filter without args
-    this.buffersrcCtx = this.graph!.allocFilter(bufferFilter, 'in');
-    if (!this.buffersrcCtx) {
-      throw new Error('Failed to allocate buffer source');
-    }
-
-    // Set parameters including hw_frames_ctx
-    const cfg = this.config as VideoInfo;
-    const ret = this.buffersrcCtx.buffersrcParametersSet({
-      width: cfg.width,
-      height: cfg.height,
-      format: cfg.pixelFormat,
-      timeBase: cfg.timeBase,
-      frameRate: cfg.frameRate,
-      sampleAspectRatio: cfg.sampleAspectRatio,
-      hwFramesCtx: frame.hwFramesCtx ?? undefined,
-    });
-    FFmpegError.throwIfError(ret, 'Failed to set buffer source parameters');
-
-    // Initialize filter
-    const initRet = this.buffersrcCtx.init(null);
-    FFmpegError.throwIfError(initRet, 'Failed to initialize buffer source');
-  }
-
-  /**
-   * Create standard buffer source.
-   *
-   * @throws {Error} If creation fails
-   *
-   * @internal
-   */
-  private createBufferSource(): void {
-    const filterName = this.config.type === 'video' ? 'buffer' : 'abuffer';
-    const bufferFilter = Filter.getByName(filterName);
-    if (!bufferFilter) {
-      throw new Error(`${filterName} filter not found`);
-    }
-
-    // Build args string
-    let args: string;
-    if (this.config.type === 'video') {
-      const cfg = this.config;
-      args = `video_size=${cfg.width}x${cfg.height}:pix_fmt=${cfg.pixelFormat}:time_base=${cfg.timeBase.num}/${cfg.timeBase.den}`;
-
-      if (cfg.frameRate) {
-        args += `:frame_rate=${cfg.frameRate.num}/${cfg.frameRate.den}`;
+    // For audio, create with args. For video, use allocFilter + buffersrcParametersSet
+    if (frame.isVideo()) {
+      // Allocate filter without args
+      this.buffersrcCtx = this.graph.allocFilter(bufferFilter, 'in');
+      if (!this.buffersrcCtx) {
+        throw new Error('Failed to allocate buffer source');
       }
 
-      if (cfg.sampleAspectRatio) {
-        args += `:pixel_aspect=${cfg.sampleAspectRatio.num}/${cfg.sampleAspectRatio.den}`;
-      }
+      const ret = this.buffersrcCtx.buffersrcParametersSet({
+        width: frame.width,
+        height: frame.height,
+        format: frame.format,
+        timeBase: this.options.timeBase,
+        frameRate: this.options.frameRate ?? frame.timeBase,
+        sampleAspectRatio: frame.sampleAspectRatio,
+        colorRange: frame.colorRange,
+        colorSpace: frame.colorSpace,
+        hwFramesCtx: frame.hwFramesCtx,
+      });
+      FFmpegError.throwIfError(ret, 'Failed to set buffer source parameters');
+
+      // Initialize filter
+      const initRet = this.buffersrcCtx.init(null);
+      FFmpegError.throwIfError(initRet, 'Failed to initialize buffer source');
     } else {
-      const cfg = this.config;
-      const sampleFmtName = avGetSampleFmtName(cfg.sampleFormat);
-      const channelLayout = cfg.channelLayout.mask === 0n ? 'stereo' : cfg.channelLayout.mask.toString();
-      args = `sample_rate=${cfg.sampleRate}:sample_fmt=${sampleFmtName}:channel_layout=${channelLayout}:time_base=${cfg.timeBase.num}/${cfg.timeBase.den}`;
-    }
-
-    this.buffersrcCtx = this.graph!.createFilter(bufferFilter, 'in', args);
-    if (!this.buffersrcCtx) {
-      throw new Error('Failed to create buffer source');
+      // For audio, create with args string
+      const formatName = avGetSampleFmtName(frame.format as AVSampleFormat);
+      const channelLayout = frame.channelLayout.mask === 0n ? 'stereo' : frame.channelLayout.mask.toString();
+      // eslint-disable-next-line @stylistic/max-len
+      const args = `time_base=${this.options.timeBase.num}/${this.options.timeBase.den}:sample_rate=${frame.sampleRate}:sample_fmt=${formatName}:channel_layout=${channelLayout}`;
+      this.buffersrcCtx = this.graph.createFilter(bufferFilter, 'in', args);
+      if (!this.buffersrcCtx) {
+        throw new Error('Failed to create audio buffer source');
+      }
     }
   }
 
   /**
    * Create buffer sink.
    *
+   * @param frame - Frame
+   *
    * @throws {Error} If creation fails
    *
    * @internal
    */
-  private createBufferSink(): void {
-    if (!this.graph) {
-      throw new Error('Filter graph not initialized');
-    }
-
-    const filterName = this.config.type === 'video' ? 'buffersink' : 'abuffersink';
+  private createBufferSink(frame: Frame): void {
+    const filterName = frame.isVideo() ? 'buffersink' : 'abuffersink';
     const sinkFilter = Filter.getByName(filterName);
     if (!sinkFilter) {
       throw new Error(`${filterName} filter not found`);
@@ -794,10 +754,6 @@ export class FilterAPI implements Disposable {
    * @internal
    */
   private parseFilterDescription(description: string): void {
-    if (!this.graph) {
-      throw new Error('Filter graph not initialized');
-    }
-
     if (!this.buffersrcCtx || !this.buffersinkCtx) {
       throw new Error('Buffer filters not initialized');
     }
@@ -833,64 +789,22 @@ export class FilterAPI implements Disposable {
   }
 
   /**
-   * Check hardware requirements for filters.
-   *
-   * @param description - Filter description
-   * @param options - Filter options
-   *
-   * @throws {Error} If hardware requirements not met
-   *
-   * @internal
-   */
-  private checkHardwareRequirements(description: string, options: FilterOptions): void {
-    if (this.config.type !== 'video') {
-      return;
-    }
-
-    // Parse filter names from description
-    const filterNames = description
-      .split(',')
-      .map((f) => {
-        // Extract filter name (before = or : or whitespace)
-        const match = /^([a-zA-Z0-9_]+)/.exec(f.trim());
-        return match ? match[1] : null;
-      })
-      .filter(Boolean) as string[];
-
-    for (const filterName of filterNames) {
-      const lowLevelFilter = Filter.getByName(filterName);
-      if (!lowLevelFilter) {
-        // Filter will be validated later during graph parsing
-        continue;
-      }
-
-      if (!options.hardware) {
-        if (filterName === 'hwupload' || filterName === 'hwupload_cuda' || (lowLevelFilter.flags & AVFILTER_FLAG_HWDEVICE) !== 0) {
-          throw new Error(`Filter '${filterName}' requires a hardware context`);
-        } else if (filterName === 'hwdownload' && !avIsHardwarePixelFormat(this.config.pixelFormat)) {
-          throw new Error(`Pixel Format '${this.config.pixelFormat}' is not hardware compatible`);
-        }
-      }
-    }
-  }
-
-  /**
    * Dispose of filter.
    *
    * Implements Disposable interface for automatic cleanup.
-   * Equivalent to calling free().
+   * Equivalent to calling close().
    *
    * @example
    * ```typescript
    * {
-   *   using filter = await FilterAPI.create('scale=640:480', info);
+   *   using filter = await FilterAPI.create('scale=640:480', { ... });
    *   // Use filter...
    * } // Automatically freed
    * ```
    *
-   * @see {@link free} For manual cleanup
+   * @see {@link close} For manual cleanup
    */
   [Symbol.dispose](): void {
-    this.free();
+    this.close();
   }
 }
