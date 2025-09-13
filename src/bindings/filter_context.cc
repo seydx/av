@@ -219,14 +219,7 @@ Napi::Value FilterContext::BuffersrcParametersSet(const Napi::CallbackInfo& info
     Napi::Error::New(env, "Failed to allocate buffer source parameters").ThrowAsJavaScriptException();
     return env.Null();
   }
-  
-  // Set video parameters
-  if (params.Has("width")) {
-    par->width = params.Get("width").As<Napi::Number>().Int32Value();
-  }
-  if (params.Has("height")) {
-    par->height = params.Get("height").As<Napi::Number>().Int32Value();
-  }
+
   if (params.Has("format")) {
     par->format = params.Get("format").As<Napi::Number>().Int32Value();
   }
@@ -234,6 +227,14 @@ Napi::Value FilterContext::BuffersrcParametersSet(const Napi::CallbackInfo& info
     Napi::Object tb = params.Get("timeBase").As<Napi::Object>();
     par->time_base.num = tb.Get("num").As<Napi::Number>().Int32Value();
     par->time_base.den = tb.Get("den").As<Napi::Number>().Int32Value();
+  }
+  
+  // Set video parameters
+  if (params.Has("width")) {
+    par->width = params.Get("width").As<Napi::Number>().Int32Value();
+  }
+  if (params.Has("height")) {
+    par->height = params.Get("height").As<Napi::Number>().Int32Value();
   }
   if (params.Has("frameRate")) {
     Napi::Object fr = params.Get("frameRate").As<Napi::Object>();
@@ -244,6 +245,12 @@ Napi::Value FilterContext::BuffersrcParametersSet(const Napi::CallbackInfo& info
     Napi::Object sar = params.Get("sampleAspectRatio").As<Napi::Object>();
     par->sample_aspect_ratio.num = sar.Get("num").As<Napi::Number>().Int32Value();
     par->sample_aspect_ratio.den = sar.Get("den").As<Napi::Number>().Int32Value();
+  }
+  if (params.Has("colorRange")) {
+    par->color_range = static_cast<AVColorRange>(params.Get("colorRange").As<Napi::Number>().Int32Value());
+  }
+  if (params.Has("colorSpace")) {
+    par->color_space = static_cast<AVColorSpace>(params.Get("colorSpace").As<Napi::Number>().Int32Value());
   }
   
   // Set hardware frames context if provided

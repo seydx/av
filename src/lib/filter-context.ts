@@ -3,7 +3,7 @@ import { HardwareDeviceContext } from './hardware-device-context.js';
 import { OptionMember } from './option.js';
 import { Rational } from './rational.js';
 
-import type { AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
+import type { AVColorRange, AVColorSpace, AVPixelFormat, AVSampleFormat } from '../constants/constants.js';
 import type { Frame } from './frame.js';
 import type { HardwareFramesContext } from './hardware-frames-context.js';
 import type { NativeDictionary, NativeFilterContext, NativeFilterGraph, NativeWrapper } from './native-types.js';
@@ -335,6 +335,8 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * @param params.hwFramesCtx - Hardware frames context
    * @param params.sampleRate - Audio sample rate
    * @param params.channelLayout - Audio channel layout
+   * @param params.colorRange - Color range for video
+   * @param params.colorSpace - Color space for video
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -353,18 +355,33 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    *   frameRate: { num: 25, den: 1 }
    * });
    * FFmpegError.throwIfError(ret, 'buffersrcParametersSet');
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AV_SAMPLE_FMT_FLTP } from 'node-av/constants';
+   *
+   * // Configure audio buffer source
+   * const ret = bufferSrc.buffersrcParametersSet({
+   *   format: AV_SAMPLE_FMT_FLTP,
+   *   sampleRate: 44100,
+   *   channelLayout: AV_CHANNEL_LAYOUT_STEREO
+   * });
+   * FFmpegError.throwIfError(ret, 'buffersrcParametersSet');
    * ```
    */
   buffersrcParametersSet(params: {
     width?: number;
     height?: number;
-    format?: number;
+    format?: AVPixelFormat | AVSampleFormat;
     timeBase?: IRational;
     frameRate?: IRational;
     sampleAspectRatio?: IRational;
     hwFramesCtx?: HardwareFramesContext | null;
     sampleRate?: number;
     channelLayout?: bigint;
+    colorRange?: AVColorRange;
+    colorSpace?: AVColorSpace;
   }): number {
     const nativeParams: any = { ...params };
     if (params.hwFramesCtx) {

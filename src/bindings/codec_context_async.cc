@@ -26,11 +26,17 @@ public:
     : Napi::AsyncWorker(env), 
       ctx_(ctx), 
       codec_(codec), 
-      options_(options), 
+      options_(nullptr), 
       ret_(0),
-      deferred_(Napi::Promise::Deferred::New(env)) {}
+      deferred_(Napi::Promise::Deferred::New(env)) {
+    // Make a copy of the dictionary to avoid ownership issues
+    if (options) {
+      av_dict_copy(&options_, options, 0);
+    }
+  }
 
   ~CCOpen2Worker() {
+    // Free our copy of the dictionary (if any remains after avcodec_open2)
     if (options_) {
       av_dict_free(&options_);
     }
