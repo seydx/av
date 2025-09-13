@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -58,8 +58,38 @@ writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
 
 console.log('Updated package.json');
 
+// Check if RELEASE_NOTES.md exists and has content
+const releaseNotesPath = join(rootDir, 'RELEASE_NOTES.md');
+let hasCustomNotes = false;
+
+if (existsSync(releaseNotesPath)) {
+  const releaseNotes = readFileSync(releaseNotesPath, 'utf8');
+  // Check if any section has been filled out (not just comments)
+  const sections = ['Breaking Changes', 'New Features', 'Bug Fixes', 'Notes'];
+  for (const section of sections) {
+    const regex = new RegExp(`## [🚨✨🐛📝]+ ${section}\\s*\\n(?!<!--)(.+?)(?=\\n##|$)`, 's');
+    const match = releaseNotes.match(regex);
+    if (match && match[1].trim()) {
+      hasCustomNotes = true;
+      break;
+    }
+  }
+
+  if (hasCustomNotes) {
+    console.log('\n📝 Found custom release notes in RELEASE_NOTES.md');
+    console.log('These will be included in the GitHub release.');
+  } else {
+    console.log('\n💡 Tip: Edit RELEASE_NOTES.md before releasing to add custom release notes.');
+  }
+}
+
 // Stage the changes
 execSync('git add package.json', { cwd: rootDir });
+
+// Also stage RELEASE_NOTES.md if it has custom content
+if (hasCustomNotes) {
+  execSync('git add RELEASE_NOTES.md', { cwd: rootDir });
+}
 
 // Create commit
 execSync(`git commit -m "chore: bump version to ${newVersion}"`, { cwd: rootDir });
@@ -75,6 +105,14 @@ console.log('1. Review the changes: git show');
 console.log(`2. Push to origin: git push && git push origin v${newVersion}`);
 console.log('3. The GitHub Actions workflow will automatically:');
 console.log('   - Build binaries for all platforms');
-console.log('   - Create GitHub release');
+console.log('   - Create GitHub release' + (hasCustomNotes ? ' (with your custom notes)' : ''));
 console.log('   - Publish platform packages to npm');
 console.log('   - Publish main package to npm');
+
+// Reset RELEASE_NOTES.md after tagging (but before pushing)
+if (hasCustomNotes) {
+  console.log('\n🔄 Resetting RELEASE_NOTES.md for next release...');
+  execSync('node scripts/reset-release-notes.js', { cwd: rootDir });
+  execSync('git add RELEASE_NOTES.md', { cwd: rootDir });
+  execSync('git commit -m "chore: reset RELEASE_NOTES.md after release"', { cwd: rootDir });
+}
