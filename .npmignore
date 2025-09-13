@@ -24,6 +24,7 @@ typedoc*.json
 *.txt
 CONTRIBUTING.md
 INSTALLATION.md
+CHANGELOG.md
 
 /src
 /binary

@@ -121,11 +121,12 @@ jobs:
           echo "Release archives created:"
           ls -la *.zip
 
-      - name: Generate release notes with commit history
+      - name: Generate release notes from CHANGELOG
         id: release_notes
         run: |
-          # Get the previous tag
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${{ github.ref_name }}^ 2>/dev/null || echo "")
+          # Extract version without 'v' prefix
+          VERSION="${{ github.ref_name }}"
+          VERSION_NO_V="${VERSION#v}"
 
           # Start building the release body
           cat > release_notes.md << 'EOF'
@@ -142,56 +143,24 @@ jobs:
           - `@seydx/node-av-win32-x64@${{ github.ref_name }}`
           EOF
 
-          # Check if RELEASE_NOTES.md exists and has custom content
-          if [ -f "RELEASE_NOTES.md" ]; then
-            # Extract content between comment markers, removing empty sections
-            CUSTOM_NOTES=$(cat RELEASE_NOTES.md | sed '/^<!--/d' | sed '/^$/N;/^\n$/d')
+          # Extract the specific version section from CHANGELOG.md
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract content for this specific version
+            VERSION_CONTENT=$(sed -n "/## \[${VERSION_NO_V}\]/,/## \[/p" CHANGELOG.md | sed '$d')
 
-            # Check each section and add if it has content
-            if grep -q "## 🚨 Breaking Changes" RELEASE_NOTES.md; then
-              BREAKING=$(sed -n '/## 🚨 Breaking Changes/,/^##/p' RELEASE_NOTES.md | sed '1d;$d' | sed '/^<!--/d' | sed '/^$/d')
-              if [ -n "$BREAKING" ]; then
-                echo "" >> release_notes.md
-                echo "### 🚨 Breaking Changes" >> release_notes.md
-                echo "$BREAKING" >> release_notes.md
-              fi
-            fi
-
-            if grep -q "## ✨ New Features" RELEASE_NOTES.md; then
-              FEATURES=$(sed -n '/## ✨ New Features/,/^##/p' RELEASE_NOTES.md | sed '1d;$d' | sed '/^<!--/d' | sed '/^$/d')
-              if [ -n "$FEATURES" ]; then
-                echo "" >> release_notes.md
-                echo "### ✨ New Features" >> release_notes.md
-                echo "$FEATURES" >> release_notes.md
-              fi
-            fi
-
-            if grep -q "## 🐛 Bug Fixes" RELEASE_NOTES.md; then
-              FIXES=$(sed -n '/## 🐛 Bug Fixes/,/^##/p' RELEASE_NOTES.md | sed '1d;$d' | sed '/^<!--/d' | sed '/^$/d')
-              if [ -n "$FIXES" ]; then
-                echo "" >> release_notes.md
-                echo "### 🐛 Bug Fixes" >> release_notes.md
-                echo "$FIXES" >> release_notes.md
-              fi
-            fi
-
-            if grep -q "## 📝 Notes" RELEASE_NOTES.md; then
-              NOTES=$(sed -n '/## 📝 Notes/,/^##/p' RELEASE_NOTES.md | sed '1d;$d' | sed '/^<!--/d' | sed '/^$/d')
-              if [ -n "$NOTES" ]; then
-                echo "" >> release_notes.md
-                echo "### 📝 Notes" >> release_notes.md
-                echo "$NOTES" >> release_notes.md
-              fi
+            if [ -n "$VERSION_CONTENT" ]; then
+              echo "" >> release_notes.md
+              # Remove the version header line and add content
+              echo "$VERSION_CONTENT" | tail -n +2 >> release_notes.md
             fi
           fi
 
-          # Add commit history if previous tag exists
+          # Always add commit history
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${{ github.ref_name }}^ 2>/dev/null || echo "")
           if [ -n "$PREVIOUS_TAG" ]; then
             echo "" >> release_notes.md
             echo "### 📋 All Changes since $PREVIOUS_TAG" >> release_notes.md
             echo "" >> release_notes.md
-
-            # Get commit messages between tags
             git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ github.ref_name }} >> release_notes.md
           fi
 
