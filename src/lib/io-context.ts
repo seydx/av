@@ -222,6 +222,12 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Creates an I/O context with custom read, write, and seek callbacks.
    * Enables implementing custom protocols or data sources.
    *
+   * NOTE: When using JavaScript callbacks, synchronous operations
+   * (e.g., readSync, seekSync) cannot be used on this context.
+   * This is because JavaScript callbacks require the event loop to be available,
+   * which is blocked during synchronous operations. Always use async methods
+   * (read, seek) when working with custom callbacks.
+   *
    * Direct mapping to avio_alloc_context() with callbacks.
    *
    * @param bufferSize - Size of internal buffer

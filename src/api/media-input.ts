@@ -407,8 +407,13 @@ export class MediaInput implements AsyncDisposable, Disposable {
   }
 
   /**
-   * Open media from file, URL, buffer, or raw data synchronously.
+   * Open media from file or URL synchronously.
    * Synchronous version of open.
+   *
+   * NOTE: Buffer input is not supported in sync mode due to JavaScript's
+   * single-threaded nature. Custom I/O callbacks require the JavaScript
+   * event loop to be available, which is blocked during synchronous operations.
+   * Use the async version {@link open} for buffer input.
    *
    * Automatically detects format and extracts stream information.
    * Supports various input sources with flexible configuration.
@@ -416,7 +421,7 @@ export class MediaInput implements AsyncDisposable, Disposable {
    *
    * Direct mapping to avformat_open_input() and avformat_find_stream_info().
    *
-   * @param input - File path, URL, buffer, or raw data descriptor
+   * @param input - File path or URL (Buffer not supported in sync mode)
    *
    * @param options - Input configuration options
    *
@@ -444,11 +449,11 @@ export class MediaInput implements AsyncDisposable, Disposable {
    * });
    * ```
    *
-   * @see {@link open} For async version
+   * @see {@link open} For async version with buffer support
    */
-  static openSync(input: string | Buffer, options?: MediaInputOptions): MediaInput;
-  static openSync(rawData: RawData, options?: MediaInputOptions): MediaInput;
-  static openSync(input: string | Buffer | RawData, options: MediaInputOptions = {}): MediaInput {
+  static openSync(input: string, options?: MediaInputOptions): MediaInput;
+  static openSync(rawData: RawData & { input: string }, options?: MediaInputOptions): MediaInput;
+  static openSync(input: string | (RawData & { input: string }), options: MediaInputOptions = {}): MediaInput {
     // Check if input is raw data
     if (typeof input === 'object' && 'type' in input && ('width' in input || 'sampleRate' in input)) {
       // Build options for raw data
@@ -508,17 +513,6 @@ export class MediaInput implements AsyncDisposable, Disposable {
 
         const ret = formatContext.openInputSync(resolvedInput, inputFormat, optionsDict);
         FFmpegError.throwIfError(ret, 'Failed to open input');
-      } else if (Buffer.isBuffer(input)) {
-        // Validate buffer is not empty
-        if (input.length === 0) {
-          throw new Error('Cannot open media from empty buffer');
-        }
-        // From buffer - allocate context first for custom I/O
-        formatContext.allocContext();
-        ioContext = IOStream.create(input, { bufferSize: options.bufferSize });
-        formatContext.pb = ioContext;
-        const ret = formatContext.openInputSync('', inputFormat, optionsDict);
-        FFmpegError.throwIfError(ret, 'Failed to open input from buffer');
       } else {
         throw new TypeError('Invalid input type. Expected file path, URL, or Buffer');
       }
