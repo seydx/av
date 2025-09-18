@@ -744,7 +744,9 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * Direct mapping to avcodec_open2().
    *
    * @param codec - Codec to open with (null to use already set)
+   *
    * @param options - Codec-specific options
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -766,6 +768,38 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
+   * Open the codec synchronously.
+   * Synchronous version of open2.
+   *
+   * Initializes the codec for encoding/decoding.
+   * Must be called before processing frames/packets.
+   *
+   * Direct mapping to avcodec_open2().
+   *
+   * @param codec - Codec to open with (null to use already set)
+   *
+   * @param options - Codec-specific options
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.open2Sync(codec);
+   * FFmpegError.throwIfError(ret, 'open2Sync');
+   * // Codec is now open and ready
+   * ```
+   *
+   * @see {@link open2} For async version
+   */
+  open2Sync(codec: Codec | null = null, options: Dictionary | null = null): number {
+    return this.native.open2Sync(codec?.getNative() ?? null, options?.getNative() ?? null);
+  }
+
+  /**
    * Fill codec context from parameters.
    *
    * Copies codec parameters from stream to context.
@@ -774,6 +808,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * Direct mapping to avcodec_parameters_to_context().
    *
    * @param params - Source codec parameters
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *
@@ -800,6 +835,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * Direct mapping to avcodec_parameters_from_context().
    *
    * @param params - Destination codec parameters
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *
@@ -845,6 +881,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * Direct mapping to avcodec_send_packet().
    *
    * @param packet - Packet to decode (null to flush)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: Must receive frames first
    *   - AVERROR_EOF: Decoder has been flushed
@@ -871,6 +908,41 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
+   * Send packet to decoder synchronously.
+   * Synchronous version of sendPacket.
+   *
+   * Submits compressed data for decoding.
+   * Call receiveFrameSync() to get decoded frames.
+   *
+   * Direct mapping to avcodec_send_packet().
+   *
+   * @param packet - Packet to decode (null to flush)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Must receive frames first
+   *   - AVERROR_EOF: Decoder has been flushed
+   *   - AVERROR_EINVAL: Invalid decoder state
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av';
+   *
+   * const ret = ctx.sendPacketSync(packet);
+   * if (ret === AVERROR_EAGAIN) {
+   *   // Need to receive frames first
+   *   ctx.receiveFrameSync(frame);
+   * }
+   * ```
+   *
+   * @see {@link sendPacket} For async version
+   */
+  sendPacketSync(packet: Packet | null): number {
+    return this.native.sendPacketSync(packet?.getNative() ?? null);
+  }
+
+  /**
    * Receive decoded frame.
    *
    * Gets a decoded frame from the decoder.
@@ -879,6 +951,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * Direct mapping to avcodec_receive_frame().
    *
    * @param frame - Frame to receive into
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: Need more input
    *   - AVERROR_EOF: All frames have been output
@@ -905,6 +978,42 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
+   * Receive decoded frame synchronously.
+   * Synchronous version of receiveFrame.
+   *
+   * Gets a decoded frame from the decoder.
+   * Call after sendPacketSync().
+   *
+   * Direct mapping to avcodec_receive_frame().
+   *
+   * @param frame - Frame to receive into
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Need more input
+   *   - AVERROR_EOF: All frames have been output
+   *   - AVERROR_EINVAL: Invalid decoder state
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av';
+   *
+   * const ret = ctx.receiveFrameSync(frame);
+   * if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+   *   // No frame available
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'receiveFrameSync');
+   *   // Process frame
+   * }
+   * ```
+   *
+   * @see {@link receiveFrame} For async version
+   */
+  receiveFrameSync(frame: Frame): number {
+    return this.native.receiveFrameSync(frame.getNative());
+  }
+
+  /**
    * Send frame to encoder.
    *
    * Submits raw frame for encoding.
@@ -913,6 +1022,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * Direct mapping to avcodec_send_frame().
    *
    * @param frame - Frame to encode (null to flush)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: Must receive packets first
    *   - AVERROR_EOF: Encoder has been flushed
@@ -939,6 +1049,41 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
+   * Send frame to encoder synchronously.
+   * Synchronous version of sendFrame.
+   *
+   * Submits raw frame for encoding.
+   * Call receivePacketSync() to get encoded packets.
+   *
+   * Direct mapping to avcodec_send_frame().
+   *
+   * @param frame - Frame to encode (null to flush)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Must receive packets first
+   *   - AVERROR_EOF: Encoder has been flushed
+   *   - AVERROR_EINVAL: Invalid encoder state
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av';
+   *
+   * const ret = ctx.sendFrameSync(frame);
+   * if (ret === AVERROR_EAGAIN) {
+   *   // Need to receive packets first
+   *   ctx.receivePacketSync(packet);
+   * }
+   * ```
+   *
+   * @see {@link sendFrame} For async version
+   */
+  sendFrameSync(frame: Frame | null): number {
+    return this.native.sendFrameSync(frame?.getNative() ?? null);
+  }
+
+  /**
    * Receive encoded packet.
    *
    * Gets an encoded packet from the encoder.
@@ -947,6 +1092,7 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
    * Direct mapping to avcodec_receive_packet().
    *
    * @param packet - Packet to receive into
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: Need more input
    *   - AVERROR_EOF: All packets have been output
@@ -973,12 +1119,49 @@ export class CodecContext extends OptionMember<NativeCodecContext> implements Di
   }
 
   /**
+   * Receive encoded packet synchronously.
+   * Synchronous version of receivePacket.
+   *
+   * Gets an encoded packet from the encoder.
+   * Call after sendFrameSync().
+   *
+   * Direct mapping to avcodec_receive_packet().
+   *
+   * @param packet - Packet to receive into
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Need more input
+   *   - AVERROR_EOF: All packets have been output
+   *   - AVERROR_EINVAL: Invalid encoder state
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av';
+   *
+   * const ret = ctx.receivePacketSync(packet);
+   * if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+   *   // No packet available
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'receivePacketSync');
+   *   // Process packet
+   * }
+   * ```
+   *
+   * @see {@link receivePacket} For async version
+   */
+  receivePacketSync(packet: Packet): number {
+    return this.native.receivePacketSync(packet.getNative());
+  }
+
+  /**
    * Set hardware pixel format.
    *
    * Configures hardware acceleration pixel formats.
    * Used in get_format callback for hardware decoding.
    *
    * @param hwFormat - Hardware pixel format
+   *
    * @param swFormat - Software pixel format (optional)
    *
    * @example

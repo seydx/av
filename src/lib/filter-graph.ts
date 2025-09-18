@@ -191,8 +191,11 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_create_filter().
    *
    * @param filter - Filter descriptor to instantiate
+   *
    * @param name - Name for this filter instance
+   *
    * @param args - Initialization arguments (filter-specific)
+   *
    * @returns Created filter context, or null on failure
    *
    * @example
@@ -229,7 +232,9 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_alloc_filter().
    *
    * @param filter - Filter descriptor to instantiate
+   *
    * @param name - Name for this filter instance
+   *
    * @returns Allocated filter context, or null on failure
    *
    * @example
@@ -262,6 +267,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_get_filter().
    *
    * @param name - Name of the filter instance
+   *
    * @returns Filter context if found, null otherwise
    *
    * @example
@@ -312,6 +318,35 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
+   * Configure the filter graph synchronously.
+   * Synchronous version of config.
+   *
+   * Validates and finalizes the graph structure after all filters
+   * have been added and connected. Must be called before processing.
+   *
+   * Direct mapping to avfilter_graph_config().
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid graph structure
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Configure graph after building
+   * const ret = graph.configSync();
+   * FFmpegError.throwIfError(ret, 'configSync');
+   * // Graph is now ready for processing
+   * ```
+   *
+   * @see {@link config} For async version
+   */
+  configSync(): number {
+    return this.native.configSync();
+  }
+
+  /**
    * Parse a filter graph description.
    *
    * Parses a textual representation of a filter graph and adds
@@ -320,8 +355,11 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_parse().
    *
    * @param filters - Filter graph description string
+   *
    * @param inputs - Linked list of graph inputs
+   *
    * @param outputs - Linked list of graph outputs
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Parse error
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -361,6 +399,7 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_parse2().
    *
    * @param filters - Filter graph description string
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Parse error
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -390,8 +429,11 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_parse_ptr().
    *
    * @param filters - Filter graph description string
+   *
    * @param inputs - Optional linked list of inputs
+   *
    * @param outputs - Optional linked list of outputs
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Parse error
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -468,6 +510,41 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
   }
 
   /**
+   * Request the oldest queued frame from filters synchronously.
+   * Synchronous version of requestOldest.
+   *
+   * Requests a frame from the oldest sink in the graph.
+   * Used for pulling frames through the filter pipeline.
+   *
+   * Direct mapping to avfilter_graph_request_oldest().
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EOF: No more frames
+   *   - AVERROR_EAGAIN: Need more input
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EOF, AVERROR_EAGAIN } from 'node-av/constants';
+   *
+   * // Pull frames through the graph
+   * const ret = graph.requestOldestSync();
+   * if (ret === AVERROR_EOF) {
+   *   // All frames processed
+   * } else if (ret === AVERROR_EAGAIN) {
+   *   // Need more input frames
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'requestOldestSync');
+   * }
+   * ```
+   *
+   * @see {@link requestOldest} For async version
+   */
+  requestOldestSync(): number {
+    return this.native.requestOldestSync();
+  }
+
+  /**
    * Dump the filter graph to a string.
    *
    * Returns a textual representation of the graph structure.
@@ -499,9 +576,13 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_send_command().
    *
    * @param target - Filter name or "all"
+   *
    * @param cmd - Command to send
+   *
    * @param arg - Command argument
+   *
    * @param flags - Command flags
+   *
    * @returns Error code or response object
    *
    * @example
@@ -536,10 +617,15 @@ export class FilterGraph extends OptionMember<NativeFilterGraph> implements Disp
    * Direct mapping to avfilter_graph_queue_command().
    *
    * @param target - Filter name or "all"
+   *
    * @param cmd - Command to queue
+   *
    * @param arg - Command argument
+   *
    * @param ts - Timestamp for execution
+   *
    * @param flags - Command flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example

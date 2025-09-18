@@ -8,27 +8,30 @@ namespace ffmpeg {
 
 Napi::FunctionReference IOContext::constructor;
 
-// === Init ===
-
 Napi::Object IOContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "IOContext", {
-    // Lifecycle
     InstanceMethod<&IOContext::AllocContext>("allocContext"),
     InstanceMethod<&IOContext::AllocContextWithCallbacks>("allocContextWithCallbacks"),
     InstanceMethod<&IOContext::FreeContext>("freeContext"),
-    
-    // Operations
     InstanceMethod<&IOContext::Open2Async>("open2"),
+    InstanceMethod<&IOContext::Open2Sync>("open2Sync"),
     InstanceMethod<&IOContext::ClosepAsync>("closep"),
+    InstanceMethod<&IOContext::ClosepSync>("closepSync"),
     InstanceMethod<&IOContext::ReadAsync>("read"),
+    InstanceMethod<&IOContext::ReadSync>("readSync"),
     InstanceMethod<&IOContext::WriteAsync>("write"),
+    InstanceMethod<&IOContext::WriteSync>("writeSync"),
     InstanceMethod<&IOContext::SeekAsync>("seek"),
+    InstanceMethod<&IOContext::SeekSync>("seekSync"),
     InstanceMethod<&IOContext::SizeAsync>("size"),
+    InstanceMethod<&IOContext::SizeSync>("sizeSync"),
     InstanceMethod<&IOContext::FlushAsync>("flush"),
+    InstanceMethod<&IOContext::FlushSync>("flushSync"),
     InstanceMethod<&IOContext::SkipAsync>("skip"),
+    InstanceMethod<&IOContext::SkipSync>("skipSync"),
     InstanceMethod<&IOContext::Tell>("tell"),
-    
-    // Properties
+    InstanceMethod(Napi::Symbol::WellKnown(env, "asyncDispose"), &IOContext::AsyncDispose),
+
     InstanceAccessor<&IOContext::GetEof, nullptr>("eof"),
     InstanceAccessor<&IOContext::GetError, nullptr>("error"),
     InstanceAccessor<&IOContext::GetSeekable, nullptr>("seekable"),
@@ -37,9 +40,6 @@ Napi::Object IOContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&IOContext::GetPos, nullptr>("pos"),
     InstanceAccessor<&IOContext::GetBufferSize, nullptr>("bufferSize"),
     InstanceAccessor<&IOContext::GetWriteFlag, nullptr>("writeFlag"),
-
-    // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "asyncDispose"), &IOContext::AsyncDispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -48,8 +48,6 @@ Napi::Object IOContext::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("IOContext", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 IOContext::IOContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<IOContext>(info), 
@@ -66,18 +64,16 @@ IOContext::~IOContext() {
   // The user must explicitly call freeContext() or closep()
   // This prevents double-free when FormatContext cleans up
   
-  if (ctx_) {
-    #ifdef DEBUG
-    fprintf(stderr, "WARNING: IOContext destructor called with non-null ctx_. Call freeContext() or closep() explicitly.\n");
-    #endif
-  }
+  // if (ctx_) {
+  //   #ifdef DEBUG
+  //   fprintf(stderr, "WARNING: IOContext destructor called with non-null ctx_. Call freeContext() or closep() explicitly.\n");
+  //   #endif
+  // }
   
   // Clear pointers without freeing
   ctx_ = nullptr;
   buffer_ = nullptr;
 }
-
-// === Static Callback Functions ===
 
 int IOContext::ReadPacket(void* opaque, uint8_t* buf, int buf_size) {
   CallbackData* data = static_cast<CallbackData*>(opaque);
@@ -197,8 +193,6 @@ int64_t IOContext::Seek(void* opaque, int64_t offset, int whence) {
   return future.get();
 }
 
-// === Helper Methods ===
-
 void IOContext::CleanupCallbacks() {
   if (callback_data_ && callback_data_->active) {
     callback_data_->active = false;
@@ -217,10 +211,6 @@ void IOContext::CleanupCallbacks() {
     callback_data_.reset();
   }
 }
-
-// === Static Methods ===
-
-// === Methods ===
 
 Napi::Value IOContext::AllocContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -405,8 +395,6 @@ Napi::Value IOContext::Tell(const Napi::CallbackInfo& info) {
   return Napi::BigInt::New(env, pos);
 }
 
-// === Properties ===
-
 Napi::Value IOContext::GetEof(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -512,8 +500,6 @@ Napi::Value IOContext::GetWriteFlag(const Napi::CallbackInfo& info) {
   
   return Napi::Boolean::New(env, ctx->write_flag != 0);
 }
-
-// === Utility ===
 
 Napi::Value IOContext::AsyncDispose(const Napi::CallbackInfo& info) {
   // Check if this context was created with callbacks or opened with avio_open2

@@ -6,11 +6,9 @@ Napi::FunctionReference BitStreamFilter::constructor;
 
 Napi::Object BitStreamFilter::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "BitStreamFilter", {
-    // Static methods
     StaticMethod<&BitStreamFilter::GetByName>("getByName"),
     StaticMethod<&BitStreamFilter::Iterate>("iterate"),
-    
-    // Properties
+
     InstanceAccessor<&BitStreamFilter::GetName>("name"),
     InstanceAccessor<&BitStreamFilter::GetCodecIds>("codecIds"),
   });
@@ -42,8 +40,6 @@ Napi::Object BitStreamFilter::NewInstance(Napi::Env env, const AVBitStreamFilter
   
   return bsfObj;
 }
-
-// === Static Methods ===
 
 Napi::Value BitStreamFilter::GetByName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -77,8 +73,6 @@ Napi::Value BitStreamFilter::Iterate(const Napi::CallbackInfo& info) {
   
   return result;
 }
-
-// === Properties ===
 
 Napi::Value BitStreamFilter::GetName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

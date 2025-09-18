@@ -8,13 +8,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for AudioFifo Operations
-// ============================================================================
-
-/**
- * Worker for av_audio_fifo_write - Writes audio samples to FIFO
- */
 class AudioFifoWriteWorker : public Napi::AsyncWorker {
 public:
   AudioFifoWriteWorker(Napi::Env env, AVAudioFifo* fifo, void** data, 
@@ -59,9 +52,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_audio_fifo_read - Reads audio samples from FIFO
- */
 class AudioFifoReadWorker : public Napi::AsyncWorker {
 public:
   AudioFifoReadWorker(Napi::Env env, AVAudioFifo* fifo, void** data,
@@ -106,9 +96,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_audio_fifo_peek - Peeks at audio samples without removing them
- */
 class AudioFifoPeekWorker : public Napi::AsyncWorker {
 public:
   AudioFifoPeekWorker(Napi::Env env, AVAudioFifo* fifo, void** data,
@@ -152,10 +139,6 @@ private:
   int result_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// AudioFifo Async Method Implementations
-// ============================================================================
 
 Napi::Value AudioFifo::WriteAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

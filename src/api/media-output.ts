@@ -1,3 +1,4 @@
+import { mkdirSync } from 'fs';
 import { mkdir } from 'fs/promises';
 import { dirname, resolve } from 'path';
 
@@ -66,7 +67,7 @@ export interface StreamDescription {
  * @see {@link Encoder} For encoding frames to packets
  * @see {@link FormatContext} For low-level API
  */
-export class MediaOutput implements AsyncDisposable {
+export class MediaOutput implements AsyncDisposable, Disposable {
   private formatContext: FormatContext;
   private streams = new Map<number, StreamDescription>();
   private ioContext?: IOContext;
@@ -92,7 +93,9 @@ export class MediaOutput implements AsyncDisposable {
    * Direct mapping to avformat_alloc_output_context2() and avio_open2().
    *
    * @param target - File path, URL, or I/O callbacks
+   *
    * @param options - Output configuration options
+   *
    * @returns Opened media output instance
    *
    * @throws {Error} If format required for custom I/O
@@ -213,6 +216,118 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
+   * Open media output for writing synchronously.
+   * Synchronous version of open.
+   *
+   * Creates and configures output context for muxing.
+   * Automatically creates directories for file output.
+   * Supports files, URLs, and custom I/O callbacks.
+   *
+   * Direct mapping to avformat_alloc_output_context2() and avio_open2().
+   *
+   * @param target - File path, URL, or I/O callbacks
+   *
+   * @param options - Output configuration options
+   *
+   * @returns Opened media output instance
+   *
+   * @throws {Error} If format required for custom I/O
+   *
+   * @throws {FFmpegError} If allocation or opening fails
+   *
+   * @example
+   * ```typescript
+   * // Create file output
+   * using output = MediaOutput.openSync('output.mp4');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Create output with specific format
+   * using output = MediaOutput.openSync('output.ts', {
+   *   format: 'mpegts'
+   * });
+   * ```
+   *
+   * @see {@link open} For async version
+   */
+  static openSync(target: string | IOOutputCallbacks, options?: MediaOutputOptions): MediaOutput {
+    const output = new MediaOutput();
+
+    try {
+      if (typeof target === 'string') {
+        // File or stream URL - resolve relative paths and create directories
+        // Check if it's a URL (starts with protocol://) or a file path
+        const isUrl = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(target);
+        const resolvedTarget = isUrl ? target : resolve(target);
+
+        // Create directory structure for local files (not URLs)
+        if (!isUrl && target !== '') {
+          const dir = dirname(resolvedTarget);
+          mkdirSync(dir, { recursive: true });
+        }
+        // Allocate output context
+        const ret = output.formatContext.allocOutputContext2(null, options?.format ?? null, resolvedTarget === '' ? null : resolvedTarget);
+        FFmpegError.throwIfError(ret, 'Failed to allocate output context');
+
+        // Check if we need to open IO
+        const oformat = output.formatContext.oformat;
+        if (resolvedTarget && oformat && !(oformat.flags & AVFMT_NOFILE)) {
+          // For file-based formats, we need to open the file using avio_open2
+          // FFmpeg will manage the AVIOContext internally
+          output.ioContext = new IOContext();
+          const openRet = output.ioContext.open2Sync(resolvedTarget, AVIO_FLAG_WRITE);
+          FFmpegError.throwIfError(openRet, `Failed to open output file: ${resolvedTarget}`);
+          output.formatContext.pb = output.ioContext;
+        }
+      } else {
+        // Custom IO with callbacks - format is required
+        if (!options?.format) {
+          throw new Error('Format must be specified for custom IO');
+        }
+
+        const ret = output.formatContext.allocOutputContext2(null, options.format, null);
+        FFmpegError.throwIfError(ret, 'Failed to allocate output context');
+
+        // Setup custom IO with callbacks
+        output.ioContext = new IOContext();
+        output.ioContext.allocContextWithCallbacks(options.bufferSize ?? 4096, 1, target.read, target.write, target.seek);
+        output.ioContext.maxPacketSize = options.bufferSize ?? 4096;
+        output.formatContext.pb = output.ioContext;
+        output.formatContext.flags = AVFMT_FLAG_CUSTOM_IO;
+      }
+
+      return output;
+    } catch (error) {
+      // Cleanup on error
+      if (output.ioContext) {
+        try {
+          const isCustomIO = (output.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) !== 0;
+          if (isCustomIO) {
+            // Clear the pb reference first
+            output.formatContext.pb = null;
+            // For custom IO with callbacks, free the context
+            output.ioContext.freeContext();
+          } else {
+            // For file-based IO, close the file handle
+            output.ioContext.closepSync();
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
+      if (output.formatContext) {
+        try {
+          output.formatContext.freeContext();
+        } catch {
+          // Ignore errors
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Add a stream to the output.
    *
    * Configures output stream from encoder or input stream.
@@ -226,8 +341,11 @@ export class MediaOutput implements AsyncDisposable {
    * Direct mapping to avformat_new_stream().
    *
    * @param source - Encoder or stream to add
+   *
    * @param options - Stream configuration options
+   *
    * @param options.timeBase - Optional custom timebase for the stream
+   *
    * @returns Stream index for packet writing
    *
    * @throws {Error} If called after packets have been written or output closed
@@ -321,7 +439,9 @@ export class MediaOutput implements AsyncDisposable {
    * Direct mapping to avformat_write_header() (on first packet) and av_interleaved_write_frame().
    *
    * @param packet - Packet to write
+   *
    * @param streamIndex - Target stream index
+   *
    * @throws {Error} If stream invalid or encoder not initialized
    *
    * @throws {FFmpegError} If write fails
@@ -448,6 +568,146 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
+   * Write a packet to the output synchronously.
+   * Synchronous version of writePacket.
+   *
+   * Writes muxed packet to the specified stream.
+   * Automatically handles:
+   * - Stream initialization on first packet (lazy initialization)
+   * - Codec parameter configuration from encoder or input stream
+   * - Header writing on first packet
+   * - Timestamp rescaling between source and output timebases
+   *
+   * For encoder sources, the encoder must have processed at least one frame
+   * before packets can be written (encoder must be initialized).
+   *
+   * Direct mapping to avformat_write_header() (on first packet) and av_interleaved_write_frame().
+   *
+   * @param packet - Packet to write
+   *
+   * @param streamIndex - Target stream index
+   *
+   * @throws {Error} If stream invalid or encoder not initialized
+   *
+   * @throws {FFmpegError} If write fails
+   *
+   * @example
+   * ```typescript
+   * // Write encoded packet - header written automatically on first packet
+   * const packet = encoder.encodeSync(frame);
+   * if (packet) {
+   *   output.writePacketSync(packet, videoIdx);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Stream copy with packet processing
+   * for (const packet of input.packetsSync()) {
+   *   if (packet.streamIndex === inputVideoIdx) {
+   *     output.writePacketSync(packet, outputVideoIdx);
+   *   }
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link writePacket} For async version
+   */
+  writePacketSync(packet: Packet, streamIndex: number): void {
+    if (this.isClosed) {
+      throw new Error('MediaOutput is closed');
+    }
+
+    if (this.trailerWritten) {
+      throw new Error('Cannot write packets after output is finalized');
+    }
+
+    if (!this.streams.get(streamIndex)) {
+      throw new Error(`Invalid stream index: ${streamIndex}`);
+    }
+
+    // Initialize any encoder streams that are ready
+    for (const streamInfo of this.streams.values()) {
+      if (!streamInfo.initialized && streamInfo.source instanceof Encoder) {
+        const encoder = streamInfo.source;
+        const codecContext = encoder.getCodecContext();
+
+        // Skip if encoder not ready yet
+        if (!encoder.isEncoderInitialized || !codecContext) {
+          continue;
+        }
+
+        // This encoder is ready, initialize it now
+        const ret = streamInfo.stream.codecpar.fromContext(codecContext);
+        FFmpegError.throwIfError(ret, 'Failed to copy codec parameters from encoder');
+
+        // Update the timebase from the encoder
+        streamInfo.sourceTimeBase = codecContext.timeBase;
+
+        // Output stream uses encoder's timebase (or custom if specified)
+        streamInfo.stream.timeBase = streamInfo.timeBase ? new Rational(streamInfo.timeBase.num, streamInfo.timeBase.den) : codecContext.timeBase;
+
+        // Mark as initialized
+        streamInfo.initialized = true;
+      }
+    }
+
+    const streamInfo = this.streams.get(streamIndex)!;
+
+    // Check if any streams are still uninitialized
+    const uninitialized = Array.from(this.streams.values()).some((s) => !s.initialized);
+    if (uninitialized) {
+      const clonedPacket = packet.clone();
+      packet.free();
+      if (clonedPacket) {
+        streamInfo.bufferedPackets.push(clonedPacket);
+      }
+      return;
+    }
+
+    // Automatically write header if not written yet
+    if (!this.headerWritten) {
+      const ret = this.formatContext.writeHeaderSync();
+      FFmpegError.throwIfError(ret, 'Failed to write header');
+      this.headerWritten = true;
+    }
+
+    // Set stream index
+    packet.streamIndex = streamIndex;
+
+    const write = (pkt: Packet) => {
+      // Rescale packet timestamps if source and output timebases differ
+      // Note: The stream's timebase may have been changed by writeHeader (e.g., MP4 uses 1/time_scale)
+      if (streamInfo.sourceTimeBase) {
+        const outputStream = this.formatContext.streams?.[streamIndex];
+        if (outputStream) {
+          // Only rescale if timebases actually differ
+          const srcTb = streamInfo.sourceTimeBase;
+          const dstTb = outputStream.timeBase;
+          if (srcTb.num !== dstTb.num || srcTb.den !== dstTb.den) {
+            pkt.rescaleTs(streamInfo.sourceTimeBase, outputStream.timeBase);
+          }
+        }
+      }
+
+      // Write the packet
+      const ret = this.formatContext.interleavedWriteFrameSync(pkt);
+      FFmpegError.throwIfError(ret, 'Failed to write packet');
+    };
+
+    // Write any buffered packets first
+    for (const bufferedPacket of streamInfo.bufferedPackets) {
+      write(bufferedPacket);
+      bufferedPacket.free();
+    }
+    streamInfo.bufferedPackets = [];
+
+    // Write the current packet
+    write(packet);
+  }
+
+  /**
    * Close media output and free resources.
    *
    * Automatically writes trailer if header was written.
@@ -531,6 +791,90 @@ export class MediaOutput implements AsyncDisposable {
   }
 
   /**
+   * Close media output and free resources synchronously.
+   * Synchronous version of close.
+   *
+   * Automatically writes trailer if header was written.
+   * Closes the output file and releases all resources.
+   * Safe to call multiple times.
+   * Automatically called by Symbol.dispose.
+   *
+   * @example
+   * ```typescript
+   * const output = MediaOutput.openSync('output.mp4');
+   * try {
+   *   // Use output - trailer written automatically on close
+   * } finally {
+   *   output.closeSync();
+   * }
+   * ```
+   *
+   * @see {@link close} For async version
+   */
+  closeSync(): void {
+    if (this.isClosed) {
+      return;
+    }
+
+    this.isClosed = true;
+
+    // Free any buffered packets
+    for (const streamInfo of this.streams.values()) {
+      // Free any buffered packets
+      for (const pkt of streamInfo.bufferedPackets) {
+        pkt.free();
+      }
+      streamInfo.bufferedPackets = [];
+    }
+
+    // Try to write trailer if header was written but trailer wasn't
+    try {
+      if (this.headerWritten && !this.trailerWritten) {
+        this.formatContext.writeTrailerSync();
+        this.trailerWritten = true;
+      }
+    } catch {
+      // Ignore errors
+    }
+
+    // Clear pb reference first to prevent use-after-free
+    if (this.ioContext) {
+      this.formatContext.pb = null;
+    }
+
+    // Determine if this is custom IO before freeing format context
+    const isCustomIO = (this.formatContext.flags & AVFMT_FLAG_CUSTOM_IO) !== 0;
+
+    // For file-based IO, close the file handle via closep
+    // For custom IO, the context will be freed below
+    if (this.ioContext && !isCustomIO) {
+      try {
+        this.ioContext.closepSync();
+      } catch {
+        // Ignore errors
+      }
+    }
+
+    // Free format context
+    if (this.formatContext) {
+      try {
+        this.formatContext.freeContext();
+      } catch {
+        // Ignore errors
+      }
+    }
+
+    // Now free custom IO context if present
+    if (this.ioContext && isCustomIO) {
+      try {
+        this.ioContext.freeContext();
+      } catch {
+        // Ignore errors
+      }
+    }
+  }
+
+  /**
    * Get underlying format context.
    *
    * Returns the internal format context for advanced operations.
@@ -561,5 +905,25 @@ export class MediaOutput implements AsyncDisposable {
    */
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
+  }
+
+  /**
+   * Dispose of media output synchronously.
+   *
+   * Implements Disposable interface for automatic cleanup.
+   * Equivalent to calling closeSync().
+   *
+   * @example
+   * ```typescript
+   * {
+   *   using output = MediaOutput.openSync('output.mp4');
+   *   // Use output...
+   * } // Automatically closed
+   * ```
+   *
+   * @see {@link closeSync} For manual cleanup
+   */
+  [Symbol.dispose](): void {
+    this.closeSync();
   }
 }

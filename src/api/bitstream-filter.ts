@@ -49,8 +49,11 @@ export class BitStreamFilterAPI implements Disposable {
 
   /**
    * @param filter - Bitstream filter instance
+   *
    * @param ctx - Filter context
+   *
    * @param stream - Associated stream
+   *
    * @internal
    */
   private constructor(filter: BitStreamFilter, ctx: BitStreamFilterContext, stream: Stream) {
@@ -68,7 +71,9 @@ export class BitStreamFilterAPI implements Disposable {
    * Direct mapping to av_bsf_get_by_name() and av_bsf_alloc().
    *
    * @param filterName - Name of the bitstream filter
+   *
    * @param stream - Stream to apply filter to
+   *
    * @returns Configured bitstream filter
    *
    * @throws {Error} If filter not found or initialization fails
@@ -186,6 +191,7 @@ export class BitStreamFilterAPI implements Disposable {
    * Direct mapping to av_bsf_send_packet() and av_bsf_receive_packet().
    *
    * @param packet - Packet to filter or null for EOF
+   *
    * @returns Array of filtered packets
    *
    * @throws {Error} If filter is disposed
@@ -247,6 +253,77 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
+   * Process a packet through the filter synchronously.
+   * Synchronous version of process.
+   *
+   * Applies bitstream filter to packet.
+   * May produce zero, one, or multiple output packets.
+   * Pass null to signal end-of-stream.
+   *
+   * Direct mapping to av_bsf_send_packet() and av_bsf_receive_packet().
+   *
+   * @param packet - Packet to filter or null for EOF
+   *
+   * @returns Array of filtered packets
+   *
+   * @throws {Error} If filter is disposed
+   *
+   * @throws {FFmpegError} If filtering fails
+   *
+   * @example
+   * ```typescript
+   * const outputPackets = filter.processSync(inputPacket);
+   * for (const packet of outputPackets) {
+   *   console.log(`Filtered packet: pts=${packet.pts}`);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Flush filter
+   * const remaining = filter.processSync(null);
+   * ```
+   *
+   * @see {@link process} For async version
+   */
+  processSync(packet: Packet | null): Packet[] {
+    if (this.isDisposed) {
+      throw new Error('BitStreamFilterAPI is disposed');
+    }
+
+    const outputPackets: Packet[] = [];
+
+    // Send packet to filter
+    const sendRet = this.ctx.sendPacketSync(packet);
+    if (sendRet < 0 && sendRet !== AVERROR_EAGAIN) {
+      FFmpegError.throwIfError(sendRet, 'Failed to send packet to bitstream filter');
+    }
+
+    // Receive all output packets
+    while (true) {
+      const outPacket = new Packet();
+      outPacket.alloc();
+
+      const recvRet = this.ctx.receivePacketSync(outPacket);
+
+      if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
+        outPacket.unref();
+        break;
+      }
+
+      if (recvRet < 0) {
+        outPacket.unref();
+        FFmpegError.throwIfError(recvRet, 'Failed to receive packet from bitstream filter');
+      }
+
+      outputPackets.push(outPacket);
+    }
+
+    return outputPackets;
+  }
+
+  /**
    * Process packet stream through filter.
    *
    * High-level async generator for filtering packet streams.
@@ -254,7 +331,9 @@ export class BitStreamFilterAPI implements Disposable {
    * Yields filtered packets ready for output.
    *
    * @param packets - Async iterable of packets
+   *
    * @yields {Packet} Filtered packets
+   *
    * @throws {Error} If filter is disposed
    *
    * @throws {FFmpegError} If filtering fails
@@ -310,6 +389,71 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
+   * Process packet stream through filter synchronously.
+   * Synchronous version of packets.
+   *
+   * High-level sync generator for filtering packet streams.
+   * Automatically handles flushing at end of stream.
+   * Yields filtered packets ready for output.
+   *
+   * @param packets - Iterable of packets
+   *
+   * @yields {Packet} Filtered packets
+   *
+   * @throws {Error} If filter is disposed
+   *
+   * @throws {FFmpegError} If filtering fails
+   *
+   * @example
+   * ```typescript
+   * // Filter entire stream
+   * for (const packet of filter.packetsSync(packets)) {
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Chain with decoder
+   * const decoder = await Decoder.create(stream);
+   * const filter = BitStreamFilterAPI.create('h264_mp4toannexb', stream);
+   *
+   * for (const frame of decoder.framesSync(filter.packetsSync(packets))) {
+   *   // Process frames
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link packets} For async version
+   */
+  *packetsSync(packets: Iterable<Packet>): Generator<Packet> {
+    if (this.isDisposed) {
+      throw new Error('BitStreamFilterAPI is disposed');
+    }
+
+    try {
+      // Process all input packets
+      for (const packet of packets) {
+        const filtered = this.processSync(packet);
+        for (const outPacket of filtered) {
+          yield outPacket;
+        }
+      }
+
+      // Send EOF and get remaining packets
+      const remaining = this.flushSync();
+      for (const packet of remaining) {
+        yield packet;
+      }
+    } catch (error) {
+      // Ensure cleanup on error
+      this.ctx.flush();
+      throw error;
+    }
+  }
+
+  /**
    * Flush filter and get remaining packets.
    *
    * Signals end-of-stream and retrieves buffered packets.
@@ -348,12 +492,51 @@ export class BitStreamFilterAPI implements Disposable {
   }
 
   /**
+   * Flush filter and get remaining packets synchronously.
+   * Synchronous version of flush.
+   *
+   * Signals end-of-stream and retrieves buffered packets.
+   * Also resets internal filter state.
+   *
+   * Direct mapping to av_bsf_flush().
+   *
+   * @returns Array of remaining packets
+   *
+   * @throws {Error} If filter is disposed
+   *
+   * @example
+   * ```typescript
+   * const remaining = filter.flushSync();
+   * for (const packet of remaining) {
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link flush} For async version
+   */
+  flushSync(): Packet[] {
+    if (this.isDisposed) {
+      throw new Error('BitStreamFilterAPI is disposed');
+    }
+
+    // Send EOF
+    const filtered = this.processSync(null);
+
+    // Also flush the context to reset internal state
+    this.ctx.flush();
+
+    return filtered;
+  }
+
+  /**
    * Flush filter as async generator.
    *
    * Convenient async iteration over remaining packets.
    * Combines flush and iteration.
    *
    * @yields {Packet} Remaining packets
+   *
    * @throws {Error} If filter is disposed
    *
    * @example
@@ -372,6 +555,38 @@ export class BitStreamFilterAPI implements Disposable {
     }
 
     const remaining = await this.flush();
+    for (const packet of remaining) {
+      yield packet;
+    }
+  }
+
+  /**
+   * Flush filter as generator synchronously.
+   * Synchronous version of flushPackets.
+   *
+   * Convenient sync iteration over remaining packets.
+   * Combines flush and iteration.
+   *
+   * @yields {Packet} Remaining packets
+   *
+   * @throws {Error} If filter is disposed
+   *
+   * @example
+   * ```typescript
+   * for (const packet of filter.flushPacketsSync()) {
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link flushPackets} For async version
+   */
+  *flushPacketsSync(): Generator<Packet> {
+    if (this.isDisposed) {
+      throw new Error('BitStreamFilterAPI is disposed');
+    }
+
+    const remaining = this.flushSync();
     for (const packet of remaining) {
       yield packet;
     }

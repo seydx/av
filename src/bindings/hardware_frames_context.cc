@@ -10,26 +10,23 @@ Napi::FunctionReference HardwareFramesContext::constructor;
 
 Napi::Object HardwareFramesContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "HardwareFramesContext", {
-    // Methods - Low Level API
     InstanceMethod<&HardwareFramesContext::Alloc>("alloc"),
     InstanceMethod<&HardwareFramesContext::Init>("init"),
     InstanceMethod<&HardwareFramesContext::GetBuffer>("getBuffer"),
     InstanceMethod<&HardwareFramesContext::TransferDataAsync>("transferData"),
+    InstanceMethod<&HardwareFramesContext::TransferDataSync>("transferDataSync"),
     InstanceMethod<&HardwareFramesContext::TransferGetFormats>("transferGetFormats"),
     InstanceMethod<&HardwareFramesContext::Map>("map"),
     InstanceMethod<&HardwareFramesContext::CreateDerived>("createDerived"),
     InstanceMethod<&HardwareFramesContext::Free>("free"),
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &HardwareFramesContext::Dispose),
 
-    // Properties
     InstanceAccessor<&HardwareFramesContext::GetFormat, &HardwareFramesContext::SetFormat>("format"),
     InstanceAccessor<&HardwareFramesContext::GetSwFormat, &HardwareFramesContext::SetSwFormat>("swFormat"),
     InstanceAccessor<&HardwareFramesContext::GetWidth, &HardwareFramesContext::SetWidth>("width"),
     InstanceAccessor<&HardwareFramesContext::GetHeight, &HardwareFramesContext::SetHeight>("height"),
     InstanceAccessor<&HardwareFramesContext::GetInitialPoolSize, &HardwareFramesContext::SetInitialPoolSize>("initialPoolSize"),
     InstanceAccessor<&HardwareFramesContext::GetDeviceRef, nullptr>("deviceRef"),
-    
-    // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &HardwareFramesContext::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -38,8 +35,6 @@ Napi::Object HardwareFramesContext::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("HardwareFramesContext", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 HardwareFramesContext::HardwareFramesContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<HardwareFramesContext>(info), unowned_ref_(nullptr) {
@@ -55,8 +50,6 @@ HardwareFramesContext::~HardwareFramesContext() {
   // RAII handles cleanup
 }
 
-// === Static Methods ===
-
 Napi::Value HardwareFramesContext::Wrap(Napi::Env env, AVBufferRef* frames_ref) {
   if (!frames_ref) {
     return env.Null();
@@ -67,8 +60,6 @@ Napi::Value HardwareFramesContext::Wrap(Napi::Env env, AVBufferRef* frames_ref) 
   ctx->SetUnowned(frames_ref); // We don't own contexts that are wrapped
   return obj;
 }
-
-// === Methods ===
 
 Napi::Value HardwareFramesContext::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -142,8 +133,6 @@ Napi::Value HardwareFramesContext::GetBuffer(const Napi::CallbackInfo& info) {
   int ret = av_hwframe_get_buffer(ref, frame->Get(), flags);
   return Napi::Number::New(env, ret);
 }
-
-// TransferDataAsync is now implemented in hardware_frames_context_async.cc
 
 Napi::Value HardwareFramesContext::TransferGetFormats(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -263,8 +252,6 @@ Napi::Value HardwareFramesContext::Free(const Napi::CallbackInfo& info) {
   
   return env.Undefined();
 }
-
-// === Properties ===
 
 Napi::Value HardwareFramesContext::GetFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -411,8 +398,6 @@ Napi::Value HardwareFramesContext::GetDeviceRef(const Napi::CallbackInfo& info) 
   
   return HardwareDeviceContext::Wrap(env, ctx->device_ref);
 }
-
-// === Utility ===
 
 Napi::Value HardwareFramesContext::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);

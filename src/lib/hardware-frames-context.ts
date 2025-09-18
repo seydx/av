@@ -256,7 +256,9 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwframe_get_buffer().
    *
    * @param frame - Frame to allocate buffer for
+   *
    * @param flags - Allocation flags (usually 0)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: No frames available in pool
    *   - AVERROR_EINVAL: Invalid parameters
@@ -286,8 +288,11 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwframe_transfer_data().
    *
    * @param dst - Destination frame
+   *
    * @param src - Source frame
+   *
    * @param flags - Transfer flags (usually 0)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOSYS: Transfer not supported
@@ -319,6 +324,51 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
   }
 
   /**
+   * Transfer frame between hardware and system memory synchronously.
+   * Synchronous version of transferData.
+   *
+   * Copies frame data between GPU and CPU memory.
+   * Direction depends on frame types (hardware vs software).
+   *
+   * Direct mapping to av_hwframe_transfer_data().
+   *
+   * @param dst - Destination frame
+   *
+   * @param src - Source frame
+   *
+   * @param flags - Transfer flags (currently unused, pass 0)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid frames
+   *   - AVERROR_ENOSYS: Operation not supported
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { Frame, FFmpegError } from 'node-av';
+   *
+   * // Download from GPU to CPU
+   * const cpuFrame = new Frame();
+   * cpuFrame.format = frames.swFormat;
+   * cpuFrame.width = frames.width;
+   * cpuFrame.height = frames.height;
+   * cpuFrame.allocBuffer();
+   *
+   * const ret = frames.transferDataSync(cpuFrame, hwFrame);
+   * FFmpegError.throwIfError(ret, 'transferDataSync');
+   *
+   * // Upload from CPU to GPU
+   * const ret2 = frames.transferDataSync(hwFrame, cpuFrame);
+   * FFmpegError.throwIfError(ret2, 'transferDataSync');
+   * ```
+   *
+   * @see {@link transferData} For async version
+   */
+  transferDataSync(dst: Frame, src: Frame, flags?: number): number {
+    return this.native.transferDataSync(dst.getNative(), src.getNative(), flags ?? 0);
+  }
+
+  /**
    * Get supported transfer formats.
    *
    * Returns pixel formats supported for frame transfer
@@ -327,6 +377,7 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwframe_transfer_get_formats().
    *
    * @param direction - Transfer direction (FROM/TO hardware)
+   *
    * @returns Array of supported formats, or error code:
    *   - AVERROR_ENOSYS: Query not supported
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -356,8 +407,11 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwframe_map().
    *
    * @param dst - Destination frame for mapped data
+   *
    * @param src - Hardware frame to map
+   *
    * @param flags - Mapping flags (AV_HWFRAME_MAP_*)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOSYS: Mapping not supported
@@ -388,9 +442,13 @@ export class HardwareFramesContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwframe_ctx_create_derived().
    *
    * @param format - Pixel format for derived frames
+   *
    * @param derivedDevice - Target device context
+   *
    * @param source - Source frames context
+   *
    * @param flags - Creation flags
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOSYS: Derivation not supported

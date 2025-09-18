@@ -4,15 +4,11 @@ namespace ffmpeg {
 
 Napi::FunctionReference Filter::constructor;
 
-// === Init ===
-
 Napi::Object Filter::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Filter", {
-    // Static methods
     StaticMethod<&Filter::GetByName>("getByName"),
     StaticMethod<&Filter::GetList>("getList"),
-    
-    // Properties
+
     InstanceAccessor<&Filter::GetName>("name"),
     InstanceAccessor<&Filter::GetDescription>("description"),
     InstanceAccessor<&Filter::GetInputs>("inputs"),
@@ -27,14 +23,10 @@ Napi::Object Filter::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 Filter::Filter(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<Filter>(info) {
   // Filter objects are created internally, not by users
 }
-
-// === Static Methods ===
 
 Napi::Value Filter::GetByName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -75,8 +67,6 @@ Napi::Value Filter::GetList(const Napi::CallbackInfo& info) {
   
   return filters;
 }
-
-// === Properties ===
 
 Napi::Value Filter::GetName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

@@ -65,9 +65,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-/**
- * Convert JavaScript object to AVRational
- */
 inline AVRational JSToRational(const Napi::Object& obj) {
   AVRational r;
   r.num = obj.Get("num").As<Napi::Number>().Int32Value();
@@ -75,9 +72,6 @@ inline AVRational JSToRational(const Napi::Object& obj) {
   return r;
 }
 
-/**
- * Convert AVRational to JavaScript object
- */
 inline Napi::Object RationalToJS(const Napi::Env& env, const AVRational& r) {
   Napi::Object obj = Napi::Object::New(env);
   obj.Set("num", Napi::Number::New(env, r.num));
@@ -85,9 +79,6 @@ inline Napi::Object RationalToJS(const Napi::Env& env, const AVRational& r) {
   return obj;
 }
 
-/**
- * Safely unwrap a native object from JavaScript
- */
 template<typename T>
 T* UnwrapNativeObject(const Napi::Env& env, const Napi::Value& value, const char* typeName) {
   if (!value.IsObject()) {

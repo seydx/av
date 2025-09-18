@@ -63,6 +63,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwdevice_get_type_name().
    *
    * @param type - Hardware device type
+   *
    * @returns Type name string, or null if invalid
    *
    * @example
@@ -111,6 +112,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwdevice_find_type_by_name().
    *
    * @param name - Hardware type name (e.g., 'cuda', 'vaapi', 'videotoolbox')
+   *
    * @returns Hardware device type enum, or AV_HWDEVICE_TYPE_NONE if not found
    *
    * @example
@@ -217,8 +219,11 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwdevice_ctx_create().
    *
    * @param type - Hardware device type
+   *
    * @param device - Device name/path (null for default)
+   *
    * @param options - Device-specific options
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid type or parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -261,7 +266,9 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwdevice_ctx_create_derived().
    *
    * @param source - Source device context to derive from
+   *
    * @param type - Target hardware device type
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOSYS: Derivation not supported
@@ -341,6 +348,7 @@ export class HardwareDeviceContext implements Disposable, NativeWrapper<NativeHa
    * Direct mapping to av_hwdevice_get_hwframe_constraints().
    *
    * @param hwconfig - Optional hardware configuration
+   *
    * @returns Frame constraints, or null if not available
    *
    * @example

@@ -15,8 +15,7 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   CodecParameters(const Napi::CallbackInfo& info);
   ~CodecParameters();
-  
-  // Native access
+
   AVCodecParameters* Get() { return params_; }
   const AVCodecParameters* Get() const { return params_; }
   
@@ -32,32 +31,26 @@ public:
   
 
 private:
-  // Friend classes
   friend class Stream;
   friend class BitStreamFilterContext;
-  
-  // Static members
+
   static Napi::FunctionReference constructor;
-  
-  // Resources
-  AVCodecParameters* params_ = nullptr;  // Manual RAII
+
+  AVCodecParameters* params_ = nullptr;
   bool is_freed_ = false;
-  bool is_owned_ = true;  // Whether we own the params and should free them
-  
-  // === Methods ===
-  
-  // Lifecycle
+  bool is_owned_ = true;
+
   Napi::Value Alloc(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
   Napi::Value Copy(const Napi::CallbackInfo& info);
   Napi::Value FromContext(const Napi::CallbackInfo& info);
   Napi::Value ToContext(const Napi::CallbackInfo& info);
   Napi::Value ToJSON(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
+
   Napi::Value GetCodecType(const Napi::CallbackInfo& info);
   void SetCodecType(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
+
   Napi::Value GetCodecId(const Napi::CallbackInfo& info);
   void SetCodecId(const Napi::CallbackInfo& info, const Napi::Value& value);
   
@@ -116,9 +109,6 @@ private:
   
   Napi::Value GetSampleRate(const Napi::CallbackInfo& info);
   void SetSampleRate(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // Utility
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

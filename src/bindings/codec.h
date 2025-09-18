@@ -15,29 +15,24 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   Codec(const Napi::CallbackInfo& info);
   ~Codec();
-  
-  // Native access
+
   const AVCodec* Get() const { return codec_; }
   
   // Create instance from native codec
   static Napi::Object NewInstance(Napi::Env env, AVCodec* codec);
 
 private:
-  // Static members
   static Napi::FunctionReference constructor;
-  
-  // Resources
+
   const AVCodec* codec_; // AVCodec is const, we don't own it
-  
-  // === Static Methods ===
+
   static Napi::Value FindDecoder(const Napi::CallbackInfo& info);
   static Napi::Value FindDecoderByName(const Napi::CallbackInfo& info);
   static Napi::Value FindEncoder(const Napi::CallbackInfo& info);
   static Napi::Value FindEncoderByName(const Napi::CallbackInfo& info);
   static Napi::Value GetCodecList(const Napi::CallbackInfo& info);
   static Napi::Value IterateCodecs(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
+
   Napi::Value GetName(const Napi::CallbackInfo& info);
   Napi::Value GetLongName(const Napi::CallbackInfo& info);
   Napi::Value GetType(const Napi::CallbackInfo& info);
@@ -55,9 +50,7 @@ private:
   Napi::Value IsDecoder(const Napi::CallbackInfo& info);
   Napi::Value IsExperimental(const Napi::CallbackInfo& info);
   Napi::Value GetHwConfig(const Napi::CallbackInfo& info);
-  
-  // === Utility ===
-  
+
   void Set(const AVCodec* codec) { codec_ = codec; }
 };
 

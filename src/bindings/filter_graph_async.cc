@@ -7,13 +7,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for FilterGraph Operations
-// ============================================================================
-
-/**
- * Worker for avfilter_graph_config - Configures the filter graph
- */
 class FGConfigWorker : public Napi::AsyncWorker {
 public:
   FGConfigWorker(Napi::Env env, FilterGraph* graph)
@@ -44,9 +37,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avfilter_graph_request_oldest - Requests frame from oldest sink
- */
 class FGRequestOldestWorker : public Napi::AsyncWorker {
 public:
   FGRequestOldestWorker(Napi::Env env, FilterGraph* graph)
@@ -76,10 +66,6 @@ private:
   int ret_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// FilterGraph Async Method Implementations
-// ============================================================================
 
 Napi::Value FilterGraph::ConfigAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

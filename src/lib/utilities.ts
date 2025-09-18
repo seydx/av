@@ -14,6 +14,7 @@ import type { ChannelLayout, IRational } from './types.js';
  * Direct mapping to av_get_bytes_per_sample().
  *
  * @param sampleFmt - Audio sample format
+ *
  * @returns Number of bytes per sample, or 0 if unknown format
  *
  * @example
@@ -38,6 +39,7 @@ export function avGetBytesPerSample(sampleFmt: AVSampleFormat): number {
  * Direct mapping to av_get_sample_fmt_name().
  *
  * @param sampleFmt - Audio sample format
+ *
  * @returns Format name, or null if unknown
  *
  * @example
@@ -63,6 +65,7 @@ export function avGetSampleFmtName(sampleFmt: AVSampleFormat): string | null {
  * Direct mapping to av_get_packed_sample_fmt().
  *
  * @param sampleFmt - Audio sample format
+ *
  * @returns Packed version of the format
  *
  * @example
@@ -89,6 +92,7 @@ export function avGetPackedSampleFmt(sampleFmt: AVSampleFormat): AVSampleFormat 
  * Direct mapping to av_get_planar_sample_fmt().
  *
  * @param sampleFmt - Audio sample format
+ *
  * @returns Planar version of the format
  *
  * @example
@@ -115,6 +119,7 @@ export function avGetPlanarSampleFmt(sampleFmt: AVSampleFormat): AVSampleFormat 
  * Direct mapping to av_sample_fmt_is_planar().
  *
  * @param sampleFmt - Audio sample format to check
+ *
  * @returns True if planar, false if packed/interleaved
  *
  * @example
@@ -139,6 +144,7 @@ export function avSampleFmtIsPlanar(sampleFmt: AVSampleFormat): boolean {
  * Direct mapping to avcodec_get_name().
  *
  * @param codecId - Codec ID from AVCodecID enum
+ *
  * @returns Codec name string or null
  *
  * @example
@@ -165,6 +171,7 @@ export function avGetCodecName(codecId: AVCodecID): string | null {
  * Direct mapping to av_get_pix_fmt_name().
  *
  * @param pixFmt - Pixel format
+ *
  * @returns Format name, or null if unknown
  *
  * @example
@@ -189,6 +196,7 @@ export function avGetPixFmtName(pixFmt: AVPixelFormat): string | null {
  * Direct mapping to av_get_pix_fmt().
  *
  * @param name - Pixel format name
+ *
  * @returns Pixel format enum, or AV_PIX_FMT_NONE if unknown
  *
  * @example
@@ -213,6 +221,7 @@ export function avGetPixFmtFromName(name: string): AVPixelFormat {
  * Direct mapping to av_pix_fmt_desc_get() with hwaccel check.
  *
  * @param pixFmt - Pixel format to check
+ *
  * @returns True if hardware format, false if software format
  *
  * @example
@@ -237,6 +246,7 @@ export function avIsHardwarePixelFormat(pixFmt: AVPixelFormat): boolean {
  * Direct mapping to av_get_media_type_string().
  *
  * @param mediaType - Media type enum
+ *
  * @returns Media type name, or null if unknown
  *
  * @example
@@ -262,9 +272,13 @@ export function avGetMediaTypeString(mediaType: AVMediaType): string | null {
  * Direct mapping to av_image_alloc().
  *
  * @param width - Image width in pixels
+ *
  * @param height - Image height in pixels
+ *
  * @param pixFmt - Pixel format
+ *
  * @param align - Buffer alignment (typically 1 or 32)
+ *
  * @returns Object with buffer, size, and line sizes
  *
  * @throws {FFmpegError} If allocation fails
@@ -309,11 +323,17 @@ export function avImageAlloc(
  * Direct mapping to av_image_copy2().
  *
  * @param dstData - Destination data planes
+ *
  * @param dstLinesizes - Destination bytes per line
+ *
  * @param srcData - Source data planes
+ *
  * @param srcLinesizes - Source bytes per line
+ *
  * @param pixFmt - Pixel format
+ *
  * @param width - Image width
+ *
  * @param height - Image height
  *
  * @example
@@ -347,9 +367,13 @@ export function avImageCopy2(
  * Direct mapping to av_image_get_buffer_size().
  *
  * @param pixFmt - Pixel format
+ *
  * @param width - Image width
+ *
  * @param height - Image height
+ *
  * @param align - Buffer alignment
+ *
  * @returns Required buffer size in bytes
  *
  * @example
@@ -375,13 +399,21 @@ export function avImageGetBufferSize(pixFmt: AVPixelFormat, width: number, heigh
  * Direct mapping to av_image_copy_to_buffer().
  *
  * @param dst - Destination buffer
+ *
  * @param dstSize - Destination buffer size
+ *
  * @param srcData - Source data planes
+ *
  * @param srcLinesize - Source bytes per line
+ *
  * @param pixFmt - Pixel format
+ *
  * @param width - Image width
+ *
  * @param height - Image height
+ *
  * @param align - Buffer alignment
+ *
  * @returns Bytes written, or negative AVERROR
  *
  * @example
@@ -417,6 +449,7 @@ export function avImageCopyToBuffer(
  * Direct mapping to av_ts2str().
  *
  * @param ts - Timestamp value
+ *
  * @returns String representation
  *
  * @example
@@ -439,7 +472,9 @@ export function avTs2Str(ts: bigint | number | null): string {
  * Direct mapping to av_ts2timestr().
  *
  * @param ts - Timestamp value
+ *
  * @param timeBase - Time base for conversion
+ *
  * @returns Time string representation
  *
  * @example
@@ -463,9 +498,13 @@ export function avTs2TimeStr(ts: bigint | number | null, timeBase: IRational | n
  * Allocates image data as separate plane arrays.
  *
  * @param width - Image width
+ *
  * @param height - Image height
+ *
  * @param pixFmt - Pixel format
+ *
  * @param align - Buffer alignment
+ *
  * @returns Object with data planes, line sizes, and total size
  *
  * @example
@@ -511,9 +550,13 @@ export function avImageAllocArrays(
  * Direct mapping to av_compare_ts().
  *
  * @param tsA - First timestamp
+ *
  * @param tbA - First time base
+ *
  * @param tsB - Second timestamp
+ *
  * @param tbB - Second time base
+ *
  * @returns -1 if A < B, 0 if A == B, 1 if A > B
  *
  * @example
@@ -539,8 +582,11 @@ export function avCompareTs(tsA: bigint | number | null, tbA: IRational, tsB: bi
  * Direct mapping to av_rescale_q().
  *
  * @param a - Timestamp to rescale
+ *
  * @param bq - Source time base
+ *
  * @param cq - Destination time base
+ *
  * @returns Rescaled timestamp
  *
  * @example
@@ -589,9 +635,13 @@ export function avUsleep(usec: number): void {
  * Direct mapping to av_rescale_rnd().
  *
  * @param a - Value to rescale
+ *
  * @param b - Multiplier
+ *
  * @param c - Divisor
+ *
  * @param rnd - Rounding mode (AV_ROUND_*)
+ *
  * @returns Rescaled value
  *
  * @example
@@ -616,9 +666,13 @@ export function avRescaleRnd(a: bigint | number, b: bigint | number, c: bigint |
  * Direct mapping to av_samples_alloc().
  *
  * @param nbChannels - Number of audio channels
+ *
  * @param nbSamples - Number of samples per channel
+ *
  * @param sampleFmt - Sample format
+ *
  * @param align - Buffer alignment
+ *
  * @returns Object with data buffers, line size, and total size
  *
  * @throws {FFmpegError} If allocation fails
@@ -661,9 +715,13 @@ export function avSamplesAlloc(
  * Direct mapping to av_samples_get_buffer_size().
  *
  * @param nbChannels - Number of channels
+ *
  * @param nbSamples - Number of samples per channel
+ *
  * @param sampleFmt - Sample format
+ *
  * @param align - Buffer alignment
+ *
  * @returns Object with size and line size
  *
  * @throws {FFmpegError} If parameters are invalid
@@ -705,6 +763,7 @@ export function avSamplesGetBufferSize(
  * Direct mapping to av_channel_layout_describe().
  *
  * @param channelLayout - Channel layout to describe
+ *
  * @returns Layout description string, or null
  *
  * @example
@@ -728,6 +787,7 @@ export function avChannelLayoutDescribe(channelLayout: Partial<ChannelLayout>): 
  * Direct mapping to av_sdp_create().
  *
  * @param contexts - Array of format contexts
+ *
  * @returns SDP string, or null on error
  *
  * @example

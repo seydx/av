@@ -18,37 +18,49 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   IOContext(const Napi::CallbackInfo& info);
   ~IOContext();
-  
-  // Native access
+
   AVIOContext* Get() { return ctx_; }
-  
-  // Static factory
+
   Napi::Value FreeContext(const Napi::CallbackInfo& info);
   Napi::Value ClosepAsync(const Napi::CallbackInfo& info);
+  Napi::Value ClosepSync(const Napi::CallbackInfo& info);
   Napi::Value ReadAsync(const Napi::CallbackInfo& info);
+  Napi::Value ReadSync(const Napi::CallbackInfo& info);
   Napi::Value WriteAsync(const Napi::CallbackInfo& info);
+  Napi::Value WriteSync(const Napi::CallbackInfo& info);
   Napi::Value SeekAsync(const Napi::CallbackInfo& info);
+  Napi::Value SeekSync(const Napi::CallbackInfo& info);
   Napi::Value SizeAsync(const Napi::CallbackInfo& info);
+  Napi::Value SizeSync(const Napi::CallbackInfo& info);
   Napi::Value FlushAsync(const Napi::CallbackInfo& info);
+  Napi::Value FlushSync(const Napi::CallbackInfo& info);
   Napi::Value SkipAsync(const Napi::CallbackInfo& info);
+  Napi::Value SkipSync(const Napi::CallbackInfo& info);
   Napi::Value Tell(const Napi::CallbackInfo& info);
   
   Napi::Value GetEof(const Napi::CallbackInfo& info);
+
   Napi::Value GetError(const Napi::CallbackInfo& info);
+
   Napi::Value GetSeekable(const Napi::CallbackInfo& info);
+
   Napi::Value GetMaxPacketSize(const Napi::CallbackInfo& info);
   void SetMaxPacketSize(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetDirect(const Napi::CallbackInfo& info);
   void SetDirect(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetPos(const Napi::CallbackInfo& info);
+
   Napi::Value GetBufferSize(const Napi::CallbackInfo& info);
+
   Napi::Value GetWriteFlag(const Napi::CallbackInfo& info);
   
   // Static members  
   static Napi::FunctionReference constructor;
 
 private:
-  friend class AVOption; // For option unwrapping
+  friend class AVOption;
   friend class FormatContext;
   friend class IOOpen2Worker;
   friend class InputFormatProbeBufferWorker;
@@ -59,9 +71,8 @@ private:
   friend class IOSizeWorker;
   friend class IOFlushWorker;
   friend class IOSkipWorker;
-  
-  // Resources
-  AVIOContext* ctx_ = nullptr;  // The AVIOContext we manage
+
+  AVIOContext* ctx_ = nullptr;
   
   // Custom I/O callback support
   struct CallbackData {
@@ -87,19 +98,10 @@ private:
   static int WritePacket(void* opaque, const uint8_t* buf, int buf_size);
   static int64_t Seek(void* opaque, int64_t offset, int whence);
   
-  // === Methods ===
-  
-  // Lifecycle
   Napi::Value AllocContext(const Napi::CallbackInfo& info);
   Napi::Value AllocContextWithCallbacks(const Napi::CallbackInfo& info);
-  
-  // Operations
   Napi::Value Open2Async(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
-  
-  // === Utility ===
-  
+  Napi::Value Open2Sync(const Napi::CallbackInfo& info);
   Napi::Value AsyncDispose(const Napi::CallbackInfo& info);
 };
 

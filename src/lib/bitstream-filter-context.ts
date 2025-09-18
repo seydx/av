@@ -167,6 +167,7 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    * Direct mapping to av_bsf_alloc().
    *
    * @param filter - The bitstream filter to use
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *   - AVERROR_EINVAL: Invalid filter
@@ -276,6 +277,7 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    * Direct mapping to av_bsf_send_packet().
    *
    * @param packet - Packet to filter, or null to signal EOF
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: Filter needs output to be consumed first
    *   - AVERROR_EOF: Filter has been flushed
@@ -307,6 +309,48 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
   }
 
   /**
+   * Send a packet to the bitstream filter synchronously.
+   * Synchronous version of sendPacket.
+   *
+   * Submits a packet for filtering. The filter may buffer packets
+   * internally and produce output with different timing.
+   *
+   * Direct mapping to av_bsf_send_packet().
+   *
+   * @param packet - Packet to filter (null to drain)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Need to receive packets first
+   *   - AVERROR_EOF: Filter has been flushed
+   *   - AVERROR_EINVAL: Invalid state
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av/constants';
+   *
+   * // Send packet to filter
+   * const ret = ctx.sendPacketSync(inputPacket);
+   * if (ret === AVERROR_EAGAIN) {
+   *   // Need to receive output first
+   *   const outputPacket = new Packet();
+   *   ctx.receivePacketSync(outputPacket);
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'sendPacketSync');
+   * }
+   *
+   * // Drain filter
+   * ctx.sendPacketSync(null);
+   * ```
+   *
+   * @see {@link sendPacket} For async version
+   */
+  sendPacketSync(packet: Packet | null): number {
+    return this.native.sendPacketSync(packet ? packet.getNative() : null);
+  }
+
+  /**
    * Receive a filtered packet from the bitstream filter.
    *
    * Retrieves a packet that has been processed by the filter.
@@ -315,6 +359,7 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    * Direct mapping to av_bsf_receive_packet().
    *
    * @param packet - Packet to receive filtered data into
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: Need more input
    *   - AVERROR_EOF: No more packets available
@@ -342,6 +387,46 @@ export class BitStreamFilterContext extends OptionMember<NativeBitStreamFilterCo
    */
   async receivePacket(packet: Packet): Promise<number> {
     return await this.native.receivePacket(packet.getNative());
+  }
+
+  /**
+   * Receive a filtered packet from the bitstream filter synchronously.
+   * Synchronous version of receivePacket.
+   *
+   * Retrieves a packet that has been processed by the filter.
+   * May need to be called multiple times after each sendPacketSync().
+   *
+   * Direct mapping to av_bsf_receive_packet().
+   *
+   * @param packet - Packet to receive filtered data into
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Need more input
+   *   - AVERROR_EOF: No more packets available
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
+   *
+   * // Receive filtered packets
+   * const outputPacket = new Packet();
+   * let ret;
+   * while ((ret = ctx.receivePacketSync(outputPacket)) >= 0) {
+   *   // Process filtered packet
+   *   console.log(`Filtered packet size: ${outputPacket.size}`);
+   *   outputPacket.unref();
+   * }
+   *
+   * if (ret !== AVERROR_EAGAIN && ret !== AVERROR_EOF) {
+   *   FFmpegError.throwIfError(ret, 'receivePacketSync');
+   * }
+   * ```
+   *
+   * @see {@link receivePacket} For async version
+   */
+  receivePacketSync(packet: Packet): number {
+    return this.native.receivePacketSync(packet.getNative());
   }
 
   /**

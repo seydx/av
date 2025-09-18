@@ -83,6 +83,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Used internally for wrapping native I/O contexts.
    *
    * @param native - Native IOContext binding object
+   *
    * @returns Wrapped IOContext instance
    *
    * @internal
@@ -200,6 +201,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_alloc_context() without callbacks.
    *
    * @param bufferSize - Size of internal buffer
+   *
    * @param writeFlag - 1 for write, 0 for read
    *
    * @example
@@ -223,9 +225,13 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_alloc_context() with callbacks.
    *
    * @param bufferSize - Size of internal buffer
+   *
    * @param writeFlag - 1 for write mode, 0 for read mode
+   *
    * @param readCallback - Function to read data (null for write-only)
+   *
    * @param writeCallback - Function to write data (null for read-only)
+   *
    * @param seekCallback - Function to seek in stream (optional)
    *
    * @example
@@ -296,7 +302,9 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_open2().
    *
    * @param url - URL or file path to open
+   *
    * @param flags - Open flags (AVIO_FLAG_READ, AVIO_FLAG_WRITE, etc.)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOENT: File not found
    *   - AVERROR_EACCES: Permission denied
@@ -320,6 +328,44 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    */
   async open2(url: string, flags: AVIOFlag = AVIO_FLAG_READ): Promise<number> {
     return await this.native.open2(url, flags);
+  }
+
+  /**
+   * Open resource for I/O synchronously.
+   * Synchronous version of open2.
+   *
+   * Opens a URL or file for reading or writing.
+   * Automatically selects the appropriate protocol handler.
+   *
+   * Direct mapping to avio_open2().
+   *
+   * @param url - URL or file path to open
+   *
+   * @param flags - Open flags (AVIO_FLAG_READ, AVIO_FLAG_WRITE, etc.)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_ENOENT: File not found
+   *   - AVERROR_EACCES: Permission denied
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVIO_FLAG_READ, AVIO_FLAG_WRITE } from 'node-av/constants';
+   *
+   * // Open for reading
+   * const ret = io.open2Sync('input.mp4', AVIO_FLAG_READ);
+   * FFmpegError.throwIfError(ret, 'open2');
+   *
+   * // Open for writing
+   * const ret2 = io.open2Sync('output.mp4', AVIO_FLAG_WRITE);
+   * FFmpegError.throwIfError(ret2, 'open2');
+   * ```
+   *
+   * @see {@link open2} For async version
+   */
+  open2Sync(url: string, flags: AVIOFlag = AVIO_FLAG_READ): number {
+    return this.native.open2Sync(url, flags);
   }
 
   /**
@@ -347,6 +393,31 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   }
 
   /**
+   * Close I/O context synchronously.
+   * Synchronous version of closep.
+   *
+   * Closes the I/O context and frees resources.
+   * Sets internal pointer to NULL.
+   *
+   * Direct mapping to avio_closep().
+   *
+   * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * const ret = io.closepSync();
+   * if (ret < 0) {
+   *   console.error(`Failed to close: ${ret}`);
+   * }
+   * ```
+   *
+   * @see {@link closep} For async version
+   */
+  closepSync(): number {
+    return this.native.closepSync();
+  }
+
+  /**
    * Read data from I/O context.
    *
    * Reads up to the specified number of bytes from the stream.
@@ -354,6 +425,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_read().
    *
    * @param size - Maximum number of bytes to read
+   *
    * @returns Buffer with data, or error code if negative:
    *   - AVERROR_EOF: End of file reached
    *   - AVERROR_EIO: I/O error
@@ -372,6 +444,34 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    */
   async read(size: number): Promise<Buffer | number> {
     return await this.native.read(size);
+  }
+
+  /**
+   * Read data from I/O context synchronously.
+   * Synchronous version of read.
+   *
+   * Reads up to the specified number of bytes from the stream.
+   *
+   * Direct mapping to avio_read().
+   *
+   * @param size - Number of bytes to read
+   *
+   * @returns Buffer with data, or negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * const result = io.readSync(4096);
+   * if (Buffer.isBuffer(result)) {
+   *   console.log(`Read ${result.length} bytes`);
+   * } else {
+   *   console.log(`Read error: ${result}`);
+   * }
+   * ```
+   *
+   * @see {@link read} For async version
+   */
+  readSync(size: number): Buffer | number {
+    return this.native.readSync(size);
   }
 
   /**
@@ -397,6 +497,28 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   }
 
   /**
+   * Write data to I/O context synchronously.
+   * Synchronous version of write.
+   *
+   * Writes buffer data to the stream.
+   *
+   * Direct mapping to avio_write().
+   *
+   * @param buffer - Data to write
+   *
+   * @example
+   * ```typescript
+   * const data = Buffer.from('Hello, World!');
+   * io.writeSync(data);
+   * ```
+   *
+   * @see {@link write} For async version
+   */
+  writeSync(buffer: Buffer): void {
+    this.native.writeSync(buffer);
+  }
+
+  /**
    * Seek to position in stream.
    *
    * Changes the current position in the stream.
@@ -405,7 +527,9 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_seek().
    *
    * @param offset - Byte offset to seek to
+   *
    * @param whence - Seek origin (AVSEEK_SET, AVSEEK_CUR, AVSEEK_END)
+   *
    * @returns New position, or negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid arguments
    *   - AVERROR_ENOSYS: Seeking not supported
@@ -429,6 +553,43 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    */
   async seek(offset: bigint, whence: AVSeekWhence): Promise<bigint> {
     return await this.native.seek(offset, whence);
+  }
+
+  /**
+   * Seek to position in stream synchronously.
+   * Synchronous version of seek.
+   *
+   * Changes the current position in the stream.
+   * Not all streams support seeking.
+   *
+   * Direct mapping to avio_seek().
+   *
+   * @param offset - Byte offset to seek to
+   *
+   * @param whence - Seek origin (AVSEEK_SET, AVSEEK_CUR, AVSEEK_END)
+   *
+   * @returns New position, or negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid arguments
+   *   - AVERROR_ENOSYS: Seeking not supported
+   *
+   * @example
+   * ```typescript
+   * import { AVSEEK_SET, AVSEEK_CUR, AVSEEK_END } from 'node-av/constants';
+   *
+   * // Seek to absolute position
+   * const pos1 = io.seekSync(1024n, AVSEEK_SET);
+   *
+   * // Seek relative to current position
+   * const pos2 = io.seekSync(512n, AVSEEK_CUR);
+   *
+   * // Seek relative to end
+   * const pos3 = io.seekSync(-1024n, AVSEEK_END);
+   * ```
+   *
+   * @see {@link seek} For async version
+   */
+  seekSync(offset: bigint, whence: AVSeekWhence): bigint {
+    return this.native.seekSync(offset, whence);
   }
 
   /**
@@ -457,6 +618,34 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   }
 
   /**
+   * Get stream size synchronously.
+   * Synchronous version of size.
+   *
+   * Returns the total size of the stream in bytes.
+   * Not all streams have a known size.
+   *
+   * Direct mapping to avio_size().
+   *
+   * @returns Size in bytes, or negative AVERROR if unknown:
+   *   - AVERROR_ENOSYS: Size not available
+   *
+   * @example
+   * ```typescript
+   * const size = io.sizeSync();
+   * if (size >= 0n) {
+   *   console.log(`Stream size: ${size} bytes`);
+   * } else {
+   *   console.log('Stream size unknown');
+   * }
+   * ```
+   *
+   * @see {@link size} For async version
+   */
+  sizeSync(): bigint {
+    return this.native.sizeSync();
+  }
+
+  /**
    * Flush buffered data.
    *
    * Forces any buffered data to be written to the underlying resource.
@@ -476,6 +665,26 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
   }
 
   /**
+   * Flush buffered data synchronously.
+   * Synchronous version of flush.
+   *
+   * Forces any buffered data to be written to the underlying resource.
+   *
+   * Direct mapping to avio_flush().
+   *
+   * @example
+   * ```typescript
+   * io.writeSync(data);
+   * io.flushSync(); // Ensure data is written
+   * ```
+   *
+   * @see {@link flush} For async version
+   */
+  flushSync(): void {
+    this.native.flushSync();
+  }
+
+  /**
    * Skip bytes in stream.
    *
    * Advances the position by the specified offset.
@@ -484,6 +693,7 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    * Direct mapping to avio_skip().
    *
    * @param offset - Number of bytes to skip
+   *
    * @returns New position after skipping
    *
    * @example
@@ -497,6 +707,32 @@ export class IOContext extends OptionMember<NativeIOContext> implements AsyncDis
    */
   async skip(offset: bigint): Promise<bigint> {
     return await this.native.skip(offset);
+  }
+
+  /**
+   * Skip bytes in stream synchronously.
+   * Synchronous version of skip.
+   *
+   * Advances the position by the specified offset.
+   * More efficient than reading and discarding data.
+   *
+   * Direct mapping to avio_skip().
+   *
+   * @param offset - Number of bytes to skip
+   *
+   * @returns New position after skipping
+   *
+   * @example
+   * ```typescript
+   * // Skip 1024 bytes forward
+   * const newPos = io.skipSync(1024n);
+   * console.log(`New position: ${newPos}`);
+   * ```
+   *
+   * @see {@link skip} For async version
+   */
+  skipSync(offset: bigint): bigint {
+    return this.native.skipSync(offset);
   }
 
   /**

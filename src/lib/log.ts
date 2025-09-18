@@ -104,6 +104,7 @@ export class Log {
    * Direct mapping to av_log().
    *
    * @param level - Log level for this message
+   *
    * @param message - Message to log
    *
    * @example
@@ -128,6 +129,7 @@ export class Log {
    * Direct mapping to av_log_set_callback().
    *
    * @param callback - Function to handle log messages, or null to remove
+   *
    * @param options - Additional logging options
    *
    * @example

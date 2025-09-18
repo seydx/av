@@ -18,8 +18,7 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   FilterInOut(const Napi::CallbackInfo& info);
   ~FilterInOut();
-  
-  // Native access
+
   AVFilterInOut* Get() { return inout_; }
   void SetOwned(AVFilterInOut* inout) { 
     // Free old inout if exists and we own it
@@ -39,43 +38,29 @@ public:
   }
 
 private:
-  // Friend classes
   friend class FilterGraph;
-  
-  // Static members
+
   static Napi::FunctionReference constructor;
-  
-  // Resources
-  AVFilterInOut* inout_ = nullptr;  // Manual RAII
+
+  AVFilterInOut* inout_ = nullptr;
   bool is_freed_ = false;
-  bool is_owned_ = true;  // Whether we own the memory (should free it)
-  
-  // === Methods ===
-  
-  // Lifecycle
+  bool is_owned_ = true;
+
   Napi::Value Alloc(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
-  
-  // name
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
+
   Napi::Value GetName(const Napi::CallbackInfo& info);
   void SetName(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // filterCtx
+
   Napi::Value GetFilterCtx(const Napi::CallbackInfo& info);
   void SetFilterCtx(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // padIdx
+
   Napi::Value GetPadIdx(const Napi::CallbackInfo& info);
   void SetPadIdx(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // next
+
   Napi::Value GetNext(const Napi::CallbackInfo& info);
   void SetNext(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // Utility
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

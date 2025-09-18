@@ -5,15 +5,11 @@ namespace ffmpeg {
 
 Napi::FunctionReference FFmpegError::constructor;
 
-// === Init ===
-
 Napi::Object FFmpegError::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FFmpegError", {
-    // Static methods
     StaticMethod<&FFmpegError::Strerror>("strerror"),
     StaticMethod<&FFmpegError::GetAverror>("getAverror"),
-    
-    // Properties
+
     InstanceAccessor<&FFmpegError::GetErrorCode>("code"),
     InstanceAccessor<&FFmpegError::GetMessage>("message"),
   });
@@ -26,16 +22,12 @@ Napi::Object FFmpegError::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 FFmpegError::FFmpegError(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<FFmpegError>(info) {
   if (info.Length() > 0 && info[0].IsNumber()) {
     code_ = info[0].As<Napi::Number>().Int32Value();
   }
 }
-
-// === Static Methods ===
 
 Napi::Value FFmpegError::Strerror(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -82,14 +74,12 @@ Napi::Value FFmpegError::GetAverror(const Napi::CallbackInfo& info) {
   if (errorName == "ERANGE") return Napi::Number::New(env, AVERROR(ERANGE));
   
   // We don't handle FFmpeg-specific error codes here
-  // They are already available as constants in constants.ts
+  // They are already available as constants
   
   // Unknown error name
   Napi::TypeError::New(env, "Unknown error name: " + errorName).ThrowAsJavaScriptException();
   return env.Null();
 }
-
-// === Properties ===
 
 Napi::Value FFmpegError::GetErrorCode(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

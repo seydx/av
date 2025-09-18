@@ -85,8 +85,11 @@ export class HardwareContext implements Disposable {
 
   /**
    * @param deviceContext - Initialized hardware device context
+   *
    * @param deviceType - Hardware device type enum
+   *
    * @param deviceTypeName - Human-readable device type name
+   *
    * @internal
    */
   private constructor(deviceContext: HardwareDeviceContext, deviceType: AVHWDeviceType, deviceTypeName: string) {
@@ -104,6 +107,7 @@ export class HardwareContext implements Disposable {
    * Platform-specific preference order ensures optimal performance.
    *
    * @param options - Optional hardware configuration
+   *
    * @returns Hardware context or null if unavailable
    *
    * @example
@@ -151,8 +155,11 @@ export class HardwareContext implements Disposable {
    * Direct mapping to av_hwdevice_ctx_create().
    *
    * @param deviceType - Hardware device type from AVHWDeviceType
+   *
    * @param device - Optional device specifier (e.g., GPU index, device path)
+   *
    * @param options - Optional device initialization options
+   *
    * @returns Initialized hardware context
    *
    * @throws {Error} If device type unsupported or initialization fails
@@ -309,7 +316,9 @@ export class HardwareContext implements Disposable {
    * Direct mapping to avcodec_get_hw_config().
    *
    * @param codecId - Codec ID from AVCodecID enum
+   *
    * @param isEncoder - Check for encoder support (default: decoder)
+   *
    * @returns true if codec is supported
    *
    * @example
@@ -344,8 +353,11 @@ export class HardwareContext implements Disposable {
    * Important for ensuring format compatibility in pipelines.
    *
    * @param codecId - Codec ID from AVCodecID enum
+   *
    * @param pixelFormat - Pixel format to check
+   *
    * @param isEncoder - Check for encoder (default: decoder)
+   *
    * @returns true if pixel format is supported
    *
    * @example
@@ -381,6 +393,7 @@ export class HardwareContext implements Disposable {
    * Automatically tests encoder viability before returning.
    *
    * @param codec - Generic codec name (e.g., 'h264', 'hevc', 'av1') or AVCodecID
+   *
    * @returns Hardware encoder codec or null if unsupported
    *
    * @example
@@ -498,6 +511,7 @@ export class HardwareContext implements Disposable {
    * Direct mapping to av_codec_iterate() with hardware config checks.
    *
    * @param isEncoder - Find encoders (true) or decoders (false)
+   *
    * @returns Array of codec names that support this hardware
    *
    * @example
@@ -578,6 +592,7 @@ export class HardwareContext implements Disposable {
    * Used internally to find hardware-specific encoder implementations.
    *
    * @param codecId - AVCodecID enum value
+   *
    * @returns Base codec name or null if unsupported
    *
    * @internal
@@ -656,7 +671,9 @@ export class HardwareContext implements Disposable {
    * Internal factory method using av_hwdevice_ctx_create().
    *
    * @param deviceType - AVHWDeviceType enum value
+   *
    * @param device - Optional device specifier
+   *
    * @param options - Optional device options
    *
    * @returns Hardware context or null if creation fails

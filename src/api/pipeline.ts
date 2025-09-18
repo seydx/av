@@ -82,9 +82,13 @@ export interface PipelineControl {
  * Full transcoding pipeline: input → decoder → encoder → output.
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets to frames
+ *
  * @param encoder - Encoder for encoding frames to packets
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -99,10 +103,15 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder,
  * Full transcoding pipeline with filter: input → decoder → filter → encoder → output.
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets to frames
+ *
  * @param filter - Filter or filter chain for processing frames
+ *
  * @param encoder - Encoder for encoding frames to packets
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -117,10 +126,15 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * Transcoding with bitstream filter: input → decoder → encoder → bsf → output.
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @param bsf - Bitstream filter for packet processing
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -138,11 +152,17 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder,
  * Full pipeline with filter and bsf: input → decoder → filter → encoder → bsf → output.
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets
+ *
  * @param filter - Filter or filter chain
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @param bsf - Bitstream filter
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -168,11 +188,17 @@ export function pipeline(
  * Decode + multiple filters + encode: input → decoder → filter1 → filter2 → encoder → output.
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets
+ *
  * @param filter1 - First filter
+ *
  * @param filter2 - Second filter
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -191,7 +217,9 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter1: FilterAP
  * Stream copy pipeline: input → output (copies all streams).
  *
  * @param source - Media input source
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -207,8 +235,11 @@ export function pipeline(source: MediaInput, output: MediaOutput): PipelineContr
  * Stream copy with bitstream filter: input → bsf → output.
  *
  * @param source - Media input source
+ *
  * @param bsf - Bitstream filter for packet processing
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -225,9 +256,13 @@ export function pipeline(source: MediaInput, bsf: BitStreamFilterAPI | BitStream
  * Filter + encode + output: frames → filter → encoder → output.
  *
  * @param source - Frame source (async iterable)
+ *
  * @param filter - Filter or filter chain
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -246,8 +281,11 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * Encode + output: frames → encoder → output.
  *
  * @param source - Frame source (async iterable)
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -265,7 +303,9 @@ export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder, output:
  * Partial pipeline: input → decoder (returns frames).
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets
+ *
  * @returns Async generator of frames
  *
  * @example
@@ -285,8 +325,11 @@ export function pipeline(source: MediaInput, decoder: Decoder): AsyncGenerator<F
  * Partial pipeline: input → decoder → filter (returns frames).
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets
+ *
  * @param filter - Filter or filter chain
+ *
  * @returns Async generator of frames
  *
  * @example
@@ -307,9 +350,13 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * Partial pipeline: input → decoder → filter → encoder (returns packets).
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets
+ *
  * @param filter - Filter or filter chain
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @returns Async generator of packets
  *
  * @example
@@ -331,8 +378,11 @@ export function pipeline(source: MediaInput, decoder: Decoder, filter: FilterAPI
  * Partial pipeline: input → decoder → encoder (returns packets).
  *
  * @param source - Media input source
+ *
  * @param decoder - Decoder for decoding packets
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @returns Async generator of packets
  *
  * @example
@@ -353,7 +403,9 @@ export function pipeline(source: MediaInput, decoder: Decoder, encoder: Encoder)
  * Partial pipeline: frames → filter (returns frames).
  *
  * @param source - Frame source (async iterable)
+ *
  * @param filter - Filter or filter chain
+ *
  * @returns Async generator of filtered frames
  *
  * @example
@@ -374,7 +426,9 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * Partial pipeline: frames → encoder (returns packets).
  *
  * @param source - Frame source (async iterable)
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @returns Async generator of packets
  *
  * @example
@@ -395,8 +449,11 @@ export function pipeline(source: AsyncIterable<Frame>, encoder: Encoder): AsyncG
  * Partial pipeline: frames → filter → encoder (returns packets).
  *
  * @param source - Frame source (async iterable)
+ *
  * @param filter - Filter or filter chain
+ *
  * @param encoder - Encoder for encoding frames
+ *
  * @returns Async generator of packets
  *
  * @example
@@ -422,8 +479,11 @@ export function pipeline(source: AsyncIterable<Frame>, filter: FilterAPI | Filte
  * Named pipeline with single output - all streams go to the same output.
  *
  * @param inputs - Named input sources (video/audio)
+ *
  * @param stages - Named processing stages for each stream
+ *
  * @param output - Single output destination for all streams
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -446,8 +506,11 @@ export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: N
  * Named pipeline with multiple outputs - each stream has its own output.
  *
  * @param inputs - Named input sources (video/audio)
+ *
  * @param stages - Named processing stages for each stream
+ *
  * @param outputs - Named output destinations
+ *
  * @returns Pipeline control for managing execution
  *
  * @example
@@ -470,7 +533,9 @@ export function pipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: N
  * Partial named pipeline (returns generators for further processing).
  *
  * @param inputs - Named input sources
+ *
  * @param stages - Named processing stages
+ *
  * @returns Record of async generators for each stream
  *
  * @example
@@ -510,6 +575,7 @@ export function pipeline<K extends StreamName, T extends Packet | Frame = Packet
  * Automatically handles type conversions and proper flushing order.
  *
  * @param args - Variable arguments depending on pipeline type
+ *
  * @returns PipelineControl if output is present, AsyncGenerator otherwise
  *
  * @example
@@ -579,6 +645,7 @@ class PipelineControlImpl implements PipelineControl {
 
   /**
    * @param executionPromise - Promise that resolves when pipeline completes
+   *
    * @internal
    */
   constructor(executionPromise: Promise<void>) {
@@ -634,7 +701,9 @@ class PipelineControlImpl implements PipelineControl {
  * Run a media input pipeline for stream copy.
  *
  * @param input - Media input source
+ *
  * @param output - Media output destination
+ *
  * @returns Pipeline control interface
  *
  * @internal
@@ -650,8 +719,11 @@ function runMediaInputPipeline(input: MediaInput, output: MediaOutput): Pipeline
  * Run media input pipeline asynchronously.
  *
  * @param input - Media input source
+ *
  * @param output - Media output destination
+ *
  * @param shouldStop - Function to check if pipeline should stop
+ *
  * @internal
  */
 async function runMediaInputPipelineAsync(input: MediaInput, output: MediaOutput, shouldStop: () => boolean): Promise<void> {
@@ -709,6 +781,7 @@ async function runMediaInputPipelineAsync(input: MediaInput, output: MediaOutput
  * Run a simple linear pipeline.
  *
  * @param args - Pipeline arguments
+ *
  * @returns Pipeline control or async generator
  *
  * @internal
@@ -781,8 +854,11 @@ function runSimplePipeline(args: any[]): PipelineControl | AsyncGenerator<Packet
  * Build a simple pipeline generator.
  *
  * @param source - Source of packets or frames
+ *
  * @param stages - Processing stages
+ *
  * @yields {Packet | Frame} Processed packets or frames
+ *
  * @internal
  */
 async function* buildSimplePipeline(
@@ -819,9 +895,13 @@ async function* buildSimplePipeline(
  * Consume a simple pipeline stream and write to output.
  *
  * @param stream - Stream of packets or frames
+ *
  * @param output - Media output destination
+ *
  * @param metadata - Stream metadata
+ *
  * @param shouldStop - Function to check if pipeline should stop
+ *
  * @internal
  */
 async function consumeSimplePipeline(stream: AsyncIterable<Packet | Frame>, output: MediaOutput, metadata: StreamMetadata, shouldStop: () => boolean): Promise<void> {
@@ -876,7 +956,9 @@ async function consumeSimplePipeline(stream: AsyncIterable<Packet | Frame>, outp
  * Run a named partial pipeline.
  *
  * @param inputs - Named input sources
+ *
  * @param stages - Named processing stages
+ *
  * @returns Record of async generators
  *
  * @internal
@@ -933,8 +1015,11 @@ function runNamedPartialPipeline<K extends StreamName>(inputs: NamedInputs<K>, s
  * Run a named pipeline with outputs.
  *
  * @param inputs - Named input sources
+ *
  * @param stages - Named processing stages
+ *
  * @param output - Output destination(s)
+ *
  * @returns Pipeline control interface
  *
  * @internal
@@ -950,9 +1035,13 @@ function runNamedPipeline<K extends StreamName>(inputs: NamedInputs<K>, stages: 
  * Run named pipeline asynchronously.
  *
  * @param inputs - Named input sources
+ *
  * @param stages - Named processing stages
+ *
  * @param output - Output destination(s)
+ *
  * @param shouldStop - Function to check if pipeline should stop
+ *
  * @internal
  */
 async function runNamedPipelineAsync<K extends StreamName>(
@@ -1070,9 +1159,13 @@ async function runNamedPipelineAsync<K extends StreamName>(
  * Build a flexible named stream pipeline.
  *
  * @param source - Source packets
+ *
  * @param stages - Processing stages
+ *
  * @param metadata - Stream metadata
+ *
  * @yields {Packet | Frame} Processed packets or frames
+ *
  * @internal
  */
 async function* buildFlexibleNamedStreamPipeline(
@@ -1114,9 +1207,13 @@ async function* buildFlexibleNamedStreamPipeline(
  * Build a named stream pipeline.
  *
  * @param source - Source packets
+ *
  * @param stages - Processing stages
+ *
  * @param metadata - Stream metadata
+ *
  * @yields {Packet} Processed packets
+ *
  * @internal
  */
 async function* buildNamedStreamPipeline(
@@ -1164,9 +1261,13 @@ async function* buildNamedStreamPipeline(
  * Consume a named stream and write to output.
  *
  * @param stream - Stream of packets
+ *
  * @param output - Media output destination
+ *
  * @param metadata - Stream metadata
+ *
  * @param shouldStop - Function to check if pipeline should stop
+ *
  * @internal
  */
 async function consumeNamedStream(stream: AsyncIterable<Packet>, output: MediaOutput, metadata: StreamMetadata, shouldStop: () => boolean): Promise<void> {
@@ -1220,9 +1321,13 @@ async function consumeNamedStream(stream: AsyncIterable<Packet>, output: MediaOu
  * Interleave multiple streams to a single output.
  *
  * @param streams - Record of packet streams
+ *
  * @param output - Media output destination
+ *
  * @param metadata - Stream metadata for each stream
+ *
  * @param shouldStop - Function to check if pipeline should stop
+ *
  * @internal
  */
 async function interleaveToOutput(
@@ -1372,8 +1477,11 @@ async function interleaveToOutput(
  * Decode a stream of packets to frames.
  *
  * @param packets - Input packets
+ *
  * @param decoder - Decoder instance
+ *
  * @yields {Frame} Decoded frames
+ *
  * @internal
  */
 async function* decodeStream(packets: AsyncIterable<Packet>, decoder: Decoder): AsyncGenerator<Frame> {
@@ -1410,8 +1518,11 @@ async function* decodeStream(packets: AsyncIterable<Packet>, decoder: Decoder): 
  * Encode a stream of frames to packets.
  *
  * @param frames - Input frames
+ *
  * @param encoder - Encoder instance
+ *
  * @yields {Packet} Encoded packets
+ *
  * @internal
  */
 async function* encodeStream(frames: AsyncIterable<Frame>, encoder: Encoder): AsyncGenerator<Packet> {
@@ -1448,8 +1559,11 @@ async function* encodeStream(frames: AsyncIterable<Frame>, encoder: Encoder): As
  * Filter a stream of frames.
  *
  * @param frames - Input frames
+ *
  * @param filter - Filter instance
+ *
  * @yields {Frame} Filtered frames
+ *
  * @internal
  */
 async function* filterStream(frames: AsyncIterable<Frame>, filter: FilterAPI): AsyncGenerator<Frame> {
@@ -1492,8 +1606,11 @@ async function* filterStream(frames: AsyncIterable<Frame>, filter: FilterAPI): A
  * Process packets through a bitstream filter.
  *
  * @param packets - Input packets
+ *
  * @param bsf - Bitstream filter instance
+ *
  * @yields {Packet} Filtered packets
+ *
  * @internal
  */
 async function* bitStreamFilterStream(packets: AsyncIterable<Packet>, bsf: BitStreamFilterAPI): AsyncGenerator<Packet> {
@@ -1524,6 +1641,7 @@ async function* bitStreamFilterStream(packets: AsyncIterable<Packet>, bsf: BitSt
  * Check if object is named inputs.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is NamedInputs
  *
  * @internal
@@ -1536,6 +1654,7 @@ function isNamedInputs(obj: any): obj is NamedInputs<any> {
  * Check if object is async iterable.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is AsyncIterable
  *
  * @internal
@@ -1548,6 +1667,7 @@ function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
  * Check if object is MediaInput.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is MediaInput
  *
  * @internal
@@ -1560,6 +1680,7 @@ function isMediaInput(obj: any): obj is MediaInput {
  * Check if object is Decoder.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is Decoder
  *
  * @internal
@@ -1572,6 +1693,7 @@ function isDecoder(obj: any): obj is Decoder {
  * Check if object is Encoder.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is Encoder
  *
  * @internal
@@ -1584,6 +1706,7 @@ function isEncoder(obj: any): obj is Encoder {
  * Check if object is FilterAPI.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is FilterAPI
  *
  * @internal
@@ -1596,6 +1719,7 @@ function isFilterAPI(obj: any): obj is FilterAPI {
  * Check if object is BitStreamFilterAPI.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is BitStreamFilterAPI
  *
  * @internal
@@ -1608,6 +1732,7 @@ function isBitStreamFilterAPI(obj: any): obj is BitStreamFilterAPI {
  * Check if object is MediaOutput.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is MediaOutput
  *
  * @internal
@@ -1620,6 +1745,7 @@ function isMediaOutput(obj: any): obj is MediaOutput {
  * Check if object is Packet.
  *
  * @param obj - Object to check
+ *
  * @returns True if object is Packet
  *
  * @internal

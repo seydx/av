@@ -234,6 +234,7 @@ export interface IOInputCallbacks {
    * Read callback - called when FFmpeg needs to read data.
    *
    * @param size - Number of bytes to read
+   *
    * @returns Buffer with data, null for EOF, or negative error code
    */
   read: (size: number) => Buffer | null | number;
@@ -242,7 +243,9 @@ export interface IOInputCallbacks {
    * Seek callback - called when FFmpeg needs to seek in the stream.
    *
    * @param offset - Offset to seek to
+   *
    * @param whence - Seek origin (AVSEEK_SET, AVSEEK_CUR, AVSEEK_END, or AVSEEK_SIZE)
+   *
    * @returns New position or negative error code
    */
   seek?: (offset: bigint, whence: number) => bigint | number;
@@ -260,6 +263,7 @@ export interface IOOutputCallbacks {
    * Write callback - called when FFmpeg needs to write data.
    *
    * @param buffer - Buffer containing data to write
+   *
    * @returns Number of bytes written or void
    */
   write: (buffer: Buffer) => number | void;
@@ -268,7 +272,9 @@ export interface IOOutputCallbacks {
    * Seek callback - called when FFmpeg needs to seek in the output.
    *
    * @param offset - Offset to seek to
+   *
    * @param whence - Seek origin (AVSEEK_SET, AVSEEK_CUR, AVSEEK_END)
+   *
    * @returns New position or negative error code
    */
   seek?: (offset: bigint, whence: number) => bigint | number;
@@ -277,6 +283,7 @@ export interface IOOutputCallbacks {
    * Read callback - some formats may need to read back data.
    *
    * @param size - Number of bytes to read
+   *
    * @returns Buffer with data, null for EOF, or negative error code
    */
   read?: (size: number) => Buffer | null | number;

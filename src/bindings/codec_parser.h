@@ -20,13 +20,12 @@ public:
 
 private:
   static Napi::FunctionReference constructor;
-  
-  // Methods
+
+  AVCodecParserContext* parser_ctx_ = nullptr;
+
   Napi::Value InitParser(const Napi::CallbackInfo& info);
   Napi::Value Parse2(const Napi::CallbackInfo& info);
   Napi::Value Close(const Napi::CallbackInfo& info);
-  
-  AVCodecParserContext* parser_ctx_ = nullptr;
 };
 
 } // namespace ffmpeg

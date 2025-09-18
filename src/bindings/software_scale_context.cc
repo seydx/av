@@ -7,21 +7,16 @@ namespace ffmpeg {
 
 Napi::FunctionReference SoftwareScaleContext::constructor;
 
-// === Init ===
-
 Napi::Object SoftwareScaleContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "SoftwareScaleContext", {
-    // Lifecycle
     InstanceMethod<&SoftwareScaleContext::AllocContext>("allocContext"),
     InstanceMethod<&SoftwareScaleContext::GetContext>("getContext"),
     InstanceMethod<&SoftwareScaleContext::InitContext>("initContext"),
     InstanceMethod<&SoftwareScaleContext::FreeContext>("freeContext"),
-
-    // Operations
     InstanceMethod<&SoftwareScaleContext::ScaleAsync>("scale"),
-    InstanceMethod<&SoftwareScaleContext::ScaleFrame>("scaleFrame"),
-
-    // Utility
+    InstanceMethod<&SoftwareScaleContext::ScaleSync>("scaleSync"),
+    InstanceMethod<&SoftwareScaleContext::ScaleFrameAsync>("scaleFrame"),
+    InstanceMethod<&SoftwareScaleContext::ScaleFrameSync>("scaleFrameSync"),
     InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &SoftwareScaleContext::Dispose),
   });
   
@@ -31,8 +26,6 @@ Napi::Object SoftwareScaleContext::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("SoftwareScaleContext", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 SoftwareScaleContext::SoftwareScaleContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<SoftwareScaleContext>(info) {
@@ -47,8 +40,6 @@ SoftwareScaleContext::~SoftwareScaleContext() {
   }
   // RAII handles cleanup
 }
-
-// === Methods ===
 
 Napi::Value SoftwareScaleContext::AllocContext(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -124,8 +115,6 @@ Napi::Value SoftwareScaleContext::FreeContext(const Napi::CallbackInfo& info) {
   
   return env.Undefined();
 }
-
-// === Utility ===
 
 Napi::Value SoftwareScaleContext::Dispose(const Napi::CallbackInfo& info) {
   return FreeContext(info);

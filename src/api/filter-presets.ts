@@ -85,6 +85,7 @@ export class FilterPreset {
    * Checks if a filter is hardware-accelerated.
    *
    * @param filterName - Name of the filter to check
+   *
    * @returns True if the filter uses hardware acceleration
    *
    * @example
@@ -108,6 +109,7 @@ export class FilterPreset {
    * Creates a new filter chain builder.
    *
    * @param hardware - Optional hardware context for hardware-accelerated filters
+   *
    * @returns A new FilterPreset instance for chaining
    *
    * @example
@@ -138,6 +140,7 @@ export class FilterPreset {
    * Adds a custom filter string to the chain.
    *
    * @param filter - Custom filter string
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -153,6 +156,7 @@ export class FilterPreset {
    * Builds the final filter string.
    *
    * @param separator - Separator between filters (default: ',')
+   *
    * @returns Combined filter string
    *
    * @example
@@ -183,8 +187,11 @@ export class FilterPreset {
    * Automatically selects hardware-specific scaler if hardware context is set.
    *
    * @param width - Target width in pixels
+   *
    * @param height - Target height in pixels
+   *
    * @param options - Additional scaling options (e.g., flags for algorithm, npp for CUDA)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -240,9 +247,13 @@ export class FilterPreset {
    * Adds a crop filter to the chain.
    *
    * @param width - Width of the cropped area
+   *
    * @param height - Height of the cropped area
+   *
    * @param x - X coordinate of top-left corner (default: 0)
+   *
    * @param y - Y coordinate of top-left corner (default: 0)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -263,6 +274,7 @@ export class FilterPreset {
    * Only available for hardware presets that support blur
    *
    * @param type - Blur type (default: 'avg')
+   *
    * @param radius - Blur radius (optional)
    *
    * @returns This instance for chaining
@@ -374,6 +386,7 @@ export class FilterPreset {
    * Adds an FPS filter to change frame rate.
    *
    * @param fps - Target frames per second
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -393,6 +406,7 @@ export class FilterPreset {
    * Adds a format filter to convert pixel format.
    *
    * @param pixelFormat - Target pixel format(s) - AVPixelFormat enum, or array
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -426,6 +440,7 @@ export class FilterPreset {
    * Adds a rotate filter to the chain.
    *
    * @param angle - Rotation angle in degrees
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -492,6 +507,7 @@ export class FilterPreset {
    * Only available for hardware presets that support stacking
    *
    * @param type - Stack type ('h' for horizontal, 'v' for vertical, 'x' for grid)
+   *
    * @param inputs - Number of inputs (default: 2)
    *
    * @returns This instance for chaining
@@ -533,6 +549,7 @@ export class FilterPreset {
    * Used for HDR to SDR conversion with hardware acceleration.
    *
    * @param alg - Tonemapping algorithm (e.g., 'hable', 'reinhard', 'mobius', etc.)
+   *
    * @param options - Tonemapping options
    *
    * @returns Hardware tonemap filter string or null if not supported
@@ -586,8 +603,11 @@ export class FilterPreset {
    * Creates a fade filter string for video.
    *
    * @param type - Fade type ('in' or 'out')
+   *
    * @param start - Start time in seconds
+   *
    * @param duration - Fade duration in seconds
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -607,8 +627,11 @@ export class FilterPreset {
    * Creates an overlay filter string to composite two video streams.
    *
    * @param x - X position for overlay (default: 0)
+   *
    * @param y - Y position for overlay (default: 0)
+   *
    * @param options - Additional overlay options
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -657,6 +680,7 @@ export class FilterPreset {
    * Creates a volume filter string for audio.
    *
    * @param factor - Volume multiplication factor (1.0 = unchanged, 2.0 = double)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -676,8 +700,11 @@ export class FilterPreset {
    * Creates an audio format filter string.
    *
    * @param sampleFormat - Target sample format (e.g., 's16', 'fltp')
+   *
    * @param sampleRate - Target sample rate in Hz (optional)
+   *
    * @param channelLayout - Target channel layout (optional)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -712,7 +739,9 @@ export class FilterPreset {
    * This is crucial for encoders like Opus that require specific frame sizes.
    *
    * @param samples - Number of samples per frame
+   *
    * @param padding - Whether to pad or drop samples (default: true)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -736,6 +765,7 @@ export class FilterPreset {
    * Adds an aresample filter to change audio sample rate.
    *
    * @param rate - Target sample rate in Hz
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -756,6 +786,7 @@ export class FilterPreset {
    * Factor must be between 0.5 and 2.0. For larger changes, chain multiple atempo filters.
    *
    * @param factor - Tempo factor (0.5 = half speed, 2.0 = double speed)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -775,8 +806,11 @@ export class FilterPreset {
    * Adds an audio fade filter.
    *
    * @param type - Fade type ('in' or 'out')
+   *
    * @param start - Start time in seconds
+   *
    * @param duration - Fade duration in seconds
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -796,7 +830,9 @@ export class FilterPreset {
    * Adds an amix filter to mix multiple audio streams.
    *
    * @param inputs - Number of input streams to mix (default: 2)
+   *
    * @param duration - How to determine output duration (default: 'longest')
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -817,10 +853,15 @@ export class FilterPreset {
    * Essential for aspect ratio adjustments and letterboxing.
    *
    * @param width - Output width (can use expressions like 'iw+100')
+   *
    * @param height - Output height (can use expressions like 'ih+100')
+   *
    * @param x - X position of input video (default: '(ow-iw)/2' for center)
+   *
    * @param y - Y position of input video (default: '(oh-ih)/2' for center)
+   *
    * @param color - Padding color (default: 'black')
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -848,8 +889,11 @@ export class FilterPreset {
    * Crucial for cutting segments from media.
    *
    * @param start - Start time in seconds
+   *
    * @param end - End time in seconds (optional)
+   *
    * @param duration - Duration in seconds (optional, alternative to end)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -873,6 +917,7 @@ export class FilterPreset {
    * Essential for speed changes and timestamp manipulation.
    *
    * @param expression - PTS expression (e.g., 'PTS*2' for half speed, 'PTS/2' for double speed)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -898,6 +943,7 @@ export class FilterPreset {
    * Creates an asetpts filter string for audio timestamp manipulation.
    *
    * @param expression - PTS expression
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -917,6 +963,7 @@ export class FilterPreset {
    * More efficient than rotate for 90-degree rotations.
    *
    * @param mode - Transpose mode (0-3, or named constants)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -979,6 +1026,7 @@ export class FilterPreset {
    * Important for correcting aspect ratio issues.
    *
    * @param ratio - Aspect ratio (e.g., '1:1', '16:9', or number)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -998,6 +1046,7 @@ export class FilterPreset {
    * Creates a setdar filter string to set display aspect ratio.
    *
    * @param ratio - Aspect ratio (e.g., '16:9', '4:3')
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1018,7 +1067,9 @@ export class FilterPreset {
    * Useful for ensuring minimum audio duration.
    *
    * @param wholeDuration - Minimum duration in seconds (optional)
+   *
    * @param padDuration - Amount of padding to add in seconds (optional)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1043,7 +1094,9 @@ export class FilterPreset {
    * Essential for processing interlaced content.
    *
    * @param mode - Deinterlace mode (default: 'yadif')
+   *
    * @param options - Additional options for the filter
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1115,6 +1168,7 @@ export class FilterPreset {
    * Powerful for extracting keyframes, specific frame types, etc.
    *
    * @param expression - Selection expression
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1134,6 +1188,7 @@ export class FilterPreset {
    * Creates an aselect filter string for audio selection.
    *
    * @param expression - Selection expression
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1153,8 +1208,11 @@ export class FilterPreset {
    * Essential for joining multiple video/audio segments.
    *
    * @param n - Number of input segments
+   *
    * @param v - Number of output video streams (0 or 1)
+   *
    * @param a - Number of output audio streams (0 or 1)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1175,6 +1233,7 @@ export class FilterPreset {
    * Different from amix - this creates multi-channel output.
    *
    * @param inputs - Number of input streams
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1195,6 +1254,7 @@ export class FilterPreset {
    * Critical for audio channel manipulation.
    *
    * @param map - Channel mapping (e.g., '0-0|1-1' or 'FL-FR|FR-FL' to swap stereo)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1214,6 +1274,7 @@ export class FilterPreset {
    * Creates a channelsplit filter string to split audio channels.
    *
    * @param channelLayout - Channel layout to split (optional)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1234,8 +1295,11 @@ export class FilterPreset {
    * Essential for broadcast compliance and consistent audio levels.
    *
    * @param I - Integrated loudness target (default: -24 LUFS)
+   *
    * @param TP - True peak (default: -2 dBTP)
+   *
    * @param LRA - Loudness range (default: 7 LU)
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1256,9 +1320,13 @@ export class FilterPreset {
    * Important for dynamic range control.
    *
    * @param attacks - Attack times
+   *
    * @param decays - Decay times
+   *
    * @param points - Transfer function points
+   *
    * @param gain - Output gain
+   *
    * @returns Filter string or null if not supported
    *
    * @example
@@ -1279,7 +1347,9 @@ export class FilterPreset {
    * Adds a drawtext filter to overlay text on video.
    *
    * @param text - Text to display
+   *
    * @param options - Text rendering options
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1313,6 +1383,7 @@ export class FilterPreset {
    * Adds a split filter to duplicate a video stream.
    *
    * @param outputs - Number of output streams (default: 2)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1332,6 +1403,7 @@ export class FilterPreset {
    * Adds an asplit filter to duplicate an audio stream.
    *
    * @param outputs - Number of output streams (default: 2)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1351,6 +1423,7 @@ export class FilterPreset {
    * Adds an adelay filter to delay audio by specified milliseconds.
    *
    * @param delays - Delay in milliseconds (single value or array for multiple channels)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1371,9 +1444,13 @@ export class FilterPreset {
    * Adds an aecho filter for audio echo effect.
    *
    * @param in_gain - Input gain (0-1)
+   *
    * @param out_gain - Output gain (0-1)
+   *
    * @param delays - Delay in milliseconds
+   *
    * @param decays - Decay factor (0-1)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1392,7 +1469,9 @@ export class FilterPreset {
    * Adds a highpass filter to remove low frequencies.
    *
    * @param frequency - Cutoff frequency in Hz
+   *
    * @param options - Additional filter options
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1418,7 +1497,9 @@ export class FilterPreset {
    * Adds a lowpass filter to remove high frequencies.
    *
    * @param frequency - Cutoff frequency in Hz
+   *
    * @param options - Additional filter options
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1443,7 +1524,9 @@ export class FilterPreset {
    * Adds a bandpass filter to keep only a frequency band.
    *
    * @param frequency - Center frequency in Hz
+   *
    * @param options - Additional filter options
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1468,9 +1551,13 @@ export class FilterPreset {
    * Adds an equalizer filter for frequency band adjustment.
    *
    * @param frequency - Center frequency in Hz
+   *
    * @param width - Band width
+   *
    * @param gain - Gain in dB
+   *
    * @param width_type - Width type (optional)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1495,6 +1582,7 @@ export class FilterPreset {
    * Adds a compressor filter for dynamic range compression.
    *
    * @param options - Compressor parameters
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1529,8 +1617,11 @@ export class FilterPreset {
    * Adds an atrim filter to trim audio.
    *
    * @param start - Start time in seconds
+   *
    * @param end - End time in seconds (optional)
+   *
    * @param duration - Duration in seconds (optional)
+   *
    * @returns This instance for chaining
    *
    * @example
@@ -1618,6 +1709,7 @@ export class FilterPreset {
    * Adds a filter to the chain.
    *
    * @param filter - Filter string to add (ignored if null/undefined)
+   *
    * @returns This instance for chaining
    *
    * @example

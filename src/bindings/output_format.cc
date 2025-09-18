@@ -4,14 +4,10 @@ namespace ffmpeg {
 
 Napi::FunctionReference OutputFormat::constructor;
 
-// === Init ===
-
 Napi::Object OutputFormat::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "OutputFormat", {
-    // Static methods
     StaticMethod<&OutputFormat::GuessFormat>("guessFormat"),
-    
-    // Properties
+
     InstanceAccessor<&OutputFormat::GetName>("name"),
     InstanceAccessor<&OutputFormat::GetLongName>("longName"),
     InstanceAccessor<&OutputFormat::GetExtensions>("extensions"),
@@ -29,14 +25,10 @@ Napi::Object OutputFormat::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 OutputFormat::OutputFormat(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<OutputFormat>(info), format_(nullptr) {
   // Constructor does nothing - format is set via static factory methods
 }
-
-// === Static Methods ===
 
 Napi::Value OutputFormat::GuessFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -82,8 +74,6 @@ Napi::Value OutputFormat::GuessFormat(const Napi::CallbackInfo& info) {
   
   return formatObj;
 }
-
-// === Properties ===
 
 Napi::Value OutputFormat::GetName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

@@ -13,11 +13,8 @@ std::queue<std::pair<int, std::string>> Log::log_queue;
 std::mutex Log::queue_mutex;
 std::condition_variable Log::queue_cv;
 
-// === Init ===
-
 Napi::Object Log::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Log", {
-    // Static methods
     StaticMethod<&Log::SetLevel>("setLevel"),
     StaticMethod<&Log::GetLevel>("getLevel"),
     StaticMethod<&Log::SetCallback>("setCallback"),
@@ -32,8 +29,6 @@ Napi::Object Log::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 Log::Log(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<Log>(info) {
   // This class should not be instantiated
@@ -43,8 +38,6 @@ Log::Log(const Napi::CallbackInfo& info)
 Log::~Log() {
   // Nothing to clean up
 }
-
-// === Static Methods ===
 
 Napi::Value Log::SetLevel(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

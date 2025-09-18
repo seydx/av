@@ -19,19 +19,18 @@ namespace ffmpeg {
 
 Napi::FunctionReference FilterContext::constructor;
 
-// === Init ===
-
 Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterContext", {
-    // Operations
     InstanceMethod<&FilterContext::Init>("init"),
     InstanceMethod<&FilterContext::InitStr>("initStr"),
     InstanceMethod<&FilterContext::Link>("link"),
     InstanceMethod<&FilterContext::Unlink>("unlink"),
     InstanceMethod<&FilterContext::Free>("free"),
     InstanceMethod<&FilterContext::BuffersrcAddFrameAsync>("buffersrcAddFrame"),
+    InstanceMethod<&FilterContext::BuffersrcAddFrameSync>("buffersrcAddFrameSync"),
     InstanceMethod<&FilterContext::BuffersrcParametersSet>("buffersrcParametersSet"),
     InstanceMethod<&FilterContext::BuffersinkGetFrameAsync>("buffersinkGetFrame"),
+    InstanceMethod<&FilterContext::BuffersinkGetFrameSync>("buffersinkGetFrameSync"),
     // InstanceMethod<&FilterContext::BuffersinkSetFrameSize>("buffersinkSetFrameSize"),
     InstanceMethod<&FilterContext::BuffersinkGetTimeBase>("buffersinkGetTimeBase"),
     InstanceMethod<&FilterContext::BuffersinkGetFormat>("buffersinkGetFormat"),
@@ -41,8 +40,8 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&FilterContext::BuffersinkGetFrameRate>("buffersinkGetFrameRate"),
     InstanceMethod<&FilterContext::BuffersinkGetSampleRate>("buffersinkGetSampleRate"),
     InstanceMethod<&FilterContext::BuffersinkGetChannelLayout>("buffersinkGetChannelLayout"),
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterContext::Dispose),
 
-    // Properties
     InstanceAccessor<&FilterContext::GetName, &FilterContext::SetName>("name"),
     InstanceAccessor<&FilterContext::GetFilter>("filter"),
     InstanceAccessor<&FilterContext::GetGraph>("graph"),
@@ -50,9 +49,6 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&FilterContext::GetNbOutputs>("nbOutputs"),
     InstanceAccessor<&FilterContext::GetReady>("ready"),
     InstanceAccessor<&FilterContext::GetHwDeviceCtx, &FilterContext::SetHwDeviceCtx>("hwDeviceCtx"),
-    
-    // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterContext::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -61,8 +57,6 @@ Napi::Object FilterContext::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("FilterContext", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 FilterContext::FilterContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<FilterContext>(info), unowned_ctx_(nullptr) {
@@ -77,8 +71,6 @@ FilterContext::~FilterContext() {
   }
   // Unowned contexts are managed by FilterGraph
 }
-
-// === Methods ===
 
 Napi::Value FilterContext::Init(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -445,8 +437,6 @@ Napi::Value FilterContext::BuffersinkGetChannelLayout(const Napi::CallbackInfo& 
   return result;
 }
 
-// === Properties ===
-
 Napi::Value FilterContext::GetName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   AVFilterContext* ctx = Get();
@@ -569,8 +559,6 @@ void FilterContext::SetHwDeviceCtx(const Napi::CallbackInfo& info, const Napi::V
     Napi::TypeError::New(env, "hwDeviceCtx must be a HardwareDeviceContext or null").ThrowAsJavaScriptException();
   }
 }
-
-// === Utility ===
 
 Napi::Value FilterContext::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);

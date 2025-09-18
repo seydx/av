@@ -10,22 +10,16 @@ namespace ffmpeg {
 
 Napi::FunctionReference FilterInOut::constructor;
 
-// === Init ===
-
 Napi::Object FilterInOut::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterInOut", {
-    // Lifecycle
     InstanceMethod<&FilterInOut::Alloc>("alloc"),
     InstanceMethod<&FilterInOut::Free>("free"),
-    
-    // Properties
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterInOut::Dispose),
+
     InstanceAccessor<&FilterInOut::GetName, &FilterInOut::SetName>("name"),
     InstanceAccessor<&FilterInOut::GetFilterCtx, &FilterInOut::SetFilterCtx>("filterCtx"),
     InstanceAccessor<&FilterInOut::GetPadIdx, &FilterInOut::SetPadIdx>("padIdx"),
     InstanceAccessor<&FilterInOut::GetNext, &FilterInOut::SetNext>("next"),
-    
-    // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterInOut::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -34,8 +28,6 @@ Napi::Object FilterInOut::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("FilterInOut", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 FilterInOut::FilterInOut(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<FilterInOut>(info) {
@@ -50,8 +42,6 @@ FilterInOut::~FilterInOut() {
     inout_ = nullptr;
   }
 }
-
-// === Methods ===
 
 Napi::Value FilterInOut::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -84,8 +74,6 @@ Napi::Value FilterInOut::Free(const Napi::CallbackInfo& info) {
   
   return env.Undefined();
 }
-
-// === Properties ===
 
 Napi::Value FilterInOut::GetName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

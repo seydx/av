@@ -12,13 +12,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for FormatContext Operations
-// ============================================================================
-
-/**
- * Worker for avformat_open_input - Opens an input file
- */
 class FCOpenInputWorker : public Napi::AsyncWorker {
 public:
   FCOpenInputWorker(Napi::Env env, FormatContext* parent, const std::string& url, 
@@ -76,9 +69,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avformat_find_stream_info - Reads packet headers
- */
 class FCFindStreamInfoWorker : public Napi::AsyncWorker {
 public:
   FCFindStreamInfoWorker(Napi::Env env, FormatContext* parent, AVDictionary* options)
@@ -120,9 +110,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_read_frame - Reads a packet from the stream
- */
 class FCReadFrameWorker : public Napi::AsyncWorker {
 public:
   FCReadFrameWorker(Napi::Env env, FormatContext* parent, Packet* packet)
@@ -158,9 +145,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_seek_frame - Seeks to a timestamp
- */
 class FCSeekFrameWorker : public Napi::AsyncWorker {
 public:
   FCSeekFrameWorker(Napi::Env env, FormatContext* parent, int stream_index, 
@@ -201,9 +185,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avformat_seek_file - Seeks to a timestamp range
- */
 class FCSeekFileWorker : public Napi::AsyncWorker {
 public:
   FCSeekFileWorker(Napi::Env env, FormatContext* parent, int stream_index, 
@@ -249,9 +230,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avformat_write_header - Writes file header
- */
 class FCWriteHeaderWorker : public Napi::AsyncWorker {
 public:
   FCWriteHeaderWorker(Napi::Env env, FormatContext* parent, AVDictionary* options)
@@ -306,9 +284,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_write_frame - Writes a packet
- */
 class FCWriteFrameWorker : public Napi::AsyncWorker {
 public:
   FCWriteFrameWorker(Napi::Env env, FormatContext* parent, Packet* packet)
@@ -344,9 +319,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_interleaved_write_frame - Writes a packet with interleaving
- */
 class FCInterleavedWriteFrameWorker : public Napi::AsyncWorker {
 public:
   FCInterleavedWriteFrameWorker(Napi::Env env, FormatContext* parent, Packet* packet)
@@ -382,9 +354,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_write_trailer - Writes file trailer
- */
 class FCWriteTrailerWorker : public Napi::AsyncWorker {
 public:
   FCWriteTrailerWorker(Napi::Env env, FormatContext* parent)
@@ -418,9 +387,165 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-// ============================================================================
-// Async Method Implementations
-// ============================================================================
+class FCOpenOutputWorker : public Napi::AsyncWorker {
+public:
+  FCOpenOutputWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      result_(0),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    AVFormatContext* ctx = parent_->ctx_;
+    if (!ctx || !ctx->oformat || !ctx->url) {
+      result_ = AVERROR(EINVAL);
+      return;
+    }
+    
+    // Check if we need to open the file (not NOFILE format)
+    if (!(ctx->oformat->flags & AVFMT_NOFILE)) {
+      result_ = avio_open(&ctx->pb, ctx->url, AVIO_FLAG_WRITE);
+    } else {
+      result_ = 0;
+    }
+    
+    if (result_ >= 0) {
+      // Successfully opened
+    }
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Napi::Number::New(Env(), result_));
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  FormatContext* parent_;
+  int result_;
+  Napi::Promise::Deferred deferred_;
+};
+
+class FCCloseOutputWorker : public Napi::AsyncWorker {
+public:
+  FCCloseOutputWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    AVFormatContext* ctx = parent_->ctx_;
+    if (ctx && ctx->pb) {
+      if (!ctx->oformat || !(ctx->oformat->flags & AVFMT_NOFILE)) {
+        avio_closep(&ctx->pb);
+      }
+    }
+    // Closed
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Env().Undefined());
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  FormatContext* parent_;
+  Napi::Promise::Deferred deferred_;
+};
+
+class FCCloseInputWorker : public Napi::AsyncWorker {
+public:
+  FCCloseInputWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    AVFormatContext* ctx = parent_->ctx_;
+    parent_->ctx_ = nullptr;
+    
+    if (ctx) {
+      // Check if this is a custom IO context
+      bool is_custom_io = (ctx->flags & AVFMT_FLAG_CUSTOM_IO) != 0;
+      
+      if (ctx->pb || ctx->nb_streams > 0) {
+        // Context was successfully opened (has pb or streams), use close_input
+        // IMPORTANT: avformat_close_input will:
+        // - For AVFMT_FLAG_CUSTOM_IO: set pb to NULL but NOT free it
+        // - For non-custom IO: close and free the pb
+        avformat_close_input(&ctx);
+      } else {
+        // Context was allocated but not opened successfully
+        // Clear pb reference before calling avformat_free_context to prevent double-free
+        if (is_custom_io && ctx->pb) {
+          ctx->pb = nullptr;
+        }
+        // Use avformat_free_context to free the allocated context
+        avformat_free_context(ctx);
+      }
+      
+      parent_->is_output_ = false;
+    }
+  }
+
+  void OnOK() override {
+    deferred_.Resolve(Env().Undefined());
+  }
+
+  void OnError(const Napi::Error& e) override {
+    deferred_.Reject(e.Value());
+  }
+
+  Napi::Promise GetPromise() {
+    return deferred_.Promise();
+  }
+
+private:
+  FormatContext* parent_;
+  Napi::Promise::Deferred deferred_;
+};
+
+class FCFlushWorker : public Napi::AsyncWorker {
+public:
+  FCFlushWorker(Napi::Env env, FormatContext* parent)
+    : AsyncWorker(env),
+      parent_(parent),
+      deferred_(Napi::Promise::Deferred::New(env)) {}
+
+  void Execute() override {
+    if (parent_->ctx_ && parent_->ctx_->pb) {
+      avio_flush(parent_->ctx_->pb);
+    }
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(Env().Undefined());
+  }
+
+  void OnError(const Napi::Error& error) override {
+    deferred_.Reject(error.Value());
+  }
+
+  Napi::Promise GetPromise() { return deferred_.Promise(); }
+
+private:
+  FormatContext* parent_;
+  Napi::Promise::Deferred deferred_;
+};
 
 Napi::Value FormatContext::OpenInputAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -598,154 +723,6 @@ Napi::Value FormatContext::WriteTrailerAsync(const Napi::CallbackInfo& info) {
   return promise;
 }
 
-// ============================================================================
-// Additional Async Worker Classes for Format Operations
-// ============================================================================
-
-/**
- * Worker for avio_open - Opens output file
- */
-class FCOpenOutputWorker : public Napi::AsyncWorker {
-public:
-  FCOpenOutputWorker(Napi::Env env, FormatContext* parent)
-    : AsyncWorker(env),
-      parent_(parent),
-      result_(0),
-      deferred_(Napi::Promise::Deferred::New(env)) {}
-
-  void Execute() override {
-    AVFormatContext* ctx = parent_->ctx_;
-    if (!ctx || !ctx->oformat || !ctx->url) {
-      result_ = AVERROR(EINVAL);
-      return;
-    }
-    
-    // Check if we need to open the file (not NOFILE format)
-    if (!(ctx->oformat->flags & AVFMT_NOFILE)) {
-      result_ = avio_open(&ctx->pb, ctx->url, AVIO_FLAG_WRITE);
-    } else {
-      result_ = 0;
-    }
-    
-    if (result_ >= 0) {
-      // Successfully opened
-    }
-  }
-
-  void OnOK() override {
-    deferred_.Resolve(Napi::Number::New(Env(), result_));
-  }
-
-  void OnError(const Napi::Error& e) override {
-    deferred_.Reject(e.Value());
-  }
-
-  Napi::Promise GetPromise() {
-    return deferred_.Promise();
-  }
-
-private:
-  FormatContext* parent_;
-  int result_;
-  Napi::Promise::Deferred deferred_;
-};
-
-/**
- * Worker for avio_closep - Closes output file
- */
-class FCCloseOutputWorker : public Napi::AsyncWorker {
-public:
-  FCCloseOutputWorker(Napi::Env env, FormatContext* parent)
-    : AsyncWorker(env),
-      parent_(parent),
-      deferred_(Napi::Promise::Deferred::New(env)) {}
-
-  void Execute() override {
-    AVFormatContext* ctx = parent_->ctx_;
-    if (ctx && ctx->pb) {
-      if (!ctx->oformat || !(ctx->oformat->flags & AVFMT_NOFILE)) {
-        avio_closep(&ctx->pb);
-      }
-    }
-    // Closed
-  }
-
-  void OnOK() override {
-    deferred_.Resolve(Env().Undefined());
-  }
-
-  void OnError(const Napi::Error& e) override {
-    deferred_.Reject(e.Value());
-  }
-
-  Napi::Promise GetPromise() {
-    return deferred_.Promise();
-  }
-
-private:
-  FormatContext* parent_;
-  Napi::Promise::Deferred deferred_;
-};
-
-/**
- * Worker for avformat_close_input - Closes input file and frees context
- */
-class FCCloseInputWorker : public Napi::AsyncWorker {
-public:
-  FCCloseInputWorker(Napi::Env env, FormatContext* parent)
-    : AsyncWorker(env),
-      parent_(parent),
-      deferred_(Napi::Promise::Deferred::New(env)) {}
-
-  void Execute() override {
-    AVFormatContext* ctx = parent_->ctx_;
-    parent_->ctx_ = nullptr;
-    
-    if (ctx) {
-      // Check if this is a custom IO context
-      bool is_custom_io = (ctx->flags & AVFMT_FLAG_CUSTOM_IO) != 0;
-      
-      if (ctx->pb || ctx->nb_streams > 0) {
-        // Context was successfully opened (has pb or streams), use close_input
-        // IMPORTANT: avformat_close_input will:
-        // - For AVFMT_FLAG_CUSTOM_IO: set pb to NULL but NOT free it
-        // - For non-custom IO: close and free the pb
-        avformat_close_input(&ctx);
-      } else {
-        // Context was allocated but not opened successfully
-        // Clear pb reference before calling avformat_free_context to prevent double-free
-        if (is_custom_io && ctx->pb) {
-          ctx->pb = nullptr;
-        }
-        // Use avformat_free_context to free the allocated context
-        avformat_free_context(ctx);
-      }
-      
-      parent_->is_output_ = false;
-    }
-  }
-
-  void OnOK() override {
-    deferred_.Resolve(Env().Undefined());
-  }
-
-  void OnError(const Napi::Error& e) override {
-    deferred_.Reject(e.Value());
-  }
-
-  Napi::Promise GetPromise() {
-    return deferred_.Promise();
-  }
-
-private:
-  FormatContext* parent_;
-  Napi::Promise::Deferred deferred_;
-};
-
-// ============================================================================
-// Additional FormatContext Async Method Implementations
-// ============================================================================
-
 Napi::Value FormatContext::OpenOutputAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -797,6 +774,19 @@ Napi::Value FormatContext::CloseInputAsync(const Napi::CallbackInfo& info) {
   }
   
   auto* worker = new FCCloseInputWorker(env, this);
+  worker->Queue();
+  return worker->GetPromise();
+}
+
+Napi::Value FormatContext::FlushAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (!ctx_) {
+    Napi::Error::New(env, "Format context not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  auto* worker = new FCFlushWorker(env, this);
   worker->Queue();
   return worker->GetPromise();
 }

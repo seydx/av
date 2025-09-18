@@ -58,8 +58,11 @@ export class Decoder implements Disposable {
 
   /**
    * @param codecContext - Configured codec context
+   *
    * @param codec - Codec being used
+   *
    * @param stream - Media stream being decoded
+   *
    * @param hardware - Optional hardware context
    * Use {@link create} factory method
    *
@@ -82,7 +85,9 @@ export class Decoder implements Disposable {
    * Applies custom codec options and threading configuration.
    *
    * @param stream - Media stream to decode
+   *
    * @param options - Decoder configuration options
+   *
    * @returns Configured decoder instance
    *
    * @throws {Error} If decoder not found for codec
@@ -249,6 +254,7 @@ export class Decoder implements Disposable {
    * Direct mapping to avcodec_send_packet() and avcodec_receive_frame().
    *
    * @param packet - Compressed packet to decode
+   *
    * @returns Decoded frame or null if more data needed
    *
    * @throws {Error} If decoder is closed
@@ -307,6 +313,57 @@ export class Decoder implements Disposable {
   }
 
   /**
+   * Decode a packet to frame synchronously.
+   * Synchronous version of decode.
+   *
+   * Send packet to decoder and attempt to receive frame.
+   * Handles decoder buffering and error conditions.
+   * May return null if decoder needs more data.
+   *
+   * @param packet - Compressed packet to decode
+   *
+   * @returns Decoded frame or null
+   *
+   * @throws {Error} If decoder is closed
+   *
+   * @throws {FFmpegError} If decoding fails
+   *
+   * @example
+   * ```typescript
+   * const frame = decoder.decodeSync(packet);
+   * if (frame) {
+   *   console.log(`Decoded: ${frame.width}x${frame.height}`);
+   * }
+   * ```
+   *
+   * @see {@link decode} For async version
+   */
+  decodeSync(packet: Packet): Frame | null {
+    if (this.isClosed) {
+      throw new Error('Decoder is closed');
+    }
+
+    // Send packet to decoder
+    const sendRet = this.codecContext.sendPacketSync(packet);
+    if (sendRet < 0 && sendRet !== AVERROR_EOF) {
+      // Decoder might be full, try to receive first
+      const frame = this.receiveSync();
+      if (frame) {
+        return frame;
+      }
+
+      // If still failing, it's an error
+      if (sendRet !== AVERROR_EAGAIN) {
+        FFmpegError.throwIfError(sendRet, 'Failed to send packet');
+      }
+    }
+
+    // Try to receive frame
+    const frame = this.receiveSync();
+    return frame;
+  }
+
+  /**
    * Decode packet stream to frame stream.
    *
    * High-level async generator for complete decoding pipeline.
@@ -315,7 +372,9 @@ export class Decoder implements Disposable {
    * Primary interface for stream-based decoding.
    *
    * @param packets - Async iterable of packets
+   *
    * @yields {Frame} Decoded frames
+   *
    * @throws {Error} If decoder is closed
    *
    * @throws {FFmpegError} If decoding fails
@@ -385,6 +444,58 @@ export class Decoder implements Disposable {
   }
 
   /**
+   * Decode packet stream to frame stream synchronously.
+   * Synchronous version of frames.
+   *
+   * High-level sync generator for complete decoding pipeline.
+   * Automatically filters packets for this stream, manages memory,
+   * and flushes buffered frames at end.
+   *
+   * @param packets - Iterable of packets
+   *
+   * @yields {Frame} Decoded frames
+   *
+   * @throws {Error} If decoder is closed
+   *
+   * @throws {FFmpegError} If decoding fails
+   *
+   * @example
+   * ```typescript
+   * for (const frame of decoder.framesSync(packets)) {
+   *   console.log(`Frame: ${frame.width}x${frame.height}`);
+   *   // Process frame...
+   * }
+   * ```
+   *
+   * @see {@link frames} For async version
+   */
+  *framesSync(packets: Iterable<Packet>): Generator<Frame> {
+    // Process packets
+    for (const packet of packets) {
+      try {
+        // Only process packets for our stream
+        if (packet.streamIndex === this.stream.index) {
+          const frame = this.decodeSync(packet);
+          if (frame) {
+            yield frame;
+          }
+        }
+      } finally {
+        // Free the input packet after processing
+        packet.free();
+      }
+    }
+
+    // Flush decoder after all packets
+    this.flushSync();
+    while (true) {
+      const remaining = this.receiveSync();
+      if (!remaining) break;
+      yield remaining;
+    }
+  }
+
+  /**
    * Flush decoder and signal end-of-stream.
    *
    * Sends null packet to decoder to signal end-of-stream.
@@ -426,6 +537,42 @@ export class Decoder implements Disposable {
   }
 
   /**
+   * Flush decoder and signal end-of-stream synchronously.
+   * Synchronous version of flush.
+   *
+   * Send null packet to signal end of input stream.
+   * Decoder may still have buffered frames.
+   * Call receiveSync() repeatedly to get remaining frames.
+   *
+   * @throws {FFmpegError} If flush fails
+   *
+   * @example
+   * ```typescript
+   * decoder.flushSync();
+   * // Get remaining frames
+   * let frame;
+   * while ((frame = decoder.receiveSync()) !== null) {
+   *   console.log('Buffered frame');
+   * }
+   * ```
+   *
+   * @see {@link flush} For async version
+   */
+  flushSync(): void {
+    if (this.isClosed) {
+      return;
+    }
+
+    // Send flush packet (null)
+    const ret = this.codecContext.sendPacketSync(null);
+    if (ret < 0 && ret !== AVERROR_EOF) {
+      if (ret !== AVERROR_EAGAIN) {
+        FFmpegError.throwIfError(ret, 'Failed to flush decoder');
+      }
+    }
+  }
+
+  /**
    * Flush all buffered frames as async generator.
    *
    * Convenient async iteration over remaining frames.
@@ -453,6 +600,38 @@ export class Decoder implements Disposable {
 
     let frame;
     while ((frame = await this.receive()) !== null) {
+      yield frame;
+    }
+  }
+
+  /**
+   * Flush all buffered frames as generator synchronously.
+   * Synchronous version of flushFrames.
+   *
+   * Convenient sync iteration over remaining frames.
+   * Automatically sends flush signal and retrieves buffered frames.
+   * Useful for end-of-stream processing.
+   *
+   * @yields {Frame} Buffered frames
+   *
+   * @example
+   * ```typescript
+   * // Flush at end of decoding
+   * for (const frame of decoder.flushFramesSync()) {
+   *   console.log('Processing buffered frame');
+   *   encoder.encodeSync(frame);
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link flushFrames} For async version
+   */
+  *flushFramesSync(): Generator<Frame> {
+    // Send flush signal
+    this.flushSync();
+
+    let frame;
+    while ((frame = this.receiveSync()) !== null) {
       yield frame;
     }
   }
@@ -498,6 +677,61 @@ export class Decoder implements Disposable {
     this.frame.unref();
 
     const ret = await this.codecContext.receiveFrame(this.frame);
+
+    if (ret === 0) {
+      // Got a frame, clone it for the user
+      return this.frame.clone();
+    } else if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+      // Need more data or end of stream
+      return null;
+    } else {
+      // Error
+      FFmpegError.throwIfError(ret, 'Failed to receive frame');
+      return null;
+    }
+  }
+
+  /**
+   * Receive frame from decoder synchronously.
+   * Synchronous version of receive.
+   *
+   * Gets decoded frames from the codec's internal buffer.
+   * Handles frame cloning and error checking.
+   * Hardware frames include hw_frames_ctx reference.
+   * Call repeatedly until null to drain all buffered frames.
+   *
+   * Direct mapping to avcodec_receive_frame().
+   *
+   * @returns Cloned frame or null if no frames available
+   *
+   * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
+   *
+   * @example
+   * ```typescript
+   * const frame = decoder.receiveSync();
+   * if (frame) {
+   *   console.log('Got decoded frame');
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Drain all buffered frames
+   * let frame;
+   * while ((frame = decoder.receiveSync()) !== null) {
+   *   console.log(`Frame PTS: ${frame.pts}`);
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link receive} For async version
+   */
+  receiveSync(): Frame | null {
+    // Clear previous frame data
+    this.frame.unref();
+
+    const ret = this.codecContext.receiveFrameSync(this.frame);
 
     if (ret === 0) {
       // Got a frame, clone it for the user

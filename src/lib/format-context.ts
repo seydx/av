@@ -351,8 +351,11 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to avformat_alloc_output_context2().
    *
    * @param oformat - Specific output format to use
+   *
    * @param formatName - Format name (e.g., 'mp4', 'mkv')
+   *
    * @param filename - Filename to guess format from extension
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *   - AVERROR_EINVAL: Invalid parameters
@@ -425,6 +428,33 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Open output file synchronously.
+   * Synchronous version of openOutput.
+   *
+   * Opens output file for writing.
+   * I/O context must be set before calling.
+   *
+   * Direct mapping to avio_open2().
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR(EIO): I/O error
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.openOutputSync();
+   * FFmpegError.throwIfError(ret, 'openOutputSync');
+   * ```
+   *
+   * @see {@link openOutput} For async version
+   */
+  openOutputSync(): number {
+    return this.native.openOutputSync();
+  }
+
+  /**
    * Close output file.
    *
    * Closes the output file and releases I/O resources.
@@ -446,6 +476,26 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Close output file synchronously.
+   * Synchronous version of closeOutput.
+   *
+   * Closes the output file and releases I/O resources.
+   *
+   * Direct mapping to avio_closep().
+   *
+   * @example
+   * ```typescript
+   * ctx.closeOutputSync();
+   * // Output file closed
+   * ```
+   *
+   * @see {@link closeOutput} For async version
+   */
+  closeOutputSync(): void {
+    this.native.closeOutputSync();
+  }
+
+  /**
    * Open input file for reading.
    *
    * Opens and probes the input file, detecting format automatically
@@ -454,8 +504,11 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to avformat_open_input().
    *
    * @param url - URL or file path to open
+   *
    * @param fmt - Force specific input format (null for auto-detect)
+   *
    * @param options - Format-specific options
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOENT: File not found
    *   - AVERROR_INVALIDDATA: Invalid file format
@@ -474,6 +527,40 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    */
   async openInput(url: string, fmt: InputFormat | null = null, options: Dictionary | null = null): Promise<number> {
     return await this.native.openInput(url, fmt?.getNative() ?? null, options?.getNative() ?? null);
+  }
+
+  /**
+   * Open an input file or URL synchronously.
+   * Synchronous version of openInput.
+   *
+   * Opens a media file or stream for reading.
+   * The format is auto-detected if not specified.
+   *
+   * Direct mapping to avformat_open_input().
+   *
+   * @param url - File path or URL to open
+   *
+   * @param fmt - Force specific format (null for auto-detect)
+   *
+   * @param options - Format-specific options
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid arguments
+   *   - AVERROR(EIO): I/O error
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.openInputSync('input.mp4');
+   * FFmpegError.throwIfError(ret, 'openInputSync');
+   * ```
+   *
+   * @see {@link openInput} For async version
+   */
+  openInputSync(url: string, fmt: InputFormat | null = null, options: Dictionary | null = null): number {
+    return this.native.openInputSync(url, fmt?.getNative() ?? null, options?.getNative() ?? null);
   }
 
   /**
@@ -498,6 +585,26 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Close an input format context synchronously.
+   * Synchronous version of closeInput.
+   *
+   * Closes input file and releases resources.
+   *
+   * Direct mapping to avformat_close_input().
+   *
+   * @example
+   * ```typescript
+   * ctx.closeInputSync();
+   * // Input closed and context freed
+   * ```
+   *
+   * @see {@link closeInput} For async version
+   */
+  closeInputSync(): void {
+    this.native.closeInputSync();
+  }
+
+  /**
    * Analyze streams to get stream info.
    *
    * Reads packet headers to fill in stream information.
@@ -506,6 +613,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to avformat_find_stream_info().
    *
    * @param options - Per-stream options array
+   *
    * @returns >=0 on success, negative AVERROR on error:
    *   - AVERROR_EOF: End of file reached
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -526,6 +634,36 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Analyze streams to get stream info synchronously.
+   * Synchronous version of findStreamInfo.
+   *
+   * Reads packet headers to fill in stream information.
+   * Should be called after openInputSync for accurate stream data.
+   *
+   * Direct mapping to avformat_find_stream_info().
+   *
+   * @param options - Options dictionary (single, not array for sync version)
+   *
+   * @returns >=0 on success, negative AVERROR on error:
+   *   - AVERROR_EOF: End of file reached
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.findStreamInfoSync();
+   * FFmpegError.throwIfError(ret, 'findStreamInfoSync');
+   * console.log(`Found ${ctx.nbStreams} streams`);
+   * ```
+   *
+   * @see {@link findStreamInfo} For async version
+   */
+  findStreamInfoSync(options: Dictionary | null = null): number {
+    return this.native.findStreamInfoSync(options?.getNative() ?? null);
+  }
+
+  /**
    * Read next packet from the input.
    *
    * Reads and returns the next packet in the stream.
@@ -534,6 +672,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to av_read_frame().
    *
    * @param pkt - Packet to read into
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EOF: End of file
    *   - AVERROR_EAGAIN: Temporarily unavailable
@@ -565,6 +704,47 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Read next packet from the input synchronously.
+   * Synchronous version of readFrame.
+   *
+   * Reads and returns the next packet in the stream.
+   * Packet must be unreferenced after use.
+   *
+   * Direct mapping to av_read_frame().
+   *
+   * @param pkt - Packet to read into
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EOF: End of file
+   *   - AVERROR_EAGAIN: Temporarily unavailable
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EOF } from 'node-av';
+   *
+   * const packet = new Packet();
+   * packet.alloc();
+   *
+   * let ret;
+   * while ((ret = ctx.readFrameSync(packet)) >= 0) {
+   *   // Process packet
+   *   console.log(`Stream ${packet.streamIndex}, PTS: ${packet.pts}`);
+   *   packet.unref();
+   * }
+   *
+   * if (ret !== AVERROR_EOF) {
+   *   FFmpegError.throwIfError(ret, 'readFrameSync');
+   * }
+   * ```
+   *
+   * @see {@link readFrame} For async version
+   */
+  readFrameSync(pkt: Packet): number {
+    return this.native.readFrameSync(pkt.getNative());
+  }
+
+  /**
    * Seek to timestamp in stream.
    *
    * Seeks to the keyframe at or before the given timestamp.
@@ -572,8 +752,11 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to av_seek_frame().
    *
    * @param streamIndex - Stream to seek in (-1 for default)
+   *
    * @param timestamp - Target timestamp in stream time base
+   *
    * @param flags - Seek flags (AVSEEK_FLAG_*)
+   *
    * @returns >=0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_EOF: Seek beyond file
@@ -595,6 +778,42 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Seek to timestamp in stream synchronously.
+   * Synchronous version of seekFrame.
+   *
+   * Seeks to closest keyframe at or before timestamp.
+   * Timestamp is in stream timebase units.
+   *
+   * Direct mapping to av_seek_frame().
+   *
+   * @param streamIndex - Stream to seek in (-1 for default)
+   *
+   * @param timestamp - Target timestamp in stream timebase
+   *
+   * @param flags - Seek flags (AVSEEK_FLAG_*)
+   *
+   * @returns >=0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid arguments
+   *   - AVERROR(EIO): I/O error
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVSEEK_FLAG_BACKWARD } from 'node-av/constants';
+   *
+   * // Seek to 10 seconds
+   * const timestamp = 10n * 1000000n; // Assuming microsecond timebase
+   * const ret = ctx.seekFrameSync(-1, timestamp, AVSEEK_FLAG_BACKWARD);
+   * FFmpegError.throwIfError(ret, 'seekFrameSync');
+   * ```
+   *
+   * @see {@link seekFrame} For async version
+   */
+  seekFrameSync(streamIndex: number, timestamp: bigint, flags: AVSeekFlag = AVFLAG_NONE): number {
+    return this.native.seekFrameSync(streamIndex, timestamp, flags);
+  }
+
+  /**
    * Seek to timestamp with bounds.
    *
    * More precise seeking with min/max timestamp bounds.
@@ -602,10 +821,15 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to avformat_seek_file().
    *
    * @param streamIndex - Stream to seek in (-1 for default)
+   *
    * @param minTs - Minimum acceptable timestamp
+   *
    * @param ts - Target timestamp
+   *
    * @param maxTs - Maximum acceptable timestamp
+   *
    * @param flags - Seek flags
+   *
    * @returns >=0 on success, negative AVERROR on error
    *
    * @example
@@ -638,6 +862,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to avformat_write_header().
    *
    * @param options - Muxer-specific options
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_EIO: I/O error
@@ -659,6 +884,34 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Write file header synchronously.
+   * Synchronous version of writeHeader.
+   *
+   * Writes format header to output file.
+   * Must be called before writing packets.
+   *
+   * Direct mapping to avformat_write_header().
+   *
+   * @param options - Muxer-specific options
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.writeHeaderSync();
+   * FFmpegError.throwIfError(ret, 'writeHeaderSync');
+   * ```
+   *
+   * @see {@link writeHeader} For async version
+   */
+  writeHeaderSync(options: Dictionary | null = null): number {
+    return this.native.writeHeaderSync(options?.getNative() ?? null);
+  }
+
+  /**
    * Write packet to output.
    *
    * Writes a packet directly without interleaving.
@@ -667,6 +920,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to av_write_frame().
    *
    * @param pkt - Packet to write (null to flush)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid packet
    *   - AVERROR_EIO: I/O error
@@ -686,6 +940,33 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Write packet to output synchronously.
+   * Synchronous version of writeFrame.
+   *
+   * Writes a packet directly without interleaving.
+   * Caller must handle correct interleaving.
+   *
+   * Direct mapping to av_write_frame().
+   *
+   * @param pkt - Packet to write (null to flush)
+   *
+   * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.writeFrameSync(packet);
+   * FFmpegError.throwIfError(ret, 'writeFrameSync');
+   * ```
+   *
+   * @see {@link writeFrame} For async version
+   */
+  writeFrameSync(pkt: Packet | null): number {
+    return this.native.writeFrameSync(pkt ? pkt.getNative() : null);
+  }
+
+  /**
    * Write packet with automatic interleaving.
    *
    * Writes packet with proper interleaving for muxing.
@@ -694,6 +975,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to av_interleaved_write_frame().
    *
    * @param pkt - Packet to write (null to flush)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid packet
    *   - AVERROR_EIO: I/O error
@@ -714,6 +996,39 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    */
   async interleavedWriteFrame(pkt: Packet | null): Promise<number> {
     return await this.native.interleavedWriteFrame(pkt ? pkt.getNative() : null);
+  }
+
+  /**
+   * Write packet with automatic interleaving synchronously.
+   * Synchronous version of interleavedWriteFrame.
+   *
+   * Writes packet with proper interleaving for muxing.
+   * Preferred method for writing packets.
+   *
+   * Direct mapping to av_interleaved_write_frame().
+   *
+   * @param pkt - Packet to write (null to flush)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR(EIO): I/O error
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Write packet
+   * const ret = ctx.interleavedWriteFrameSync(packet);
+   * FFmpegError.throwIfError(ret, 'interleavedWriteFrameSync');
+   *
+   * // Flush interleaved packets
+   * ctx.interleavedWriteFrameSync(null);
+   * ```
+   *
+   * @see {@link interleavedWriteFrame} For async version
+   */
+  interleavedWriteFrameSync(pkt: Packet | null): number {
+    return this.native.interleavedWriteFrameSync(pkt ? pkt.getNative() : null);
   }
 
   /**
@@ -743,6 +1058,32 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
   }
 
   /**
+   * Write file trailer synchronously.
+   * Synchronous version of writeTrailer.
+   *
+   * Finalizes the output file, writing index and metadata.
+   * Must be called to properly close output files.
+   *
+   * Direct mapping to av_write_trailer().
+   *
+   * @returns 0 on success, negative AVERROR on error
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * const ret = ctx.writeTrailerSync();
+   * FFmpegError.throwIfError(ret, 'writeTrailerSync');
+   * // File is now finalized
+   * ```
+   *
+   * @see {@link writeTrailer} For async version
+   */
+  writeTrailerSync(): number {
+    return this.native.writeTrailerSync();
+  }
+
+  /**
    * Flush buffered data.
    *
    * Flushes any buffered packets in muxers.
@@ -751,12 +1092,32 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    *
    * @example
    * ```typescript
-   * ctx.flush();
+   * await ctx.flush();
    * // Buffered data written to output
    * ```
    */
-  flush(): void {
-    this.native.flush();
+  async flush(): Promise<void> {
+    await this.native.flush();
+  }
+
+  /**
+   * Flush buffered data synchronously.
+   * Synchronous version of flush.
+   *
+   * Flushes any buffered packets in muxers.
+   *
+   * Direct mapping to avio_flush().
+   *
+   * @example
+   * ```typescript
+   * ctx.flushSync();
+   * // Buffered data written to output
+   * ```
+   *
+   * @see {@link flush} For async version
+   */
+  flushSync(): void {
+    this.native.flushSync();
   }
 
   /**
@@ -768,7 +1129,9 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to av_dump_format().
    *
    * @param index - Stream index to highlight (-1 for none)
+   *
    * @param url - URL to display
+   *
    * @param isOutput - True for output format, false for input
    *
    * @example
@@ -792,8 +1155,11 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to av_find_best_stream().
    *
    * @param type - Media type to find (AVMEDIA_TYPE_*)
+   *
    * @param wantedStreamNb - Preferred stream index (-1 for auto)
+   *
    * @param relatedStream - Related stream for audio/video sync (-1 for none)
+   *
    * @returns Stream index, or negative AVERROR if not found
    *
    * @example
@@ -816,10 +1182,15 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Find the best stream and its decoder.
    *
    * @param type - Media type to find
+   *
    * @param wantedStreamNb - Preferred stream index
+   *
    * @param relatedStream - Related stream index
+   *
    * @param wantDecoder - True to also find decoder
+   *
    * @param flags - Reserved flags
+   *
    * @returns Object with stream index and decoder
    */
   findBestStream(type: AVMediaType, wantedStreamNb: number, relatedStream: number, wantDecoder: true, flags?: number): { streamIndex: number; decoder: Codec | null };
@@ -848,6 +1219,7 @@ export class FormatContext extends OptionMember<NativeFormatContext> implements 
    * Direct mapping to avformat_new_stream().
    *
    * @param c - Codec for the stream (optional)
+   *
    * @returns New stream instance
    *
    * @example

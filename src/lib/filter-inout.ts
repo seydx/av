@@ -53,6 +53,7 @@ export class FilterInOut implements Disposable, NativeWrapper<NativeFilterInOut>
    * of filter specifications. Each item becomes a node in the list.
    *
    * @param items - Array of filter input/output specifications
+   *
    * @returns Head of the linked list, or null if items is empty
    *
    * @example

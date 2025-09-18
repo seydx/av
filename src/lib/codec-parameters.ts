@@ -424,6 +424,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    * Direct mapping to avcodec_parameters_copy().
    *
    * @param dst - Destination parameters
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *
@@ -449,6 +450,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    * Direct mapping to avcodec_parameters_from_context().
    *
    * @param codecContext - Source codec context
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *
@@ -476,6 +478,7 @@ export class CodecParameters implements NativeWrapper<NativeCodecParameters> {
    * Direct mapping to avcodec_parameters_to_context().
    *
    * @param codecContext - Destination codec context
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *

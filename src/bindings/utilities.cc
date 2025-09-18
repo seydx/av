@@ -7,41 +7,47 @@
 namespace ffmpeg {
 
 Napi::Object Utilities::Init(Napi::Env env, Napi::Object exports) {
-  // Export static functions directly
+  // Sample format utilities
   exports.Set("avGetBytesPerSample", Napi::Function::New(env, GetBytesPerSample));
   exports.Set("avGetSampleFmtName", Napi::Function::New(env, GetSampleFmtName));
   exports.Set("avGetPackedSampleFmt", Napi::Function::New(env, GetPackedSampleFmt));
   exports.Set("avGetPlanarSampleFmt", Napi::Function::New(env, GetPlanarSampleFmt));
   exports.Set("avSampleFmtIsPlanar", Napi::Function::New(env, SampleFmtIsPlanar));
-  
+
+  // Pixel format utilities
   exports.Set("avGetPixFmtName", Napi::Function::New(env, GetPixFmtName));
   exports.Set("avGetPixFmtFromName", Napi::Function::New(env, GetPixFmtFromName));
   exports.Set("avIsHardwarePixelFormat", Napi::Function::New(env, IsHardwarePixelFormat));
-  
+
+  // Media type utilities
   exports.Set("avGetMediaTypeString", Napi::Function::New(env, GetMediaTypeString));
-  
+
+  // Codec utilities
   exports.Set("avGetCodecName", Napi::Function::New(env, GetCodecName));
-  
+
+  // Image utilities
   exports.Set("avImageAlloc", Napi::Function::New(env, ImageAlloc));
   exports.Set("avImageCopy2", Napi::Function::New(env, ImageCopy2));
   exports.Set("avImageGetBufferSize", Napi::Function::New(env, ImageGetBufferSize));
   exports.Set("avImageCopyToBuffer", Napi::Function::New(env, ImageCopyToBuffer));
-  
+
+  // Timestamp utilities
   exports.Set("avTs2Str", Napi::Function::New(env, Ts2Str));
   exports.Set("avTs2TimeStr", Napi::Function::New(env, Ts2TimeStr));
   exports.Set("avCompareTs", Napi::Function::New(env, CompareTs));
   exports.Set("avRescaleQ", Napi::Function::New(env, RescaleQ));
   exports.Set("avRescaleRnd", Napi::Function::New(env, RescaleRnd));
-
   exports.Set("avUsleep", Napi::Function::New(env, Usleep));
-  
+
+  // Audio sample utilities
   exports.Set("avSamplesAlloc", Napi::Function::New(env, SamplesAlloc));
   exports.Set("avSamplesGetBufferSize", Napi::Function::New(env, SamplesGetBufferSize));
-  
-  exports.Set("avChannelLayoutDescribe", Napi::Function::New(env, ChannelLayoutDescribe));
-  
-  exports.Set("avSdpCreate", Napi::Function::New(env, SdpCreate));
 
+  // Channel layout utilities
+  exports.Set("avChannelLayoutDescribe", Napi::Function::New(env, ChannelLayoutDescribe));
+
+  // SDP utilities
+  exports.Set("avSdpCreate", Napi::Function::New(env, SdpCreate));
   return exports;
 }
 

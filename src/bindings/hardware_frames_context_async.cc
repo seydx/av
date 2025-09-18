@@ -9,13 +9,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for HardwareFramesContext Operations
-// ============================================================================
-
-/**
- * Worker for av_hwframe_transfer_data - Transfer data between frames
- */
 class HWFCTransferDataWorker : public Napi::AsyncWorker {
 public:
   HWFCTransferDataWorker(Napi::Env env, Frame* dst, Frame* src, int flags)
@@ -49,10 +42,6 @@ private:
   int ret_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// HardwareFramesContext Async Method Implementations
-// ============================================================================
 
 Napi::Value HardwareFramesContext::TransferDataAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

@@ -74,7 +74,6 @@ private:
   const AVInputFormat* result_format_;
 };
 
-// Update the ProbeBufferAsync implementation
 Napi::Value InputFormat::ProbeBufferAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 

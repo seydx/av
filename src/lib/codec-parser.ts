@@ -95,11 +95,17 @@ export class CodecParser implements Disposable, NativeWrapper<NativeCodecParser>
    * Direct mapping to av_parser_parse2().
    *
    * @param codecContext - Codec context for parser state
+   *
    * @param packet - Packet to receive parsed frame
+   *
    * @param data - Raw bitstream data to parse
+   *
    * @param pts - Presentation timestamp for data
+   *
    * @param dts - Decoding timestamp for data
+   *
    * @param pos - Byte position in stream
+   *
    * @returns Number of bytes consumed from data, negative on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure

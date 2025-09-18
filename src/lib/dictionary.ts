@@ -58,7 +58,9 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Convenience method to create a dictionary from a plain object.
    *
    * @param obj - Object with string key-value pairs
+   *
    * @param flags - Flags for setting entries
+   *
    * @returns New dictionary with entries from object
    *
    * @example
@@ -90,6 +92,7 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Create dictionary from native instance.
    *
    * @param native - Native dictionary instance
+   *
    * @returns Dictionary wrapper
    *
    * @internal
@@ -152,7 +155,9 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Direct mapping to av_dict_copy().
    *
    * @param dst - Destination dictionary
+   *
    * @param flags - Copy flags
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *
@@ -178,8 +183,11 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Direct mapping to av_dict_set().
    *
    * @param key - Entry key
+   *
    * @param value - Entry value
+   *
    * @param flags - Set flags (e.g., AV_DICT_DONT_OVERWRITE)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *
@@ -211,7 +219,9 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Direct mapping to av_dict_get().
    *
    * @param key - Entry key to look up
+   *
    * @param flags - Search flags (e.g., AV_DICT_IGNORE_SUFFIX)
+   *
    * @returns Entry value, or null if not found
    *
    * @example
@@ -282,9 +292,13 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Direct mapping to av_dict_parse_string().
    *
    * @param str - String to parse
+   *
    * @param keyValSep - Separator between key and value
+   *
    * @param pairsSep - Separator between pairs
+   *
    * @param flags - Parse flags
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid format
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -316,7 +330,9 @@ export class Dictionary implements Disposable, NativeWrapper<NativeDictionary> {
    * Direct mapping to av_dict_get_string().
    *
    * @param keyValSep - Separator between key and value
+   *
    * @param pairsSep - Separator between pairs
+   *
    * @returns Formatted string, or null on error
    *
    * @example

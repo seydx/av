@@ -75,7 +75,9 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    * Direct mapping to av_audio_fifo_alloc().
    *
    * @param sampleFmt - Sample format (e.g., AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_FLTP)
+   *
    * @param channels - Number of audio channels
+   *
    * @param nbSamples - Initial buffer size in samples
    *
    * @throws {Error} If allocation fails (ENOMEM)
@@ -131,6 +133,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    * Direct mapping to av_audio_fifo_write().
    *
    * @param data - Audio data buffer(s). Array for planar, single Buffer for interleaved
+   *
    * @param nbSamples - Number of samples to write
    *
    * @returns Number of samples written, or negative AVERROR:
@@ -162,6 +165,42 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   }
 
   /**
+   * Write samples to the FIFO synchronously.
+   * Synchronous version of write.
+   *
+   * Adds audio samples to the FIFO buffer.
+   * The FIFO automatically handles format and layout conversions.
+   * Can write fewer samples than requested if space is limited.
+   *
+   * Direct mapping to av_audio_fifo_write().
+   *
+   * @param data - Audio data buffer(s). Array for planar, single Buffer for interleaved
+   *
+   * @param nbSamples - Number of samples to write per channel
+   *
+   * @returns Number of samples written, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Interleaved stereo data (2 channels * 1024 samples * 4 bytes)
+   * const buffer = Buffer.alloc(2 * 1024 * 4);
+   * // Fill with audio data...
+   *
+   * const written = fifo.writeSync(buffer, 1024);
+   * FFmpegError.throwIfError(written, 'writeSync');
+   * console.log(`Wrote ${written} samples`);
+   * ```
+   *
+   * @see {@link write} For async version
+   */
+  writeSync(data: Buffer | Buffer[], nbSamples: number): number {
+    return this.native.writeSync(data, nbSamples);
+  }
+
+  /**
    * Read and remove samples from the FIFO.
    *
    * Reads up to the specified number of samples from the FIFO.
@@ -171,6 +210,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    * Direct mapping to av_audio_fifo_read().
    *
    * @param data - Pre-allocated buffer(s) to read into. Array for planar, single Buffer for interleaved
+   *
    * @param nbSamples - Maximum number of samples to read
    *
    * @returns Number of samples read, or negative AVERROR:
@@ -200,6 +240,42 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
   }
 
   /**
+   * Read and remove samples from the FIFO synchronously.
+   * Synchronous version of read.
+   *
+   * Reads up to the specified number of samples from the FIFO.
+   * The samples are removed from the FIFO after reading.
+   * Buffers must be pre-allocated with sufficient size.
+   *
+   * Direct mapping to av_audio_fifo_read().
+   *
+   * @param data - Pre-allocated buffer(s) to read into. Array for planar, single Buffer for interleaved
+   *
+   * @param nbSamples - Maximum number of samples to read
+   *
+   * @returns Number of samples read, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Read up to 1024 samples
+   * const readBuffer = Buffer.alloc(2 * 1024 * 4); // stereo float32
+   * const read = fifo.readSync(readBuffer, 1024);
+   * FFmpegError.throwIfError(read, 'readSync');
+   *
+   * console.log(`Read ${read} samples from FIFO`);
+   * console.log(`FIFO now has ${fifo.size} samples remaining`);
+   * ```
+   *
+   * @see {@link read} For async version
+   */
+  readSync(data: Buffer | Buffer[], nbSamples: number): number {
+    return this.native.readSync(data, nbSamples);
+  }
+
+  /**
    * Read samples from the FIFO without removing them.
    *
    * Similar to read() but leaves the samples in the FIFO.
@@ -208,6 +284,7 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    * Direct mapping to av_audio_fifo_peek().
    *
    * @param data - Pre-allocated buffer(s) to peek into. Array for planar, single Buffer for interleaved
+   *
    * @param nbSamples - Maximum number of samples to peek
    *
    * @returns Number of samples peeked, or negative AVERROR:
@@ -230,6 +307,41 @@ export class AudioFifo implements Disposable, NativeWrapper<NativeAudioFifo> {
    */
   async peek(data: Buffer | Buffer[], nbSamples: number): Promise<number> {
     return await this.native.peek(data, nbSamples);
+  }
+
+  /**
+   * Read samples from the FIFO without removing them synchronously.
+   * Synchronous version of peek.
+   *
+   * Similar to readSync() but leaves the samples in the FIFO.
+   * Useful for inspecting upcoming data without consuming it.
+   *
+   * Direct mapping to av_audio_fifo_peek().
+   *
+   * @param data - Pre-allocated buffer(s) to peek into. Array for planar, single Buffer for interleaved
+   *
+   * @param nbSamples - Maximum number of samples to peek
+   *
+   * @returns Number of samples peeked, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Peek at next samples without removing them
+   * const peekBuffer = Buffer.alloc(256 * 4);
+   * const peeked = fifo.peekSync(peekBuffer, 256);
+   * FFmpegError.throwIfError(peeked, 'peekSync');
+   *
+   * // Samples are still in FIFO
+   * console.log(`FIFO still has ${fifo.size} samples`);
+   * ```
+   *
+   * @see {@link peek} For async version
+   */
+  peekSync(data: Buffer | Buffer[], nbSamples: number): number {
+    return this.native.peekSync(data, nbSamples);
   }
 
   /**

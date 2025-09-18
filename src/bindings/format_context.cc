@@ -14,57 +14,59 @@ namespace ffmpeg {
 
 Napi::FunctionReference FormatContext::constructor;
 
-// === Init ===
-
 Napi::Object FormatContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FormatContext", {
-    // Lifecycle
     InstanceMethod<&FormatContext::AllocContext>("allocContext"),
     InstanceMethod<&FormatContext::AllocOutputContext2>("allocOutputContext2"),
     InstanceMethod<&FormatContext::FreeContext>("freeContext"),
     InstanceMethod<&FormatContext::CloseInputAsync>("closeInput"),
+    InstanceMethod<&FormatContext::CloseInputSync>("closeInputSync"),
     InstanceMethod<&FormatContext::OpenOutputAsync>("openOutput"),
+    InstanceMethod<&FormatContext::OpenOutputSync>("openOutputSync"),
     InstanceMethod<&FormatContext::CloseOutputAsync>("closeOutput"),
-
-    // Input Operations
+    InstanceMethod<&FormatContext::CloseOutputSync>("closeOutputSync"),
     InstanceMethod<&FormatContext::OpenInputAsync>("openInput"),
+    InstanceMethod<&FormatContext::OpenInputSync>("openInputSync"),
     InstanceMethod<&FormatContext::FindStreamInfoAsync>("findStreamInfo"),
+    InstanceMethod<&FormatContext::FindStreamInfoSync>("findStreamInfoSync"),
     InstanceMethod<&FormatContext::ReadFrameAsync>("readFrame"),
+    InstanceMethod<&FormatContext::ReadFrameSync>("readFrameSync"),
     InstanceMethod<&FormatContext::SeekFrameAsync>("seekFrame"),
+    InstanceMethod<&FormatContext::SeekFrameSync>("seekFrameSync"),
     InstanceMethod<&FormatContext::SeekFileAsync>("seekFile"),
-
-    // Output Operations
     InstanceMethod<&FormatContext::WriteHeaderAsync>("writeHeader"),
+    InstanceMethod<&FormatContext::WriteHeaderSync>("writeHeaderSync"),
     InstanceMethod<&FormatContext::WriteFrameAsync>("writeFrame"),
+    InstanceMethod<&FormatContext::WriteFrameSync>("writeFrameSync"),
     InstanceMethod<&FormatContext::InterleavedWriteFrameAsync>("interleavedWriteFrame"),
+    InstanceMethod<&FormatContext::InterleavedWriteFrameSync>("interleavedWriteFrameSync"),
     InstanceMethod<&FormatContext::WriteTrailerAsync>("writeTrailer"),
-    InstanceMethod<&FormatContext::Flush>("flush"),
+    InstanceMethod<&FormatContext::WriteTrailerSync>("writeTrailerSync"),
+    InstanceMethod<&FormatContext::FlushAsync>("flush"),
+    InstanceMethod<&FormatContext::FlushSync>("flushSync"),
     InstanceMethod<&FormatContext::NewStream>("newStream"),
     InstanceMethod<&FormatContext::DumpFormat>("dumpFormat"),
     InstanceMethod<&FormatContext::FindBestStream>("findBestStream"),
-
-    // Properties
-    InstanceAccessor("streams", &FormatContext::GetStreams, nullptr),
-    InstanceAccessor("nbStreams", &FormatContext::GetNbStreams, nullptr),
-    InstanceAccessor("url", &FormatContext::GetUrl, &FormatContext::SetUrl),
-    InstanceAccessor("startTime", &FormatContext::GetStartTime, nullptr),
-    InstanceAccessor("duration", &FormatContext::GetDuration, nullptr),
-    InstanceAccessor("bitRate", &FormatContext::GetBitRate, nullptr),
-    InstanceAccessor("flags", &FormatContext::GetFlags, &FormatContext::SetFlags),
-    InstanceAccessor("probesize", &FormatContext::GetProbesize, &FormatContext::SetProbesize),
-    InstanceAccessor("maxAnalyzeDuration", &FormatContext::GetMaxAnalyzeDuration, &FormatContext::SetMaxAnalyzeDuration),
-    InstanceAccessor("metadata", &FormatContext::GetMetadata, &FormatContext::SetMetadata),
-    InstanceAccessor("iformat", &FormatContext::GetIformat, nullptr),
-    InstanceAccessor("oformat", &FormatContext::GetOformat, &FormatContext::SetOformat),
-    InstanceAccessor("pb", nullptr, &FormatContext::SetPb),
-    InstanceAccessor("pbBytes", &FormatContext::GetPbBytes, nullptr),
-    InstanceAccessor("strictStdCompliance", &FormatContext::GetStrictStdCompliance, &FormatContext::SetStrictStdCompliance),
-    InstanceAccessor("maxStreams", &FormatContext::GetMaxStreams, &FormatContext::SetMaxStreams),
-    InstanceAccessor("nbPrograms", &FormatContext::GetNbPrograms, nullptr),
-    InstanceAccessor("probeScore", &FormatContext::GetProbeScore, nullptr),
-    
-    // Utility
     InstanceMethod(Napi::Symbol::WellKnown(env, "asyncDispose"), &FormatContext::DisposeAsync),
+
+    InstanceAccessor<&FormatContext::GetStreams, nullptr>("streams"),
+    InstanceAccessor<&FormatContext::GetNbStreams, nullptr>("nbStreams"),
+    InstanceAccessor<&FormatContext::GetUrl, &FormatContext::SetUrl>("url"),
+    InstanceAccessor<&FormatContext::GetStartTime, nullptr>("startTime"),
+    InstanceAccessor<&FormatContext::GetDuration, nullptr>("duration"),
+    InstanceAccessor<&FormatContext::GetBitRate, nullptr>("bitRate"),
+    InstanceAccessor<&FormatContext::GetFlags, &FormatContext::SetFlags>("flags"),
+    InstanceAccessor<&FormatContext::GetProbesize, &FormatContext::SetProbesize>("probesize"),
+    InstanceAccessor<&FormatContext::GetMaxAnalyzeDuration, &FormatContext::SetMaxAnalyzeDuration>("maxAnalyzeDuration"),
+    InstanceAccessor<&FormatContext::GetMetadata, &FormatContext::SetMetadata>("metadata"),
+    InstanceAccessor<&FormatContext::GetIformat, nullptr>("iformat"),
+    InstanceAccessor<&FormatContext::GetOformat, &FormatContext::SetOformat>("oformat"),
+    InstanceAccessor<nullptr, &FormatContext::SetPb>("pb"),
+    InstanceAccessor<&FormatContext::GetPbBytes, nullptr>("pbBytes"),
+    InstanceAccessor<&FormatContext::GetStrictStdCompliance, &FormatContext::SetStrictStdCompliance>("strictStdCompliance"),
+    InstanceAccessor<&FormatContext::GetMaxStreams, &FormatContext::SetMaxStreams>("maxStreams"),
+    InstanceAccessor<&FormatContext::GetNbPrograms, nullptr>("nbPrograms"),
+    InstanceAccessor<&FormatContext::GetProbeScore, nullptr>("probeScore"),
   });
   
   constructor = Napi::Persistent(func);
@@ -201,24 +203,6 @@ Napi::Value FormatContext::FreeContext(const Napi::CallbackInfo& info) {
   }
   
   is_output_ = false;
-  
-  return env.Undefined();
-}
-
-// These methods are now implemented in format_context_async.cc
-
-Napi::Value FormatContext::Flush(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  AVFormatContext* ctx = ctx_;
-  if (!ctx) {
-    Napi::Error::New(env, "Format context not allocated").ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-  
-  if (ctx->pb) {
-    avio_flush(ctx->pb);
-  }
   
   return env.Undefined();
 }

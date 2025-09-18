@@ -86,11 +86,17 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    * Direct mapping to sws_getContext().
    *
    * @param srcW - Source width in pixels
+   *
    * @param srcH - Source height in pixels
+   *
    * @param srcFormat - Source pixel format
+   *
    * @param dstW - Destination width in pixels
+   *
    * @param dstH - Destination height in pixels
+   *
    * @param dstFormat - Destination pixel format
+   *
    * @param flags - Scaling algorithm flags (SWS_*)
    *
    * @example
@@ -174,11 +180,17 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    * Direct mapping to sws_scale().
    *
    * @param srcSlice - Source data planes (one buffer per plane)
+   *
    * @param srcStride - Bytes per line for each plane
+   *
    * @param srcSliceY - Starting Y position in source
+   *
    * @param srcSliceH - Height of source slice to process
+   *
    * @param dst - Destination data planes
+   *
    * @param dstStride - Destination bytes per line
+   *
    * @returns Output height in pixels, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *
@@ -204,6 +216,55 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
   }
 
   /**
+   * Scale video synchronously.
+   * Synchronous version of scale.
+   *
+   * Scales raw video data from source to destination format.
+   * Can scale a slice or entire image.
+   *
+   * Direct mapping to sws_scale().
+   *
+   * @param srcSlice - Array of source buffers (one per plane)
+   *
+   * @param srcStride - Array of source strides (bytes per row)
+   *
+   * @param srcSliceY - Y position of slice (0 for full image)
+   *
+   * @param srcSliceH - Height of slice (full height for entire image)
+   *
+   * @param dst - Array of destination buffers (one per plane)
+   *
+   * @param dstStride - Array of destination strides
+   *
+   * @returns Height of output image, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Scale YUV420P image
+   * const srcBufs = [yPlane, uPlane, vPlane];
+   * const srcStrides = [srcWidth, srcWidth/2, srcWidth/2];
+   * const dstBufs = [dstY, dstU, dstV];
+   * const dstStrides = [dstWidth, dstWidth/2, dstWidth/2];
+   *
+   * const height = scaler.scaleSync(
+   *   srcBufs, srcStrides,
+   *   0, srcHeight,  // Full image
+   *   dstBufs, dstStrides
+   * );
+   * FFmpegError.throwIfError(height, 'scaleSync');
+   * console.log(`Scaled ${height} lines`);
+   * ```
+   *
+   * @see {@link scale} For async version
+   */
+  scaleSync(srcSlice: Buffer[], srcStride: number[], srcSliceY: number, srcSliceH: number, dst: Buffer[], dstStride: number[]): number {
+    return this.native.scaleSync(srcSlice, srcStride, srcSliceY, srcSliceH, dst, dstStride);
+  }
+
+  /**
    * Scale video frame.
    *
    * Scales an entire video frame to the destination format.
@@ -212,7 +273,9 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    * Direct mapping to sws_scale_frame().
    *
    * @param dst - Destination frame (must be allocated)
+   *
    * @param src - Source frame
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -241,6 +304,47 @@ export class SoftwareScaleContext extends OptionMember<NativeSoftwareScaleContex
    */
   async scaleFrame(dst: Frame, src: Frame): Promise<number> {
     return await this.native.scaleFrame(dst.getNative(), src.getNative());
+  }
+
+  /**
+   * Scale video frame synchronously.
+   * Synchronous version of scaleFrame.
+   *
+   * Scales an entire video frame to the destination format.
+   * Simpler interface than scaleSync() for frame-based processing.
+   *
+   * Direct mapping to sws_scale_frame().
+   *
+   * @param dst - Destination frame (must be allocated)
+   *
+   * @param src - Source frame
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24 } from 'node-av/constants';
+   *
+   * // Convert YUV to RGB
+   * const srcFrame = new Frame();
+   * srcFrame.allocBuffer(AV_PIX_FMT_YUV420P, 1920, 1080);
+   * // ... fill with YUV data ...
+   *
+   * const dstFrame = new Frame();
+   * dstFrame.allocBuffer(AV_PIX_FMT_RGB24, 1920, 1080);
+   *
+   * const ret = scaler.scaleFrameSync(dstFrame, srcFrame);
+   * FFmpegError.throwIfError(ret, 'scaleFrameSync');
+   *
+   * // dstFrame now contains scaled image
+   * ```
+   *
+   * @see {@link scaleFrame} For async version
+   */
+  scaleFrameSync(dst: Frame, src: Frame): number {
+    return this.native.scaleFrameSync(dst.getNative(), src.getNative());
   }
 
   /**

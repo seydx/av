@@ -75,8 +75,11 @@ export class Encoder implements Disposable {
 
   /**
    * @param codecContext - Configured codec context
+   *
    * @param codec - Encoder codec
+   *
    * @param opts - Encoder options as Dictionary
+   *
    * @internal
    */
   private constructor(codecContext: CodecContext, codec: Codec, opts?: Dictionary | null) {
@@ -97,7 +100,9 @@ export class Encoder implements Disposable {
    * Direct mapping to avcodec_find_encoder_by_name() or avcodec_find_encoder().
    *
    * @param encoderCodec - Codec name, ID, or instance to use for encoding
+   *
    * @param options - Encoder configuration options including required timeBase
+   *
    * @returns Configured encoder instance
    *
    * @throws {Error} If encoder not found or timeBase not provided
@@ -286,6 +291,7 @@ export class Encoder implements Disposable {
    * Direct mapping to avcodec_send_frame() and avcodec_receive_packet().
    *
    * @param frame - Raw frame to encode (or null to flush)
+   *
    * @returns Encoded packet or null if more data needed
    *
    * @throws {Error} If encoder is closed
@@ -354,6 +360,84 @@ export class Encoder implements Disposable {
   }
 
   /**
+   * Encode a frame to a packet synchronously.
+   * Synchronous version of encode.
+   *
+   * Sends a frame to the encoder and attempts to receive an encoded packet.
+   * On first frame, automatically initializes encoder with frame properties.
+   * Handles internal buffering - may return null if more frames needed.
+   *
+   * Direct mapping to avcodec_send_frame() and avcodec_receive_packet().
+   *
+   * @param frame - Raw frame to encode (or null to flush)
+   *
+   * @returns Encoded packet or null if more data needed
+   *
+   * @throws {Error} If encoder is closed
+   *
+   * @throws {FFmpegError} If encoding fails
+   *
+   * @example
+   * ```typescript
+   * const packet = encoder.encodeSync(frame);
+   * if (packet) {
+   *   console.log(`Encoded packet with PTS: ${packet.pts}`);
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Encode loop
+   * for (const frame of decoder.framesSync(packets)) {
+   *   const packet = encoder.encodeSync(frame);
+   *   if (packet) {
+   *     output.writePacketSync(packet);
+   *     packet.free();
+   *   }
+   *   frame.free();
+   * }
+   * ```
+   *
+   * @see {@link encode} For async version
+   */
+  encodeSync(frame: Frame | null): Packet | null {
+    if (this.isClosed) {
+      if (!frame) {
+        return null;
+      }
+
+      throw new Error('Encoder is closed');
+    }
+
+    // Open encoder if not already done
+    if (!this.initialized) {
+      if (!frame) {
+        return null;
+      }
+
+      this.initializeSync(frame);
+    }
+
+    // Send frame to encoder
+    const sendRet = this.codecContext.sendFrameSync(frame);
+    if (sendRet < 0 && sendRet !== AVERROR_EOF) {
+      // Encoder might be full, try to receive first
+      const packet = this.receiveSync();
+      if (packet) return packet;
+
+      // If still failing, it's an error
+      if (sendRet !== AVERROR_EAGAIN) {
+        FFmpegError.throwIfError(sendRet, 'Failed to send frame');
+      }
+    }
+
+    // Try to receive packet
+    return this.receiveSync();
+  }
+
+  /**
    * Encode frame stream to packet stream.
    *
    * High-level async generator for complete encoding pipeline.
@@ -362,7 +446,9 @@ export class Encoder implements Disposable {
    * Primary interface for stream-based encoding.
    *
    * @param frames - Async iterable of frames (freed automatically)
+   *
    * @yields {Packet} Encoded packets (caller must free)
+   *
    * @throws {Error} If encoder is closed
    *
    * @throws {FFmpegError} If encoding fails
@@ -436,6 +522,76 @@ export class Encoder implements Disposable {
   }
 
   /**
+   * Encode frame stream to packet stream synchronously.
+   * Synchronous version of packets.
+   *
+   * High-level sync generator for complete encoding pipeline.
+   * Automatically manages frame memory, encoder state,
+   * and flushes buffered packets at end.
+   * Primary interface for stream-based encoding.
+   *
+   * @param frames - Iterable of frames (freed automatically)
+   *
+   * @yields {Packet} Encoded packets (caller must free)
+   *
+   * @throws {Error} If encoder is closed
+   *
+   * @throws {FFmpegError} If encoding fails
+   *
+   * @example
+   * ```typescript
+   * // Basic encoding pipeline
+   * for (const packet of encoder.packetsSync(decoder.framesSync(packets))) {
+   *   output.writePacketSync(packet);
+   *   packet.free(); // Must free output packets
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // With frame filtering
+   * function* filteredFrames() {
+   *   for (const frame of decoder.framesSync(packets)) {
+   *     const filtered = filter.processSync(frame);
+   *     if (filtered) {
+   *       yield filtered;
+   *     }
+   *     frame.free();
+   *   }
+   * }
+   *
+   * for (const packet of encoder.packetsSync(filteredFrames())) {
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link packets} For async version
+   */
+  *packetsSync(frames: Iterable<Frame>): Generator<Packet> {
+    // Process frames
+    for (const frame of frames) {
+      try {
+        const packet = this.encodeSync(frame);
+        if (packet) {
+          yield packet;
+        }
+      } finally {
+        // Free the input frame after encoding
+        frame.free();
+      }
+    }
+
+    // Flush encoder after all frames
+    this.flushSync();
+    while (true) {
+      const remaining = this.receiveSync();
+      if (!remaining) break;
+      yield remaining;
+    }
+  }
+
+  /**
    * Flush encoder and signal end-of-stream.
    *
    * Sends null frame to encoder to signal end-of-stream.
@@ -476,6 +632,46 @@ export class Encoder implements Disposable {
   }
 
   /**
+   * Flush encoder and signal end-of-stream synchronously.
+   * Synchronous version of flush.
+   *
+   * Sends null frame to encoder to signal end-of-stream.
+   * Does nothing if encoder was never initialized or is closed.
+   * Must call receiveSync() to get remaining buffered packets.
+   *
+   * Direct mapping to avcodec_send_frame(NULL).
+   *
+   * @example
+   * ```typescript
+   * // Signal end of stream
+   * encoder.flushSync();
+   *
+   * // Then get remaining packets
+   * let packet;
+   * while ((packet = encoder.receiveSync()) !== null) {
+   *   console.log('Got buffered packet');
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link flush} For async version
+   */
+  flushSync(): void {
+    if (this.isClosed || !this.initialized) {
+      return;
+    }
+
+    // Send flush frame (null)
+    const ret = this.codecContext.sendFrameSync(null);
+    if (ret < 0 && ret !== AVERROR_EOF) {
+      if (ret !== AVERROR_EAGAIN) {
+        FFmpegError.throwIfError(ret, 'Failed to flush encoder');
+      }
+    }
+  }
+
+  /**
    * Flush all buffered packets as async generator.
    *
    * Convenient async iteration over remaining packets.
@@ -503,6 +699,38 @@ export class Encoder implements Disposable {
 
     let packet;
     while ((packet = await this.receive()) !== null) {
+      yield packet;
+    }
+  }
+
+  /**
+   * Flush all buffered packets as generator synchronously.
+   * Synchronous version of flushPackets.
+   *
+   * Convenient sync iteration over remaining packets.
+   * Automatically handles flush and repeated receive calls.
+   * Returns immediately if encoder was never initialized or is closed.
+   *
+   * @yields {Packet} Buffered packets
+   *
+   * @example
+   * ```typescript
+   * // Flush at end of encoding
+   * for (const packet of encoder.flushPacketsSync()) {
+   *   console.log('Processing buffered packet');
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link flushPackets} For async version
+   */
+  *flushPacketsSync(): Generator<Packet> {
+    // Send flush signal
+    this.flushSync();
+
+    let packet;
+    while ((packet = this.receiveSync()) !== null) {
       yield packet;
     }
   }
@@ -554,6 +782,67 @@ export class Encoder implements Disposable {
     this.packet.unref();
 
     const ret = await this.codecContext.receivePacket(this.packet);
+
+    if (ret === 0) {
+      // Got a packet, clone it for the user
+      return this.packet.clone();
+    } else if (ret === AVERROR_EAGAIN || ret === AVERROR_EOF) {
+      // Need more data or end of stream
+      return null;
+    } else {
+      // Error
+      FFmpegError.throwIfError(ret, 'Failed to receive packet');
+      return null;
+    }
+  }
+
+  /**
+   * Receive packet from encoder synchronously.
+   * Synchronous version of receive.
+   *
+   * Gets encoded packets from the codec's internal buffer.
+   * Handles packet cloning and error checking.
+   * Returns null if encoder is closed, not initialized, or no packets available.
+   * Call repeatedly until null to drain all buffered packets.
+   *
+   * Direct mapping to avcodec_receive_packet().
+   *
+   * @returns Cloned packet or null if no packets available
+   *
+   * @throws {FFmpegError} If receive fails with error other than AVERROR_EAGAIN or AVERROR_EOF
+   *
+   * @example
+   * ```typescript
+   * const packet = encoder.receiveSync();
+   * if (packet) {
+   *   console.log(`Got packet with PTS: ${packet.pts}`);
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Drain all buffered packets
+   * let packet;
+   * while ((packet = encoder.receiveSync()) !== null) {
+   *   console.log(`Packet size: ${packet.size}`);
+   *   output.writePacketSync(packet);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link receive} For async version
+   */
+  receiveSync(): Packet | null {
+    if (this.isClosed || !this.initialized) {
+      return null;
+    }
+
+    // Clear previous packet data
+    this.packet.unref();
+
+    const ret = this.codecContext.receivePacketSync(this.packet);
 
     if (ret === 0) {
       // Got a packet, clone it for the user
@@ -630,6 +919,47 @@ export class Encoder implements Disposable {
 
     // Open codec
     const openRet = await this.codecContext.open2(this.codec, this.opts);
+    if (openRet < 0) {
+      this.codecContext.freeContext();
+      FFmpegError.throwIfError(openRet, 'Failed to open encoder');
+    }
+
+    this.initialized = true;
+  }
+
+  /**
+   * Initialize encoder from first frame synchronously.
+   * Synchronous version of initialize.
+   *
+   * Sets codec context parameters from frame properties.
+   * Configures hardware context if present in frame.
+   * Opens encoder with accumulated options.
+   *
+   * @param frame - First frame to encode
+   *
+   * @throws {FFmpegError} If encoder open fails
+   *
+   * @internal
+   *
+   * @see {@link initialize} For async version
+   */
+  private initializeSync(frame: Frame): void {
+    if (frame.isVideo()) {
+      this.codecContext.width = frame.width;
+      this.codecContext.height = frame.height;
+      this.codecContext.pixelFormat = frame.format as AVPixelFormat;
+      this.codecContext.sampleAspectRatio = frame.sampleAspectRatio;
+    } else {
+      this.codecContext.sampleRate = frame.sampleRate;
+      this.codecContext.sampleFormat = frame.format as AVSampleFormat;
+      this.codecContext.channelLayout = frame.channelLayout;
+    }
+
+    this.codecContext.hwDeviceCtx = frame.hwFramesCtx?.deviceRef ?? null;
+    this.codecContext.hwFramesCtx = frame.hwFramesCtx;
+
+    // Open codec
+    const openRet = this.codecContext.open2Sync(this.codec, this.opts);
     if (openRet < 0) {
       this.codecContext.freeContext();
       FFmpegError.throwIfError(openRet, 'Failed to open encoder');

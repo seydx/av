@@ -8,11 +8,8 @@ namespace ffmpeg {
 
 Napi::FunctionReference Stream::constructor;
 
-// === Init ===
-
 Napi::Object Stream::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Stream", {
-    // Properties
     InstanceAccessor<&Stream::GetIndex>("index"),
     InstanceAccessor<&Stream::GetId, &Stream::SetId>("id"),
     InstanceAccessor<&Stream::GetCodecpar, &Stream::SetCodecpar>("codecpar"),
@@ -37,8 +34,6 @@ Napi::Object Stream::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 Stream::Stream(const Napi::CallbackInfo& info)
   : Napi::ObjectWrap<Stream>(info) {
   // Stream objects are created internally by FormatContext
@@ -47,8 +42,6 @@ Stream::Stream(const Napi::CallbackInfo& info)
 Stream::~Stream() {
   // We don't own the AVStream, so nothing to free
 }
-
-// === Properties ===
 
 Napi::Value Stream::GetIndex(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

@@ -238,6 +238,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    * Direct mapping to av_packet_ref().
    *
    * @param src - Source packet to reference
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *   - AVERROR_EINVAL: Invalid parameters
@@ -323,6 +324,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    * Direct mapping to av_packet_rescale_ts().
    *
    * @param srcTimebase - Source time base
+   *
    * @param dstTimebase - Destination time base
    *
    * @example
@@ -398,6 +400,7 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    * Direct mapping to av_packet_get_side_data().
    *
    * @param type - Type of side data to retrieve
+   *
    * @returns Side data buffer, or null if not present
    *
    * @example
@@ -425,7 +428,9 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    * Direct mapping to av_packet_add_side_data().
    *
    * @param type - Type of side data
+   *
    * @param data - Side data buffer
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *   - AVERROR_EINVAL: Invalid parameters
@@ -456,7 +461,9 @@ export class Packet implements Disposable, NativeWrapper<NativePacket> {
    * Direct mapping to av_packet_new_side_data().
    *
    * @param type - Type of side data
+   *
    * @param size - Size in bytes to allocate
+   *
    * @returns Allocated buffer for writing
    *
    * @throws {Error} If allocation fails

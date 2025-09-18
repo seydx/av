@@ -7,36 +7,26 @@ namespace ffmpeg {
 
 Napi::FunctionReference SoftwareResampleContext::constructor;
 
-// === Init ===
-
 Napi::Object SoftwareResampleContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "SoftwareResampleContext", {
-    // Lifecycle
     InstanceMethod<&SoftwareResampleContext::Alloc>("alloc"),
     InstanceMethod<&SoftwareResampleContext::AllocSetOpts2>("allocSetOpts2"),
     InstanceMethod<&SoftwareResampleContext::Init>("init"),
     InstanceMethod<&SoftwareResampleContext::Free>("free"),
     InstanceMethod<&SoftwareResampleContext::Close>("close"),
-
-    // Operations
     InstanceMethod<&SoftwareResampleContext::ConvertAsync>("convert"),
+    InstanceMethod<&SoftwareResampleContext::ConvertSync>("convertSync"),
     InstanceMethod<&SoftwareResampleContext::ConvertFrame>("convertFrame"),
     InstanceMethod<&SoftwareResampleContext::ConfigFrame>("configFrame"),
-
-    // Query
     InstanceMethod<&SoftwareResampleContext::IsInitialized>("isInitialized"),
     InstanceMethod<&SoftwareResampleContext::GetDelay>("getDelay"),
     InstanceMethod<&SoftwareResampleContext::GetOutSamples>("getOutSamples"),
     InstanceMethod<&SoftwareResampleContext::NextPts>("nextPts"),
-
-    // Configuration
     InstanceMethod<&SoftwareResampleContext::SetCompensation>("setCompensation"),
     InstanceMethod<&SoftwareResampleContext::SetChannelMapping>("setChannelMapping"),
     InstanceMethod<&SoftwareResampleContext::SetMatrix>("setMatrix"),
     InstanceMethod<&SoftwareResampleContext::DropOutput>("dropOutput"),
     InstanceMethod<&SoftwareResampleContext::InjectSilence>("injectSilence"),
-
-    // Utility
     InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &SoftwareResampleContext::Dispose),
   });
   
@@ -46,8 +36,6 @@ Napi::Object SoftwareResampleContext::Init(Napi::Env env, Napi::Object exports) 
   exports.Set("SoftwareResampleContext", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 SoftwareResampleContext::SoftwareResampleContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<SoftwareResampleContext>(info) {
@@ -62,8 +50,6 @@ SoftwareResampleContext::~SoftwareResampleContext() {
   }
   // RAII handles cleanup
 }
-
-// === Methods ===
 
 Napi::Value SoftwareResampleContext::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -187,8 +173,6 @@ Napi::Value SoftwareResampleContext::Close(const Napi::CallbackInfo& info) {
   
   return env.Undefined();
 }
-
-// === Operations ===
 
 Napi::Value SoftwareResampleContext::ConvertFrame(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -335,8 +319,6 @@ Napi::Value SoftwareResampleContext::NextPts(const Napi::CallbackInfo& info) {
   return Napi::BigInt::New(env, nextPts);
 }
 
-// === Configuration ===
-
 Napi::Value SoftwareResampleContext::SetCompensation(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -459,8 +441,6 @@ Napi::Value SoftwareResampleContext::InjectSilence(const Napi::CallbackInfo& inf
   
   return Napi::Number::New(env, ret);
 }
-
-// === Utility ===
 
 Napi::Value SoftwareResampleContext::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);

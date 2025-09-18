@@ -55,6 +55,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
 
   /**
    * @param native - The native codec instance
+   *
    * @internal
    */
   constructor(native: NativeCodec) {
@@ -69,6 +70,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Direct mapping to avcodec_find_decoder().
    *
    * @param id - Codec ID to search for
+   *
    * @returns Decoder if found, null otherwise
    *
    * @example
@@ -102,6 +104,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Direct mapping to avcodec_find_decoder_by_name().
    *
    * @param name - Decoder name
+   *
    * @returns Decoder if found, null otherwise
    *
    * @example
@@ -131,6 +134,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Direct mapping to avcodec_find_encoder().
    *
    * @param id - Codec ID to search for
+   *
    * @returns Encoder if found, null otherwise
    *
    * @example
@@ -164,6 +168,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Direct mapping to avcodec_find_encoder_by_name().
    *
    * @param name - Encoder name
+   *
    * @returns Encoder if found, null otherwise
    *
    * @example
@@ -223,6 +228,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Direct mapping to av_codec_iterate().
    *
    * @param opaque - Iteration state (null to start)
+   *
    * @returns Next codec and state, or null when done
    *
    * @example
@@ -493,6 +499,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Check if codec supports specific device type.
    *
    * @param deviceType - Hardware device type to check
+   *
    * @returns True if device type is supported
    *
    * @example
@@ -527,6 +534,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Check if decoder supports hardware acceleration.
    *
    * @param deviceType - Optional specific device type
+   *
    * @returns True if hardware decoding is supported
    *
    * @example
@@ -558,6 +566,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Check if encoder supports hardware acceleration.
    *
    * @param deviceType - Optional specific device type
+   *
    * @returns True if hardware encoding is supported
    *
    * @example
@@ -628,6 +637,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Returns the hardware configuration methods for a specific device.
    *
    * @param deviceType - Device type to query
+   *
    * @returns Method flags, or null if not supported
    *
    * @example
@@ -663,6 +673,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Direct mapping to avcodec_get_hw_config().
    *
    * @param index - Configuration index
+   *
    * @returns Hardware configuration, or null if index out of range
    *
    * @example
@@ -702,6 +713,7 @@ export class Codec implements NativeWrapper<NativeCodec> {
    * Create codec from native instance.
    *
    * @param native - Native codec instance
+   *
    * @returns Codec wrapper or null
    *
    * @internal

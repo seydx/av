@@ -42,6 +42,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
 
   /**
    * @param native - The native filter instance
+   *
    * @internal
    */
   constructor(native: NativeFilter) {
@@ -57,6 +58,7 @@ export class Filter implements NativeWrapper<NativeFilter> {
    * Direct mapping to avfilter_get_by_name().
    *
    * @param name - Name of the filter
+   *
    * @returns Filter instance if found, null otherwise
    *
    * @example

@@ -8,27 +8,19 @@ namespace ffmpeg {
 
 Napi::FunctionReference BitStreamFilterContext::constructor;
 
-// === Init ===
-
 Napi::Object BitStreamFilterContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "BitStreamFilterContext", {
-    // Lifecycle methods
     InstanceMethod<&BitStreamFilterContext::Alloc>("alloc"),
     InstanceMethod<&BitStreamFilterContext::Init>("init"),
     InstanceMethod<&BitStreamFilterContext::Free>("free"),
     InstanceMethod<&BitStreamFilterContext::Flush>("flush"),
-    
-    // Operations (async)
     InstanceMethod<&BitStreamFilterContext::SendPacketAsync>("sendPacket"),
+    InstanceMethod<&BitStreamFilterContext::SendPacketSync>("sendPacketSync"),
     InstanceMethod<&BitStreamFilterContext::ReceivePacketAsync>("receivePacket"),
-    
-    // Utility
+    InstanceMethod<&BitStreamFilterContext::ReceivePacketSync>("receivePacketSync"),
     InstanceMethod<&BitStreamFilterContext::IsInitialized>("isInitialized"),
-    
-    // Resource management
     InstanceMethod<&BitStreamFilterContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
-    
-    // Properties
+
     InstanceAccessor<&BitStreamFilterContext::GetInputCodecParameters>("inputCodecParameters"),
     InstanceAccessor<&BitStreamFilterContext::GetOutputCodecParameters>("outputCodecParameters"),
     InstanceAccessor<&BitStreamFilterContext::GetInputTimeBase, &BitStreamFilterContext::SetInputTimeBase>("inputTimeBase"),
@@ -43,8 +35,6 @@ Napi::Object BitStreamFilterContext::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 BitStreamFilterContext::BitStreamFilterContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<BitStreamFilterContext>(info) {
   // Constructor does nothing - context is allocated via alloc()
@@ -55,8 +45,6 @@ BitStreamFilterContext::~BitStreamFilterContext() {
     av_bsf_free(&context_);
   }
 }
-
-// === Methods ===
 
 Napi::Value BitStreamFilterContext::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -133,8 +121,6 @@ Napi::Value BitStreamFilterContext::Flush(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-// === Utility ===
-
 Napi::Value BitStreamFilterContext::IsInitialized(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(info.Env(), is_initialized_);
 }
@@ -142,8 +128,6 @@ Napi::Value BitStreamFilterContext::IsInitialized(const Napi::CallbackInfo& info
 Napi::Value BitStreamFilterContext::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);
 }
-
-// === Properties ===
 
 Napi::Value BitStreamFilterContext::GetInputCodecParameters(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

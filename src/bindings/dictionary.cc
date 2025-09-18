@@ -5,24 +5,17 @@ namespace ffmpeg {
 
 Napi::FunctionReference Dictionary::constructor;
 
-// === Init ===
-
 Napi::Object Dictionary::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Dictionary", {
-    // Lifecycle
     InstanceMethod<&Dictionary::Alloc>("alloc"),
     InstanceMethod<&Dictionary::Free>("free"),
     InstanceMethod<&Dictionary::Copy>("copy"),
-    
-    // Operations
     InstanceMethod<&Dictionary::Set>("set"),
     InstanceMethod<&Dictionary::Get>("get"),
     InstanceMethod<&Dictionary::Count>("count"),
     InstanceMethod<&Dictionary::GetAll>("getAll"),
     InstanceMethod<&Dictionary::ParseString>("parseString"),
     InstanceMethod<&Dictionary::GetString>("getString"),
-    
-    // Utility
     InstanceMethod<&Dictionary::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
@@ -32,8 +25,6 @@ Napi::Object Dictionary::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("Dictionary", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 Dictionary::Dictionary(const Napi::CallbackInfo& info)
   : Napi::ObjectWrap<Dictionary>(info) {
@@ -47,8 +38,6 @@ Dictionary::~Dictionary() {
     dict_ = nullptr;
   }
 }
-
-// === Methods ===
 
 Napi::Value Dictionary::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

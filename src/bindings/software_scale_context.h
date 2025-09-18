@@ -16,35 +16,26 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   SoftwareScaleContext(const Napi::CallbackInfo& info);
   ~SoftwareScaleContext();
-  
-  // Native access
+
   SwsContext* Get() { return ctx_; }
 
 private:
-  friend class AVOption; // For option unwrapping  // Friend classes
+  friend class AVOption;
   friend class SwsScaleFrameWorker;
-  
-  // Static members
+
   static Napi::FunctionReference constructor;
-  
-  // Resources
-  SwsContext* ctx_ = nullptr;  // Manual RAII
+
+  SwsContext* ctx_ = nullptr;
   bool is_freed_ = false;
-  
-  // === Methods ===
-  
-  // Lifecycle
+
   Napi::Value AllocContext(const Napi::CallbackInfo& info);
   Napi::Value GetContext(const Napi::CallbackInfo& info);
   Napi::Value InitContext(const Napi::CallbackInfo& info);
   Napi::Value FreeContext(const Napi::CallbackInfo& info);
-  
-  // Operations
   Napi::Value ScaleAsync(const Napi::CallbackInfo& info);
-  Napi::Value ScaleFrame(const Napi::CallbackInfo& info);
-  
-  // === Utility ===
-  
+  Napi::Value ScaleSync(const Napi::CallbackInfo& info);
+  Napi::Value ScaleFrameAsync(const Napi::CallbackInfo& info);
+  Napi::Value ScaleFrameSync(const Napi::CallbackInfo& info);
   Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 

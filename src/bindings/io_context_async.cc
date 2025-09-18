@@ -4,13 +4,6 @@
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for I/O Operations
-// ============================================================================
-
-/**
- * Worker for avio_open2 - Opens a resource for reading/writing
- */
 class IOOpen2Worker : public Napi::AsyncWorker {
 public:
   IOOpen2Worker(Napi::Env env, IOContext* ctx, 
@@ -54,9 +47,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avio_closep - Closes a resource
- */
 class IOClosepWorker : public Napi::AsyncWorker {
 public:
   IOClosepWorker(Napi::Env env, IOContext* ctx)
@@ -101,9 +91,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avio_read - Reads data from IOContext
- */
 class IOReadWorker : public Napi::AsyncWorker {
 public:
   IOReadWorker(Napi::Env env, IOContext* ctx, int size)
@@ -153,9 +140,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avio_write - Writes data to IOContext
- */
 class IOWriteWorker : public Napi::AsyncWorker {
 public:
   IOWriteWorker(Napi::Env env, IOContext* ctx, 
@@ -195,9 +179,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avio_seek - Seeks to a position
- */
 class IOSeekWorker : public Napi::AsyncWorker {
 public:
   IOSeekWorker(Napi::Env env, IOContext* ctx, 
@@ -239,9 +220,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avio_size - Gets file size
- */
 class IOSizeWorker : public Napi::AsyncWorker {
 public:
   IOSizeWorker(Napi::Env env, IOContext* ctx)
@@ -278,9 +256,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avio_flush - Flushes buffered data
- */
 class IOFlushWorker : public Napi::AsyncWorker {
 public:
   IOFlushWorker(Napi::Env env, IOContext* ctx)
@@ -315,9 +290,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avio_skip - Skips bytes forward
- */
 class IOSkipWorker : public Napi::AsyncWorker {
 public:
   IOSkipWorker(Napi::Env env, IOContext* ctx, int64_t offset)
@@ -355,10 +327,6 @@ private:
   int64_t new_pos_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// Async Method Implementations
-// ============================================================================
 
 Napi::Value IOContext::Open2Async(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

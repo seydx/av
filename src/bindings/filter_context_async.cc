@@ -12,13 +12,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for FilterContext Operations
-// ============================================================================
-
-/**
- * Worker for av_buffersrc_add_frame - Adds frame to buffer source
- */
 class FCBuffersrcAddFrameWorker : public Napi::AsyncWorker {
 public:
   FCBuffersrcAddFrameWorker(Napi::Env env, FilterContext* ctx, Frame* frame)
@@ -51,9 +44,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_buffersink_get_frame - Gets frame from buffer sink
- */
 class FCBuffersinkGetFrameWorker : public Napi::AsyncWorker {
 public:
   FCBuffersinkGetFrameWorker(Napi::Env env, FilterContext* ctx, Frame* frame)
@@ -85,10 +75,6 @@ private:
   int ret_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// FilterContext Async Method Implementations
-// ============================================================================
 
 Napi::Value FilterContext::BuffersrcAddFrameAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

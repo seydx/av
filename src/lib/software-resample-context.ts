@@ -94,11 +94,17 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_alloc_set_opts2().
    *
    * @param outChLayout - Output channel layout
+   *
    * @param outSampleFmt - Output sample format
+   *
    * @param outSampleRate - Output sample rate in Hz
+   *
    * @param inChLayout - Input channel layout
+   *
    * @param inSampleFmt - Input sample format
+   *
    * @param inSampleRate - Input sample rate in Hz
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -211,9 +217,13 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_convert().
    *
    * @param outBuffer - Output sample buffers (one per channel for planar)
+   *
    * @param outCount - Maximum output samples per channel
+   *
    * @param inBuffer - Input sample buffers (one per channel for planar)
+   *
    * @param inCount - Input samples per channel
+   *
    * @returns Number of output samples per channel, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_INPUT_CHANGED: Input format changed
@@ -244,6 +254,49 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
   }
 
   /**
+   * Convert audio samples synchronously.
+   * Synchronous version of convert.
+   *
+   * Converts audio between formats, sample rates, and channel layouts.
+   * Can handle format conversion, resampling, and channel mixing.
+   *
+   * Direct mapping to swr_convert().
+   *
+   * @param outBuffer - Output buffer array (one per channel, null to get delay)
+   *
+   * @param outCount - Number of output samples space per channel
+   *
+   * @param inBuffer - Input buffer array (one per channel, null to flush)
+   *
+   * @param inCount - Number of input samples per channel
+   *
+   * @returns Number of samples output per channel, or negative AVERROR:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Convert stereo float to mono s16
+   * const inBuffers = [leftChannel, rightChannel];
+   * const outBuffers = [monoOutput];
+   *
+   * const samples = resampler.convertSync(
+   *   outBuffers, 1024,  // Output: 1024 samples max
+   *   inBuffers, 1024    // Input: 1024 samples
+   * );
+   * FFmpegError.throwIfError(samples, 'convertSync');
+   * console.log(`Converted ${samples} samples`);
+   * ```
+   *
+   * @see {@link convert} For async version
+   */
+  convertSync(outBuffer: Buffer[] | null, outCount: number, inBuffer: Buffer[] | null, inCount: number): number {
+    return this.native.convertSync(outBuffer, outCount, inBuffer, inCount);
+  }
+
+  /**
    * Convert audio frame.
    *
    * Converts an entire audio frame to the output format.
@@ -252,7 +305,9 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_convert_frame().
    *
    * @param outFrame - Output frame (null to drain)
+   *
    * @param inFrame - Input frame (null to flush)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -291,7 +346,9 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_config_frame().
    *
    * @param outFrame - Frame with output format
+   *
    * @param inFrame - Frame with input format
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *
@@ -344,6 +401,7 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_get_delay().
    *
    * @param base - Time base for the returned delay
+   *
    * @returns Delay in samples at the given base rate
    *
    * @example
@@ -370,6 +428,7 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_get_out_samples().
    *
    * @param inSamples - Number of input samples
+   *
    * @returns Number of output samples
    *
    * @example
@@ -390,6 +449,7 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_next_pts().
    *
    * @param pts - Current presentation timestamp
+   *
    * @returns Next presentation timestamp
    *
    * @example
@@ -412,7 +472,9 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_set_compensation().
    *
    * @param sampleDelta - Sample difference to compensate
+   *
    * @param compensationDistance - Distance over which to compensate
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *
@@ -437,6 +499,7 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_set_channel_mapping().
    *
    * @param channelMap - Array mapping input to output channels
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -458,7 +521,9 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_set_matrix().
    *
    * @param matrix - Mixing matrix coefficients
+   *
    * @param stride - Matrix row stride
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -485,6 +550,7 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_drop_output().
    *
    * @param count - Number of samples to drop
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -509,6 +575,7 @@ export class SoftwareResampleContext extends OptionMember<NativeSoftwareResample
    * Direct mapping to swr_inject_silence().
    *
    * @param count - Number of silent samples to inject
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example

@@ -10,12 +10,10 @@ Napi::FunctionReference HardwareDeviceContext::constructor;
 
 Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "HardwareDeviceContext", {
-    // Static Methods - Low Level API
     StaticMethod<&HardwareDeviceContext::GetTypeName>("getTypeName"),
     StaticMethod<&HardwareDeviceContext::IterateTypes>("iterateTypes"),
     StaticMethod<&HardwareDeviceContext::FindTypeByName>("findTypeByName"),
-    
-    // Methods - Low Level API
+
     InstanceMethod<&HardwareDeviceContext::Alloc>("alloc"),
     InstanceMethod<&HardwareDeviceContext::Init>("init"),
     InstanceMethod<&HardwareDeviceContext::Create>("create"),
@@ -23,13 +21,10 @@ Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&HardwareDeviceContext::HwconfigAlloc>("hwconfigAlloc"),
     InstanceMethod<&HardwareDeviceContext::GetHwframeConstraints>("getHwframeConstraints"),
     InstanceMethod<&HardwareDeviceContext::Free>("free"),
-    
-    // Properties
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &HardwareDeviceContext::Dispose),
+
     InstanceAccessor("type", &HardwareDeviceContext::GetType, nullptr),
     InstanceAccessor("hwctx", &HardwareDeviceContext::GetHwctx, nullptr),
-    
-    // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &HardwareDeviceContext::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -38,8 +33,6 @@ Napi::Object HardwareDeviceContext::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("HardwareDeviceContext", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 HardwareDeviceContext::HardwareDeviceContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<HardwareDeviceContext>(info), unowned_ref_(nullptr) {
@@ -54,8 +47,6 @@ HardwareDeviceContext::~HardwareDeviceContext() {
   }
   // RAII handles cleanup
 }
-
-// === Static Methods ===
 
 Napi::Value HardwareDeviceContext::Wrap(Napi::Env env, AVBufferRef* device_ref) {
   if (!device_ref) {
@@ -115,8 +106,6 @@ Napi::Value HardwareDeviceContext::FindTypeByName(const Napi::CallbackInfo& info
   
   return Napi::Number::New(env, type);
 }
-
-// === Methods ===
 
 Napi::Value HardwareDeviceContext::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -316,8 +305,6 @@ Napi::Value HardwareDeviceContext::Free(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-// === Properties ===
-
 Napi::Value HardwareDeviceContext::GetType(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -341,8 +328,6 @@ Napi::Value HardwareDeviceContext::GetHwctx(const Napi::CallbackInfo& info) {
   AVHWDeviceContext* ctx = reinterpret_cast<AVHWDeviceContext*>(ref->data);
   return Napi::BigInt::New(env, reinterpret_cast<uint64_t>(ctx->hwctx));
 }
-
-// === Utility ===
 
 Napi::Value HardwareDeviceContext::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);

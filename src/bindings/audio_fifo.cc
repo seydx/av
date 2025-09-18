@@ -10,30 +10,23 @@ namespace ffmpeg {
 
 Napi::FunctionReference AudioFifo::constructor;
 
-// === Init ===
-
 Napi::Object AudioFifo::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "AudioFifo", {
-    // Lifecycle
     InstanceMethod<&AudioFifo::Alloc>("alloc"),
     InstanceMethod<&AudioFifo::Free>("free"),
-    
-    // Async I/O Operations
     InstanceMethod<&AudioFifo::WriteAsync>("write"),
+    InstanceMethod<&AudioFifo::WriteSync>("writeSync"),
     InstanceMethod<&AudioFifo::ReadAsync>("read"),
+    InstanceMethod<&AudioFifo::ReadSync>("readSync"),
     InstanceMethod<&AudioFifo::PeekAsync>("peek"),
-    
-    // Sync Operations
+    InstanceMethod<&AudioFifo::PeekSync>("peekSync"),
     InstanceMethod<&AudioFifo::Drain>("drain"),
     InstanceMethod<&AudioFifo::Reset>("reset"),
     InstanceMethod<&AudioFifo::Realloc>("realloc"),
-    
-    // Properties
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AudioFifo::Dispose),
+
     InstanceAccessor<&AudioFifo::GetSize>("size"),
     InstanceAccessor<&AudioFifo::GetSpace>("space"),
-    
-    // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &AudioFifo::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -42,8 +35,6 @@ Napi::Object AudioFifo::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("AudioFifo", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 AudioFifo::AudioFifo(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<AudioFifo>(info) {
@@ -57,8 +48,6 @@ AudioFifo::~AudioFifo() {
     fifo_ = nullptr;
   }
 }
-
-// === Methods ===
 
 Napi::Value AudioFifo::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -97,8 +86,6 @@ Napi::Value AudioFifo::Free(const Napi::CallbackInfo& info) {
   
   return env.Undefined();
 }
-
-// === Sync Operations ===
 
 Napi::Value AudioFifo::Drain(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -151,8 +138,6 @@ Napi::Value AudioFifo::Realloc(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-// === Properties ===
-
 Napi::Value AudioFifo::GetSize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -172,8 +157,6 @@ Napi::Value AudioFifo::GetSpace(const Napi::CallbackInfo& info) {
   
   return Napi::Number::New(env, av_audio_fifo_space(fifo_));
 }
-
-// === Utility ===
 
 Napi::Value AudioFifo::Dispose(const Napi::CallbackInfo& info) {
   return Free(info);

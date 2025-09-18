@@ -14,25 +14,18 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   FFmpegError(const Napi::CallbackInfo& info);
   ~FFmpegError() = default;
-  
-  // Native access
+
   int Get() const { return code_; }
   void Set(int code) { code_ = code; }
 
 private:
-  // Static members
   static Napi::FunctionReference constructor;
-  
-  // Resources
+
   int code_ = 0;
-  
-  // === Static Methods ===
-  
+
   static Napi::Value Strerror(const Napi::CallbackInfo& info);
   static Napi::Value GetAverror(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
-  
+
   Napi::Value GetErrorCode(const Napi::CallbackInfo& info);
   Napi::Value GetMessage(const Napi::CallbackInfo& info);
 };

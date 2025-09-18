@@ -23,22 +23,9 @@ Napi::FunctionReference AVOption::constructor;
 
 Napi::Object AVOption::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "AVOption", {
-    // Instance properties for option metadata
-    InstanceAccessor<&AVOption::GetName, nullptr>("name"),
-    InstanceAccessor<&AVOption::GetHelp, nullptr>("help"),
-    InstanceAccessor<&AVOption::GetType, nullptr>("type"),
-    InstanceAccessor<&AVOption::GetDefaultValue, nullptr>("defaultValue"),
-    InstanceAccessor<&AVOption::GetMin, nullptr>("min"),
-    InstanceAccessor<&AVOption::GetMax, nullptr>("max"),
-    InstanceAccessor<&AVOption::GetFlags, nullptr>("flags"),
-    InstanceAccessor<&AVOption::GetUnit, nullptr>("unit"),
-
-    // Static methods for option operations
     StaticMethod<&AVOption::Next>("next"),
     StaticMethod<&AVOption::Find>("find"),
     StaticMethod<&AVOption::Find2>("find2"),
-
-    // Getter methods
     StaticMethod<&AVOption::Get>("get"),
     StaticMethod<&AVOption::GetInt>("getInt"),
     StaticMethod<&AVOption::GetDouble>("getDouble"),
@@ -48,8 +35,6 @@ Napi::Object AVOption::Init(Napi::Env env, Napi::Object exports) {
     StaticMethod<&AVOption::GetImageSize>("getImageSize"),
     StaticMethod<&AVOption::GetChannelLayout>("getChannelLayout"),
     StaticMethod<&AVOption::GetDict>("getDict"),
-
-    // Setter methods
     StaticMethod<&AVOption::Set>("set"),
     StaticMethod<&AVOption::SetInt>("setInt"),
     StaticMethod<&AVOption::SetDouble>("setDouble"),
@@ -60,14 +45,21 @@ Napi::Object AVOption::Init(Napi::Env env, Napi::Object exports) {
     StaticMethod<&AVOption::SetChannelLayout>("setChannelLayout"),
     StaticMethod<&AVOption::SetDict>("setDict"),
     StaticMethod<&AVOption::SetBin>("setBin"),
-
-    // Utility methods
     StaticMethod<&AVOption::SetDefaults>("setDefaults"),
     StaticMethod<&AVOption::Copy>("copy"),
     StaticMethod<&AVOption::IsSetToDefault>("isSetToDefault"),
     StaticMethod<&AVOption::Serialize>("serialize"),
     StaticMethod<&AVOption::Free>("free"),
     StaticMethod<&AVOption::Show>("show"),
+
+    InstanceAccessor<&AVOption::GetName, nullptr>("name"),
+    InstanceAccessor<&AVOption::GetHelp, nullptr>("help"),
+    InstanceAccessor<&AVOption::GetType, nullptr>("type"),
+    InstanceAccessor<&AVOption::GetDefaultValue, nullptr>("defaultValue"),
+    InstanceAccessor<&AVOption::GetMin, nullptr>("min"),
+    InstanceAccessor<&AVOption::GetMax, nullptr>("max"),
+    InstanceAccessor<&AVOption::GetFlags, nullptr>("flags"),
+    InstanceAccessor<&AVOption::GetUnit, nullptr>("unit"),
   });
 
   constructor = Napi::Persistent(func);
@@ -298,8 +290,6 @@ Napi::Value AVOption::GetUnit(const Napi::CallbackInfo& info) {
   return Napi::String::New(info.Env(), option_->unit);
 }
 
-// Static methods for option operations
-
 Napi::Value AVOption::Next(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
@@ -408,8 +398,6 @@ Napi::Value AVOption::Find2(const Napi::CallbackInfo& info) {
   
   return result;
 }
-
-// Getter methods
 
 Napi::Value AVOption::Get(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

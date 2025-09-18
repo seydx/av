@@ -5,19 +5,20 @@ namespace ffmpeg {
 
 Napi::FunctionReference Codec::constructor;
 
-// === Init ===
-
 Napi::Object Codec::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Codec", {
-    // Static methods
     StaticMethod<&Codec::FindDecoder>("findDecoder"),
     StaticMethod<&Codec::FindDecoderByName>("findDecoderByName"),
     StaticMethod<&Codec::FindEncoder>("findEncoder"),
     StaticMethod<&Codec::FindEncoderByName>("findEncoderByName"),
     StaticMethod<&Codec::GetCodecList>("getCodecList"),
     StaticMethod<&Codec::IterateCodecs>("iterateCodecs"),
-    
-    // Properties
+
+    InstanceMethod<&Codec::IsEncoder>("isEncoder"),
+    InstanceMethod<&Codec::IsDecoder>("isDecoder"),
+    InstanceMethod<&Codec::IsExperimental>("isExperimental"),
+    InstanceMethod<&Codec::GetHwConfig>("getHwConfig"),
+
     InstanceAccessor<&Codec::GetName>("name"),
     InstanceAccessor<&Codec::GetLongName>("longName"),
     InstanceAccessor<&Codec::GetType>("type"),
@@ -31,12 +32,6 @@ Napi::Object Codec::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&Codec::GetSupportedSamplerates>("supportedSamplerates"),
     InstanceAccessor<&Codec::GetSampleFormats>("sampleFormats"),
     InstanceAccessor<&Codec::GetChannelLayouts>("channelLayouts"),
-    
-    // Utility
-    InstanceMethod<&Codec::IsEncoder>("isEncoder"),
-    InstanceMethod<&Codec::IsDecoder>("isDecoder"),
-    InstanceMethod<&Codec::IsExperimental>("isExperimental"),
-    InstanceMethod<&Codec::GetHwConfig>("getHwConfig"),
   });
   
   constructor = Napi::Persistent(func);
@@ -46,8 +41,6 @@ Napi::Object Codec::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 Codec::Codec(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<Codec>(info), codec_(nullptr) {
   // Constructor does nothing - codec is set via static factory methods
@@ -56,8 +49,6 @@ Codec::Codec(const Napi::CallbackInfo& info)
 Codec::~Codec() {
   // We don't own the AVCodec, it's a static definition from FFmpeg
 }
-
-// Create instance from native codec
 Napi::Object Codec::NewInstance(Napi::Env env, AVCodec* codec) {
   if (!codec) {
     return env.Null().ToObject();
@@ -69,8 +60,6 @@ Napi::Object Codec::NewInstance(Napi::Env env, AVCodec* codec) {
   
   return codecObj;
 }
-
-// === Static Methods ===
 
 Napi::Value Codec::FindDecoder(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -212,8 +201,6 @@ Napi::Value Codec::IterateCodecs(const Napi::CallbackInfo& info) {
   return result;
 }
 
-// === Properties ===
-
 Napi::Value Codec::GetName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   if (!codec_) {
@@ -293,8 +280,6 @@ Napi::Value Codec::GetWrapper(const Napi::CallbackInfo& info) {
   }
   return codec_->wrapper_name ? Napi::String::New(env, codec_->wrapper_name) : env.Null();
 }
-
-// Supported formats
 
 Napi::Value Codec::GetSupportedFramerates(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -434,8 +419,6 @@ Napi::Value Codec::GetChannelLayouts(const Napi::CallbackInfo& info) {
   
   return layouts;
 }
-
-// === Utility ===
 
 Napi::Value Codec::IsEncoder(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

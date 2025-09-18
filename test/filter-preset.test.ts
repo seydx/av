@@ -89,9 +89,7 @@ describe('FilterPreset', () => {
 
     describe('rotate()', () => {
       it('should add rotate filter', () => {
-        const graph = FilterPreset.chain()
-          .rotate(90)
-          .build();
+        const graph = FilterPreset.chain().rotate(90).build();
         strictEqual(graph, 'rotate=90*PI/180');
       });
 
@@ -402,13 +400,7 @@ describe('FilterPreset', () => {
     });
 
     it('should handle complex filter chain', () => {
-      const graph = FilterPreset.chain()
-        .scale(1280, 720)
-        .crop(1024, 576)
-        .pad(1920, 1080, '448', '252')
-        .format(AV_PIX_FMT_YUV420P)
-        .fps(25)
-        .build();
+      const graph = FilterPreset.chain().scale(1280, 720).crop(1024, 576).pad(1920, 1080, '448', '252').format(AV_PIX_FMT_YUV420P).fps(25).build();
 
       strictEqual(graph, 'scale=1280:720,crop=1024:576:0:0,pad=1920:1080:448:252:black,format=yuv420p,fps=25');
     });
@@ -428,7 +420,7 @@ describe('FilterPreset', () => {
     });
 
     it('should escape special characters in text', () => {
-      const graph = FilterPreset.chain().drawtext("Test's \"quoted\" text", { x: 10, y: 10 }).build();
+      const graph = FilterPreset.chain().drawtext('Test\'s "quoted" text', { x: 10, y: 10 }).build();
       strictEqual(graph, "drawtext=text='Test\\'s \\\"quoted\\\" text':x=10:y=10");
     });
 

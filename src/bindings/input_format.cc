@@ -5,16 +5,13 @@ namespace ffmpeg {
 
 Napi::FunctionReference InputFormat::constructor;
 
-// === Init ===
-
 Napi::Object InputFormat::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "InputFormat", {
-    // Static methods
     StaticMethod<&InputFormat::FindInputFormat>("findInputFormat"),
     StaticMethod<&InputFormat::Probe>("probe"),
     StaticMethod<&InputFormat::ProbeBufferAsync>("probeBuffer"),
-    
-    // Properties
+    StaticMethod<&InputFormat::ProbeBufferSync>("probeBufferSync"),
+
     InstanceAccessor<&InputFormat::GetName>("name"),
     InstanceAccessor<&InputFormat::GetLongName>("longName"),
     InstanceAccessor<&InputFormat::GetExtensions>("extensions"),
@@ -29,14 +26,10 @@ Napi::Object InputFormat::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-// === Lifecycle ===
-
 InputFormat::InputFormat(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<InputFormat>(info), format_(nullptr) {
   // Constructor does nothing - format is set via static factory methods
 }
-
-// === Static Methods ===
 
 Napi::Value InputFormat::FindInputFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -101,10 +94,6 @@ Napi::Value InputFormat::Probe(const Napi::CallbackInfo& info) {
   
   return formatObj;
 }
-
-// ProbeBufferAsync is implemented in input_format_async.cc
-
-// === Properties ===
 
 Napi::Value InputFormat::GetName(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

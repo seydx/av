@@ -48,6 +48,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
 
   /**
    * @param native - The native input format instance
+   *
    * @internal
    */
   constructor(native: NativeInputFormat) {
@@ -62,6 +63,7 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * Direct mapping to av_find_input_format().
    *
    * @param shortName - Format short name (e.g., 'mp4', 'mkv', 'avi')
+   *
    * @returns Input format if found, null otherwise
    *
    * @example
@@ -96,7 +98,9 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * Direct mapping to av_probe_input_format2().
    *
    * @param buffer - Buffer containing file header/start
+   *
    * @param filename - Optional filename for format hints
+   *
    * @returns Detected format, or null if not recognized
    *
    * @example
@@ -134,8 +138,11 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    * Direct mapping to av_probe_input_buffer2().
    *
    * @param ioContext - IO context to read from
+   *
    * @param ioContext.getNative - Method to get native IO context
+   *
    * @param maxProbeSize - Maximum bytes to read for probing
+   *
    * @returns Detected format, or null if not recognized
    *
    * @example
@@ -155,8 +162,50 @@ export class InputFormat implements NativeWrapper<NativeInputFormat> {
    *
    * @see {@link probe} For buffer probing
    */
-  static async probeBuffer(ioContext: { getNative(): NativeIOContext }, maxProbeSize?: number): Promise<InputFormat | null> {
+  static async probeBuffer(ioContext: NativeWrapper<NativeIOContext>, maxProbeSize?: number): Promise<InputFormat | null> {
     const native = await bindings.InputFormat.probeBuffer(ioContext.getNative(), maxProbeSize);
+    if (!native) {
+      return null;
+    }
+    return new InputFormat(native);
+  }
+
+  /**
+   * Probe format from IO context synchronously.
+   * Synchronous version of probeBuffer.
+   *
+   * Reads data from an IO context to determine format.
+   * Useful for custom IO scenarios and network streams.
+   *
+   * Direct mapping to av_probe_input_buffer2().
+   *
+   * @param ioContext - IO context to read from
+   *
+   * @param ioContext.getNative - Method to get native IO context
+   *
+   * @param maxProbeSize - Maximum bytes to read for probing
+   *
+   * @returns Detected format, or null if not recognized
+   *
+   * @example
+   * ```typescript
+   * import { IOContext } from 'node-av';
+   *
+   * // Create IO context
+   * const ioContext = new IOContext();
+   * // ... configure IO context ...
+   *
+   * // Probe format
+   * const format = InputFormat.probeBufferSync(ioContext, 32768);
+   * if (format) {
+   *   console.log(`Format: ${format.name}`);
+   * }
+   * ```
+   *
+   * @see {@link probeBuffer} For async version
+   */
+  static probeBufferSync(ioContext: NativeWrapper<NativeIOContext>, maxProbeSize?: number): InputFormat | null {
+    const native = bindings.InputFormat.probeBufferSync(ioContext.getNative(), maxProbeSize);
     if (!native) {
       return null;
     }

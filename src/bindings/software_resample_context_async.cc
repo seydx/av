@@ -7,13 +7,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for SoftwareResampleContext Operations
-// ============================================================================
-
-/**
- * Worker for swr_convert - Converts audio samples
- */
 class SwrConvertWorker : public Napi::AsyncWorker {
 public:
   SwrConvertWorker(Napi::Env env, SoftwareResampleContext* ctx,
@@ -92,10 +85,6 @@ private:
   int ret_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// SoftwareResampleContext Async Method Implementations
-// ============================================================================
 
 Napi::Value SoftwareResampleContext::ConvertAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

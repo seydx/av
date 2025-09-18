@@ -12,13 +12,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for CodecContext Operations
-// ============================================================================
-
-/**
- * Worker for avcodec_open2 - Opens codec context
- */
 class CCOpen2Worker : public Napi::AsyncWorker {
 public:
   CCOpen2Worker(Napi::Env env, CodecContext* ctx, 
@@ -69,9 +62,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avcodec_send_packet - Sends packet to decoder
- */
 class CCSendPacketWorker : public Napi::AsyncWorker {
 public:
   CCSendPacketWorker(Napi::Env env, CodecContext* ctx, Packet* packet)
@@ -104,9 +94,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avcodec_receive_frame - Receives frame from decoder
- */
 class CCReceiveFrameWorker : public Napi::AsyncWorker {
 public:
   CCReceiveFrameWorker(Napi::Env env, CodecContext* ctx, Frame* frame)
@@ -139,9 +126,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avcodec_send_frame - Sends frame to encoder
- */
 class CCSendFrameWorker : public Napi::AsyncWorker {
 public:
   CCSendFrameWorker(Napi::Env env, CodecContext* ctx, Frame* frame)
@@ -200,9 +184,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for avcodec_receive_packet - Receives packet from encoder
- */
 class CCReceivePacketWorker : public Napi::AsyncWorker {
 public:
   CCReceivePacketWorker(Napi::Env env, CodecContext* ctx, Packet* packet)
@@ -234,10 +215,6 @@ private:
   int ret_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// Async Method Implementations
-// ============================================================================
 
 Napi::Value CodecContext::Open2Async(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

@@ -526,6 +526,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_frame_ref().
    *
    * @param src - Source frame to reference
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *   - AVERROR_EINVAL: Invalid parameters
@@ -612,6 +613,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_frame_get_buffer().
    *
    * @param align - Buffer size alignment (0 for default)
+   *
    * @returns Required buffer size in bytes, or negative AVERROR:
    *   - AVERROR_EINVAL: Invalid frame parameters
    *
@@ -695,6 +697,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_frame_copy_props().
    *
    * @param src - Source frame to copy properties from
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOMEM: Memory allocation failure
    *
@@ -722,6 +725,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_frame_copy().
    *
    * @param src - Source frame to copy from
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Incompatible frames
    *
@@ -753,6 +757,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Frame must have allocated buffers.
    *
    * @param buffer - Source buffer with frame data
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *
@@ -778,7 +783,9 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_hwframe_transfer_data().
    *
    * @param dst - Destination frame (software or hardware)
+   *
    * @param flags - Transfer flags (0 for default)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -799,6 +806,40 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    */
   async hwframeTransferData(dst: Frame, flags?: number): Promise<number> {
     return await this.native.hwframeTransferData(dst.getNative(), flags ?? 0);
+  }
+
+  /**
+   * Transfer data between hardware and software frames synchronously.
+   * Synchronous version of hwframeTransferData.
+   *
+   * Copies frame data between GPU and system memory.
+   * Direction depends on source and destination frame types.
+   *
+   * Direct mapping to av_hwframe_transfer_data().
+   *
+   * @param dst - Destination frame (software or hardware)
+   *
+   * @param flags - Transfer flags (0 for default)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR_ENOMEM: Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   *
+   * // Download from GPU to CPU
+   * const swFrame = new Frame();
+   * swFrame.alloc();
+   * const ret = hwFrame.hwframeTransferData(swFrame);
+   * FFmpegError.throwIfError(ret, 'hwframeTransferData');
+   * ```
+   *
+   * @see {@link hwframeTransferData} For async version
+   */
+  hwframeTransferDataSync(dst: Frame, flags?: number): number {
+    return this.native.hwframeTransferDataSync(dst.getNative(), flags ?? 0);
   }
 
   /**
@@ -852,6 +893,7 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_frame_get_side_data().
    *
    * @param type - Type of side data to retrieve
+   *
    * @returns Side data buffer, or null if not present
    *
    * @example
@@ -880,7 +922,9 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
    * Direct mapping to av_frame_new_side_data().
    *
    * @param type - Type of side data
+   *
    * @param size - Size in bytes to allocate
+   *
    * @returns Allocated buffer for writing
    *
    * @throws {Error} If allocation fails

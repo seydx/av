@@ -9,13 +9,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for BitStreamFilterContext Operations
-// ============================================================================
-
-/**
- * Worker for av_bsf_send_packet - Sends packet to bitstream filter
- */
 class BSFSendPacketWorker : public Napi::AsyncWorker {
 public:
   BSFSendPacketWorker(Napi::Env env, BitStreamFilterContext* context, AVPacket* packet)
@@ -48,9 +41,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-/**
- * Worker for av_bsf_receive_packet - Receives packet from bitstream filter
- */
 class BSFReceivePacketWorker : public Napi::AsyncWorker {
 public:
   BSFReceivePacketWorker(Napi::Env env, BitStreamFilterContext* context, AVPacket* packet)
@@ -82,10 +72,6 @@ private:
   int ret_;
   Napi::Promise::Deferred deferred_;
 };
-
-// ============================================================================
-// Method Implementations (called from main thread)
-// ============================================================================
 
 Napi::Value BitStreamFilterContext::SendPacketAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

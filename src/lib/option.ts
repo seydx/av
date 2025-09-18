@@ -90,6 +90,7 @@ export class OptionInfo {
 
   /**
    * @param native - The native option instance
+   *
    * @internal
    */
   constructor(native: NativeOption) {
@@ -246,7 +247,9 @@ export class Option {
    * Direct mapping to av_opt_next().
    *
    * @param obj - Object with options
+   *
    * @param prev - Previous option (null to get first)
+   *
    * @returns Next option, or null if no more
    *
    * @example
@@ -270,8 +273,11 @@ export class Option {
    * Direct mapping to av_opt_find().
    *
    * @param obj - Object to search
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Option info if found, null otherwise
    *
    * @example
@@ -295,8 +301,11 @@ export class Option {
    * Direct mapping to av_opt_find2().
    *
    * @param obj - Object to search
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Object with option and target info
    *
    * @example
@@ -322,8 +331,11 @@ export class Option {
    * Direct mapping to av_opt_get().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Option value as string, or null
    *
    * @example
@@ -343,8 +355,11 @@ export class Option {
    * Direct mapping to av_opt_get_int().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Option value as integer, or null
    *
    * @example
@@ -364,8 +379,11 @@ export class Option {
    * Direct mapping to av_opt_get_double().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Option value as double, or null
    *
    * @example
@@ -385,8 +403,11 @@ export class Option {
    * Direct mapping to av_opt_get_q().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Option value as rational, or null
    *
    * @example
@@ -406,8 +427,11 @@ export class Option {
    * Direct mapping to av_opt_get_pixel_fmt().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Pixel format value, or null
    *
    * @example
@@ -427,8 +451,11 @@ export class Option {
    * Direct mapping to av_opt_get_sample_fmt().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Sample format value, or null
    *
    * @example
@@ -448,8 +475,11 @@ export class Option {
    * Direct mapping to av_opt_get_image_size().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Width and height, or null
    *
    * @example
@@ -469,8 +499,11 @@ export class Option {
    * Direct mapping to av_opt_get_chlayout().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Channel layout, or null
    *
    * @example
@@ -490,8 +523,11 @@ export class Option {
    * Direct mapping to av_opt_get_dict_val().
    *
    * @param obj - Object to query
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns Dictionary value, or null
    *
    * @example
@@ -512,9 +548,13 @@ export class Option {
    * Direct mapping to av_opt_set().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - String value
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -534,9 +574,13 @@ export class Option {
    * Direct mapping to av_opt_set_int().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Integer value
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -556,9 +600,13 @@ export class Option {
    * Direct mapping to av_opt_set_double().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Double value
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -578,9 +626,13 @@ export class Option {
    * Direct mapping to av_opt_set_q().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Rational value
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -600,9 +652,13 @@ export class Option {
    * Direct mapping to av_opt_set_pixel_fmt().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Pixel format
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -622,9 +678,13 @@ export class Option {
    * Direct mapping to av_opt_set_sample_fmt().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Sample format
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -644,10 +704,15 @@ export class Option {
    * Direct mapping to av_opt_set_image_size().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param width - Image width
+   *
    * @param height - Image height
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -667,9 +732,13 @@ export class Option {
    * Direct mapping to av_opt_set_chlayout().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Channel layout
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -689,9 +758,13 @@ export class Option {
    * Direct mapping to av_opt_set_dict_val().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Dictionary value
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -713,9 +786,13 @@ export class Option {
    * Direct mapping to av_opt_set_bin().
    *
    * @param obj - Object to modify
+   *
    * @param name - Option name
+   *
    * @param value - Binary data
+   *
    * @param searchFlags - Search flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -757,7 +834,9 @@ export class Option {
    * Direct mapping to av_opt_copy().
    *
    * @param dest - Destination object
+   *
    * @param src - Source object
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -777,8 +856,11 @@ export class Option {
    * Direct mapping to av_opt_is_set_to_default().
    *
    * @param obj - Object to check
+   *
    * @param name - Option name
+   *
    * @param searchFlags - Search flags
+   *
    * @returns True if default, false if modified, null if not found
    *
    * @example
@@ -798,10 +880,15 @@ export class Option {
    * Direct mapping to av_opt_serialize().
    *
    * @param obj - Object to serialize
+   *
    * @param optFlags - Option flags filter
+   *
    * @param flags - Serialization flags
+   *
    * @param keyValSep - Key-value separator
+   *
    * @param pairsSep - Pairs separator
+   *
    * @returns Serialized string, or null on error
    *
    * @example
@@ -838,8 +925,11 @@ export class Option {
    * Direct mapping to av_opt_show2().
    *
    * @param obj - Object to show options for
+   *
    * @param reqFlags - Required flags
+   *
    * @param rejFlags - Rejected flags
+   *
    * @returns 0 on success, negative AVERROR on error
    *
    * @example
@@ -950,9 +1040,13 @@ export class OptionMember<T extends OptionCapableObject> {
    * Direct mapping to av_opt_set* functions.
    *
    * @param name - Option name
+   *
    * @param value - Option value
+   *
    * @param type - Option type (defaults to AV_OPT_TYPE_STRING)
+   *
    * @param searchFlags - Search flags (default: AV_OPT_SEARCH_CHILDREN)
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_ENOENT: Option not found
    *   - AVERROR_ERANGE: Value out of range
@@ -1155,8 +1249,11 @@ export class OptionMember<T extends OptionCapableObject> {
    * Direct mapping to av_opt_get* functions.
    *
    * @param name - Option name
+   *
    * @param type - Option type (defaults to AV_OPT_TYPE_STRING)
+   *
    * @param searchFlags - Search flags (default: AV_OPT_SEARCH_CHILDREN)
+   *
    * @returns Option value (type depends on type parameter), or null if not found
    *
    * @example

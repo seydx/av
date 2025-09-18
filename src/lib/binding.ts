@@ -77,6 +77,7 @@ interface NativeInputFormatConstructor {
   findInputFormat(shortName: string): NativeInputFormat | null;
   probe(buffer: Buffer, filename?: string): NativeInputFormat | null;
   probeBuffer(ioContext: NativeIOContext, maxProbeSize?: number): Promise<NativeInputFormat | null>;
+  probeBufferSync(ioContext: NativeIOContext, maxProbeSize?: number): NativeInputFormat | null;
 }
 
 interface NativeOutputFormatConstructor {

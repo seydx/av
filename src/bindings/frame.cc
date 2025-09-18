@@ -5,11 +5,8 @@ namespace ffmpeg {
 
 Napi::FunctionReference Frame::constructor;
 
-// === Init ===
-
 Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Frame", {
-    // Lifecycle
     InstanceMethod<&Frame::Alloc>("alloc"),
     InstanceMethod<&Frame::Free>("free"),
     InstanceMethod<&Frame::Ref>("ref"),
@@ -21,8 +18,15 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Frame::CopyProps>("copyProps"),
     InstanceMethod<&Frame::Copy>("copy"),
     InstanceMethod<&Frame::FromBuffer>("fromBuffer"),
-    
-    // Properties
+    InstanceMethod<&Frame::HwframeTransferDataAsync>("hwframeTransferData"),
+    InstanceMethod<&Frame::HwframeTransferDataSync>("hwframeTransferDataSync"),
+    InstanceMethod<&Frame::IsHwFrame>("isHwFrame"),
+    InstanceMethod<&Frame::IsSwFrame>("isSwFrame"),
+    InstanceMethod<&Frame::GetSideData>("getSideData"),
+    InstanceMethod<&Frame::NewSideData>("newSideData"),
+    InstanceMethod<&Frame::RemoveSideData>("removeSideData"),
+    InstanceMethod<&Frame::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
+
     InstanceAccessor<&Frame::GetFormat, &Frame::SetFormat>("format"),
     InstanceAccessor<&Frame::GetWidth, &Frame::SetWidth>("width"),
     InstanceAccessor<&Frame::GetHeight, &Frame::SetHeight>("height"),
@@ -46,20 +50,7 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&Frame::GetData>("data"),
     InstanceAccessor<&Frame::GetExtendedData>("extendedData"),
     InstanceAccessor<&Frame::GetIsWritable>("isWritable"),
-    
-    // Hardware Acceleration
     InstanceAccessor<&Frame::GetHwFramesCtx, &Frame::SetHwFramesCtx>("hwFramesCtx"),
-    InstanceMethod<&Frame::HwframeTransferDataAsync>("hwframeTransferData"),
-    InstanceMethod<&Frame::IsHwFrame>("isHwFrame"),
-    InstanceMethod<&Frame::IsSwFrame>("isSwFrame"),
-    
-    // Side Data
-    InstanceMethod<&Frame::GetSideData>("getSideData"),
-    InstanceMethod<&Frame::NewSideData>("newSideData"),
-    InstanceMethod<&Frame::RemoveSideData>("removeSideData"),
-    
-    // Utility
-    InstanceMethod<&Frame::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
   constructor = Napi::Persistent(func);
@@ -68,8 +59,6 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("Frame", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 Frame::Frame(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<Frame>(info) {
@@ -83,8 +72,6 @@ Frame::~Frame() {
     frame_ = nullptr;
   }
 }
-
-// === Methods ===
 
 Napi::Value Frame::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -334,8 +321,6 @@ Napi::Value Frame::FromBuffer(const Napi::CallbackInfo& info) {
   
   return Napi::Number::New(env, AVERROR(EINVAL));
 }
-
-// === Properties ===
 
 Napi::Value Frame::GetFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

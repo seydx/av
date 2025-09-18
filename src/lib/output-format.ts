@@ -48,6 +48,7 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
 
   /**
    * @param native - The native output format instance
+   *
    * @internal
    */
   constructor(native: NativeOutputFormat) {
@@ -63,8 +64,11 @@ export class OutputFormat implements NativeWrapper<NativeOutputFormat> {
    * Direct mapping to av_guess_format().
    *
    * @param shortName - Format short name (e.g., 'mp4', 'mkv', null to ignore)
+   *
    * @param filename - Output filename for extension detection (null to ignore)
+   *
    * @param mimeType - MIME type hint (null to ignore)
+   *
    * @returns Detected format, or null if not determined
    *
    * @example

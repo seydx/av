@@ -36,6 +36,7 @@ export class Rational {
    * Represents the fraction num/den.
    *
    * @param num - Numerator of the fraction
+   *
    * @param den - Denominator of the fraction (must not be 0)
    *
    * @throws {Error} If denominator is 0

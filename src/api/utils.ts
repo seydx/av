@@ -66,7 +66,9 @@ class BitWriter {
  * Get a specific bit value from a number.
  *
  * @param bits - The number to extract bits from
+ *
  * @param startIndex - The starting bit index (0-based)
+ *
  * @param length - The number of bits to extract
  *
  * @returns The extracted bit value

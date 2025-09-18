@@ -5,19 +5,16 @@ namespace ffmpeg {
 
 Napi::FunctionReference CodecParameters::constructor;
 
-// === Init ===
-
 Napi::Object CodecParameters::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "CodecParameters", {
-    // Lifecycle
     InstanceMethod<&CodecParameters::Alloc>("alloc"),
     InstanceMethod<&CodecParameters::Free>("free"),
     InstanceMethod<&CodecParameters::Copy>("copy"),
     InstanceMethod<&CodecParameters::FromContext>("fromContext"),
     InstanceMethod<&CodecParameters::ToContext>("toContext"),
     InstanceMethod<&CodecParameters::ToJSON>("toJSON"),
-    
-    // Properties
+    InstanceMethod<&CodecParameters::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
+
     InstanceAccessor<&CodecParameters::GetCodecType, &CodecParameters::SetCodecType>("codecType"),
     InstanceAccessor<&CodecParameters::GetCodecId, &CodecParameters::SetCodecId>("codecId"),
     InstanceAccessor<&CodecParameters::GetCodecTag, &CodecParameters::SetCodecTag>("codecTag"),
@@ -39,9 +36,6 @@ Napi::Object CodecParameters::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&CodecParameters::GetChannelLayout, &CodecParameters::SetChannelLayout>("channelLayout"),
     InstanceAccessor<&CodecParameters::GetChannels, &CodecParameters::SetChannels>("channels"),
     InstanceAccessor<&CodecParameters::GetSampleRate, &CodecParameters::SetSampleRate>("sampleRate"),
-    
-    // Resource management
-    InstanceMethod<&CodecParameters::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
   constructor = Napi::Persistent(func);
@@ -50,8 +44,6 @@ Napi::Object CodecParameters::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("CodecParameters", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 CodecParameters::CodecParameters(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<CodecParameters>(info) {
@@ -65,8 +57,6 @@ CodecParameters::~CodecParameters() {
     params_ = nullptr;
   }
 }
-
-// === Methods ===
 
 Napi::Value CodecParameters::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -257,8 +247,6 @@ Napi::Value CodecParameters::ToJSON(const Napi::CallbackInfo& info) {
   
   return json;
 }
-
-// === Properties ===
 
 Napi::Value CodecParameters::GetCodecType(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

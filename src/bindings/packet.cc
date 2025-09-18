@@ -4,11 +4,8 @@ namespace ffmpeg {
 
 Napi::FunctionReference Packet::constructor;
 
-// === Init ===
-
 Napi::Object Packet::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "Packet", {
-    // Lifecycle
     InstanceMethod<&Packet::Alloc>("alloc"),
     InstanceMethod<&Packet::Free>("free"),
     InstanceMethod<&Packet::Ref>("ref"),
@@ -17,8 +14,12 @@ Napi::Object Packet::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Packet::RescaleTs>("rescaleTs"),
     InstanceMethod<&Packet::MakeRefcounted>("makeRefcounted"),
     InstanceMethod<&Packet::MakeWritable>("makeWritable"),
-    
-    // Properties
+    InstanceMethod<&Packet::GetSideData>("getSideData"),
+    InstanceMethod<&Packet::AddSideData>("addSideData"),
+    InstanceMethod<&Packet::NewSideData>("newSideData"),
+    InstanceMethod<&Packet::FreeSideData>("freeSideData"),
+    InstanceMethod<&Packet::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
+
     InstanceAccessor<&Packet::GetStreamIndex, &Packet::SetStreamIndex>("streamIndex"),
     InstanceAccessor<&Packet::GetPts, &Packet::SetPts>("pts"),
     InstanceAccessor<&Packet::GetDts, &Packet::SetDts>("dts"),
@@ -28,15 +29,6 @@ Napi::Object Packet::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&Packet::GetFlags, &Packet::SetFlags>("flags"),
     InstanceAccessor<&Packet::GetData, &Packet::SetData>("data"),
     InstanceAccessor<&Packet::GetIsKeyframe, &Packet::SetIsKeyframe>("isKeyframe"),
-    
-    // Side Data
-    InstanceMethod<&Packet::GetSideData>("getSideData"),
-    InstanceMethod<&Packet::AddSideData>("addSideData"),
-    InstanceMethod<&Packet::NewSideData>("newSideData"),
-    InstanceMethod<&Packet::FreeSideData>("freeSideData"),
-    
-    // Utility
-    InstanceMethod<&Packet::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
   constructor = Napi::Persistent(func);
@@ -45,8 +37,6 @@ Napi::Object Packet::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("Packet", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 Packet::Packet(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<Packet>(info) {
@@ -60,8 +50,6 @@ Packet::~Packet() {
     packet_ = nullptr;
   }
 }
-
-// === Methods ===
 
 Napi::Value Packet::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -188,8 +176,6 @@ Napi::Value Packet::MakeWritable(const Napi::CallbackInfo& info) {
   int ret = av_packet_make_writable(packet_);
   return Napi::Number::New(env, ret);
 }
-
-// === Properties ===
 
 Napi::Value Packet::GetStreamIndex(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -330,8 +316,6 @@ void Packet::SetData(const Napi::CallbackInfo& info, const Napi::Value& value) {
   memcpy(packet_->data, buffer.Data(), size);
 }
 
-// === Utility ===
-
 Napi::Value Packet::GetIsKeyframe(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   if (!packet_) {
@@ -349,8 +333,6 @@ void Packet::SetIsKeyframe(const Napi::CallbackInfo& info, const Napi::Value& va
     }
   }
 }
-
-// === Side Data ===
 
 Napi::Value Packet::GetSideData(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

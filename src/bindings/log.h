@@ -20,8 +20,6 @@ public:
   ~Log();
   
 private:
-  
-  // Static members
   static Napi::FunctionReference constructor;
   static Napi::ThreadSafeFunction tsfn;
   static std::atomic<bool> callback_active;
@@ -29,9 +27,7 @@ private:
   static std::queue<std::pair<int, std::string>> log_queue;
   static std::mutex queue_mutex;
   static std::condition_variable queue_cv;
-  
-  // === Static Methods - Low Level API ===
-  
+
   static Napi::Value SetLevel(const Napi::CallbackInfo& info);
   static Napi::Value GetLevel(const Napi::CallbackInfo& info);
   static Napi::Value SetCallback(const Napi::CallbackInfo& info);

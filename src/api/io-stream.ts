@@ -52,7 +52,9 @@ export class IOStream {
    * Automatically handles seek operations and position tracking.
    *
    * @param buffer - Buffer containing media data
+   *
    * @param options - I/O configuration options
+   *
    * @returns Configured I/O context
    *
    * @example
@@ -71,7 +73,9 @@ export class IOStream {
    * Useful for streaming from non-file sources like network or custom storage.
    *
    * @param callbacks - I/O callbacks for read and seek operations
+   *
    * @param options - I/O configuration options
+   *
    * @returns Configured I/O context
    *
    * @throws {Error} If callbacks missing required read function
@@ -112,6 +116,7 @@ export class IOStream {
    * Manages position tracking and EOF handling.
    *
    * @param buffer - Source buffer
+   *
    * @param bufferSize - Internal buffer size
    *
    * @returns Configured I/O context
@@ -166,6 +171,7 @@ export class IOStream {
    * Supports read and optional seek operations.
    *
    * @param callbacks - User I/O callbacks
+   *
    * @param bufferSize - Internal buffer size
    *
    * @returns Configured I/O context

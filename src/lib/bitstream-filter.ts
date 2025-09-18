@@ -38,6 +38,7 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
 
   /**
    * @param native The native bitstream filter instance
+   *
    * @internal
    */
   constructor(native: NativeBitStreamFilter) {
@@ -54,6 +55,7 @@ export class BitStreamFilter implements NativeWrapper<NativeBitStreamFilter> {
    * Direct mapping to av_bsf_get_by_name().
    *
    * @param name - Name of the bitstream filter
+   *
    * @returns BitStreamFilter instance if found, null otherwise
    *
    * @example

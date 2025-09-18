@@ -22,8 +22,7 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   HardwareFramesContext(const Napi::CallbackInfo& info);
   ~HardwareFramesContext();
-  
-  // Native access
+
   AVBufferRef* Get() { 
     return frames_ref_ ? frames_ref_ : unowned_ref_; 
   }
@@ -49,46 +48,42 @@ public:
   static Napi::Value Wrap(Napi::Env env, AVBufferRef* frames_ref);
   
 private:
-  // Friend classes
   friend class CodecContext;
   friend class Frame;
-  
-  // Static members
+
   static Napi::FunctionReference constructor;
-  
-  // Resources
-  AVBufferRef* frames_ref_ = nullptr;  // Manual RAII
+
+  AVBufferRef* frames_ref_ = nullptr;
   AVBufferRef* unowned_ref_ = nullptr;
   bool is_freed_ = false;
-  
-  // === Methods - Low Level API ===
 
   Napi::Value Alloc(const Napi::CallbackInfo& info);
   Napi::Value Init(const Napi::CallbackInfo& info);
   Napi::Value GetBuffer(const Napi::CallbackInfo& info);
   Napi::Value TransferDataAsync(const Napi::CallbackInfo& info);
+  Napi::Value TransferDataSync(const Napi::CallbackInfo& info);
   Napi::Value TransferGetFormats(const Napi::CallbackInfo& info);
   Napi::Value Map(const Napi::CallbackInfo& info);
   Napi::Value CreateDerived(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
   
   Napi::Value GetFormat(const Napi::CallbackInfo& info);
   void SetFormat(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetSwFormat(const Napi::CallbackInfo& info);
   void SetSwFormat(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetWidth(const Napi::CallbackInfo& info);
   void SetWidth(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetHeight(const Napi::CallbackInfo& info);
   void SetHeight(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetInitialPoolSize(const Napi::CallbackInfo& info);
   void SetInitialPoolSize(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetDeviceRef(const Napi::CallbackInfo& info);
-  
-  // === Utility ===
-  
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

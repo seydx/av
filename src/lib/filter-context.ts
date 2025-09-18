@@ -50,6 +50,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
 
   /**
    * @param native - The native filter context instance
+   *
    * @internal
    */
   constructor(native: NativeFilterContext) {
@@ -172,6 +173,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * Direct mapping to avfilter_init_dict().
    *
    * @param options - Dictionary of filter options
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -200,6 +202,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * Direct mapping to avfilter_init_str().
    *
    * @param args - Filter arguments string
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid arguments
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -232,8 +235,11 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * Direct mapping to avfilter_link().
    *
    * @param srcPad - Output pad index of this filter
+   *
    * @param dst - Destination filter context
+   *
    * @param dstPad - Input pad index of destination filter
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid pad indices or incompatible formats
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -288,6 +294,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * Direct mapping to av_buffersrc_add_frame().
    *
    * @param frame - Frame to send, or null for EOF
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: Filter needs more output consumption
    *   - AVERROR_EOF: Filter has been closed
@@ -318,6 +325,48 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
   }
 
   /**
+   * Add frame to buffer source filter synchronously.
+   * Synchronous version of buffersrcAddFrame.
+   *
+   * Sends a frame to a buffer source filter for processing.
+   * Only valid for buffer source filters (buffer, abuffer).
+   *
+   * Direct mapping to av_buffersrc_add_frame().
+   *
+   * @param frame - Frame to send (null to mark EOF)
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Need to retrieve output first
+   *   - AVERROR_EOF: Graph has finished processing
+   *   - AVERROR_EINVAL: Invalid parameters
+   *   - AVERROR(ENOMEM): Memory allocation failure
+   *
+   * @example
+   * ```typescript
+   * import { FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN } from 'node-av/constants';
+   *
+   * // Send frame to filter
+   * const ret = bufferSrc.buffersrcAddFrameSync(frame);
+   * if (ret === AVERROR_EAGAIN) {
+   *   // Need to get output frames first
+   *   const filtered = new Frame();
+   *   bufferSink.buffersinkGetFrameSync(filtered);
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'buffersrcAddFrameSync');
+   * }
+   *
+   * // Mark end of stream
+   * bufferSrc.buffersrcAddFrameSync(null);
+   * ```
+   *
+   * @see {@link buffersrcAddFrame} For async version
+   */
+  buffersrcAddFrameSync(frame: Frame | null): number {
+    return this.native.buffersrcAddFrameSync(frame ? frame.getNative() : null);
+  }
+
+  /**
    * Set parameters for a buffer source filter.
    *
    * Configures the format and properties of frames that will be sent
@@ -326,17 +375,29 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * Direct mapping to av_buffersrc_parameters_set().
    *
    * @param params - Source parameters
+   *
    * @param params.width - Video frame width
+   *
    * @param params.height - Video frame height
+   *
    * @param params.format - Pixel or sample format
+   *
    * @param params.timeBase - Time base for timestamps
+   *
    * @param params.frameRate - Video frame rate
+   *
    * @param params.sampleAspectRatio - Pixel aspect ratio
+   *
    * @param params.hwFramesCtx - Hardware frames context
+   *
    * @param params.sampleRate - Audio sample rate
+   *
    * @param params.channelLayout - Audio channel layout
+   *
    * @param params.colorRange - Color range for video
+   *
    * @param params.colorSpace - Color space for video
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EINVAL: Invalid parameters
    *   - AVERROR_ENOMEM: Memory allocation failure
@@ -399,6 +460,7 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    * Direct mapping to av_buffersink_get_frame().
    *
    * @param frame - Frame to receive filtered data
+   *
    * @returns 0 on success, negative AVERROR on error:
    *   - AVERROR_EAGAIN: No frame available yet
    *   - AVERROR_EOF: No more frames will be produced
@@ -427,6 +489,50 @@ export class FilterContext extends OptionMember<NativeFilterContext> implements 
    */
   async buffersinkGetFrame(frame: Frame): Promise<number> {
     return await this.native.buffersinkGetFrame(frame.getNative());
+  }
+
+  /**
+   * Get frame from buffer sink filter synchronously.
+   * Synchronous version of buffersinkGetFrame.
+   *
+   * Retrieves a filtered frame from a buffer sink filter.
+   * Only valid for buffer sink filters (buffersink, abuffersink).
+   *
+   * Direct mapping to av_buffersink_get_frame().
+   *
+   * @param frame - Frame to receive filtered data
+   *
+   * @returns 0 on success, negative AVERROR on error:
+   *   - AVERROR_EAGAIN: Need more input
+   *   - AVERROR_EOF: No more frames available
+   *   - AVERROR_EINVAL: Invalid parameters
+   *
+   * @example
+   * ```typescript
+   * import { Frame, FFmpegError } from 'node-av';
+   * import { AVERROR_EAGAIN, AVERROR_EOF } from 'node-av/constants';
+   *
+   * // Get filtered frame
+   * const filtered = new Frame();
+   * const ret = bufferSink.buffersinkGetFrameSync(filtered);
+   *
+   * if (ret === 0) {
+   *   // Process filtered frame
+   *   console.log(`Got filtered frame with ${filtered.nbSamples} samples`);
+   *   filtered.unref();
+   * } else if (ret === AVERROR_EAGAIN) {
+   *   // Need more input frames
+   * } else if (ret === AVERROR_EOF) {
+   *   // No more frames
+   * } else {
+   *   FFmpegError.throwIfError(ret, 'buffersinkGetFrameSync');
+   * }
+   * ```
+   *
+   * @see {@link buffersinkGetFrame} For async version
+   */
+  buffersinkGetFrameSync(frame: Frame): number {
+    return this.native.buffersinkGetFrameSync(frame.getNative());
   }
 
   /**

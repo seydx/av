@@ -13,43 +13,31 @@ namespace ffmpeg {
 
 Napi::FunctionReference FilterGraph::constructor;
 
-// === Init ===
-
 Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "FilterGraph", {
-    // Lifecycle
     InstanceMethod<&FilterGraph::Alloc>("alloc"),
     InstanceMethod<&FilterGraph::Free>("free"),
-    
-    // Filter management
     InstanceMethod<&FilterGraph::CreateFilter>("createFilter"),
     InstanceMethod<&FilterGraph::AllocFilter>("allocFilter"),
     InstanceMethod<&FilterGraph::GetFilter>("getFilter"),
-    
-    // Configuration
     InstanceMethod<&FilterGraph::ConfigAsync>("config"),
+    InstanceMethod<&FilterGraph::ConfigSync>("configSync"),
     InstanceMethod<&FilterGraph::Parse>("parse"),
     InstanceMethod<&FilterGraph::Parse2>("parse2"),
     InstanceMethod<&FilterGraph::ParsePtr>("parsePtr"),
     InstanceMethod<&FilterGraph::Validate>("validate"),
-    
-    // Execution
     InstanceMethod<&FilterGraph::RequestOldestAsync>("requestOldest"),
+    InstanceMethod<&FilterGraph::RequestOldestSync>("requestOldestSync"),
     InstanceMethod<&FilterGraph::Dump>("dump"),
-    
-    // Command interface
     InstanceMethod<&FilterGraph::SendCommand>("sendCommand"),
     InstanceMethod<&FilterGraph::QueueCommand>("queueCommand"),
-    
-    // Properties
+    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterGraph::Dispose),
+
     InstanceAccessor<&FilterGraph::GetNbFilters>("nbFilters"),
     InstanceAccessor<&FilterGraph::GetFilters>("filters"),
     InstanceAccessor<&FilterGraph::GetThreadType, &FilterGraph::SetThreadType>("threadType"),
     InstanceAccessor<&FilterGraph::GetNbThreads, &FilterGraph::SetNbThreads>("nbThreads"),
     InstanceAccessor<&FilterGraph::GetScaleSwsOpts, &FilterGraph::SetScaleSwsOpts>("scaleSwsOpts"),
-    
-    // Utility
-    InstanceMethod(Napi::Symbol::WellKnown(env, "dispose"), &FilterGraph::Dispose),
   });
   
   constructor = Napi::Persistent(func);
@@ -58,8 +46,6 @@ Napi::Object FilterGraph::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("FilterGraph", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 FilterGraph::FilterGraph(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<FilterGraph>(info), unowned_graph_(nullptr) {
@@ -74,8 +60,6 @@ FilterGraph::~FilterGraph() {
   }
   // Unowned graphs are not freed
 }
-
-// === Methods ===
 
 Napi::Value FilterGraph::Alloc(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -412,8 +396,6 @@ Napi::Value FilterGraph::Validate(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, 0);
 }
 
-// === Properties ===
-
 Napi::Value FilterGraph::GetNbFilters(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   AVFilterGraph* graph = Get();
@@ -524,8 +506,6 @@ Napi::Value FilterGraph::Dump(const Napi::CallbackInfo& info) {
   
   return Napi::String::New(env, result);
 }
-
-// Command interface
 
 Napi::Value FilterGraph::SendCommand(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

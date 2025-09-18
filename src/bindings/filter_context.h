@@ -19,8 +19,7 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   FilterContext(const Napi::CallbackInfo& info);
   ~FilterContext();
-  
-  // Native access
+
   AVFilterContext* Get() { 
     return ctx_ ? ctx_ : unowned_ctx_; 
   }
@@ -44,35 +43,29 @@ public:
   }
 
 private:
-  // Friend classes
   friend class Filter;
   friend class FilterGraph;
   friend class FilterInOut;
   friend class FCBuffersrcAddFrameWorker;
   friend class FCBuffersinkGetFrameWorker;
-  friend class AVOption; // For option unwrapping
-  
-  // Static members
+  friend class AVOption;
+
   static Napi::FunctionReference constructor;
-  
-  // Resources
-  AVFilterContext* ctx_ = nullptr;  // For owned contexts - Manual RAII
-  AVFilterContext* unowned_ctx_ = nullptr; // For graph-owned contexts
+
+  AVFilterContext* ctx_ = nullptr;
+  AVFilterContext* unowned_ctx_ = nullptr;
   bool is_freed_ = false;
-  
-  // === Methods ===
-  
-  // Operations
+
   Napi::Value Init(const Napi::CallbackInfo& info);
   Napi::Value InitStr(const Napi::CallbackInfo& info);
   Napi::Value Link(const Napi::CallbackInfo& info);
   Napi::Value Unlink(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
-  
-  // Buffer source/sink operations
   Napi::Value BuffersrcAddFrameAsync(const Napi::CallbackInfo& info);
+  Napi::Value BuffersrcAddFrameSync(const Napi::CallbackInfo& info);
   Napi::Value BuffersrcParametersSet(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetFrameAsync(const Napi::CallbackInfo& info);
+  Napi::Value BuffersinkGetFrameSync(const Napi::CallbackInfo& info);
   // Napi::Value BuffersinkSetFrameSize(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetTimeBase(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetFormat(const Napi::CallbackInfo& info);
@@ -82,22 +75,23 @@ private:
   Napi::Value BuffersinkGetFrameRate(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetSampleRate(const Napi::CallbackInfo& info);
   Napi::Value BuffersinkGetChannelLayout(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
-  
-  // name
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
+
   Napi::Value GetName(const Napi::CallbackInfo& info);
   void SetName(const Napi::CallbackInfo& info, const Napi::Value& value);
+
   Napi::Value GetFilter(const Napi::CallbackInfo& info);
+
   Napi::Value GetGraph(const Napi::CallbackInfo& info);
+
   Napi::Value GetNbInputs(const Napi::CallbackInfo& info);
+
   Napi::Value GetNbOutputs(const Napi::CallbackInfo& info);
+
   Napi::Value GetReady(const Napi::CallbackInfo& info);
+
   Napi::Value GetHwDeviceCtx(const Napi::CallbackInfo& info);
   void SetHwDeviceCtx(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // Utility
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

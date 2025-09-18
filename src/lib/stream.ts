@@ -53,6 +53,7 @@ export class Stream implements NativeWrapper<NativeStream> {
 
   /**
    * @param native - The native stream instance
+   *
    * @internal
    */
   constructor(native: NativeStream) {

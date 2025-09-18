@@ -21,8 +21,7 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   FilterGraph(const Napi::CallbackInfo& info);
   ~FilterGraph();
-  
-  // Native access
+
   AVFilterGraph* Get() { 
     return graph_ ? graph_ : unowned_graph_; 
   }
@@ -45,67 +44,47 @@ public:
   }
 
 private:
-  friend class AVOption; // For option unwrapping  // Friend classes
+  friend class AVOption;
   friend class FilterContext;
   friend class FGConfigWorker;
   friend class FGRequestOldestWorker;
-  
-  // Static members
+
   static Napi::FunctionReference constructor;
-  
-  // Resources
-  AVFilterGraph* graph_ = nullptr;  // Manual RAII
+
+  AVFilterGraph* graph_ = nullptr;
   AVFilterGraph* unowned_graph_ = nullptr;
   bool is_freed_ = false;
-  
-  // === Methods ===
-  
-  // Lifecycle
+
   Napi::Value Alloc(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
-  
-  // Filter management
   Napi::Value CreateFilter(const Napi::CallbackInfo& info);
   Napi::Value AllocFilter(const Napi::CallbackInfo& info);
   Napi::Value GetFilter(const Napi::CallbackInfo& info);
-  
-  // Configuration
   Napi::Value ConfigAsync(const Napi::CallbackInfo& info);
+  Napi::Value ConfigSync(const Napi::CallbackInfo& info);
   Napi::Value Parse(const Napi::CallbackInfo& info);
   Napi::Value Parse2(const Napi::CallbackInfo& info);
   Napi::Value ParsePtr(const Napi::CallbackInfo& info);
   Napi::Value Validate(const Napi::CallbackInfo& info);
-  
-  // Execution
   Napi::Value RequestOldestAsync(const Napi::CallbackInfo& info);
+  Napi::Value RequestOldestSync(const Napi::CallbackInfo& info);
   Napi::Value Dump(const Napi::CallbackInfo& info);
-  
-  // Command interface
   Napi::Value SendCommand(const Napi::CallbackInfo& info);
   Napi::Value QueueCommand(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
-  
-  // nbFilters
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
+
   Napi::Value GetNbFilters(const Napi::CallbackInfo& info);
-  
-  // filters
+
   Napi::Value GetFilters(const Napi::CallbackInfo& info);
-  
-  // threadType
+
   Napi::Value GetThreadType(const Napi::CallbackInfo& info);
   void SetThreadType(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // nbThreads
+
   Napi::Value GetNbThreads(const Napi::CallbackInfo& info);
   void SetNbThreads(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // scaleSwsOpts
+
   Napi::Value GetScaleSwsOpts(const Napi::CallbackInfo& info);
   void SetScaleSwsOpts(const Napi::CallbackInfo& info, const Napi::Value& value);
-  
-  // Utility
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

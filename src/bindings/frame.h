@@ -18,24 +18,17 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   Frame(const Napi::CallbackInfo& info);
   ~Frame();
-  
-  // Native access
+
   AVFrame* Get() { return frame_; }
 
 private:
-  // Friend classes
   friend class HwframeTransferDataWorker;
-  
-  // Static members
+
   static Napi::FunctionReference constructor;
-  
-  // Resources
-  AVFrame* frame_ = nullptr;  // Manual RAII
+
+  AVFrame* frame_ = nullptr;
   bool is_freed_ = false;
-  
-  // === Methods ===
-  
-  // Lifecycle
+
   Napi::Value Alloc(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
   Napi::Value Ref(const Napi::CallbackInfo& info);
@@ -47,8 +40,15 @@ private:
   Napi::Value CopyProps(const Napi::CallbackInfo& info);
   Napi::Value Copy(const Napi::CallbackInfo& info);
   Napi::Value FromBuffer(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
+  Napi::Value HwframeTransferDataAsync(const Napi::CallbackInfo& info);
+  Napi::Value HwframeTransferDataSync(const Napi::CallbackInfo& info);
+  Napi::Value IsHwFrame(const Napi::CallbackInfo& info);
+  Napi::Value IsSwFrame(const Napi::CallbackInfo& info);
+  Napi::Value GetSideData(const Napi::CallbackInfo& info);
+  Napi::Value NewSideData(const Napi::CallbackInfo& info);
+  Napi::Value RemoveSideData(const Napi::CallbackInfo& info);
+  Napi::Value Dispose(const Napi::CallbackInfo& info);
+
   Napi::Value GetFormat(const Napi::CallbackInfo& info);
   void SetFormat(const Napi::CallbackInfo& info, const Napi::Value& value);
   
@@ -111,21 +111,9 @@ private:
   Napi::Value GetExtendedData(const Napi::CallbackInfo& info);
   
   Napi::Value GetIsWritable(const Napi::CallbackInfo& info);
-  
-  // Hardware Acceleration
+
   Napi::Value GetHwFramesCtx(const Napi::CallbackInfo& info);
   void SetHwFramesCtx(const Napi::CallbackInfo& info, const Napi::Value& value);
-  Napi::Value HwframeTransferDataAsync(const Napi::CallbackInfo& info);
-  Napi::Value IsHwFrame(const Napi::CallbackInfo& info);
-  Napi::Value IsSwFrame(const Napi::CallbackInfo& info);
-  
-  // Side Data
-  Napi::Value GetSideData(const Napi::CallbackInfo& info);
-  Napi::Value NewSideData(const Napi::CallbackInfo& info);
-  Napi::Value RemoveSideData(const Napi::CallbackInfo& info);
-  
-  // Utility
-  Napi::Value Dispose(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

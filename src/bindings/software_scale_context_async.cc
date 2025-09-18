@@ -8,13 +8,6 @@ extern "C" {
 
 namespace ffmpeg {
 
-// ============================================================================
-// Async Worker Classes for SoftwareScaleContext Operations
-// ============================================================================
-
-/**
- * Worker for sws_scale_frame - Scales/converts video frames
- */
 class SwsScaleFrameWorker : public Napi::AsyncWorker {
 public:
   SwsScaleFrameWorker(Napi::Env env, SoftwareScaleContext* ctx, Frame* dst, Frame* src)
@@ -49,34 +42,6 @@ private:
   Napi::Promise::Deferred deferred_;
 };
 
-// ============================================================================
-// SoftwareScaleContext Async Method Implementations
-// ============================================================================
-
-Napi::Value SoftwareScaleContext::ScaleFrame(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!ctx_) {
-    Napi::TypeError::New(env, "SoftwareScaleContext is not initialized").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  if (info.Length() < 2) {
-    Napi::TypeError::New(env, "Expected 2 arguments (dst, src)").ThrowAsJavaScriptException();
-    return env.Null();
-  }
-  
-  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
-  Frame* src = Napi::ObjectWrap<Frame>::Unwrap(info[1].As<Napi::Object>());
-  
-  auto* worker = new SwsScaleFrameWorker(env, this, dst, src);
-  worker->Queue();
-  return worker->GetPromise();
-}
-
-/**
- * Worker for sws_scale - Scales/converts video data with explicit buffers
- */
 class SwsScaleWorker : public Napi::AsyncWorker {
 public:
   SwsScaleWorker(Napi::Env env, SoftwareScaleContext* ctx,
@@ -126,6 +91,27 @@ private:
   int ret_;
   Napi::Promise::Deferred deferred_;
 };
+
+Napi::Value SoftwareScaleContext::ScaleFrameAsync(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (!ctx_) {
+    Napi::TypeError::New(env, "SoftwareScaleContext is not initialized").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "Expected 2 arguments (dst, src)").ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  Frame* dst = Napi::ObjectWrap<Frame>::Unwrap(info[0].As<Napi::Object>());
+  Frame* src = Napi::ObjectWrap<Frame>::Unwrap(info[1].As<Napi::Object>());
+
+  auto* worker = new SwsScaleFrameWorker(env, this, dst, src);
+  worker->Queue();
+  return worker->GetPromise();
+}
 
 Napi::Value SoftwareScaleContext::ScaleAsync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();

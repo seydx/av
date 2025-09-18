@@ -1,3 +1,4 @@
+import { closeSync, openSync, readSync } from 'fs';
 import { open } from 'fs/promises';
 import { resolve } from 'path';
 
@@ -48,13 +49,14 @@ import type { MediaInputOptions, RawData } from './types.js';
  * @see {@link Decoder} For decoding packets to frames
  * @see {@link FormatContext} For low-level API
  */
-export class MediaInput implements AsyncDisposable {
+export class MediaInput implements AsyncDisposable, Disposable {
   private formatContext: FormatContext;
   private _streams: Stream[] = [];
   private ioContext?: IOContext;
 
   /**
    * @param formatContext - Opened format context
+   *
    * @internal
    */
   private constructor(formatContext: FormatContext) {
@@ -70,6 +72,7 @@ export class MediaInput implements AsyncDisposable {
    * Direct mapping to av_probe_input_format().
    *
    * @param input - File path or buffer to probe
+   *
    * @returns Format information or null if unrecognized
    *
    * @example
@@ -149,6 +152,95 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
+   * Probe media format without fully opening the file synchronously.
+   * Synchronous version of probeFormat.
+   *
+   * Detects format by analyzing file headers and content.
+   * Useful for format validation before processing.
+   *
+   * Direct mapping to av_probe_input_format().
+   *
+   * @param input - File path or buffer to probe
+   *
+   * @returns Format information or null if unrecognized
+   *
+   * @example
+   * ```typescript
+   * const info = MediaInput.probeFormatSync('video.mp4');
+   * if (info) {
+   *   console.log(`Format: ${info.format}`);
+   *   console.log(`Confidence: ${info.confidence}%`);
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Probe from buffer
+   * const buffer = fs.readFileSync('video.webm');
+   * const info = MediaInput.probeFormatSync(buffer);
+   * console.log(`MIME type: ${info?.mimeType}`);
+   * ```
+   *
+   * @see {@link probeFormat} For async version
+   */
+  static probeFormatSync(input: string | Buffer): {
+    format: string;
+    longName?: string;
+    extensions?: string;
+    mimeType?: string;
+    confidence: number;
+  } | null {
+    try {
+      if (Buffer.isBuffer(input)) {
+        // Probe from buffer
+        const format = InputFormat.probe(input);
+        if (!format) {
+          return null;
+        }
+
+        return {
+          format: format.name ?? 'unknown',
+          longName: format.longName ?? undefined,
+          extensions: format.extensions ?? undefined,
+          mimeType: format.mimeType ?? undefined,
+          confidence: 100, // Direct probe always has high confidence
+        };
+      } else {
+        // For files, read first part and probe
+        let fd;
+        try {
+          fd = openSync(input, 'r');
+          // Read first 64KB for probing
+          const buffer = Buffer.alloc(65536);
+          const bytesRead = readSync(fd, buffer, 0, 65536, 0);
+
+          const probeBuffer = buffer.subarray(0, bytesRead);
+          const format = InputFormat.probe(probeBuffer, input);
+
+          if (!format) {
+            return null;
+          }
+
+          return {
+            format: format.name ?? 'unknown',
+            longName: format.longName ?? undefined,
+            extensions: format.extensions ?? undefined,
+            mimeType: format.mimeType ?? undefined,
+            confidence: 90, // File-based probe with filename hint
+          };
+        } catch {
+          // If file reading fails, return null
+          return null;
+        } finally {
+          if (fd !== undefined) closeSync(fd);
+        }
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Open media from file, URL, buffer, or raw data.
    *
    * Automatically detects format and extracts stream information.
@@ -158,7 +250,9 @@ export class MediaInput implements AsyncDisposable {
    * Direct mapping to avformat_open_input() and avformat_find_stream_info().
    *
    * @param input - File path, URL, buffer, or raw data descriptor
+   *
    * @param options - Input configuration options
+   *
    * @returns Opened media input instance
    *
    * @throws {Error} If format not found or open fails
@@ -313,6 +407,153 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
+   * Open media from file, URL, buffer, or raw data synchronously.
+   * Synchronous version of open.
+   *
+   * Automatically detects format and extracts stream information.
+   * Supports various input sources with flexible configuration.
+   * Creates demuxer ready for packet extraction.
+   *
+   * Direct mapping to avformat_open_input() and avformat_find_stream_info().
+   *
+   * @param input - File path, URL, buffer, or raw data descriptor
+   *
+   * @param options - Input configuration options
+   *
+   * @returns Opened media input instance
+   *
+   * @throws {Error} If format not found or open fails
+   *
+   * @throws {FFmpegError} If FFmpeg operations fail
+   *
+   * @example
+   * ```typescript
+   * // Open file
+   * using input = MediaInput.openSync('video.mp4');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Open with options
+   * using input = MediaInput.openSync('rtsp://camera.local', {
+   *   format: 'rtsp',
+   *   options: {
+   *     rtsp_transport: 'tcp',
+   *     analyzeduration: '5000000'
+   *   }
+   * });
+   * ```
+   *
+   * @see {@link open} For async version
+   */
+  static openSync(input: string | Buffer, options?: MediaInputOptions): MediaInput;
+  static openSync(rawData: RawData, options?: MediaInputOptions): MediaInput;
+  static openSync(input: string | Buffer | RawData, options: MediaInputOptions = {}): MediaInput {
+    // Check if input is raw data
+    if (typeof input === 'object' && 'type' in input && ('width' in input || 'sampleRate' in input)) {
+      // Build options for raw data
+      const rawOptions: MediaInputOptions = {
+        bufferSize: options.bufferSize,
+        format: options.format ?? (input.type === 'video' ? 'rawvideo' : 's16le'),
+        options: {
+          ...options.options,
+        },
+      };
+
+      if (input.type === 'video') {
+        rawOptions.options = {
+          ...rawOptions.options,
+          video_size: `${input.width}x${input.height}`,
+          pixel_format: avGetPixFmtName(input.pixelFormat) ?? 'yuv420p',
+          framerate: new Rational(input.frameRate.num, input.frameRate.den).toString(),
+        };
+      } else {
+        rawOptions.options = {
+          ...rawOptions.options,
+          sample_rate: input.sampleRate,
+          channels: input.channels,
+          sample_fmt: avGetSampleFmtName(input.sampleFormat) ?? 's16le',
+        };
+      }
+
+      // Open with the raw data source
+      return MediaInput.openSync(input.input, rawOptions);
+    }
+
+    // Original implementation for non-raw data
+    const formatContext = new FormatContext();
+    let ioContext: IOContext | undefined;
+    let optionsDict: Dictionary | null = null;
+    let inputFormat: InputFormat | null = null;
+
+    try {
+      // Create options dictionary if options are provided
+      if (options.options) {
+        optionsDict = Dictionary.fromObject(options.options);
+      }
+
+      // Find input format if specified
+      if (options.format) {
+        inputFormat = InputFormat.findInputFormat(options.format);
+        if (!inputFormat) {
+          throw new Error(`Input format '${options.format}' not found`);
+        }
+      }
+
+      if (typeof input === 'string') {
+        // File path or URL - resolve relative paths to absolute
+        // Check if it's a URL (starts with protocol://) or a file path
+        const isUrl = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(input);
+        const resolvedInput = isUrl ? input : resolve(input);
+
+        const ret = formatContext.openInputSync(resolvedInput, inputFormat, optionsDict);
+        FFmpegError.throwIfError(ret, 'Failed to open input');
+      } else if (Buffer.isBuffer(input)) {
+        // Validate buffer is not empty
+        if (input.length === 0) {
+          throw new Error('Cannot open media from empty buffer');
+        }
+        // From buffer - allocate context first for custom I/O
+        formatContext.allocContext();
+        ioContext = IOStream.create(input, { bufferSize: options.bufferSize });
+        formatContext.pb = ioContext;
+        const ret = formatContext.openInputSync('', inputFormat, optionsDict);
+        FFmpegError.throwIfError(ret, 'Failed to open input from buffer');
+      } else {
+        throw new TypeError('Invalid input type. Expected file path, URL, or Buffer');
+      }
+
+      // Find stream information
+      const ret = formatContext.findStreamInfoSync(null);
+      FFmpegError.throwIfError(ret, 'Failed to find stream info');
+
+      const mediaInput = new MediaInput(formatContext);
+      mediaInput.ioContext = ioContext;
+
+      // After successful creation, streams should be available
+      mediaInput._streams = formatContext.streams ?? [];
+
+      return mediaInput;
+    } catch (error) {
+      // Clean up only on error
+      if (ioContext) {
+        // Clear the pb reference first
+        formatContext.pb = null;
+        // Free the IOContext
+        ioContext.freeContext();
+      }
+      // Clean up FormatContext
+      formatContext.closeInputSync();
+      throw error;
+    } finally {
+      // Clean up options dictionary
+      if (optionsDict) {
+        optionsDict.free();
+      }
+    }
+  }
+
+  /**
    * Get all streams in the media.
    *
    * @example
@@ -407,6 +648,7 @@ export class MediaInput implements AsyncDisposable {
    * Returns undefined if stream doesn't exist.
    *
    * @param index - Video stream index (default: 0)
+   *
    * @returns Video stream or undefined
    *
    * @example
@@ -438,6 +680,7 @@ export class MediaInput implements AsyncDisposable {
    * Returns undefined if stream doesn't exist.
    *
    * @param index - Audio stream index (default: 0)
+   *
    * @returns Audio stream or undefined
    *
    * @example
@@ -471,6 +714,7 @@ export class MediaInput implements AsyncDisposable {
    * Direct mapping to av_find_best_stream().
    *
    * @param type - Media type to find
+   *
    * @returns Best stream or undefined if not found
    *
    * @example
@@ -501,7 +745,9 @@ export class MediaInput implements AsyncDisposable {
    * Direct mapping to av_read_frame().
    *
    * @param index - Optional stream index to filter
+   *
    * @yields {Packet} Demuxed packets (must be freed by caller)
+   *
    * @throws {Error} If packet cloning fails
    *
    * @example
@@ -559,6 +805,76 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
+   * Read packets from media as generator synchronously.
+   * Synchronous version of packets.
+   *
+   * Yields demuxed packets for processing.
+   * Automatically handles packet memory management.
+   * Optionally filters packets by stream index.
+   *
+   * Direct mapping to av_read_frame().
+   *
+   * @param index - Optional stream index to filter
+   *
+   * @yields {Packet} Demuxed packets (must be freed by caller)
+   *
+   * @throws {Error} If packet cloning fails
+   *
+   * @example
+   * ```typescript
+   * // Read all packets
+   * for (const packet of input.packetsSync()) {
+   *   console.log(`Packet: stream=${packet.streamIndex}, pts=${packet.pts}`);
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Read only video packets
+   * const videoStream = input.video();
+   * for (const packet of input.packetsSync(videoStream.index)) {
+   *   // Process video packet
+   *   packet.free();
+   * }
+   * ```
+   *
+   * @see {@link packets} For async version
+   */
+  *packetsSync(index?: number): Generator<Packet> {
+    const packet = new Packet();
+    packet.alloc();
+
+    try {
+      while (true) {
+        const ret = this.formatContext.readFrameSync(packet);
+        if (ret < 0) {
+          // End of file or error
+          break;
+        }
+
+        if (index === undefined || packet.streamIndex === index) {
+          // Clone the packet for the user
+          // This creates a new Packet object that shares the same data buffer
+          // through reference counting. The data won't be freed until both
+          // the original and the clone are unreferenced.
+          const cloned = packet.clone();
+          if (!cloned) {
+            throw new Error('Failed to clone packet (out of memory)');
+          }
+          yield cloned;
+        }
+        // Unreference the original packet's data buffer
+        // This allows us to reuse the packet object for the next readFrame()
+        // The data itself is still alive because the clone has a reference
+        packet.unref();
+      }
+    } finally {
+      packet.free();
+    }
+  }
+
+  /**
    * Seek to timestamp in media.
    *
    * Seeks to the specified position in seconds.
@@ -567,8 +883,11 @@ export class MediaInput implements AsyncDisposable {
    * Direct mapping to av_seek_frame().
    *
    * @param timestamp - Target position in seconds
+   *
    * @param streamIndex - Stream index or -1 for global (default: -1)
+   *
    * @param flags - Seek flags (default: AVFLAG_NONE)
+   *
    * @returns 0 on success, negative on error
    *
    * @example
@@ -592,6 +911,46 @@ export class MediaInput implements AsyncDisposable {
     // Convert seconds to AV_TIME_BASE
     const ts = BigInt(Math.floor(timestamp * 1000000));
     return this.formatContext.seekFrame(streamIndex, ts, flags);
+  }
+
+  /**
+   * Seek to timestamp in media synchronously.
+   * Synchronous version of seek.
+   *
+   * Seeks to the specified position in seconds.
+   * Can seek in specific stream or globally.
+   *
+   * Direct mapping to av_seek_frame().
+   *
+   * @param timestamp - Target position in seconds
+   *
+   * @param streamIndex - Stream index or -1 for global (default: -1)
+   *
+   * @param flags - Seek flags (default: AVFLAG_NONE)
+   *
+   * @returns 0 on success, negative on error
+   *
+   * @example
+   * ```typescript
+   * // Seek to 30 seconds
+   * const ret = input.seekSync(30);
+   * FFmpegError.throwIfError(ret, 'seek failed');
+   * ```
+   *
+   * @example
+   * ```typescript
+   * import { AVSEEK_FLAG_BACKWARD } from 'node-av/constants';
+   *
+   * // Seek to keyframe before 60 seconds
+   * input.seekSync(60, -1, AVSEEK_FLAG_BACKWARD);
+   * ```
+   *
+   * @see {@link seek} For async version
+   */
+  seekSync(timestamp: number, streamIndex = -1, flags: AVSeekFlag = AVFLAG_NONE): number {
+    // Convert seconds to AV_TIME_BASE
+    const ts = BigInt(Math.floor(timestamp * 1000000));
+    return this.formatContext.seekFrameSync(streamIndex, ts, flags);
   }
 
   /**
@@ -632,6 +991,44 @@ export class MediaInput implements AsyncDisposable {
   }
 
   /**
+   * Close media input and free resources synchronously.
+   * Synchronous version of close.
+   *
+   * Releases format context and I/O context.
+   * Safe to call multiple times.
+   * Automatically called by Symbol.dispose.
+   *
+   * Direct mapping to avformat_close_input().
+   *
+   * @example
+   * ```typescript
+   * const input = MediaInput.openSync('video.mp4');
+   * try {
+   *   // Use input
+   * } finally {
+   *   input.closeSync();
+   * }
+   * ```
+   *
+   * @see {@link close} For async version
+   */
+  closeSync(): void {
+    // IMPORTANT: Clear pb reference FIRST to prevent use-after-free
+    if (this.ioContext) {
+      this.formatContext.pb = null;
+    }
+
+    // Close FormatContext
+    this.formatContext.closeInputSync();
+
+    // NOW we can safely free the IOContext
+    if (this.ioContext) {
+      this.ioContext.freeContext();
+      this.ioContext = undefined;
+    }
+  }
+
+  /**
    * Get underlying format context.
    *
    * Returns the internal format context for advanced operations.
@@ -662,5 +1059,25 @@ export class MediaInput implements AsyncDisposable {
    */
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
+  }
+
+  /**
+   * Dispose of media input synchronously.
+   *
+   * Implements Disposable interface for automatic cleanup.
+   * Equivalent to calling closeSync().
+   *
+   * @example
+   * ```typescript
+   * {
+   *   using input = MediaInput.openSync('video.mp4');
+   *   // Process media...
+   * } // Automatically closed
+   * ```
+   *
+   * @see {@link closeSync} For manual cleanup
+   */
+  [Symbol.dispose](): void {
+    this.closeSync();
   }
 }

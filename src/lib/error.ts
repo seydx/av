@@ -42,6 +42,7 @@ const errorCache: Record<string, AVError> = {};
  * Get a cached FFmpeg error code by name.
  *
  * @param name - POSIX error name
+ *
  * @returns FFmpeg error code
  *
  * @internal
@@ -161,6 +162,7 @@ export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegErro
    * Direct mapping to av_strerror().
    *
    * @param errnum - FFmpeg error code
+   *
    * @returns Error description string
    *
    * @example
@@ -181,6 +183,7 @@ export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegErro
    * Direct mapping to AVERROR() macro.
    *
    * @param errorName - POSIX error name
+   *
    * @returns FFmpeg error code
    *
    * @example
@@ -203,6 +206,7 @@ export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegErro
    * FFmpeg errors are negative values.
    *
    * @param code - Return code to check
+   *
    * @returns True if code is an error
    *
    * @example
@@ -226,6 +230,7 @@ export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegErro
    * Creates an FFmpegError instance if the code is an error.
    *
    * @param code - FFmpeg return code
+   *
    * @returns Error instance or null if not an error
    *
    * @example
@@ -250,7 +255,9 @@ export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegErro
    * Commonly used pattern for FFmpeg API calls.
    *
    * @param code - FFmpeg return code
+   *
    * @param operation - Optional operation name for context
+   *
    * @throws {FFmpegError} If code is negative
    *
    * @example
@@ -281,7 +288,9 @@ export class FFmpegError extends Error implements NativeWrapper<NativeFFmpegErro
    * Convenience method to check for specific error codes.
    *
    * @param code - Return code to check
+   *
    * @param errorCode - Error code to compare against
+   *
    * @returns True if codes match
    *
    * @example

@@ -17,8 +17,7 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   HardwareDeviceContext(const Napi::CallbackInfo& info);
   ~HardwareDeviceContext();
-  
-  // Native access
+
   AVBufferRef* Get() { 
     return device_ref_ ? device_ref_ : unowned_ref_; 
   }
@@ -44,27 +43,20 @@ public:
   static Napi::Value Wrap(Napi::Env env, AVBufferRef* device_ref);
   
 private:
-  // Friend classes
   friend class HardwareFramesContext;
   friend class CodecContext;
   friend class FilterContext;
-  
-  // Static members
+
   static Napi::FunctionReference constructor;
   
   // Resources
-  AVBufferRef* device_ref_ = nullptr;  // Manual RAII
+  AVBufferRef* device_ref_ = nullptr;
   AVBufferRef* unowned_ref_ = nullptr;
   bool is_freed_ = false;
-  
-  // === Static Methods - Low Level API ===
-  
 
   static Napi::Value GetTypeName(const Napi::CallbackInfo& info);
   static Napi::Value IterateTypes(const Napi::CallbackInfo& info);
   static Napi::Value FindTypeByName(const Napi::CallbackInfo& info);
-  
-  // === Methods - Low Level API ===
   
   Napi::Value Alloc(const Napi::CallbackInfo& info);
   Napi::Value Init(const Napi::CallbackInfo& info);
@@ -73,15 +65,11 @@ private:
   Napi::Value HwconfigAlloc(const Napi::CallbackInfo& info);
   Napi::Value GetHwframeConstraints(const Napi::CallbackInfo& info);
   Napi::Value Free(const Napi::CallbackInfo& info);
-  
-  // === Properties ===
-  
-  Napi::Value GetType(const Napi::CallbackInfo& info);
-  Napi::Value GetHwctx(const Napi::CallbackInfo& info);
-  
-  // === Utility ===
-  
   Napi::Value Dispose(const Napi::CallbackInfo& info);
+
+  Napi::Value GetType(const Napi::CallbackInfo& info);
+
+  Napi::Value GetHwctx(const Napi::CallbackInfo& info);
 };
 
 } // namespace ffmpeg

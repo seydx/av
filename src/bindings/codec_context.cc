@@ -17,11 +17,8 @@ namespace ffmpeg {
 
 Napi::FunctionReference CodecContext::constructor;
 
-// === Init ===
-
 Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "CodecContext", {
-    // Lifecycle
     InstanceMethod<&CodecContext::AllocContext3>("allocContext3"),
     InstanceMethod<&CodecContext::FreeContext>("freeContext"),
     InstanceMethod<&CodecContext::Open2Async>("open2"),
@@ -29,14 +26,17 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&CodecContext::ParametersToContext>("parametersToContext"),
     InstanceMethod<&CodecContext::ParametersFromContext>("parametersFromContext"),
     InstanceMethod<&CodecContext::FlushBuffers>("flushBuffers"),
-    
-    // Operations
     InstanceMethod<&CodecContext::SendPacketAsync>("sendPacket"),
+    InstanceMethod<&CodecContext::SendPacketSync>("sendPacketSync"),
     InstanceMethod<&CodecContext::ReceiveFrameAsync>("receiveFrame"),
+    InstanceMethod<&CodecContext::ReceiveFrameSync>("receiveFrameSync"),
     InstanceMethod<&CodecContext::SendFrameAsync>("sendFrame"),
+    InstanceMethod<&CodecContext::SendFrameSync>("sendFrameSync"),
     InstanceMethod<&CodecContext::ReceivePacketAsync>("receivePacket"),
-    
-    // Properties
+    InstanceMethod<&CodecContext::ReceivePacketSync>("receivePacketSync"),
+    InstanceMethod<&CodecContext::SetHardwarePixelFormat>("setHardwarePixelFormat"),
+    InstanceMethod<&CodecContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
+
     InstanceAccessor<&CodecContext::GetCodecType, &CodecContext::SetCodecType>("codecType"),
     InstanceAccessor<&CodecContext::GetCodecId, &CodecContext::SetCodecId>("codecId"),
     InstanceAccessor<&CodecContext::GetBitRate, &CodecContext::SetBitRate>("bitRate"),
@@ -74,17 +74,9 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
     InstanceAccessor<&CodecContext::GetRcBufferSize, &CodecContext::SetRcBufferSize>("rcBufferSize"),
     InstanceAccessor<&CodecContext::GetRcMaxRate, &CodecContext::SetRcMaxRate>("rcMaxRate"),
     InstanceAccessor<&CodecContext::GetRcMinRate, &CodecContext::SetRcMinRate>("rcMinRate"),
-    
-    // Hardware Acceleration
     InstanceAccessor<&CodecContext::GetHwDeviceCtx, &CodecContext::SetHwDeviceCtx>("hwDeviceCtx"),
     InstanceAccessor<&CodecContext::GetHwFramesCtx, &CodecContext::SetHwFramesCtx>("hwFramesCtx"),
-    InstanceMethod<&CodecContext::SetHardwarePixelFormat>("setHardwarePixelFormat"),
-    
-    // Utility
     InstanceAccessor<&CodecContext::IsOpen>("isOpen"),
-    
-    // Resource management
-    InstanceMethod<&CodecContext::Dispose>(Napi::Symbol::WellKnown(env, "dispose")),
   });
   
   constructor = Napi::Persistent(func);
@@ -93,8 +85,6 @@ Napi::Object CodecContext::Init(Napi::Env env, Napi::Object exports) {
   exports.Set("CodecContext", func);
   return exports;
 }
-
-// === Lifecycle ===
 
 CodecContext::CodecContext(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<CodecContext>(info) {
@@ -109,8 +99,6 @@ CodecContext::~CodecContext() {
     context_ = nullptr;
   }
 }
-
-// === Methods ===
 
 Napi::Value CodecContext::AllocContext3(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -153,51 +141,6 @@ Napi::Value CodecContext::FreeContext(const Napi::CallbackInfo& info) {
   is_freed_ = true;
   
   return env.Undefined();
-}
-
-Napi::Value CodecContext::Open2Sync(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  
-  if (!context_) {
-    Napi::Error::New(env, "CodecContext not allocated").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
-  }
-  
-  const AVCodec* codec = nullptr;
-  AVDictionary* options = nullptr;
-  
-  // Parse arguments (codec, options) - both optional
-  if (info.Length() > 0 && !info[0].IsNull() && !info[0].IsUndefined()) {
-    Napi::Object codecObj = info[0].As<Napi::Object>();
-    Codec* codecWrapper = UnwrapNativeObject<Codec>(env, codecObj, "Codec");
-    if (!codecWrapper) {
-      Napi::TypeError::New(env, "Invalid Codec object").ThrowAsJavaScriptException();
-      return Napi::Number::New(env, AVERROR(EINVAL));
-    }
-    codec = codecWrapper->Get();
-  }
-  
-  if (info.Length() > 1 && !info[1].IsNull() && !info[1].IsUndefined()) {
-    Napi::Object dictObj = info[1].As<Napi::Object>();
-    Dictionary* dict = UnwrapNativeObject<Dictionary>(env, dictObj, "Dictionary");
-    if (dict) {
-      options = dict->Get();
-    }
-  }
-  
-  // Call avcodec_open2 synchronously
-  int ret = avcodec_open2(context_, codec, options ? &options : nullptr);
-  
-  if (ret >= 0) {
-    is_open_ = true;
-  }
-  
-  // Clean up options if modified
-  if (options) {
-    av_dict_free(&options);
-  }
-  
-  return Napi::Number::New(env, ret);
 }
 
 Napi::Value CodecContext::ParametersToContext(const Napi::CallbackInfo& info) {
@@ -253,8 +196,6 @@ Napi::Value CodecContext::FlushBuffers(const Napi::CallbackInfo& info) {
   
   return env.Undefined();
 }
-
-// === Properties ===
 
 Napi::Value CodecContext::GetCodecType(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -945,7 +886,18 @@ Napi::Value CodecContext::SetHardwarePixelFormat(const Napi::CallbackInfo& info)
   return env.Undefined();
 }
 
-// Static callback that FFmpeg will call
+Napi::Value CodecContext::IsOpen(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (!context_) {
+    return Napi::Boolean::New(env, false);
+  }
+  return Napi::Boolean::New(env, avcodec_is_open(context_) > 0);
+}
+
+Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
+  return FreeContext(info);
+}
+
 enum AVPixelFormat CodecContext::GetFormatCallback(AVCodecContext* ctx, const enum AVPixelFormat* pix_fmts) {
   // Get the CodecContext instance from opaque
   CodecContext* self = static_cast<CodecContext*>(ctx->opaque);
@@ -976,18 +928,6 @@ enum AVPixelFormat CodecContext::GetFormatCallback(AVCodecContext* ctx, const en
   
   // Neither hardware nor software format found, return first format
   return pix_fmts[0];
-}
-
-Napi::Value CodecContext::IsOpen(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  if (!context_) {
-    return Napi::Boolean::New(env, false);
-  }
-  return Napi::Boolean::New(env, avcodec_is_open(context_) > 0);
-}
-
-Napi::Value CodecContext::Dispose(const Napi::CallbackInfo& info) {
-  return FreeContext(info);
 }
 
 } // namespace ffmpeg
