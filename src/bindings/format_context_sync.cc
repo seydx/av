@@ -102,11 +102,15 @@ Napi::Value FormatContext::OpenInputSync(const Napi::CallbackInfo& info) {
     }
   }
 
+  // If we already have a context (e.g., for custom I/O), preserve it
+  AVFormatContext* ctx = ctx_;
+
   // Direct synchronous call
   const char* urlPtr = url.empty() || url == "dummy" ? nullptr : url.c_str();
-  int ret = avformat_open_input(&ctx_, urlPtr, fmt, options ? &options : nullptr);
+  int ret = avformat_open_input(&ctx, urlPtr, fmt, options ? &options : nullptr);
 
   if (ret >= 0) {
+    ctx_ = ctx;  // Update the stored context
     is_output_ = false;
   }
 
@@ -156,12 +160,13 @@ Napi::Value FormatContext::SeekFrameSync(const Napi::CallbackInfo& info) {
   }
 
   if (info.Length() < 3) {
-    Napi::TypeError::New(env, "streamIndex, timestamp, and flags required").ThrowAsJavaScriptException();
-    return Napi::Number::New(env, AVERROR(EINVAL));
+    Napi::TypeError::New(env, "stream_index, timestamp, and flags required").ThrowAsJavaScriptException();
+    return env.Undefined();
   }
 
   int stream_index = info[0].As<Napi::Number>().Int32Value();
-  int64_t timestamp = info[1].As<Napi::BigInt>().Int64Value(nullptr);
+  bool lossless;
+  int64_t timestamp = info[1].As<Napi::BigInt>().Int64Value(&lossless);
   int flags = info[2].As<Napi::Number>().Int32Value();
 
   // Direct synchronous call
