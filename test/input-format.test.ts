@@ -414,7 +414,7 @@ describe('InputFormat', () => {
           }
         } catch (err) {
           // Sync version may throw for invalid data
-          assert.ok(err.message.includes('Invalid data') || err.message.includes('probe'), 'Should throw appropriate error for non-media data');
+          assert.ok(err.message.includes('Invalid data') ?? err.message.includes('probe'), 'Should throw appropriate error for non-media data');
         }
       } finally {
         io.closepSync();
