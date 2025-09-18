@@ -10,13 +10,14 @@ namespace ffmpeg {
 Napi::Value FilterGraph::ConfigSync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
-  if (!graph_) {
+  AVFilterGraph* graph = Get();
+  if (!graph) {
     Napi::TypeError::New(env, "FilterGraph is not initialized").ThrowAsJavaScriptException();
     return Napi::Number::New(env, AVERROR(EINVAL));
   }
 
   // Direct synchronous call
-  int ret = avfilter_graph_config(graph_, nullptr);
+  int ret = avfilter_graph_config(graph, nullptr);
 
   return Napi::Number::New(env, ret);
 }
@@ -24,13 +25,14 @@ Napi::Value FilterGraph::ConfigSync(const Napi::CallbackInfo& info) {
 Napi::Value FilterGraph::RequestOldestSync(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
-  if (!graph_) {
+  AVFilterGraph* graph = Get();
+  if (!graph) {
     Napi::TypeError::New(env, "FilterGraph is not initialized").ThrowAsJavaScriptException();
     return Napi::Number::New(env, AVERROR(EINVAL));
   }
 
   // Direct synchronous call
-  int ret = avfilter_graph_request_oldest(graph_);
+  int ret = avfilter_graph_request_oldest(graph);
 
   return Napi::Number::New(env, ret);
 }
