@@ -259,7 +259,7 @@ describe('HardwareContext', () => {
   });
 
   describe('hardware integration', () => {
-    it('should work with Decoder when hardware is available', skipInCI, async () => {
+    it('should work with Decoder when hardware is available (async)', skipInCI, async () => {
       // Try to get hardware context
       const hw = HardwareContext.auto();
 
@@ -303,7 +303,51 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should work with Decoder using auto hardware detection', skipInCI, async () => {
+    it('should work with Decoder when hardware is available (sync)', skipInCI, async () => {
+      // Try to get hardware context
+      const hw = HardwareContext.auto();
+
+      if (!hw) {
+        console.log('No hardware acceleration available - skipping test');
+        return;
+      }
+
+      try {
+        // Open a test video
+        const media = await MediaInput.open(inputFile);
+        const videoStream = media.video(0);
+        assert.ok(videoStream, 'Should have video stream');
+
+        // Create decoder with hardware acceleration
+        const decoder = await Decoder.create(videoStream, {
+          hardware: hw,
+        });
+
+        // Decode first frame to verify it works
+        let frameCount = 0;
+        for await (const packet of media.packets()) {
+          if (packet.streamIndex === videoStream.index) {
+            const frame = decoder.decodeSync(packet);
+            if (frame) {
+              frameCount++;
+              frame.free();
+              break; // Just test first frame
+            }
+          }
+        }
+
+        assert.ok(frameCount > 0, 'Should decode at least one frame');
+
+        decoder.close();
+        media.close();
+      } catch (error) {
+        // Hardware might not support the codec
+        console.log('Hardware acceleration test failed:', error);
+        hw.dispose();
+      }
+    });
+
+    it('should work with Decoder using auto hardware detection (async)', skipInCI, async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video(0);
       assert.ok(videoStream, 'Should have video stream');
@@ -317,6 +361,35 @@ describe('HardwareContext', () => {
       for await (const packet of media.packets()) {
         if (packet.streamIndex === videoStream.index) {
           const frame = await decoder.decode(packet);
+          if (frame) {
+            frameCount++;
+            frame.free();
+            break;
+          }
+        }
+      }
+
+      assert.ok(frameCount > 0, 'Should decode at least one frame');
+
+      decoder.close();
+      media.close();
+      // hw is disposed by decoder.close()
+    });
+
+    it('should work with Decoder using auto hardware detection (sync)', skipInCI, async () => {
+      const media = await MediaInput.open(inputFile);
+      const videoStream = media.video(0);
+      assert.ok(videoStream, 'Should have video stream');
+
+      // Auto-detect hardware and create decoder
+      const hw = HardwareContext.auto();
+      const decoder = await Decoder.create(videoStream, hw ? { hardware: hw } : {});
+
+      // Decode first frame
+      let frameCount = 0;
+      for await (const packet of media.packets()) {
+        if (packet.streamIndex === videoStream.index) {
+          const frame = decoder.decodeSync(packet);
           if (frame) {
             frameCount++;
             frame.free();
@@ -392,7 +465,7 @@ describe('HardwareContext', () => {
   });
 
   describe('zero-copy GPU transfer', () => {
-    it('should transfer frames from decoder to encoder on GPU (zero-copy)', skipInCI, async () => {
+    it('should transfer frames from decoder to encoder on GPU (zero-copy) (async)', skipInCI, async () => {
       // This test demonstrates zero-copy GPU frame transfer
       // where frames stay on GPU between decode and encode
 
@@ -480,6 +553,99 @@ describe('HardwareContext', () => {
         media.close();
       } catch (error) {
         console.log('Zero-copy test failed:', error);
+        hw.dispose();
+        throw error;
+      }
+    });
+
+    it('should transfer frames from decoder to encoder on GPU (zero-copy) (sync)', skipInCI, async () => {
+      // This test demonstrates zero-copy GPU frame transfer with sync methods
+      // where frames stay on GPU between decode and encode
+
+      const hw = HardwareContext.auto();
+      if (!hw) {
+        console.log('No hardware acceleration available - skipping zero-copy test');
+        return;
+      }
+
+      try {
+        // Open test video
+        const media = await MediaInput.open(inputFile);
+        const videoStream = media.video(0);
+        assert.ok(videoStream, 'Should have video stream');
+
+        // Create hardware decoder
+        const decoder = await Decoder.create(videoStream, {
+          hardware: hw,
+        });
+
+        // Create hardware encoder
+        // Use hardware-specific encoder codec
+        const hwEncoderCodec = hw.getEncoderCodec('h264');
+
+        if (!hwEncoderCodec) {
+          // Not supported, skip
+          decoder.close();
+          media.close();
+          hw.dispose();
+          return;
+        }
+
+        const encoder = await Encoder.create(hwEncoderCodec, {
+          timeBase: { num: 1, den: 25 },
+          frameRate: { num: 25, den: 1 },
+          bitrate: '2M',
+        });
+
+        let decodedFrames = 0;
+        let encodedPackets = 0;
+        const maxFrames = 10; // Process only first 10 frames for test
+
+        // Process frames using sync methods
+        for await (const packet of media.packets()) {
+          if (packet.streamIndex === videoStream.index) {
+            const frame = decoder.decodeSync(packet);
+            if (frame) {
+              decodedFrames++;
+
+              // Check if frame is on GPU (hardware pixel format)
+              const isHardwareFrame = frame.isHwFrame();
+
+              if (isHardwareFrame) {
+                console.log(`Frame ${decodedFrames} is on GPU (format: ${frame.format})`);
+              }
+
+              // Encode the frame directly (zero-copy if both on same GPU)
+              const encodedPacket = encoder.encodeSync(frame);
+              if (encodedPacket) {
+                encodedPackets++;
+                encodedPacket.free();
+              }
+
+              frame.free();
+
+              if (decodedFrames >= maxFrames) {
+                break;
+              }
+            }
+          }
+        }
+
+        // Flush encoder
+        for await (const flushPacket of encoder.flushPackets()) {
+          encodedPackets++;
+          flushPacket.free();
+        }
+
+        console.log(`Zero-copy test (sync): Decoded ${decodedFrames} frames, Encoded ${encodedPackets} packets`);
+        assert.ok(decodedFrames > 0, 'Should decode frames');
+        assert.ok(encodedPackets > 0, 'Should encode packets');
+
+        decoder.close();
+        encoder.close();
+        media.close();
+      } catch (error) {
+        console.log('Zero-copy test (sync) failed:', error);
         hw.dispose();
         throw error;
       }

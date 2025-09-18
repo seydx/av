@@ -323,7 +323,7 @@ describe('HardwareFramesContext', () => {
   });
 
   describe('Transfer Operations', () => {
-    it('should transfer data to hardware frame', async () => {
+    it('should transfer data to hardware frame (async)', async () => {
       const frames = new HardwareFramesContext();
       const device = new HardwareDeviceContext();
       const types = HardwareDeviceContext.iterateTypes();
@@ -379,7 +379,7 @@ describe('HardwareFramesContext', () => {
       }
     });
 
-    it('should transfer data from hardware frame', async () => {
+    it('should transfer data from hardware frame (async)', async () => {
       const frames = new HardwareFramesContext();
       const device = new HardwareDeviceContext();
       const types = HardwareDeviceContext.iterateTypes();
@@ -421,6 +421,118 @@ describe('HardwareFramesContext', () => {
 
             // Transfer data (download from hardware)
             const transferRet = await frames.transferData(swFrame, hwFrame);
+            assert.equal(typeof transferRet, 'number', 'Should return status code');
+
+            swFrame.free();
+            hwFrame.free();
+          }
+
+          frames.free();
+          device.free();
+        }
+      } else {
+        assert.ok(true, 'No hardware acceleration available');
+      }
+    });
+
+    it('should transfer data to hardware frame (sync)', () => {
+      const frames = new HardwareFramesContext();
+      const device = new HardwareDeviceContext();
+      const types = HardwareDeviceContext.iterateTypes();
+
+      if (types.length > 0) {
+        const ret = device.create(types[0], null, null);
+        if (ret === 0) {
+          frames.alloc(device);
+
+          // Configure and initialize
+          const typeName = HardwareDeviceContext.getTypeName(types[0]);
+          if (typeName === 'videotoolbox') {
+            frames.format = AV_PIX_FMT_VIDEOTOOLBOX;
+          } else if (typeName === 'cuda') {
+            frames.format = AV_PIX_FMT_CUDA;
+          } else if (typeName === 'vaapi') {
+            frames.format = AV_PIX_FMT_VAAPI;
+          } else {
+            frames.format = AV_PIX_FMT_NV12;
+          }
+          frames.swFormat = AV_PIX_FMT_YUV420P;
+          frames.width = 320;
+          frames.height = 240;
+
+          const initRet = frames.init();
+          if (initRet === 0) {
+            // Create software frame
+            const swFrame = new Frame();
+            swFrame.alloc();
+            swFrame.format = AV_PIX_FMT_YUV420P;
+            swFrame.width = 320;
+            swFrame.height = 240;
+            swFrame.getBuffer();
+
+            // Create hardware frame
+            const hwFrame = new Frame();
+            hwFrame.alloc();
+            frames.getBuffer(hwFrame);
+
+            // Transfer data (upload to hardware)
+            const transferRet = frames.transferDataSync(hwFrame, swFrame);
+            assert.equal(typeof transferRet, 'number', 'Should return status code');
+
+            hwFrame.free();
+            swFrame.free();
+          }
+
+          frames.free();
+          device.free();
+        }
+      } else {
+        assert.ok(true, 'No hardware acceleration available');
+      }
+    });
+
+    it('should transfer data from hardware frame (sync)', () => {
+      const frames = new HardwareFramesContext();
+      const device = new HardwareDeviceContext();
+      const types = HardwareDeviceContext.iterateTypes();
+
+      if (types.length > 0) {
+        const ret = device.create(types[0], null, null);
+        if (ret === 0) {
+          frames.alloc(device);
+
+          // Configure and initialize
+          const typeName = HardwareDeviceContext.getTypeName(types[0]);
+          if (typeName === 'videotoolbox') {
+            frames.format = AV_PIX_FMT_VIDEOTOOLBOX;
+          } else if (typeName === 'cuda') {
+            frames.format = AV_PIX_FMT_CUDA;
+          } else if (typeName === 'vaapi') {
+            frames.format = AV_PIX_FMT_VAAPI;
+          } else {
+            frames.format = AV_PIX_FMT_NV12;
+          }
+          frames.swFormat = AV_PIX_FMT_YUV420P;
+          frames.width = 320;
+          frames.height = 240;
+
+          const initRet = frames.init();
+          if (initRet === 0) {
+            // Create hardware frame
+            const hwFrame = new Frame();
+            hwFrame.alloc();
+            frames.getBuffer(hwFrame);
+
+            // Create software frame
+            const swFrame = new Frame();
+            swFrame.alloc();
+            swFrame.format = AV_PIX_FMT_YUV420P;
+            swFrame.width = 320;
+            swFrame.height = 240;
+            swFrame.getBuffer();
+
+            // Transfer data (download from hardware)
+            const transferRet = frames.transferDataSync(swFrame, hwFrame);
             assert.equal(typeof transferRet, 'number', 'Should return status code');
 
             swFrame.free();

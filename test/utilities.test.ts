@@ -463,7 +463,7 @@ describe('Utilities', () => {
   });
 
   describe('Sleep Function', () => {
-    it('should sleep for specified microseconds', async () => {
+    it('should sleep for specified microseconds', () => {
       const startTime = Date.now();
       const sleepUs = 10000; // 10ms
 

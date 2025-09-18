@@ -199,7 +199,7 @@ describe('SoftwareResampleContext', () => {
   });
 
   describe('Conversion Operations', () => {
-    it('should convert audio buffers', async () => {
+    it('should convert audio buffers (async)', async () => {
       const swr = new SoftwareResampleContext();
 
       // Simple stereo S16 passthrough
@@ -225,7 +225,33 @@ describe('SoftwareResampleContext', () => {
       swr.free();
     });
 
-    it('should handle null input (flush)', async () => {
+    it('should convert audio buffers (sync)', () => {
+      const swr = new SoftwareResampleContext();
+
+      // Simple stereo S16 passthrough
+      swr.allocSetOpts2(STEREO, AV_SAMPLE_FMT_S16, 44100, STEREO, AV_SAMPLE_FMT_S16, 44100);
+      swr.init();
+
+      // Create input buffers (1024 samples, stereo, S16)
+      const samplesPerChannel = 1024;
+      const bytesPerSample = 2; // S16
+      const channels = 2;
+
+      const inBuffer = Buffer.alloc(samplesPerChannel * bytesPerSample * channels);
+      const outBuffer = Buffer.alloc(samplesPerChannel * bytesPerSample * channels);
+
+      const inBuffers = [inBuffer];
+      const outBuffers = [outBuffer];
+
+      const ret = swr.convertSync(outBuffers, samplesPerChannel, inBuffers, samplesPerChannel);
+
+      assert.equal(typeof ret, 'number', 'Should return sample count');
+      assert.ok(ret >= 0, 'Should convert successfully');
+
+      swr.free();
+    });
+
+    it('should handle null input (flush) (async)', async () => {
       const swr = new SoftwareResampleContext();
 
       // Resampling that might buffer samples
@@ -241,6 +267,29 @@ describe('SoftwareResampleContext', () => {
 
       // Flush buffered samples
       const ret = await swr.convert(outBuffers, samplesPerChannel, null, 0);
+
+      assert.equal(typeof ret, 'number', 'Should return sample count');
+      assert.ok(ret >= 0, 'Should flush successfully');
+
+      swr.free();
+    });
+
+    it('should handle null input (flush) (sync)', () => {
+      const swr = new SoftwareResampleContext();
+
+      // Resampling that might buffer samples
+      swr.allocSetOpts2(STEREO, AV_SAMPLE_FMT_S16, 44100, STEREO, AV_SAMPLE_FMT_S16, 48000);
+      swr.init();
+
+      const samplesPerChannel = 1024;
+      const bytesPerSample = 2;
+      const channels = 2;
+
+      const outBuffer = Buffer.alloc(samplesPerChannel * bytesPerSample * channels);
+      const outBuffers = [outBuffer];
+
+      // Flush buffered samples
+      const ret = swr.convertSync(outBuffers, samplesPerChannel, null, 0);
 
       assert.equal(typeof ret, 'number', 'Should return sample count');
       assert.ok(ret >= 0, 'Should flush successfully');
@@ -284,7 +333,7 @@ describe('SoftwareResampleContext', () => {
       swr.free();
     });
 
-    it('should handle planar format conversion', async () => {
+    it('should handle planar format conversion (async)', async () => {
       const swr = new SoftwareResampleContext();
 
       // Interleaved to planar
@@ -304,6 +353,32 @@ describe('SoftwareResampleContext', () => {
       const outBuffers = [outLeft, outRight];
 
       const ret = await swr.convert(outBuffers, samplesPerChannel, inBuffers, samplesPerChannel);
+
+      assert.ok(ret >= 0, 'Should convert to planar format');
+
+      swr.free();
+    });
+
+    it('should handle planar format conversion (sync)', () => {
+      const swr = new SoftwareResampleContext();
+
+      // Interleaved to planar
+      swr.allocSetOpts2(STEREO, AV_SAMPLE_FMT_S16P, 44100, STEREO, AV_SAMPLE_FMT_S16, 44100);
+      swr.init();
+
+      const samplesPerChannel = 512;
+      const bytesPerSample = 2;
+
+      // Interleaved input
+      const inBuffer = Buffer.alloc(samplesPerChannel * bytesPerSample * 2); // stereo
+      const inBuffers = [inBuffer];
+
+      // Planar output (separate buffers for each channel)
+      const outLeft = Buffer.alloc(samplesPerChannel * bytesPerSample);
+      const outRight = Buffer.alloc(samplesPerChannel * bytesPerSample);
+      const outBuffers = [outLeft, outRight];
+
+      const ret = swr.convertSync(outBuffers, samplesPerChannel, inBuffers, samplesPerChannel);
 
       assert.ok(ret >= 0, 'Should convert to planar format');
 
@@ -413,7 +488,7 @@ describe('SoftwareResampleContext', () => {
       swr.free();
     });
 
-    it('should handle single sample conversion', async () => {
+    it('should handle single sample conversion (async)', async () => {
       const swr = new SoftwareResampleContext();
 
       swr.allocSetOpts2(STEREO, AV_SAMPLE_FMT_S16, 44100, STEREO, AV_SAMPLE_FMT_S16, 44100);
@@ -429,7 +504,23 @@ describe('SoftwareResampleContext', () => {
       swr.free();
     });
 
-    it('should handle zero samples', async () => {
+    it('should handle single sample conversion (sync)', () => {
+      const swr = new SoftwareResampleContext();
+
+      swr.allocSetOpts2(STEREO, AV_SAMPLE_FMT_S16, 44100, STEREO, AV_SAMPLE_FMT_S16, 44100);
+      swr.init();
+
+      const inBuffer = Buffer.alloc(2 * 2); // 1 sample, stereo, S16
+      const outBuffer = Buffer.alloc(2 * 2);
+
+      const ret = swr.convertSync([outBuffer], 1, [inBuffer], 1);
+
+      assert.ok(ret >= 0, 'Should convert single sample');
+
+      swr.free();
+    });
+
+    it('should handle zero samples (async)', async () => {
       const swr = new SoftwareResampleContext();
 
       swr.allocSetOpts2(STEREO, AV_SAMPLE_FMT_S16, 44100, STEREO, AV_SAMPLE_FMT_S16, 44100);
@@ -438,6 +529,22 @@ describe('SoftwareResampleContext', () => {
       const outBuffer = Buffer.alloc(1024);
 
       const ret = await swr.convert([outBuffer], 512, null, 0);
+
+      assert.equal(typeof ret, 'number', 'Should handle zero input samples');
+      assert.ok(ret >= 0, 'Should not fail on zero samples');
+
+      swr.free();
+    });
+
+    it('should handle zero samples (sync)', () => {
+      const swr = new SoftwareResampleContext();
+
+      swr.allocSetOpts2(STEREO, AV_SAMPLE_FMT_S16, 44100, STEREO, AV_SAMPLE_FMT_S16, 44100);
+      swr.init();
+
+      const outBuffer = Buffer.alloc(1024);
+
+      const ret = swr.convertSync([outBuffer], 512, null, 0);
 
       assert.equal(typeof ret, 'number', 'Should handle zero input samples');
       assert.ok(ret >= 0, 'Should not fail on zero samples');

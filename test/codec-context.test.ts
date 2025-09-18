@@ -419,7 +419,7 @@ describe('CodecContext', () => {
   });
 
   describe('Open and Close', () => {
-    it('should open codec context', async () => {
+    it('should open codec context (async)', async () => {
       const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
       assert.ok(codec);
 
@@ -435,7 +435,23 @@ describe('CodecContext', () => {
       assert.ok(ctx.isOpen);
     });
 
-    it('should open with options', async () => {
+    it('should open codec context (sync)', () => {
+      const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
+      assert.ok(codec);
+
+      ctx.allocContext3(codec);
+      // PCM decoder requires channel layout to be set
+      ctx.channelLayout = { nbChannels: 2, order: 0, mask: 3n }; // Stereo
+      ctx.sampleRate = 48000;
+      ctx.sampleFormat = AV_SAMPLE_FMT_S16;
+      assert.ok(!ctx.isOpen);
+
+      const ret = ctx.open2Sync(codec, null);
+      assert.equal(ret, 0);
+      assert.ok(ctx.isOpen);
+    });
+
+    it('should open with options (async)', async () => {
       const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
       assert.ok(codec);
 
@@ -455,7 +471,27 @@ describe('CodecContext', () => {
       options.free();
     });
 
-    it('should close codec context', async () => {
+    it('should open with options (sync)', () => {
+      const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
+      assert.ok(codec);
+
+      ctx.allocContext3(codec);
+      // PCM decoder requires channel layout to be set
+      ctx.channelLayout = { nbChannels: 2, order: 0, mask: 3n };
+      ctx.sampleRate = 48000;
+      ctx.sampleFormat = AV_SAMPLE_FMT_S16;
+
+      const options = new Dictionary();
+      // PCM codecs typically don't need options
+
+      const ret = ctx.open2Sync(codec, options);
+      assert.equal(ret, 0);
+      assert.ok(ctx.isOpen);
+
+      options.free();
+    });
+
+    it('should close codec context (async)', async () => {
       const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
       assert.ok(codec);
 
@@ -464,6 +500,21 @@ describe('CodecContext', () => {
       ctx.sampleRate = 48000;
       ctx.sampleFormat = AV_SAMPLE_FMT_S16;
       await ctx.open2(codec, null);
+      assert.ok(ctx.isOpen);
+
+      ctx.freeContext();
+      assert.equal(ctx.isOpen, false);
+    });
+
+    it('should close codec context (sync)', () => {
+      const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
+      assert.ok(codec);
+
+      ctx.allocContext3(codec);
+      ctx.channelLayout = { nbChannels: 2, order: 0, mask: 3n };
+      ctx.sampleRate = 48000;
+      ctx.sampleFormat = AV_SAMPLE_FMT_S16;
+      ctx.open2Sync(codec, null);
       assert.ok(ctx.isOpen);
 
       ctx.freeContext();
@@ -566,7 +617,7 @@ describe('CodecContext', () => {
       });
     });
 
-    it('should handle null packet for flushing', async () => {
+    it('should handle null packet for flushing (async)', async () => {
       const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
       assert.ok(codec);
 
@@ -578,6 +629,22 @@ describe('CodecContext', () => {
 
       // Send null packet to flush
       const ret = await ctx.sendPacket(null);
+      // PCM decoder might not need flushing
+      assert.ok(ret === 0 || ret === -541478725); // 0 or EOF
+    });
+
+    it('should handle null packet for flushing (sync)', () => {
+      const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
+      assert.ok(codec);
+
+      ctx.allocContext3(codec);
+      ctx.channelLayout = { nbChannels: 2, order: 0, mask: 3n };
+      ctx.sampleRate = 48000;
+      ctx.sampleFormat = AV_SAMPLE_FMT_S16;
+      ctx.open2Sync(codec, null);
+
+      // Send null packet to flush
+      const ret = ctx.sendPacketSync(null);
       // PCM decoder might not need flushing
       assert.ok(ret === 0 || ret === -541478725); // 0 or EOF
     });
@@ -674,7 +741,7 @@ describe('CodecContext', () => {
       assert.equal(ctx.codecId, 0); // AV_CODEC_ID_NONE
     });
 
-    it('should handle operations on closed context', async () => {
+    it('should handle operations on closed context (async)', async () => {
       const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
       assert.ok(codec);
 
@@ -686,6 +753,23 @@ describe('CodecContext', () => {
 
       // Should return error
       const ret = await ctx.sendPacket(packet);
+      assert.ok(ret < 0); // Should be an error
+
+      packet.free();
+    });
+
+    it('should handle operations on closed context (sync)', () => {
+      const codec = Codec.findDecoder(AV_CODEC_ID_PCM_S16LE);
+      assert.ok(codec);
+
+      ctx.allocContext3(codec);
+      // Don't open
+
+      const packet = new Packet();
+      packet.alloc();
+
+      // Should return error
+      const ret = ctx.sendPacketSync(packet);
       assert.ok(ret < 0); // Should be an error
 
       packet.free();

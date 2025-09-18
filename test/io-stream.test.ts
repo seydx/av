@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { AVSEEK_SET, IOStream } from '../src/index.js';
+import { AVSEEK_CUR, AVSEEK_END, AVSEEK_SET, IOStream } from '../src/index.js';
 
 describe('IOStream', () => {
   describe('create with Buffer', () => {
@@ -52,11 +52,9 @@ describe('IOStream', () => {
           return chunk;
         },
         seek: (offset, whence) => {
-          if (whence === 0)
-            position = Number(offset); // AVSEEK_SET
-          else if (whence === 1)
-            position += Number(offset); // AVSEEK_CUR
-          else if (whence === 2) position = data.length + Number(offset); // AVSEEK_END
+          if (whence === AVSEEK_SET) position = Number(offset);
+          else if (whence === AVSEEK_CUR) position += Number(offset);
+          else if (whence === AVSEEK_END) position = data.length + Number(offset);
           return BigInt(position);
         },
       });

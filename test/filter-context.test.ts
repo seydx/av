@@ -523,7 +523,7 @@ describe('FilterContext', () => {
       graph.free();
     });
 
-    it('should get time base from buffersink', async () => {
+    it('should get time base from buffersink (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -543,6 +543,38 @@ describe('FilterContext', () => {
 
       // Configure the graph
       const configRet = await graph.config();
+      assert.equal(configRet, 0, 'Should configure graph');
+
+      // Get time base from buffersink
+      const timeBase = abuffersinkCtx.buffersinkGetTimeBase();
+      assert.ok(timeBase, 'Should get time base');
+      assert.equal(typeof timeBase.num, 'number', 'Time base numerator should be a number');
+      assert.equal(typeof timeBase.den, 'number', 'Time base denominator should be a number');
+      assert.ok(timeBase.den > 0, 'Time base denominator should be positive');
+
+      graph.free();
+    });
+
+    it('should get time base from buffersink (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a complete audio pipeline to properly initialize buffersink
+      const abufferFilter = Filter.getByName('abuffer');
+      const abuffersinkFilter = Filter.getByName('abuffersink');
+      assert.ok(abufferFilter);
+      assert.ok(abuffersinkFilter);
+
+      const abufferCtx = graph.createFilter(abufferFilter, 'src', 'sample_rate=44100:sample_fmt=1:channel_layout=3');
+      const abuffersinkCtx = graph.createFilter(abuffersinkFilter, 'sink', null);
+      assert.ok(abufferCtx);
+      assert.ok(abuffersinkCtx);
+
+      // Link the filters
+      abufferCtx.link(0, abuffersinkCtx, 0);
+
+      // Configure the graph synchronously
+      const configRet = graph.configSync();
       assert.equal(configRet, 0, 'Should configure graph');
 
       // Get time base from buffersink
@@ -652,7 +684,7 @@ describe('FilterContext', () => {
   });
 
   describe('Frame Operations', () => {
-    it('should add frame to buffer source filter', async () => {
+    it('should add frame to buffer source filter (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -778,6 +810,142 @@ describe('FilterContext', () => {
       const outFrame = new Frame();
       outFrame.alloc();
       const getRet = await abuffersinkCtx.buffersinkGetFrame(outFrame);
+      assert.ok(getRet >= 0, 'Should get audio frame');
+      assert.equal(outFrame.sampleRate, 44100);
+      assert.equal(outFrame.nbSamples, 1024);
+
+      audioFrame.free();
+      outFrame.free();
+      graph.free();
+    });
+
+    it('should add frame to buffer source filter (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const bufferFilter = Filter.getByName('buffer');
+      const sinkFilter = Filter.getByName('buffersink');
+      assert.ok(bufferFilter);
+      assert.ok(sinkFilter);
+
+      const bufferCtx = graph.createFilter(bufferFilter, 'src', 'video_size=320x240:pix_fmt=0:time_base=1/25:pixel_aspect=1/1');
+      const sinkCtx = graph.createFilter(sinkFilter, 'sink');
+      assert.ok(bufferCtx, 'Should create buffer filter context');
+      assert.ok(sinkCtx, 'Should create sink filter context');
+
+      // Link and configure the graph synchronously
+      const linkRet = bufferCtx.link(0, sinkCtx, 0);
+      assert.equal(linkRet, 0, 'Should link filters');
+
+      const configRet = graph.configSync();
+      assert.equal(configRet, 0, 'Should configure graph');
+
+      // Create a frame to add
+      const frame = new Frame();
+      frame.alloc();
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.width = 320;
+      frame.height = 240;
+      frame.pts = 0n;
+      frame.allocBuffer();
+
+      // Add frame to buffer source synchronously
+      const ret = bufferCtx.buffersrcAddFrameSync(frame);
+      assert.ok(ret >= 0, 'Should add frame successfully');
+
+      frame.free();
+      graph.free();
+    });
+
+    it('should get frame from buffer sink filter (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create simple passthrough: buffer -> buffersink
+      const bufferFilter = Filter.getByName('buffer');
+      const sinkFilter = Filter.getByName('buffersink');
+      assert.ok(bufferFilter);
+      assert.ok(sinkFilter);
+
+      const bufferCtx = graph.createFilter(bufferFilter, 'src', 'video_size=320x240:pix_fmt=0:time_base=1/25:pixel_aspect=1/1');
+      const sinkCtx = graph.createFilter(sinkFilter, 'sink');
+      assert.ok(bufferCtx);
+      assert.ok(sinkCtx);
+
+      // Link and configure synchronously
+      const linkRet = bufferCtx.link(0, sinkCtx, 0);
+      assert.equal(linkRet, 0);
+      const configRet = graph.configSync();
+      assert.equal(configRet, 0);
+
+      // Add a frame
+      const inFrame = new Frame();
+      inFrame.alloc();
+      inFrame.format = AV_PIX_FMT_YUV420P;
+      inFrame.width = 320;
+      inFrame.height = 240;
+      inFrame.pts = 0n;
+      inFrame.allocBuffer();
+
+      const addRet = bufferCtx.buffersrcAddFrameSync(inFrame);
+      assert.ok(addRet >= 0, 'Should add frame successfully');
+
+      // Get frame from sink synchronously
+      const outFrame = new Frame();
+      outFrame.alloc();
+      const getRet = sinkCtx.buffersinkGetFrameSync(outFrame);
+      assert.ok(getRet >= 0, 'Should get frame from sink');
+      assert.equal(outFrame.width, 320);
+      assert.equal(outFrame.height, 240);
+
+      inFrame.free();
+      outFrame.free();
+      graph.free();
+    });
+
+    it('should handle audio buffer source and sink (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create audio buffer -> sink
+      const abufferFilter = Filter.getByName('abuffer');
+      const abuffersinkFilter = Filter.getByName('abuffersink');
+      assert.ok(abufferFilter);
+      assert.ok(abuffersinkFilter);
+
+      const abufferCtx = graph.createFilter(abufferFilter, 'asrc', 'sample_rate=44100:sample_fmt=1:channel_layout=3:time_base=1/44100');
+      const abuffersinkCtx = graph.createFilter(abuffersinkFilter, 'asink');
+      assert.ok(abufferCtx);
+      assert.ok(abuffersinkCtx);
+
+      // Link and configure synchronously
+      const linkRet = abufferCtx.link(0, abuffersinkCtx, 0);
+      assert.equal(linkRet, 0);
+      const configRet = graph.configSync();
+      assert.equal(configRet, 0);
+
+      // Create audio frame
+      const audioFrame = new Frame();
+      audioFrame.alloc();
+      audioFrame.format = AV_SAMPLE_FMT_S16;
+      audioFrame.sampleRate = 44100;
+      audioFrame.nbSamples = 1024;
+      audioFrame.pts = 0n;
+      audioFrame.channelLayout = {
+        nbChannels: 2,
+        order: 1,
+        mask: 3n,
+      };
+      audioFrame.allocBuffer();
+
+      // Add frame synchronously
+      const addRet = abufferCtx.buffersrcAddFrameSync(audioFrame);
+      assert.ok(addRet >= 0, 'Should add audio frame');
+
+      // Get frame from sink synchronously
+      const outFrame = new Frame();
+      outFrame.alloc();
+      const getRet = abuffersinkCtx.buffersinkGetFrameSync(outFrame);
       assert.ok(getRet >= 0, 'Should get audio frame');
       assert.equal(outFrame.sampleRate, 44100);
       assert.equal(outFrame.nbSamples, 1024);

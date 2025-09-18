@@ -33,8 +33,9 @@ describe('MediaInput', () => {
       global.gc();
     }
   });
+
   describe('open', () => {
-    it('should open from file path', async () => {
+    it('should open from file path (async)', async () => {
       const media = await MediaInput.open(inputFile);
 
       assert.ok(media, 'Should create MediaInput');
@@ -44,7 +45,17 @@ describe('MediaInput', () => {
       await media.close();
     });
 
-    it('should open from Buffer', async () => {
+    it('should open from file path (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      assert.ok(media, 'Should create MediaInput');
+      assert.ok(media.streams.length > 0, 'Should have streams');
+      assert.ok(media.duration > 0, 'Should have duration');
+
+      media.closeSync();
+    });
+
+    it('should open from Buffer (async)', async () => {
       const buffer = await readFile(inputFile);
       const media = await MediaInput.open(buffer);
 
@@ -54,8 +65,12 @@ describe('MediaInput', () => {
       await media.close();
     });
 
-    it('should throw on invalid file', async () => {
+    it('should throw on invalid file (async)', async () => {
       await assert.rejects(async () => await MediaInput.open('nonexistent.mp4'), /Failed to open input/);
+    });
+
+    it('should throw on invalid file (sync)', () => {
+      assert.throws(() => MediaInput.openSync('nonexistent.mp4'), /Failed to open input/);
     });
   });
 
@@ -155,10 +170,30 @@ describe('MediaInput', () => {
 
       await media.close();
     });
+
+    it('should iterate packets (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      let packetCount = 0;
+      const maxPackets = 10; // Only read first 10 packets for test
+
+      for (const packet of media.packetsSync()) {
+        assert.ok(packet, 'Should have packet');
+        assert.ok(typeof packet.streamIndex === 'number', 'Packet should have stream index');
+        assert.ok(packet.size >= 0, 'Packet should have size');
+
+        packetCount++;
+        if (packetCount >= maxPackets) break;
+      }
+
+      assert.ok(packetCount > 0, 'Should have read some packets');
+
+      media.closeSync();
+    });
   });
 
   describe('seek', () => {
-    it('should seek to timestamp', async () => {
+    it('should seek to timestamp (async)', async () => {
       const media = await MediaInput.open(inputFile);
 
       // Try to seek to 1 second
@@ -168,6 +203,18 @@ describe('MediaInput', () => {
       console.log('Seek result:', ret);
 
       await media.close();
+    });
+
+    it('should seek to timestamp (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      // Try to seek to 1 second
+      const ret = media.seekSync(1.0);
+
+      // Seek might not be supported for all formats, so just check it doesn't crash
+      console.log('Seek result (sync):', ret);
+
+      media.closeSync();
     });
   });
 

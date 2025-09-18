@@ -77,9 +77,15 @@ describe('FormatContext', () => {
       assert.equal(ret, 0);
     });
 
-    it('should open input', async () => {
+    it('should open input (async)', async () => {
       // Use existing test video file
       const ret = await ctx.openInput(inputVideoFile, null, null);
+      assert.equal(ret, 0);
+    });
+
+    it('should open input (sync)', () => {
+      // Use existing test video file
+      const ret = ctx.openInputSync(inputVideoFile, null, null);
       assert.equal(ret, 0);
     });
 
@@ -99,26 +105,45 @@ describe('FormatContext', () => {
   });
 
   describe('Input Operations', () => {
-    it('should open input file', async () => {
+    it('should open input file (async)', async () => {
       const ret = await ctx.openInput(inputVideoFile, null, null);
       assert.equal(ret, 0);
       assert.ok(ctx.nbStreams > 0);
     });
 
-    it('should open input with options', async () => {
+    it('should open input file (sync)', () => {
+      const ret = ctx.openInputSync(inputVideoFile, null, null);
+      assert.equal(ret, 0);
+      assert.ok(ctx.nbStreams > 0);
+    });
+
+    it('should open input with options (async)', async () => {
       const options = new Dictionary();
       const ret = await ctx.openInput(inputVideoFile, null, options);
       assert.equal(ret, 0);
       options.free();
     });
 
-    it('should find stream info', async () => {
+    it('should open input with options (sync)', () => {
+      const options = new Dictionary();
+      const ret = ctx.openInputSync(inputVideoFile, null, options);
+      assert.equal(ret, 0);
+      options.free();
+    });
+
+    it('should find stream info (async)', async () => {
       await ctx.openInput(inputVideoFile, null, null);
       const ret = await ctx.findStreamInfo(null);
       assert.equal(ret, 0);
     });
 
-    it('should read packets', async () => {
+    it('should find stream info (sync)', () => {
+      ctx.openInputSync(inputVideoFile, null, null);
+      const ret = ctx.findStreamInfoSync(null);
+      assert.equal(ret, 0);
+    });
+
+    it('should read packets (async)', async () => {
       await ctx.openInput(inputVideoFile, null, null);
       await ctx.findStreamInfo(null);
 
@@ -132,7 +157,21 @@ describe('FormatContext', () => {
       packet.free();
     });
 
-    it('should seek to timestamp', async () => {
+    it('should read packets (sync)', () => {
+      ctx.openInputSync(inputVideoFile, null, null);
+      ctx.findStreamInfoSync(null);
+
+      const packet = new Packet();
+      packet.alloc();
+
+      const ret = ctx.readFrameSync(packet);
+      // Should succeed with video.mp4
+      assert.equal(ret, 0);
+
+      packet.free();
+    });
+
+    it('should seek to timestamp (async)', async () => {
       await ctx.openInput(inputVideoFile, null, null);
       await ctx.findStreamInfo(null);
 
@@ -141,7 +180,16 @@ describe('FormatContext', () => {
       assert.equal(ret, 0);
     });
 
-    it('should close input', async () => {
+    it('should seek to timestamp (sync)', () => {
+      ctx.openInputSync(inputVideoFile, null, null);
+      ctx.findStreamInfoSync(null);
+
+      const ret = ctx.seekFrameSync(-1, 0n, AVFLAG_NONE);
+      // Seeking should work for mp4
+      assert.equal(ret, 0);
+    });
+
+    it('should close input (async)', async () => {
       await ctx.openInput(inputVideoFile, null, null);
       await ctx.findStreamInfo(null);
 
@@ -150,6 +198,18 @@ describe('FormatContext', () => {
 
       // After closing, we should be able to open again
       const ret = await ctx.openInput(inputVideoFile, null, null);
+      assert.equal(ret, 0);
+    });
+
+    it('should close input (sync)', () => {
+      ctx.openInputSync(inputVideoFile, null, null);
+      ctx.findStreamInfoSync(null);
+
+      // Should be able to close input without error
+      ctx.closeInputSync();
+
+      // After closing, we should be able to open again
+      const ret = ctx.openInputSync(inputVideoFile, null, null);
       assert.equal(ret, 0);
     });
   });
@@ -177,7 +237,7 @@ describe('FormatContext', () => {
       }
     });
 
-    it('should write header', async () => {
+    it('should write header (async)', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
       stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
@@ -195,7 +255,25 @@ describe('FormatContext', () => {
       // ctx.closeOutput();
     });
 
-    it('should write header with options', async () => {
+    it('should write header (sync)', () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      // Open output file explicitly
+      const openRet = ctx.openOutputSync();
+      assert.equal(openRet, 0);
+
+      const ret = ctx.writeHeaderSync(null);
+      assert.equal(ret, 0);
+
+      // ctx.closeOutput();
+    });
+
+    it('should write header with options (async)', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
       stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
@@ -213,7 +291,25 @@ describe('FormatContext', () => {
       options.free();
     });
 
-    it('should write packet', async () => {
+    it('should write header with options (sync)', () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutputSync();
+
+      const options = new Dictionary();
+      const ret = ctx.writeHeaderSync(options);
+      assert.equal(ret, 0);
+
+      // ctx.closeOutput();
+      options.free();
+    });
+
+    it('should write packet (async)', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
       stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
@@ -238,7 +334,32 @@ describe('FormatContext', () => {
       packet.free();
     });
 
-    it('should write trailer', async () => {
+    it('should write packet (sync)', () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutputSync();
+      ctx.writeHeaderSync(null);
+
+      const packet = new Packet();
+      packet.alloc();
+      packet.streamIndex = 0;
+      packet.pts = 0n;
+      packet.dts = 0n;
+
+      const ret = ctx.writeFrameSync(packet);
+      // Writing might fail without proper packet data
+      assert.ok(ret <= 0);
+
+      // ctx.closeOutput();
+      packet.free();
+    });
+
+    it('should write trailer (async)', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
       stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
@@ -254,7 +375,23 @@ describe('FormatContext', () => {
       // ctx.closeOutput();
     });
 
-    it('should interleave and write packet', async () => {
+    it('should write trailer (sync)', () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutputSync();
+      ctx.writeHeaderSync(null);
+      const ret = ctx.writeTrailerSync();
+      assert.equal(ret, 0);
+
+      // ctx.closeOutput();
+    });
+
+    it('should interleave and write packet (async)', async () => {
       const stream = ctx.newStream(null);
       assert.ok(stream);
       stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
@@ -271,6 +408,30 @@ describe('FormatContext', () => {
 
       const ret = await ctx.interleavedWriteFrame(packet);
       // Writing might fail without proper packet data
+      assert.ok(ret <= 0);
+
+      // ctx.closeOutput();
+      packet.free();
+    });
+
+    it('should interleave and write packet (sync)', () => {
+      const stream = ctx.newStream(null);
+      assert.ok(stream);
+      stream.codecpar.codecType = AVMEDIA_TYPE_VIDEO;
+      stream.codecpar.codecId = AV_CODEC_ID_H264;
+      stream.codecpar.width = 1920;
+      stream.codecpar.height = 1080;
+
+      ctx.openOutputSync();
+      ctx.writeHeaderSync(null);
+
+      const packet = new Packet();
+      packet.alloc();
+      packet.streamIndex = 0;
+      packet.pts = 0n;
+      packet.dts = 0n;
+
+      const ret = ctx.interleavedWriteFrameSync(packet);
       assert.ok(ret <= 0);
 
       // ctx.closeOutput();

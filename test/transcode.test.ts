@@ -81,7 +81,7 @@ describe('Transcode Scenarios', () => {
     assert.ok(decoder, 'Should create decoder');
 
     const filterChain = FilterPreset.chain().scale(100, 100).format(AV_PIX_FMT_YUV420P).build();
-    using filter = await FilterAPI.create(filterChain, {
+    using filter = FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
     });
     assert.ok(filter, 'Should create filter');
@@ -132,7 +132,7 @@ describe('Transcode Scenarios', () => {
 
     const filterChain = FilterPreset.chain(hw).scale(100, 100).hwdownload().format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]).build();
 
-    using filter = await FilterAPI.create(filterChain, {
+    using filter = FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
       hardware: hw,
     });
@@ -165,7 +165,7 @@ describe('Transcode Scenarios', () => {
 
     const filterChain = FilterPreset.chain(hw).format(AV_PIX_FMT_NV12).hwupload().scale(100, 100).build();
 
-    using filter = await FilterAPI.create(filterChain, {
+    using filter = FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
       hardware: hw,
     });
@@ -181,6 +181,7 @@ describe('Transcode Scenarios', () => {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
       maxBFrames: 0,
+      bitrate: '1M',
       options: {
         'forced-idr': 1,
       },
@@ -207,7 +208,7 @@ describe('Transcode Scenarios', () => {
 
     const filterChain = FilterPreset.chain(hw).scale(100, 100).build();
 
-    using filter = await FilterAPI.create(filterChain, {
+    using filter = FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
       hardware: hw,
     });
@@ -223,6 +224,7 @@ describe('Transcode Scenarios', () => {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
       maxBFrames: 0,
+      bitrate: '1M',
     });
     assert.ok(encoder, 'Should create hardware encoder');
 
@@ -254,6 +256,7 @@ describe('Transcode Scenarios', () => {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
       maxBFrames: 0,
+      bitrate: '1M',
     });
     assert.ok(encoder, 'Should create hardware encoder');
 
@@ -277,7 +280,7 @@ describe('Transcode Scenarios', () => {
 
     const filterChain = FilterPreset.chain().format(AV_PIX_FMT_NV12).scale(100, 100).hwupload().build();
 
-    using filter = await FilterAPI.create(filterChain, {
+    using filter = FilterAPI.create(filterChain, {
       timeBase: { num: 1, den: 30 },
       hardware: hw,
     });
@@ -293,6 +296,7 @@ describe('Transcode Scenarios', () => {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
       maxBFrames: 0,
+      bitrate: '1M',
       options: {
         'forced-idr': 1,
       },
@@ -324,7 +328,7 @@ describe('Transcode Scenarios', () => {
       // This should fail - hardware filter with software frames
       await assert.rejects(
         async () => {
-          using filter = await FilterAPI.create(filterChain, {
+          using filter = FilterAPI.create(filterChain, {
             timeBase: { num: 1, den: 30 },
           });
           // Try to process a software frame with hardware filter

@@ -12,7 +12,7 @@ const inputFile = getInputFile('demux.mp4');
 
 describe('Decoder', () => {
   describe('create', () => {
-    it('should create decoder for video stream', async () => {
+    it('should create decoder for video stream (async)', async () => {
       const media = await MediaInput.open(inputFile);
 
       // Find video stream
@@ -29,7 +29,55 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should create decoder for audio stream', async () => {
+    it('should create decoder for video stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      // Find video stream
+      const videoStream = media.video();
+      assert.ok(videoStream, 'Should find video stream');
+
+      // Create decoder
+      const decoder = Decoder.createSync(videoStream);
+      assert.ok(decoder);
+      assert.equal(decoder.isDecoderOpen, true);
+      assert.equal(decoder.getStream().index, videoStream.index);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder for audio stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      // Find audio stream
+      const audioStream = media.audio();
+      assert.ok(audioStream, 'Should find audio stream');
+
+      // Create decoder
+      const decoder = Decoder.createSync(audioStream);
+      assert.ok(decoder);
+      assert.equal(decoder.isDecoderOpen, true);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder with thread options (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      // Create decoder with 4 threads
+      const decoder = Decoder.createSync(videoStream, {
+        threads: 4,
+      });
+      assert.ok(decoder);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder for audio stream (async)', async () => {
       const media = await MediaInput.open(inputFile);
 
       // Find audio stream
@@ -45,7 +93,55 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should create decoder with thread options', async () => {
+    it('should create decoder for video stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      // Find video stream
+      const videoStream = media.video();
+      assert.ok(videoStream, 'Should find video stream');
+
+      // Create decoder
+      const decoder = Decoder.createSync(videoStream);
+      assert.ok(decoder);
+      assert.equal(decoder.isDecoderOpen, true);
+      assert.equal(decoder.getStream().index, videoStream.index);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder for audio stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      // Find audio stream
+      const audioStream = media.audio();
+      assert.ok(audioStream, 'Should find audio stream');
+
+      // Create decoder
+      const decoder = Decoder.createSync(audioStream);
+      assert.ok(decoder);
+      assert.equal(decoder.isDecoderOpen, true);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder with thread options (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      // Create decoder with 4 threads
+      const decoder = Decoder.createSync(videoStream, {
+        threads: 4,
+      });
+      assert.ok(decoder);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder with thread options (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -60,6 +156,54 @@ describe('Decoder', () => {
       await media.close();
     });
 
+    it('should create decoder for video stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      // Find video stream
+      const videoStream = media.video();
+      assert.ok(videoStream, 'Should find video stream');
+
+      // Create decoder
+      const decoder = Decoder.createSync(videoStream);
+      assert.ok(decoder);
+      assert.equal(decoder.isDecoderOpen, true);
+      assert.equal(decoder.getStream().index, videoStream.index);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder for audio stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+
+      // Find audio stream
+      const audioStream = media.audio();
+      assert.ok(audioStream, 'Should find audio stream');
+
+      // Create decoder
+      const decoder = Decoder.createSync(audioStream);
+      assert.ok(decoder);
+      assert.equal(decoder.isDecoderOpen, true);
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should create decoder with thread options (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      // Create decoder with 4 threads
+      const decoder = Decoder.createSync(videoStream, {
+        threads: 4,
+      });
+      assert.ok(decoder);
+
+      decoder.close();
+      media.closeSync();
+    });
+
     it('should throw for unsupported codec', async () => {
       // This test would need a file with an unsupported codec
       // For now, we'll skip it as our test files use standard codecs
@@ -68,7 +212,7 @@ describe('Decoder', () => {
   });
 
   describe('decode', () => {
-    it('should decode video packets', async () => {
+    it('should decode video packets (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -100,7 +244,39 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should decode audio packets', async () => {
+    it('should decode video packets (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = Decoder.createSync(videoStream);
+
+      let frameCount = 0;
+      let packetCount = 0;
+      const maxPackets = 10;
+
+      for (const packet of media.packetsSync()) {
+        if (packet.streamIndex === videoStream.index) {
+          const frame = decoder.decodeSync(packet);
+          if (frame) {
+            assert.ok(frame.width > 0);
+            assert.ok(frame.height > 0);
+            frameCount++;
+            frame.free();
+          }
+
+          packetCount++;
+          if (packetCount >= maxPackets) break;
+        }
+      }
+
+      assert.ok(frameCount > 0, 'Should decode at least one frame');
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should decode audio packets (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const audioStream = media.audio();
       assert.ok(audioStream);
@@ -132,7 +308,39 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should handle null frames gracefully', async () => {
+    it('should decode audio packets (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const audioStream = media.audio();
+      assert.ok(audioStream);
+
+      const decoder = Decoder.createSync(audioStream);
+
+      let frameCount = 0;
+      let packetCount = 0;
+      const maxPackets = 10;
+
+      for (const packet of media.packetsSync()) {
+        if (packet.streamIndex === audioStream.index) {
+          const frame = decoder.decodeSync(packet);
+          if (frame) {
+            assert.ok(frame.nbSamples > 0);
+            assert.ok(frame.sampleRate > 0);
+            frameCount++;
+            frame.free();
+          }
+
+          packetCount++;
+          if (packetCount >= maxPackets) break;
+        }
+      }
+
+      assert.ok(frameCount > 0, 'Should decode at least one audio frame');
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should handle null frames gracefully (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -155,7 +363,30 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should throw when decoder is closed', async () => {
+    it('should handle null frames gracefully (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = Decoder.createSync(videoStream);
+
+      // Some packets might not immediately produce frames
+      for (const packet of media.packetsSync()) {
+        if (packet.streamIndex === videoStream.index) {
+          const frame = decoder.decodeSync(packet);
+          // Frame can be null, that's okay
+          if (frame) {
+            frame.free();
+          }
+          break; // Just test one packet
+        }
+      }
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should throw when decoder is closed (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -171,10 +402,27 @@ describe('Decoder', () => {
       packet.free();
       await media.close();
     });
+
+    it('should throw when decoder is closed (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = Decoder.createSync(videoStream);
+      decoder.close();
+
+      const packet = new Packet();
+      packet.alloc();
+
+      assert.throws(() => decoder.decodeSync(packet), /Decoder is closed/);
+
+      packet.free();
+      media.closeSync();
+    });
   });
 
   describe('flush', () => {
-    it('should flush remaining frames', async () => {
+    it('should flush remaining frames (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -204,7 +452,37 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should throw when decoder is closed', async () => {
+    it('should flush remaining frames (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = Decoder.createSync(videoStream);
+
+      // Decode some packets first
+      let packetCount = 0;
+      for (const packet of media.packetsSync()) {
+        if (packet.streamIndex === videoStream.index) {
+          decoder.decodeSync(packet);
+          packetCount++;
+          if (packetCount >= 5) break;
+        }
+      }
+
+      // Flush decoder
+      let flushCount = 0;
+      for (const frame of decoder.flushFramesSync()) {
+        assert.ok(frame.width > 0);
+        frame.free();
+        flushCount++;
+        if (flushCount > 10) break; // Safety limit
+      }
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should throw when decoder is closed (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -216,6 +494,20 @@ describe('Decoder', () => {
       await decoder.flush(); // Should not throw even when closed
 
       await media.close();
+    });
+
+    it('should throw when decoder is closed (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = Decoder.createSync(videoStream);
+      decoder.close();
+
+      // flushSync() returns void now, just check it doesn't throw
+      decoder.flushSync(); // Should not throw even when closed
+
+      media.closeSync();
     });
   });
 
@@ -253,7 +545,7 @@ describe('Decoder', () => {
   });
 
   describe('async iterator', () => {
-    it('should decode frames using iterator', async () => {
+    it('should decode frames using iterator (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -278,7 +570,32 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should only decode packets for its stream', async () => {
+    it('should decode frames using iterator (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = Decoder.createSync(videoStream);
+
+      let frameCount = 0;
+      const maxFrames = 10;
+
+      for (const frame of decoder.framesSync(media.packetsSync())) {
+        assert.ok(frame.width > 0);
+        assert.ok(frame.height > 0);
+        frame.free();
+
+        frameCount++;
+        if (frameCount >= maxFrames) break;
+      }
+
+      assert.ok(frameCount > 0, 'Should decode at least one frame');
+
+      decoder.close();
+      media.closeSync();
+    });
+
+    it('should only decode packets for its stream (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       const audioStream = media.audio();
@@ -305,7 +622,34 @@ describe('Decoder', () => {
       await media.close();
     });
 
-    it('should handle empty packet stream', async () => {
+    it('should only decode packets for its stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      const audioStream = media.audio();
+      assert.ok(videoStream);
+      assert.ok(audioStream);
+
+      const videoDecoder = Decoder.createSync(videoStream);
+
+      let videoFrameCount = 0;
+      const maxFrames = 5;
+
+      // The iterator should only process video packets
+      for (const frame of videoDecoder.framesSync(media.packetsSync())) {
+        assert.ok(frame.width > 0); // Video frames have width
+        frame.free();
+
+        videoFrameCount++;
+        if (videoFrameCount >= maxFrames) break;
+      }
+
+      assert.ok(videoFrameCount > 0, 'Should decode video frames');
+
+      videoDecoder.close();
+      media.closeSync();
+    });
+
+    it('should handle empty packet stream (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       assert.ok(videoStream);
@@ -328,10 +672,34 @@ describe('Decoder', () => {
       decoder.close();
       await media.close();
     });
+
+    it('should handle empty packet stream (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+
+      const decoder = Decoder.createSync(videoStream);
+
+      // Empty generator
+      function* emptyPackets() {
+        // No packets
+      }
+
+      let frameCount = 0;
+      for (const frame of decoder.framesSync(emptyPackets())) {
+        frameCount++;
+        frame.free();
+      }
+
+      assert.equal(frameCount, 0, 'Should not produce frames from empty stream');
+
+      decoder.close();
+      media.closeSync();
+    });
   });
 
   describe('stream identification', () => {
-    it('should track stream index', async () => {
+    it('should track stream index (async)', async () => {
       const media = await MediaInput.open(inputFile);
       const videoStream = media.video();
       const audioStream = media.audio();
@@ -348,6 +716,25 @@ describe('Decoder', () => {
       videoDecoder.close();
       audioDecoder.close();
       await media.close();
+    });
+
+    it('should track stream index (sync)', () => {
+      const media = MediaInput.openSync(inputFile);
+      const videoStream = media.video();
+      const audioStream = media.audio();
+      assert.ok(videoStream);
+      assert.ok(audioStream);
+
+      const videoDecoder = Decoder.createSync(videoStream);
+      const audioDecoder = Decoder.createSync(audioStream);
+
+      assert.equal(videoDecoder.getStream().index, videoStream.index);
+      assert.equal(audioDecoder.getStream().index, audioStream.index);
+      assert.notEqual(videoDecoder.getStream().index, audioDecoder.getStream().index);
+
+      videoDecoder.close();
+      audioDecoder.close();
+      media.closeSync();
     });
   });
 });

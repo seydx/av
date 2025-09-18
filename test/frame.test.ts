@@ -533,7 +533,7 @@ describe('Frame', () => {
       assert.equal(frame.isHwFrame(), false, 'Unallocated frame should not be hardware');
     });
 
-    it('should transfer data between frames', async () => {
+    it('should transfer data between frames (async)', async () => {
       const srcFrame = new Frame();
       srcFrame.alloc();
       srcFrame.format = AV_PIX_FMT_YUV420P;
@@ -546,6 +546,24 @@ describe('Frame', () => {
       // Note: This will likely fail without proper hardware context
       // but we test that the method exists and returns a number
       const ret = await frame.hwframeTransferData(srcFrame, 0);
+      assert.ok(typeof ret === 'number', 'Should return a number');
+
+      srcFrame.free();
+    });
+
+    it('should transfer data between frames (sync)', () => {
+      const srcFrame = new Frame();
+      srcFrame.alloc();
+      srcFrame.format = AV_PIX_FMT_YUV420P;
+      srcFrame.width = 640;
+      srcFrame.height = 480;
+      srcFrame.allocBuffer();
+
+      frame.alloc();
+
+      // Note: This will likely fail without proper hardware context
+      // but we test that the method exists and returns a number
+      const ret = frame.hwframeTransferDataSync(srcFrame, 0);
       assert.ok(typeof ret === 'number', 'Should return a number');
 
       srcFrame.free();

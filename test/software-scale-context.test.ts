@@ -211,7 +211,7 @@ describe('SoftwareScaleContext', () => {
   });
 
   describe('Scale Operations', () => {
-    it('should scale with buffer arrays', async () => {
+    it('should scale with buffer arrays (async)', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
@@ -246,7 +246,42 @@ describe('SoftwareScaleContext', () => {
       sws.freeContext();
     });
 
-    it('should scale frame objects', async () => {
+    it('should scale with buffer arrays (sync)', () => {
+      const sws = new SoftwareScaleContext();
+
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
+
+      // Create dummy data for YUV420P
+      const ySize = 320 * 240;
+      const uvSize = (320 / 2) * (240 / 2);
+
+      const srcSlice = [
+        Buffer.alloc(ySize), // Y plane
+        Buffer.alloc(uvSize), // U plane
+        Buffer.alloc(uvSize), // V plane
+      ];
+
+      const srcStride = [320, 160, 160];
+
+      const dstYSize = 160 * 120;
+      const dstUvSize = (160 / 2) * (120 / 2);
+
+      const dst = [
+        Buffer.alloc(dstYSize), // Y plane
+        Buffer.alloc(dstUvSize), // U plane
+        Buffer.alloc(dstUvSize), // V plane
+      ];
+
+      const dstStride = [160, 80, 80];
+
+      const ret = sws.scaleSync(srcSlice, srcStride, 0, 240, dst, dstStride);
+      assert.equal(typeof ret, 'number', 'Should return output height');
+      assert.ok(ret > 0, 'Should scale some rows');
+
+      sws.freeContext();
+    });
+
+    it('should scale frame objects (async)', async () => {
       const sws = new SoftwareScaleContext();
 
       // Use simpler getContext without prior initialization
@@ -280,7 +315,41 @@ describe('SoftwareScaleContext', () => {
       sws.freeContext();
     });
 
-    it('should handle progressive scaling', async () => {
+    it('should scale frame objects (sync)', () => {
+      const sws = new SoftwareScaleContext();
+
+      // Use simpler getContext without prior initialization
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
+
+      // Create source frame
+      const srcFrame = new Frame();
+      srcFrame.alloc();
+      srcFrame.width = 320;
+      srcFrame.height = 240;
+      srcFrame.format = AV_PIX_FMT_YUV420P;
+      const srcRet = srcFrame.getBuffer();
+      assert.equal(srcRet, 0, 'Should allocate source buffer');
+
+      // Create destination frame
+      const dstFrame = new Frame();
+      dstFrame.alloc();
+      dstFrame.width = 160;
+      dstFrame.height = 120;
+      dstFrame.format = AV_PIX_FMT_YUV420P;
+      const dstRet = dstFrame.getBuffer();
+      assert.equal(dstRet, 0, 'Should allocate destination buffer');
+
+      // Scale frame
+      const ret = sws.scaleFrameSync(dstFrame, srcFrame);
+      assert.equal(typeof ret, 'number', 'Should return output height');
+      assert.equal(ret, 120, 'Should return destination height');
+
+      srcFrame.free();
+      dstFrame.free();
+      sws.freeContext();
+    });
+
+    it('should handle progressive scaling (async)', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
@@ -304,6 +373,36 @@ describe('SoftwareScaleContext', () => {
       for (let y = 0; y < 480; y += sliceHeight) {
         const currentSliceHeight = Math.min(sliceHeight, 480 - y);
         const ret = await sws.scale(srcSlice, srcStride, y, currentSliceHeight, dst, dstStride);
+        assert.ok(ret >= 0, `Should scale slice at y=${y}`);
+      }
+
+      sws.freeContext();
+    });
+
+    it('should handle progressive scaling (sync)', () => {
+      const sws = new SoftwareScaleContext();
+
+      sws.getContext(640, 480, AV_PIX_FMT_YUV420P, 320, 240, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
+
+      const ySize = 640 * 480;
+      const uvSize = (640 / 2) * (480 / 2);
+
+      const srcSlice = [Buffer.alloc(ySize), Buffer.alloc(uvSize), Buffer.alloc(uvSize)];
+
+      const srcStride = [640, 320, 320];
+
+      const dstYSize = 320 * 240;
+      const dstUvSize = (320 / 2) * (240 / 2);
+
+      const dst = [Buffer.alloc(dstYSize), Buffer.alloc(dstUvSize), Buffer.alloc(dstUvSize)];
+
+      const dstStride = [320, 160, 160];
+
+      // Scale in slices
+      const sliceHeight = 120;
+      for (let y = 0; y < 480; y += sliceHeight) {
+        const currentSliceHeight = Math.min(sliceHeight, 480 - y);
+        const ret = sws.scaleSync(srcSlice, srcStride, y, currentSliceHeight, dst, dstStride);
         assert.ok(ret >= 0, `Should scale slice at y=${y}`);
       }
 
@@ -366,7 +465,7 @@ describe('SoftwareScaleContext', () => {
       sws.freeContext();
     });
 
-    it('should handle zero stride in scale operation', async () => {
+    it('should handle zero stride in scale operation (async)', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
@@ -377,6 +476,22 @@ describe('SoftwareScaleContext', () => {
 
       // Use automatic stride calculation (0 means auto)
       const ret = await sws.scale(srcSlice, [320, 160, 160], 0, 240, dst, [160, 80, 80]);
+      assert.ok(ret >= 0, 'Should handle scaling');
+
+      sws.freeContext();
+    });
+
+    it('should handle zero stride in scale operation (sync)', () => {
+      const sws = new SoftwareScaleContext();
+
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 160, 120, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
+
+      const srcSlice = [Buffer.alloc(320 * 240), Buffer.alloc(160 * 120), Buffer.alloc(160 * 120)];
+
+      const dst = [Buffer.alloc(160 * 120), Buffer.alloc(80 * 60), Buffer.alloc(80 * 60)];
+
+      // Use automatic stride calculation (0 means auto)
+      const ret = sws.scaleSync(srcSlice, [320, 160, 160], 0, 240, dst, [160, 80, 80]);
       assert.ok(ret >= 0, 'Should handle scaling');
 
       sws.freeContext();
@@ -411,7 +526,7 @@ describe('SoftwareScaleContext', () => {
       assert.ok(true, 'Should replace context cleanly');
     });
 
-    it('should handle frame scaling with auto-allocated destination', async () => {
+    it('should handle frame scaling with auto-allocated destination (async)', async () => {
       const sws = new SoftwareScaleContext();
 
       sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
@@ -433,6 +548,35 @@ describe('SoftwareScaleContext', () => {
       // Don't call getBuffer() - let scaleFrame allocate
 
       const ret = await sws.scaleFrame(dstFrame, srcFrame);
+      assert.equal(ret, 480, 'Should return destination height after auto-allocating');
+
+      srcFrame.free();
+      dstFrame.free();
+      sws.freeContext();
+    });
+
+    it('should handle frame scaling with auto-allocated destination (sync)', () => {
+      const sws = new SoftwareScaleContext();
+
+      sws.getContext(320, 240, AV_PIX_FMT_YUV420P, 640, 480, AV_PIX_FMT_YUV420P, SWS_BILINEAR);
+
+      // Source frame
+      const srcFrame = new Frame();
+      srcFrame.alloc();
+      srcFrame.width = 320;
+      srcFrame.height = 240;
+      srcFrame.format = AV_PIX_FMT_YUV420P;
+      srcFrame.getBuffer();
+
+      // Destination frame without pre-allocated buffer
+      const dstFrame = new Frame();
+      dstFrame.alloc();
+      dstFrame.width = 640;
+      dstFrame.height = 480;
+      dstFrame.format = AV_PIX_FMT_YUV420P;
+      // Don't call getBuffer() - let scaleFrame allocate
+
+      const ret = sws.scaleFrameSync(dstFrame, srcFrame);
       assert.equal(ret, 480, 'Should return destination height after auto-allocating');
 
       srcFrame.free();

@@ -279,7 +279,33 @@ describe('FilterGraph', () => {
   });
 
   describe('Graph Configuration', () => {
-    it('should configure a simple graph', async () => {
+    it('should configure a simple graph (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const bufferFilter = Filter.getByName('buffer');
+      const sinkFilter = Filter.getByName('buffersink');
+      assert.ok(bufferFilter);
+      assert.ok(sinkFilter);
+
+      const src = graph.createFilter(bufferFilter, 'src', 'video_size=320x240:pix_fmt=0:time_base=1/25');
+      const sink = graph.createFilter(sinkFilter, 'sink');
+
+      assert.ok(src);
+      assert.ok(sink);
+
+      // Link filters
+      const linkRet = src.link(0, sink, 0);
+      assert.equal(linkRet, 0, 'Should link successfully');
+
+      // Configure graph synchronously
+      const ret = graph.configSync();
+      assert.equal(ret, 0, 'Should configure successfully');
+
+      graph.free();
+    });
+
+    it('should configure a simple graph (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -305,7 +331,40 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should configure a chain of filters', async () => {
+    it('should configure a chain of filters (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      const filters = {
+        buffer: Filter.getByName('buffer'),
+        scale: Filter.getByName('scale'),
+        crop: Filter.getByName('crop'),
+        sink: Filter.getByName('buffersink'),
+      };
+
+      Object.values(filters).forEach((f) => assert.ok(f));
+
+      const contexts = {
+        buffer: graph.createFilter(filters.buffer!, 'src', 'video_size=1920x1080:pix_fmt=0:time_base=1/30'),
+        scale: graph.createFilter(filters.scale!, 'scale', '1280:720'),
+        crop: graph.createFilter(filters.crop!, 'crop', '1280:640:0:40'),
+        sink: graph.createFilter(filters.sink!, 'sink'),
+      };
+
+      Object.values(contexts).forEach((c) => assert.ok(c));
+
+      // Link chain
+      contexts.buffer!.link(0, contexts.scale!, 0);
+      contexts.scale!.link(0, contexts.crop!, 0);
+      contexts.crop!.link(0, contexts.sink!, 0);
+
+      const ret = graph.configSync();
+      assert.equal(ret, 0, 'Should configure filter chain');
+
+      graph.free();
+    });
+
+    it('should configure a chain of filters (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -362,7 +421,25 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should handle invalid graph configuration', async () => {
+    it('should handle invalid graph configuration (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create unconnected filters
+      const filter = Filter.getByName('scale');
+      assert.ok(filter);
+
+      graph.createFilter(filter, 'scale', '640:480');
+
+      // Try to configure incomplete graph
+      const ret = graph.configSync();
+      // Should fail because scale filter has unconnected inputs/outputs
+      assert.ok(ret < 0, 'Should fail to configure incomplete graph');
+
+      graph.free();
+    });
+
+    it('should handle invalid graph configuration (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -522,7 +599,32 @@ describe('FilterGraph', () => {
   });
 
   describe('Graph Processing', () => {
-    it('should request oldest frame', async () => {
+    it('should request oldest frame (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create a complete graph
+      const bufferFilter = Filter.getByName('buffer');
+      const sinkFilter = Filter.getByName('buffersink');
+      assert.ok(bufferFilter);
+      assert.ok(sinkFilter);
+
+      const src = graph.createFilter(bufferFilter, 'src', 'video_size=320x240:pix_fmt=0:time_base=1/25');
+      const sink = graph.createFilter(sinkFilter, 'sink');
+      assert.ok(src);
+      assert.ok(sink);
+
+      src.link(0, sink, 0);
+      graph.configSync();
+
+      // Request oldest frame synchronously (will likely return EAGAIN without input)
+      const ret = graph.requestOldestSync();
+      assert.equal(typeof ret, 'number', 'Should return status code');
+
+      graph.free();
+    });
+
+    it('should request oldest frame (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -549,7 +651,46 @@ describe('FilterGraph', () => {
   });
 
   describe('Complex Graphs', () => {
-    it('should create a video processing pipeline', async () => {
+    it('should create a video processing pipeline (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create video processing chain
+      const filters = {
+        buffer: Filter.getByName('buffer'),
+        scale: Filter.getByName('scale'),
+        hflip: Filter.getByName('hflip'),
+        vflip: Filter.getByName('vflip'),
+        sink: Filter.getByName('buffersink'),
+      };
+
+      Object.values(filters).forEach((f) => assert.ok(f, 'Filter should exist'));
+
+      const contexts = {
+        buffer: graph.createFilter(filters.buffer!, 'in', 'video_size=1920x1080:pix_fmt=0:time_base=1/30'),
+        scale: graph.createFilter(filters.scale!, 'scale', '1280:720'),
+        hflip: graph.createFilter(filters.hflip!, 'hflip'),
+        vflip: graph.createFilter(filters.vflip!, 'vflip'),
+        sink: graph.createFilter(filters.sink!, 'out'),
+      };
+
+      Object.values(contexts).forEach((c) => assert.ok(c, 'Context should be created'));
+
+      // Link: buffer -> scale -> hflip -> vflip -> sink
+      contexts.buffer!.link(0, contexts.scale!, 0);
+      contexts.scale!.link(0, contexts.hflip!, 0);
+      contexts.hflip!.link(0, contexts.vflip!, 0);
+      contexts.vflip!.link(0, contexts.sink!, 0);
+
+      const ret = graph.configSync();
+      assert.equal(ret, 0, 'Should configure video pipeline');
+
+      assert.equal(graph.nbFilters, 5, 'Should have 5 filters');
+
+      graph.free();
+    });
+
+    it('should create a video processing pipeline (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -588,7 +729,47 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should create an audio processing pipeline', async () => {
+    it('should create an audio processing pipeline (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create audio processing chain
+      const filters = {
+        abuffer: Filter.getByName('abuffer'),
+        volume: Filter.getByName('volume'),
+        atempo: Filter.getByName('atempo'),
+        aformat: Filter.getByName('aformat'),
+        abuffersink: Filter.getByName('abuffersink'),
+      };
+
+      Object.values(filters).forEach((f) => assert.ok(f, 'Filter should exist'));
+
+      const contexts = {
+        abuffer: graph.createFilter(filters.abuffer!, 'ain', 'sample_rate=44100:sample_fmt=1:channel_layout=3'),
+        volume: graph.createFilter(filters.volume!, 'vol', '0.5'),
+        atempo: graph.createFilter(filters.atempo!, 'tempo', '1.5'),
+        aformat: graph.createFilter(filters.aformat!, 'fmt', 'sample_rates=48000:sample_fmts=1'),
+        abuffersink: graph.createFilter(filters.abuffersink!, 'aout'),
+      };
+
+      Object.values(contexts).forEach((c) => assert.ok(c, 'Context should be created'));
+
+      // Link: abuffer -> volume -> atempo -> aformat -> abuffersink
+      contexts.abuffer!.link(0, contexts.volume!, 0);
+      contexts.volume!.link(0, contexts.atempo!, 0);
+      contexts.atempo!.link(0, contexts.aformat!, 0);
+      contexts.aformat!.link(0, contexts.abuffersink!, 0);
+
+      const ret = graph.configSync();
+      assert.equal(ret, 0, 'Should configure audio pipeline');
+
+      // FFmpeg may add automatic conversion filters during config
+      assert.ok(graph.nbFilters >= 5, 'Should have at least 5 filters');
+
+      graph.free();
+    });
+
+    it('should create an audio processing pipeline (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -628,7 +809,56 @@ describe('FilterGraph', () => {
       graph.free();
     });
 
-    it('should handle parallel processing paths', async () => {
+    it('should handle parallel processing paths (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      // Create graph with split
+      const filters = {
+        buffer: Filter.getByName('buffer'),
+        split: Filter.getByName('split'),
+        scale1: Filter.getByName('scale'),
+        scale2: Filter.getByName('scale'),
+        sink1: Filter.getByName('buffersink'),
+        sink2: Filter.getByName('buffersink'),
+      };
+
+      // Check all filters exist
+      assert.ok(filters.buffer);
+      assert.ok(filters.split);
+      assert.ok(filters.scale1);
+      assert.ok(filters.scale2);
+      assert.ok(filters.sink1);
+      assert.ok(filters.sink2);
+
+      const contexts = {
+        buffer: graph.createFilter(filters.buffer, 'in', 'video_size=1920x1080:pix_fmt=0:time_base=1/30'),
+        split: graph.createFilter(filters.split, 'split'),
+        scale1: graph.createFilter(filters.scale1, 'scale1', '1280:720'),
+        scale2: graph.createFilter(filters.scale2, 'scale2', '640:360'),
+        sink1: graph.createFilter(filters.sink1, 'out1'),
+        sink2: graph.createFilter(filters.sink2, 'out2'),
+      };
+
+      Object.values(contexts).forEach((c) => assert.ok(c));
+
+      // Link: buffer -> split -> scale1 -> sink1
+      //                      \-> scale2 -> sink2
+      contexts.buffer!.link(0, contexts.split!, 0);
+      contexts.split!.link(0, contexts.scale1!, 0);
+      contexts.split!.link(1, contexts.scale2!, 0);
+      contexts.scale1!.link(0, contexts.sink1!, 0);
+      contexts.scale2!.link(0, contexts.sink2!, 0);
+
+      const ret = graph.configSync();
+      assert.equal(ret, 0, 'Should configure parallel paths');
+
+      assert.equal(graph.nbFilters, 6, 'Should have 6 filters');
+
+      graph.free();
+    });
+
+    it('should handle parallel processing paths (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 
@@ -679,7 +909,21 @@ describe('FilterGraph', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty graph', async () => {
+    it('should handle empty graph (sync)', () => {
+      const graph = new FilterGraph();
+      graph.alloc();
+
+      assert.equal(graph.nbFilters, 0, 'Empty graph should have no filters');
+      assert.ok(graph.filters === null || graph.filters?.length === 0, 'Should have empty filters array');
+
+      const ret = graph.configSync();
+      // Empty graph might configure successfully or return error
+      assert.equal(typeof ret, 'number', 'Should return status code');
+
+      graph.free();
+    });
+
+    it('should handle empty graph (async)', async () => {
       const graph = new FilterGraph();
       graph.alloc();
 

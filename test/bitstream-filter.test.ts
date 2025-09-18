@@ -132,7 +132,7 @@ describe('BitStreamFilter', () => {
   });
 
   describe('Packet Filtering', () => {
-    it('should filter packets through null filter', async () => {
+    it('should filter packets through null filter (async)', async () => {
       const filter = BitStreamFilter.getByName('null');
       assert.ok(filter);
 
@@ -169,7 +169,44 @@ describe('BitStreamFilter', () => {
       ctx.free();
     });
 
-    it('should handle EOF correctly', async () => {
+    it('should filter packets through null filter (sync)', () => {
+      const filter = BitStreamFilter.getByName('null');
+      assert.ok(filter);
+
+      const ctx = new BitStreamFilterContext();
+      ctx.alloc(filter);
+      ctx.init();
+
+      // Create a test packet
+      const inputPacket = new Packet();
+      inputPacket.alloc(); // Allocate packet structure
+
+      // Send packet
+      const sendRet = ctx.sendPacketSync(inputPacket);
+      assert.ok(sendRet === 0 || sendRet === AVERROR_EAGAIN, 'Send should succeed or need drain'); // 0 or EAGAIN
+
+      // Receive filtered packet
+      const outputPacket = new Packet();
+      outputPacket.alloc();
+      const recvRet = ctx.receivePacketSync(outputPacket);
+
+      // null filter should pass packets through
+      if (recvRet === 0) {
+        assert.ok(outputPacket.size >= 0, 'Output packet should have data');
+        outputPacket.unref();
+      } else if (recvRet === AVERROR_EAGAIN) {
+        // Need to send more packets (EAGAIN)
+      } else if (recvRet === AVERROR_EOF) {
+        // No more packets
+      } else {
+        assert.fail(`Unexpected error: ${recvRet}`);
+      }
+
+      inputPacket.unref();
+      ctx.free();
+    });
+
+    it('should handle EOF correctly (async)', async () => {
       const filter = BitStreamFilter.getByName('null');
       assert.ok(filter);
 
@@ -186,6 +223,39 @@ describe('BitStreamFilter', () => {
         const outputPacket = new Packet();
         outputPacket.alloc();
         const recvRet = await ctx.receivePacket(outputPacket);
+
+        if (recvRet === AVERROR_EOF) {
+          break;
+        } else if (recvRet === 0) {
+          // Got a packet, continue
+          outputPacket.unref();
+        } else if (recvRet === AVERROR_EAGAIN) {
+          // EAGAIN
+          // No more packets available right now
+          break;
+        }
+      }
+
+      ctx.free();
+    });
+
+    it('should handle EOF correctly (sync)', () => {
+      const filter = BitStreamFilter.getByName('null');
+      assert.ok(filter);
+
+      const ctx = new BitStreamFilterContext();
+      ctx.alloc(filter);
+      ctx.init();
+
+      // Send EOF (null packet)
+      const sendRet = ctx.sendPacketSync(null);
+      assert.equal(sendRet, 0, 'Sending EOF should succeed');
+
+      // Try to receive - should eventually get EOF
+      for (let i = 0; i < 10; i++) {
+        const outputPacket = new Packet();
+        outputPacket.alloc();
+        const recvRet = ctx.receivePacketSync(outputPacket);
 
         if (recvRet === AVERROR_EOF) {
           break;
@@ -220,7 +290,7 @@ describe('BitStreamFilter', () => {
   });
 
   describe('Real-world Usage with H.264', () => {
-    it('should process H.264 stream with h264_mp4toannexb filter', async function (t) {
+    it('should process H.264 stream with h264_mp4toannexb filter (async)', async function (t) {
       // Skip if h264_mp4toannexb is not available
       const filter = BitStreamFilter.getByName('h264_mp4toannexb');
       if (!filter) {
@@ -317,6 +387,105 @@ describe('BitStreamFilter', () => {
       // Clean up
       bsfCtx.free();
       formatCtx.closeInput();
+    });
+
+    it('should process H.264 stream with h264_mp4toannexb filter (sync)', function (t) {
+      // Skip if h264_mp4toannexb is not available
+      const filter = BitStreamFilter.getByName('h264_mp4toannexb');
+      if (!filter) {
+        t.skip();
+        return;
+      }
+
+      // Open input file
+      const formatCtx = new FormatContext();
+      formatCtx.openInputSync(inputFile, null, null);
+      formatCtx.findStreamInfoSync(null);
+
+      // Find video stream
+      const streams = formatCtx.streams;
+      assert.ok(streams, 'Should have streams');
+      const videoStream = streams.find((s) => s.codecpar.codecType === AVMEDIA_TYPE_VIDEO);
+      assert.ok(videoStream, 'Should find video stream');
+
+      // Only proceed if it's H.264
+      if (videoStream.codecpar.codecId !== AV_CODEC_ID_H264) {
+        formatCtx.closeInputSync();
+        t.skip();
+        return;
+      }
+
+      // Create and initialize filter context
+      const bsfCtx = new BitStreamFilterContext();
+      bsfCtx.alloc(filter);
+
+      // Copy codec parameters
+      assert.ok(bsfCtx.inputCodecParameters, 'Input codec parameters should be allocated after alloc()');
+      videoStream.codecpar.copy(bsfCtx.inputCodecParameters);
+      bsfCtx.inputTimeBase = videoStream.timeBase;
+
+      const initRet = bsfCtx.init();
+      assert.equal(initRet, 0, 'BSF init should succeed');
+
+      // Process a few packets
+      let packetsProcessed = 0;
+      const maxPackets = 5;
+
+      while (packetsProcessed < maxPackets) {
+        const packet = new Packet();
+        packet.alloc(); // Must allocate packet before reading
+        const readRet = formatCtx.readFrameSync(packet);
+
+        if (readRet < 0) {
+          packet.unref();
+          break;
+        }
+
+        // Only process video packets
+        if (packet.streamIndex !== videoStream.index) {
+          packet.unref();
+          continue;
+        }
+
+        // Send packet to filter
+        const sendRet = bsfCtx.sendPacketSync(packet);
+        packet.unref();
+
+        if (sendRet < 0 && sendRet !== AVERROR_EAGAIN) {
+          // Not EAGAIN
+          assert.fail(`Failed to send packet: ${sendRet}`);
+        }
+
+        // Receive filtered packets
+        while (true) {
+          const filteredPacket = new Packet();
+          filteredPacket.alloc();
+          const recvRet = bsfCtx.receivePacketSync(filteredPacket);
+
+          if (recvRet === AVERROR_EAGAIN || recvRet === AVERROR_EOF) {
+            // EAGAIN or EOF
+            filteredPacket.unref();
+            break;
+          }
+
+          if (recvRet < 0) {
+            filteredPacket.unref();
+            assert.fail(`Failed to receive packet: ${recvRet}`);
+          }
+
+          // Packet was successfully filtered
+          assert.ok(filteredPacket.size > 0, 'Filtered packet should have data');
+          filteredPacket.unref();
+        }
+
+        packetsProcessed++;
+      }
+
+      assert.ok(packetsProcessed > 0, 'Should have processed at least one packet');
+
+      // Clean up
+      bsfCtx.free();
+      formatCtx.closeInputSync();
     });
   });
 });

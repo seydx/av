@@ -164,7 +164,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Create a simple scale filter
-        using filter = await FilterAPI.create('scale=320:240', {
+        using filter = FilterAPI.create('scale=320:240', {
           frameRate: videoStream.avgFrameRate,
           timeBase: videoStream.timeBase,
         });
@@ -284,7 +284,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           bitrate: '128k',
         });
 
-        // const audioFilter = await FilterAPI.create('aformat=sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=0', audioStream);
+        // const audioFilter = FilterAPI.create('aformat=sample_fmts=fltp:channel_layouts=stereo,asetnsamples=n=1024:p=0', audioStream);
 
         // Named pipeline with separate video and audio processing
         const control = pipeline(
@@ -376,7 +376,7 @@ describe('Pipeline - Comprehensive Tests', () => {
         }
 
         using decoder = await Decoder.create(videoStream);
-        using filter = await FilterAPI.create('scale=320:240', {
+        using filter = FilterAPI.create('scale=320:240', {
           timeBase: { num: 1, den: 30 },
           frameRate: { num: 30, den: 1 },
         });
@@ -434,7 +434,7 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       using decoder = await Decoder.create(videoStream);
-      using filter = await FilterAPI.create('scale=160:120', {
+      using filter = FilterAPI.create('scale=160:120', {
         timeBase: videoStream.timeBase,
         frameRate: videoStream.avgFrameRate,
       });
@@ -464,7 +464,7 @@ describe('Pipeline - Comprehensive Tests', () => {
       }
 
       using decoder = await Decoder.create(videoStream);
-      using filter = await FilterAPI.create('scale=320:240', {
+      using filter = FilterAPI.create('scale=320:240', {
         timeBase: videoStream.timeBase,
         frameRate: videoStream.avgFrameRate,
       });
@@ -538,11 +538,11 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Chain multiple filters
-        using scaleFilter = await FilterAPI.create('scale=320:240', {
+        using scaleFilter = FilterAPI.create('scale=320:240', {
           timeBase: videoStream.timeBase,
           frameRate: videoStream.avgFrameRate,
         });
-        using rotateFilter = await FilterAPI.create('transpose=1', {
+        using rotateFilter = FilterAPI.create('transpose=1', {
           timeBase: videoStream.timeBase,
           frameRate: videoStream.avgFrameRate,
         });
@@ -577,11 +577,11 @@ describe('Pipeline - Comprehensive Tests', () => {
         using decoder = await Decoder.create(videoStream);
 
         // Array of filters
-        const filter1 = await FilterAPI.create('scale=320:240', {
+        const filter1 = FilterAPI.create('scale=320:240', {
           timeBase: videoStream.timeBase,
           frameRate: videoStream.avgFrameRate,
         });
-        const filter2 = await FilterAPI.create('format=yuv420p', {
+        const filter2 = FilterAPI.create('format=yuv420p', {
           timeBase: videoStream.timeBase,
           frameRate: videoStream.avgFrameRate,
         });
@@ -705,7 +705,7 @@ describe('Pipeline - Comprehensive Tests', () => {
 
         using decoder = await Decoder.create(videoStream, { hardware: hw });
 
-        using filter = await FilterAPI.create('hwdownload,format=nv12', {
+        using filter = FilterAPI.create('hwdownload,format=nv12', {
           timeBase: { num: 1, den: 30 },
           frameRate: { num: 30, den: 1 },
         });
@@ -780,7 +780,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           }
 
           // Create filter and encoder
-          using filter = await FilterAPI.create('scale=160:120', {
+          using filter = FilterAPI.create('scale=160:120', {
             timeBase: { num: 1, den: 30 },
           });
 
@@ -822,7 +822,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           }
         }
 
-        using filter = await FilterAPI.create('scale=160:120', {
+        using filter = FilterAPI.create('scale=160:120', {
           timeBase: { num: 1, den: 30 },
         });
 
@@ -903,7 +903,7 @@ describe('Pipeline - Comprehensive Tests', () => {
           }
         }
 
-        using filter = await FilterAPI.create('scale=160:120', {
+        using filter = FilterAPI.create('scale=160:120', {
           timeBase: { num: 1, den: 30 },
         });
 

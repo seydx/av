@@ -211,7 +211,7 @@ describe('InputFormat', () => {
   });
 
   describe('Integration with FormatContext', () => {
-    it('should work with FormatContext.openInput', async () => {
+    it('should work with FormatContext.openInput (async)', async () => {
       // This test would need an actual file to test properly
       // Just verify the format can be obtained and used
       const format = InputFormat.findInputFormat('mp4');
@@ -223,12 +223,23 @@ describe('InputFormat', () => {
       assert.ok(format.name?.includes('mp4'));
     });
 
-    it('should be returned by FormatContext.iformat', async () => {
+    it('should be returned by FormatContext.iformat (async)', async () => {
       const format = InputFormat.findInputFormat('mp4');
       assert.ok(format);
 
       const ctx = new FormatContext();
       await ctx.openInput(inputFile, format, null);
+      const iformat = ctx.iformat;
+      assert.ok(iformat);
+      assert.equal(iformat.name, format.name);
+    });
+
+    it('should be returned by FormatContext.iformat (sync)', () => {
+      const format = InputFormat.findInputFormat('mp4');
+      assert.ok(format);
+
+      const ctx = new FormatContext();
+      ctx.openInputSync(inputFile, format, null);
       const iformat = ctx.iformat;
       assert.ok(iformat);
       assert.equal(iformat.name, format.name);
@@ -312,7 +323,7 @@ describe('InputFormat', () => {
       assert.equal(format, null, 'Too small buffer should not detect format');
     });
 
-    it('should probe buffer from IOContext', async () => {
+    it('should probe buffer from IOContext (async)', async () => {
       const io = new IOContext();
       await io.open2(inputFile, AVIO_FLAG_READ);
 
@@ -325,7 +336,7 @@ describe('InputFormat', () => {
       }
     });
 
-    it('should probe buffer with custom max probe size', async () => {
+    it('should probe buffer with custom max probe size (async)', async () => {
       const io = new IOContext();
       await io.open2(inputFile, AVIO_FLAG_READ);
 
@@ -339,7 +350,7 @@ describe('InputFormat', () => {
       }
     });
 
-    it('should handle probing non-media IOContext', async () => {
+    it('should handle probing non-media IOContext (async)', async () => {
       const io = new IOContext();
       await io.open2(inputTextFile, AVIO_FLAG_READ);
 
@@ -355,6 +366,58 @@ describe('InputFormat', () => {
         }
       } finally {
         await io.closep();
+      }
+    });
+
+    it('should probe buffer from IOContext (sync)', () => {
+      const io = new IOContext();
+      io.open2Sync(inputFile, AVIO_FLAG_READ);
+
+      try {
+        const format = InputFormat.probeBufferSync(io);
+        assert.ok(format, 'Should detect format from IOContext');
+        assert.ok(format.name?.includes('mp4') ?? format.name?.includes('mov'), `Format name should include mp4 or mov, got: ${format?.name}`);
+      } finally {
+        io.closepSync();
+      }
+    });
+
+    it('should probe buffer with custom max probe size (sync)', () => {
+      const io = new IOContext();
+      io.open2Sync(inputFile, AVIO_FLAG_READ);
+
+      try {
+        // Use smaller probe size
+        const format = InputFormat.probeBufferSync(io, 2048);
+        assert.ok(format, 'Should detect format with custom probe size');
+        assert.ok(format.name?.includes('mp4') ?? format.name?.includes('mov'));
+      } finally {
+        io.closepSync();
+      }
+    });
+
+    it('should handle probing non-media IOContext (sync)', () => {
+      const io = new IOContext();
+      io.open2Sync(inputTextFile, AVIO_FLAG_READ);
+
+      try {
+        // Sync version may throw for invalid data
+        try {
+          const format = InputFormat.probeBufferSync(io);
+          // FFmpeg may detect some formats even from text data (e.g., raw data formats)
+          // We just verify that probeBuffer doesn't crash and returns a valid result
+          if (format) {
+            assert.ok(format instanceof InputFormat, 'Should return InputFormat instance if detected');
+            assert.ok(format.name, 'Detected format should have a name');
+          } else {
+            assert.equal(format, null, 'Should return null if no format detected');
+          }
+        } catch (err) {
+          // Sync version may throw for invalid data
+          assert.ok(err.message.includes('Invalid data') || err.message.includes('probe'), 'Should throw appropriate error for non-media data');
+        }
+      } finally {
+        io.closepSync();
       }
     });
   });

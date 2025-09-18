@@ -25,9 +25,9 @@ const testAudioPath = getInputFile('audio.wav');
 
 describe('High-Level Filter API', () => {
   describe('Filter Creation', () => {
-    it('should create a simple video filter', async () => {
+    it('should create a simple video filter', () => {
       // Filters use lazy initialization and won't be fully ready until first frame
-      const filter = await FilterAPI.create('scale=1280:720', {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
       });
       assert.ok(filter);
@@ -36,8 +36,8 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should create a simple audio filter', async () => {
-      const filter = await FilterAPI.create('volume=0.5', {
+    it('should create a simple audio filter', () => {
+      const filter = FilterAPI.create('volume=0.5', {
         timeBase: { num: 1, den: 48000 },
       });
       assert.ok(filter);
@@ -46,8 +46,8 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should create filter with null/passthrough', async () => {
-      const filter = await FilterAPI.create('null', {
+    it('should create filter with null/passthrough', () => {
+      const filter = FilterAPI.create('null', {
         timeBase: { num: 1, den: 30 },
       });
       assert.ok(filter);
@@ -61,7 +61,7 @@ describe('High-Level Filter API', () => {
         frameRate: { num: 30, den: 1 },
       });
 
-      const filter = await FilterAPI.create('scale=1280:720', {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
       });
       assert.ok(filter);
@@ -71,8 +71,8 @@ describe('High-Level Filter API', () => {
       encoder.close();
     });
 
-    it('should create filter with format conversion', async () => {
-      const filter = await FilterAPI.create('scale=1280:720,format=pix_fmts=yuv420p|nv12', {
+    it('should create filter with format conversion', () => {
+      const filter = FilterAPI.create('scale=1280:720,format=pix_fmts=yuv420p|nv12', {
         timeBase: { num: 1, den: 30 },
       });
 
@@ -81,8 +81,8 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should create filter with threading options', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+    it('should create filter with threading options', () => {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         threads: 4,
       });
@@ -92,8 +92,8 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should handle complex filter chain', async () => {
-      const filter = await FilterAPI.create('scale=1280:720,fps=30,format=yuv420p', {
+    it('should handle complex filter chain', () => {
+      const filter = FilterAPI.create('scale=1280:720,fps=30,format=yuv420p', {
         timeBase: { num: 1, den: 30 },
       });
 
@@ -104,7 +104,7 @@ describe('High-Level Filter API', () => {
 
     it('should throw on invalid filter description', async () => {
       // Note: Error might not occur until first frame with lazy initialization
-      const filter = await FilterAPI.create('invalid_filter_xyz', {
+      const filter = FilterAPI.create('invalid_filter_xyz', {
         timeBase: { num: 1, den: 48000 },
       });
 
@@ -127,8 +127,8 @@ describe('High-Level Filter API', () => {
   });
 
   describe('Frame Processing', () => {
-    it('should process a single frame', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+    it('should process a single frame (async)', async () => {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -152,8 +152,33 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should handle multiple frames', async () => {
-      const filter = await FilterAPI.create('fps=15', {
+    it('should process a single frame (sync)', () => {
+      const filter = FilterAPI.create('scale=1280:720', {
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+      });
+
+      // Create a test frame
+      const frame = new Frame();
+      frame.alloc();
+      frame.width = 1920;
+      frame.height = 1080;
+      frame.format = AV_PIX_FMT_YUV420P;
+      const ret = frame.getBuffer();
+      assert.ok(ret >= 0);
+
+      const output = filter.processSync(frame);
+      assert.ok(output);
+      assert.equal(output.width, 1280);
+      assert.equal(output.height, 720);
+
+      frame.free();
+      output.free();
+      filter.close();
+    });
+
+    it('should handle multiple frames (async)', async () => {
+      const filter = FilterAPI.create('fps=15', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -180,8 +205,36 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should flush and receive remaining frames', async () => {
-      const filter = await FilterAPI.create('fps=15', {
+    it('should handle multiple frames (sync)', () => {
+      const filter = FilterAPI.create('fps=15', {
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+      });
+
+      const frames: Frame[] = [];
+      for (let i = 0; i < 3; i++) {
+        const frame = new Frame();
+        frame.alloc();
+        frame.width = 640;
+        frame.height = 480;
+        frame.format = AV_PIX_FMT_YUV420P;
+        frame.pts = BigInt(i * 1000);
+        const ret = frame.getBuffer();
+        assert.ok(ret >= 0);
+        frames.push(frame);
+      }
+
+      const outputs = filter.processMultipleSync(frames);
+      assert.ok(outputs.length > 0);
+
+      // Clean up
+      frames.forEach((f) => f.free());
+      outputs.forEach((f) => f.free());
+      filter.close();
+    });
+
+    it('should flush and receive remaining frames (async)', async () => {
+      const filter = FilterAPI.create('fps=15', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -219,6 +272,46 @@ describe('High-Level Filter API', () => {
       assert.ok(remainingCount >= 0);
       filter.close();
     });
+
+    it('should flush and receive remaining frames (sync)', () => {
+      const filter = FilterAPI.create('fps=15', {
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+      });
+
+      // Send some frames
+      for (let i = 0; i < 5; i++) {
+        const frame = new Frame();
+        frame.alloc();
+        frame.width = 640;
+        frame.height = 480;
+        frame.format = AV_PIX_FMT_YUV420P;
+        frame.pts = BigInt(i * 1000);
+        const ret = frame.getBuffer();
+        assert.ok(ret >= 0);
+
+        const output = filter.processSync(frame);
+        if (output) {
+          output.free();
+        }
+        frame.free();
+      }
+
+      // Flush
+      filter.flushSync();
+
+      // Receive remaining frames
+      let remainingCount = 0;
+      while (true) {
+        const frame = filter.receiveSync();
+        if (!frame) break;
+        remainingCount++;
+        frame.free();
+      }
+
+      assert.ok(remainingCount >= 0);
+      filter.close();
+    });
   });
 
   describe('Async Generator Interface', () => {
@@ -228,7 +321,7 @@ describe('High-Level Filter API', () => {
       assert.ok(videoStream);
       const decoder = await Decoder.create(videoStream);
 
-      const filter = await FilterAPI.create('scale=320:240,fps=15', {
+      const filter = FilterAPI.create('scale=320:240,fps=15', {
         timeBase: videoStream.timeBase,
         frameRate: videoStream.avgFrameRate,
       });
@@ -264,11 +357,54 @@ describe('High-Level Filter API', () => {
       decoder.close();
       media.close();
     });
+
+    it('should process frames via sync generator', () => {
+      const media = MediaInput.openSync(testVideoPath);
+      const videoStream = media.video();
+      assert.ok(videoStream);
+      const decoder = Decoder.createSync(videoStream);
+
+      const filter = FilterAPI.create('scale=320:240,fps=15', {
+        timeBase: videoStream.timeBase,
+        frameRate: videoStream.avgFrameRate,
+      });
+
+      let frameCount = 0;
+      const maxFrames = 10;
+
+      function* limitedFrames() {
+        let count = 0;
+        for (const packet of media.packetsSync()) {
+          if (packet.streamIndex === videoStream!.index) {
+            const frame = decoder.decodeSync(packet);
+            if (frame) {
+              yield frame;
+              count++;
+              if (count >= maxFrames) break;
+            }
+          }
+        }
+      }
+
+      for (const filtered of filter.framesSync(limitedFrames())) {
+        assert.ok(filtered);
+        assert.equal(filtered.width, 320);
+        assert.equal(filtered.height, 240);
+        filtered.free();
+        frameCount++;
+      }
+
+      assert.ok(frameCount > 0);
+
+      filter.close();
+      decoder.close();
+      media.closeSync();
+    });
   });
 
   describe('Utility Methods', () => {
-    it('should get graph description', async () => {
-      const filter = await FilterAPI.create('volume=0.5', {
+    it('should get graph description (async)', async () => {
+      const filter = FilterAPI.create('volume=0.5', {
         timeBase: { num: 1, den: 48000 },
       });
 
@@ -293,8 +429,34 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should check if filter is ready', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+    it('should get graph description (sync)', () => {
+      const filter = FilterAPI.create('volume=0.5', {
+        timeBase: { num: 1, den: 48000 },
+      });
+
+      // Initialize filter with a frame first
+      const frame = new Frame();
+      frame.alloc();
+      frame.sampleRate = 48000;
+      frame.format = AV_SAMPLE_FMT_FLTP;
+      frame.channelLayout = { nbChannels: 2, order: 1, mask: 3n };
+      frame.nbSamples = 1024;
+      frame.pts = 0n;
+      frame.timeBase = new Rational(1, 48000);
+      frame.getBuffer();
+
+      filter.processSync(frame);
+      frame.free();
+
+      const description = filter.getGraphDescription();
+      assert.ok(description);
+      assert.equal(typeof description, 'string');
+
+      filter.close();
+    });
+
+    it('should check if filter is ready (async)', async () => {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -320,16 +482,43 @@ describe('High-Level Filter API', () => {
       assert.ok(!filter.isReady());
     });
 
-    it('should get media type', async () => {
+    it('should check if filter is ready (sync)', () => {
+      const filter = FilterAPI.create('scale=1280:720', {
+        timeBase: { num: 1, den: 30 },
+        frameRate: { num: 30, den: 1 },
+      });
+
+      // Filter not ready until first frame
+      assert.ok(!filter.isReady());
+
+      // Initialize with a frame
+      const frame = new Frame();
+      frame.alloc();
+      frame.width = 1920;
+      frame.height = 1080;
+      frame.format = AV_PIX_FMT_YUV420P;
+      frame.getBuffer();
+
+      filter.processSync(frame);
+      frame.free();
+
+      // Now should be ready
+      assert.ok(filter.isReady());
+
+      filter.close();
+      assert.ok(!filter.isReady());
+    });
+
+    it('should get media type', () => {
       // Note: getMediaType() doesn't exist in the new API
       // Filters determine media type from first frame
-      const videoFilter = await FilterAPI.create('scale=1280:720', {
+      const videoFilter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
       });
       assert.ok(videoFilter);
       videoFilter.close();
 
-      const audioFilter = await FilterAPI.create('volume=0.5', {
+      const audioFilter = FilterAPI.create('volume=0.5', {
         timeBase: { num: 1, den: 48000 },
       });
       assert.ok(audioFilter);
@@ -338,9 +527,9 @@ describe('High-Level Filter API', () => {
   });
 
   describe('Symbol.dispose', () => {
-    it('should support using syntax', async () => {
+    it('should support using syntax', () => {
       {
-        using filter = await FilterAPI.create('scale=1280:720', {
+        using filter = FilterAPI.create('scale=1280:720', {
           timeBase: { num: 1, den: 30 },
           frameRate: { num: 30, den: 1 },
         });
@@ -351,9 +540,9 @@ describe('High-Level Filter API', () => {
   });
 
   describe('Error Handling', () => {
-    it('should throw on invalid configuration', async () => {
+    it('should throw on invalid configuration (async)', async () => {
       // Invalid configurations are detected when first frame is processed
-      const filter = await FilterAPI.create('volume=0.5', {
+      const filter = FilterAPI.create('volume=0.5', {
         timeBase: { num: 1, den: 48000 },
       });
 
@@ -372,8 +561,29 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should throw when processing after free', async () => {
-      const filter = await FilterAPI.create('volume=0.5', {
+    it('should throw on invalid configuration (sync)', () => {
+      // Invalid configurations are detected when first frame is processed
+      const filter = FilterAPI.create('volume=0.5', {
+        timeBase: { num: 1, den: 48000 },
+      });
+
+      const frame = new Frame();
+      frame.alloc();
+      frame.sampleRate = 0; // Invalid sample rate
+      frame.format = AV_SAMPLE_FMT_FLTP;
+      frame.channelLayout = { nbChannels: 2, order: 1, mask: 3n };
+      frame.nbSamples = 1024;
+
+      assert.throws(() => {
+        filter.processSync(frame);
+      });
+
+      frame.free();
+      filter.close();
+    });
+
+    it('should throw when processing after free (async)', async () => {
+      const filter = FilterAPI.create('volume=0.5', {
         timeBase: { num: 1, den: 48000 },
       });
       filter.close();
@@ -393,8 +603,29 @@ describe('High-Level Filter API', () => {
       frame.free();
     });
 
+    it('should throw when processing after free (sync)', () => {
+      const filter = FilterAPI.create('volume=0.5', {
+        timeBase: { num: 1, den: 48000 },
+      });
+      filter.close();
+
+      const frame = new Frame();
+      frame.alloc();
+      frame.nbSamples = 1024;
+      frame.format = AV_SAMPLE_FMT_FLTP;
+      frame.sampleRate = 48000;
+      frame.channelLayout = { nbChannels: 2, order: 1, mask: 3n };
+      frame.getBuffer();
+
+      assert.throws(() => {
+        filter.processSync(frame);
+      }, /Filter is closed/);
+
+      frame.free();
+    });
+
     it('should handle flush after free', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -406,7 +637,7 @@ describe('High-Level Filter API', () => {
     });
 
     it('should return null when receiving after free', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -418,7 +649,7 @@ describe('High-Level Filter API', () => {
     });
 
     it('should handle flush after free', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -432,7 +663,7 @@ describe('High-Level Filter API', () => {
 
   describe('Complex Filter Graphs', () => {
     it('should handle video scaling and format conversion', async () => {
-      const filter = await FilterAPI.create('scale=1280:720,format=yuv420p', {
+      const filter = FilterAPI.create('scale=1280:720,format=yuv420p', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -457,8 +688,8 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should handle audio resampling', async () => {
-      const filter = await FilterAPI.create('aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', {
+    it('should handle audio resampling', () => {
+      const filter = FilterAPI.create('aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', {
         timeBase: { num: 1, den: 48000 },
       });
 
@@ -475,7 +706,7 @@ describe('High-Level Filter API', () => {
       assert.ok(videoStream);
       const decoder = await Decoder.create(videoStream);
 
-      const filter = await FilterAPI.create('scale=640:480,format=yuv420p', {
+      const filter = FilterAPI.create('scale=640:480,format=yuv420p', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -507,9 +738,9 @@ describe('High-Level Filter API', () => {
       await media.close();
     });
 
-    it('should chain multiple filter presets', async () => {
+    it('should chain multiple filter presets', () => {
       const filterChain = FilterPreset.chain().scale(1280, 720).fps(24).format(AV_PIX_FMT_YUV420P).build();
-      const filter = await FilterAPI.create(filterChain, {
+      const filter = FilterAPI.create(filterChain, {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -533,7 +764,7 @@ describe('High-Level Filter API', () => {
       const decoder = await Decoder.create(audioStream);
 
       // Apply audio filters: volume adjustment and resampling
-      const filter = await FilterAPI.create('volume=0.5,aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', {
+      const filter = FilterAPI.create('volume=0.5,aformat=sample_rates=44100:sample_fmts=s16:channel_layouts=stereo', {
         timeBase: { num: 1, den: 44100 },
       });
 
@@ -567,9 +798,9 @@ describe('High-Level Filter API', () => {
   });
 
   describe('Command Interface', () => {
-    it('should send commands to filters', async () => {
+    it('should send commands to filters', () => {
       // Create a filter with a filter that supports commands (volume)
-      const filter = await FilterAPI.create('volume=1.0', {
+      const filter = FilterAPI.create('volume=1.0', {
         timeBase: { num: 1, den: 48000 },
       });
 
@@ -587,8 +818,8 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should queue commands for future execution', async () => {
-      const filter = await FilterAPI.create('volume=1.0', {
+    it('should queue commands for future execution', () => {
+      const filter = FilterAPI.create('volume=1.0', {
         timeBase: { num: 1, den: 48000 },
       });
 
@@ -608,8 +839,8 @@ describe('High-Level Filter API', () => {
       filter.close();
     });
 
-    it('should throw when sending command to closed filter', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+    it('should throw when sending command to closed filter', () => {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -620,8 +851,8 @@ describe('High-Level Filter API', () => {
       }, /Filter is closed/);
     });
 
-    it('should throw when queueing command to closed filter', async () => {
-      const filter = await FilterAPI.create('scale=1280:720', {
+    it('should throw when queueing command to closed filter', () => {
+      const filter = FilterAPI.create('scale=1280:720', {
         timeBase: { num: 1, den: 30 },
         frameRate: { num: 30, den: 1 },
       });
@@ -632,8 +863,8 @@ describe('High-Level Filter API', () => {
       }, /Filter is closed/);
     });
 
-    it('should send command with flags', async () => {
-      const filter = await FilterAPI.create('volume=1.0', {
+    it('should send command with flags', () => {
+      const filter = FilterAPI.create('volume=1.0', {
         timeBase: { num: 1, den: 48000 },
       });
 
@@ -650,7 +881,7 @@ describe('High-Level Filter API', () => {
     });
 
     it('should handle invalid command gracefully', async () => {
-      const filter = await FilterAPI.create('volume=0.5', {
+      const filter = FilterAPI.create('volume=0.5', {
         timeBase: { num: 1, den: 48000 },
       });
 

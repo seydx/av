@@ -96,7 +96,7 @@ describe('AudioFifo', () => {
   });
 
   describe('Write and Read Operations', () => {
-    it('should write and read interleaved samples', async () => {
+    it('should write and read interleaved samples (async)', async () => {
       const fifo = new AudioFifo();
       const channels = 2;
       const nbSamples = 128;
@@ -127,7 +127,38 @@ describe('AudioFifo', () => {
       fifo.free();
     });
 
-    it('should write and read planar samples', async () => {
+    it('should write and read interleaved samples (sync)', () => {
+      const fifo = new AudioFifo();
+      const channels = 2;
+      const nbSamples = 128;
+      const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_S16);
+
+      fifo.alloc(AV_SAMPLE_FMT_S16, channels, 512);
+
+      // Create interleaved buffer with test data
+      const writeBuffer = Buffer.alloc(nbSamples * channels * bytesPerSample);
+      for (let i = 0; i < writeBuffer.length; i += 2) {
+        writeBuffer.writeInt16LE(i / 2, i);
+      }
+
+      // Write samples
+      const written = fifo.writeSync(writeBuffer, nbSamples);
+      assert.equal(written, nbSamples, 'Should write all samples');
+      assert.equal(fifo.size, nbSamples, 'Size should reflect written samples');
+
+      // Read samples back
+      const readBuffer = Buffer.alloc(nbSamples * channels * bytesPerSample);
+      const read = fifo.readSync(readBuffer, nbSamples);
+      assert.equal(read, nbSamples, 'Should read all samples');
+      assert.equal(fifo.size, 0, 'FIFO should be empty after reading');
+
+      // Verify data
+      assert.deepEqual(readBuffer, writeBuffer, 'Read data should match written data');
+
+      fifo.free();
+    });
+
+    it('should write and read planar samples (async)', async () => {
       const fifo = new AudioFifo();
       const channels = 2;
       const nbSamples = 256;
@@ -164,7 +195,44 @@ describe('AudioFifo', () => {
       fifo.free();
     });
 
-    it('should handle partial writes and reads', async () => {
+    it('should write and read planar samples (sync)', () => {
+      const fifo = new AudioFifo();
+      const channels = 2;
+      const nbSamples = 256;
+      const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_FLTP);
+
+      fifo.alloc(AV_SAMPLE_FMT_FLTP, channels, 1024);
+
+      // Create planar buffers (one per channel)
+      const leftBuffer = Buffer.alloc(nbSamples * bytesPerSample);
+      const rightBuffer = Buffer.alloc(nbSamples * bytesPerSample);
+
+      // Fill with test data
+      for (let i = 0; i < nbSamples; i++) {
+        leftBuffer.writeFloatLE(i * 0.1, i * bytesPerSample);
+        rightBuffer.writeFloatLE(i * 0.2, i * bytesPerSample);
+      }
+
+      // Write samples
+      const written = fifo.writeSync([leftBuffer, rightBuffer], nbSamples);
+      assert.equal(written, nbSamples, 'Should write all samples');
+      assert.equal(fifo.size, nbSamples, 'Size should reflect written samples');
+
+      // Read samples back
+      const readLeftBuffer = Buffer.alloc(nbSamples * bytesPerSample);
+      const readRightBuffer = Buffer.alloc(nbSamples * bytesPerSample);
+      const read = fifo.readSync([readLeftBuffer, readRightBuffer], nbSamples);
+      assert.equal(read, nbSamples, 'Should read all samples');
+      assert.equal(fifo.size, 0, 'FIFO should be empty after reading');
+
+      // Verify data
+      assert.deepEqual(readLeftBuffer, leftBuffer, 'Left channel data should match');
+      assert.deepEqual(readRightBuffer, rightBuffer, 'Right channel data should match');
+
+      fifo.free();
+    });
+
+    it('should handle partial writes and reads (async)', async () => {
       const fifo = new AudioFifo();
       const channels = 2;
       const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_S16);
@@ -191,7 +259,34 @@ describe('AudioFifo', () => {
       fifo.free();
     });
 
-    it('should handle writing zero samples', async () => {
+    it('should handle partial writes and reads (sync)', () => {
+      const fifo = new AudioFifo();
+      const channels = 2;
+      const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_S16);
+
+      fifo.alloc(AV_SAMPLE_FMT_S16, channels, 100); // Small FIFO
+
+      // Try to write more than initial capacity (should auto-reallocate)
+      const largeBuffer = Buffer.alloc(200 * channels * bytesPerSample);
+      const written = fifo.writeSync(largeBuffer, 200);
+      assert.equal(written, 200, 'Should write all samples with auto-reallocation');
+      assert.equal(fifo.size, 200, 'Size should be 200');
+
+      // Read part of the data
+      const partialBuffer = Buffer.alloc(50 * channels * bytesPerSample);
+      const read1 = fifo.readSync(partialBuffer, 50);
+      assert.equal(read1, 50, 'Should read 50 samples');
+      assert.equal(fifo.size, 150, 'Size should be 150 after partial read');
+
+      // Read another part
+      const read2 = fifo.readSync(partialBuffer, 50);
+      assert.equal(read2, 50, 'Should read another 50 samples');
+      assert.equal(fifo.size, 100, 'Size should be 100');
+
+      fifo.free();
+    });
+
+    it('should handle writing zero samples (async)', async () => {
       const fifo = new AudioFifo();
       fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
 
@@ -203,7 +298,19 @@ describe('AudioFifo', () => {
       fifo.free();
     });
 
-    it('should handle reading from empty FIFO', async () => {
+    it('should handle writing zero samples (sync)', () => {
+      const fifo = new AudioFifo();
+      fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
+
+      const buffer = Buffer.alloc(0);
+      const written = fifo.writeSync(buffer, 0);
+      assert.equal(written, 0, 'Should handle zero samples write');
+      assert.equal(fifo.size, 0, 'Size should remain 0');
+
+      fifo.free();
+    });
+
+    it('should handle reading from empty FIFO (async)', async () => {
       const fifo = new AudioFifo();
       fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
 
@@ -213,10 +320,21 @@ describe('AudioFifo', () => {
 
       fifo.free();
     });
+
+    it('should handle reading from empty FIFO (sync)', () => {
+      const fifo = new AudioFifo();
+      fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
+
+      const buffer = Buffer.alloc(100 * 2 * 2); // 100 samples, stereo, S16
+      const read = fifo.readSync(buffer, 100);
+      assert.equal(read, 0, 'Should read 0 samples from empty FIFO');
+
+      fifo.free();
+    });
   });
 
   describe('Peek Operation', () => {
-    it('should peek without removing samples', async () => {
+    it('should peek without removing samples (async)', async () => {
       const fifo = new AudioFifo();
       const channels = 2;
       const nbSamples = 64;
@@ -250,7 +368,41 @@ describe('AudioFifo', () => {
       fifo.free();
     });
 
-    it('should peek planar samples', async () => {
+    it('should peek without removing samples (sync)', () => {
+      const fifo = new AudioFifo();
+      const channels = 2;
+      const nbSamples = 64;
+      const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_S16);
+
+      fifo.alloc(AV_SAMPLE_FMT_S16, channels, 256);
+
+      // Write test data
+      const writeBuffer = Buffer.alloc(nbSamples * channels * bytesPerSample);
+      for (let i = 0; i < writeBuffer.length; i += 2) {
+        writeBuffer.writeInt16LE(i, i);
+      }
+      fifo.writeSync(writeBuffer, nbSamples);
+
+      // Peek at the data
+      const peekBuffer = Buffer.alloc(nbSamples * channels * bytesPerSample);
+      const peeked = fifo.peekSync(peekBuffer, nbSamples);
+      assert.equal(peeked, nbSamples, 'Should peek all samples');
+      assert.equal(fifo.size, nbSamples, 'Size should remain unchanged after peek');
+
+      // Verify peeked data matches written data
+      assert.deepEqual(peekBuffer, writeBuffer, 'Peeked data should match written data');
+
+      // Read the data (should be the same)
+      const readBuffer = Buffer.alloc(nbSamples * channels * bytesPerSample);
+      const read = fifo.readSync(readBuffer, nbSamples);
+      assert.equal(read, nbSamples, 'Should read all samples');
+      assert.equal(fifo.size, 0, 'FIFO should be empty after reading');
+      assert.deepEqual(readBuffer, writeBuffer, 'Read data should match written data');
+
+      fifo.free();
+    });
+
+    it('should peek planar samples (async)', async () => {
       const fifo = new AudioFifo();
       const channels = 2;
       const nbSamples = 32;
@@ -280,10 +432,41 @@ describe('AudioFifo', () => {
 
       fifo.free();
     });
+
+    it('should peek planar samples (sync)', () => {
+      const fifo = new AudioFifo();
+      const channels = 2;
+      const nbSamples = 32;
+      const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_FLTP);
+
+      fifo.alloc(AV_SAMPLE_FMT_FLTP, channels, 128);
+
+      // Write planar data
+      const leftBuffer = Buffer.alloc(nbSamples * bytesPerSample);
+      const rightBuffer = Buffer.alloc(nbSamples * bytesPerSample);
+      for (let i = 0; i < nbSamples; i++) {
+        leftBuffer.writeFloatLE(i * 1.0, i * bytesPerSample);
+        rightBuffer.writeFloatLE(i * 2.0, i * bytesPerSample);
+      }
+      fifo.writeSync([leftBuffer, rightBuffer], nbSamples);
+
+      // Peek at the data
+      const peekLeft = Buffer.alloc(nbSamples * bytesPerSample);
+      const peekRight = Buffer.alloc(nbSamples * bytesPerSample);
+      const peeked = fifo.peekSync([peekLeft, peekRight], nbSamples);
+      assert.equal(peeked, nbSamples, 'Should peek all samples');
+      assert.equal(fifo.size, nbSamples, 'Size should remain unchanged');
+
+      // Verify data
+      assert.deepEqual(peekLeft, leftBuffer, 'Peeked left channel should match');
+      assert.deepEqual(peekRight, rightBuffer, 'Peeked right channel should match');
+
+      fifo.free();
+    });
   });
 
   describe('Drain and Reset Operations', () => {
-    it('should drain samples from FIFO', async () => {
+    it('should drain samples from FIFO (with async write)', async () => {
       const fifo = new AudioFifo();
       fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
 
@@ -303,7 +486,27 @@ describe('AudioFifo', () => {
       fifo.free();
     });
 
-    it('should reset FIFO', async () => {
+    it('should drain samples from FIFO (with sync write)', () => {
+      const fifo = new AudioFifo();
+      fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
+
+      // Write samples
+      const buffer = Buffer.alloc(100 * 2 * 2); // 100 samples
+      fifo.writeSync(buffer, 100);
+      assert.equal(fifo.size, 100, 'Should have 100 samples');
+
+      // Drain 30 samples
+      fifo.drain(30);
+      assert.equal(fifo.size, 70, 'Should have 70 samples after draining 30');
+
+      // Drain remaining
+      fifo.drain(70);
+      assert.equal(fifo.size, 0, 'Should be empty after draining all');
+
+      fifo.free();
+    });
+
+    it('should reset FIFO (with async write)', async () => {
       const fifo = new AudioFifo();
       fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
 
@@ -318,6 +521,26 @@ describe('AudioFifo', () => {
 
       // Should be able to write again
       await fifo.write(buffer, 100);
+      assert.equal(fifo.size, 100, 'Should accept new samples after reset');
+
+      fifo.free();
+    });
+
+    it('should reset FIFO (with sync write)', () => {
+      const fifo = new AudioFifo();
+      fifo.alloc(AV_SAMPLE_FMT_S16, 2, 512);
+
+      // Write samples
+      const buffer = Buffer.alloc(200 * 2 * 2); // 200 samples
+      fifo.writeSync(buffer, 200);
+      assert.equal(fifo.size, 200, 'Should have 200 samples');
+
+      // Reset
+      fifo.reset();
+      assert.equal(fifo.size, 0, 'Should be empty after reset');
+
+      // Should be able to write again
+      fifo.writeSync(buffer, 100);
       assert.equal(fifo.size, 100, 'Should accept new samples after reset');
 
       fifo.free();
@@ -340,7 +563,7 @@ describe('AudioFifo', () => {
       fifo.free();
     });
 
-    it('should auto-reallocate on write when needed', async () => {
+    it('should auto-reallocate on write when needed (async)', async () => {
       const fifo = new AudioFifo();
       const channels = 2;
       const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_S16);
@@ -351,6 +574,23 @@ describe('AudioFifo', () => {
       // Write more than initial capacity
       const largeBuffer = Buffer.alloc(200 * channels * bytesPerSample);
       const written = await fifo.write(largeBuffer, 200);
+      assert.equal(written, 200, 'Should write all with auto-reallocation');
+      assert.equal(fifo.size, 200, 'Should contain all written samples');
+
+      fifo.free();
+    });
+
+    it('should auto-reallocate on write when needed (sync)', () => {
+      const fifo = new AudioFifo();
+      const channels = 2;
+      const bytesPerSample = avGetBytesPerSample(AV_SAMPLE_FMT_S16);
+
+      // Start with small FIFO
+      fifo.alloc(AV_SAMPLE_FMT_S16, channels, 50);
+
+      // Write more than initial capacity
+      const largeBuffer = Buffer.alloc(200 * channels * bytesPerSample);
+      const written = fifo.writeSync(largeBuffer, 200);
       assert.equal(written, 200, 'Should write all with auto-reallocation');
       assert.equal(fifo.size, 200, 'Should contain all written samples');
 
