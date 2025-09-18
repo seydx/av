@@ -222,9 +222,17 @@ try {
 
 ## Performance
 
-NodeAV executes all media operations directly through FFmpeg's native C libraries. The Node.js bindings add minimal overhead - mostly just the JavaScript-to-C boundary crossings. During typical operations like transcoding or filtering, most processing time is spent in FFmpeg's optimized C code. You get full access to hardware acceleration, SIMD optimizations, and multi-threading capabilities.
+NodeAV executes all media operations directly through FFmpeg's native C libraries. The Node.js bindings add minimal overhead - mostly just the JavaScript-to-C boundary crossings. During typical operations like transcoding or filtering, most processing time is spent in FFmpeg's optimized C code.
 
-Heavy and I/O operations are executed asynchronously using N-API's AsyncWorker, preventing FFmpeg calls from blocking the Node.js event loop.
+### Sync vs Async Operations
+
+Every async method in NodeAV has a corresponding synchronous variant with the `Sync` suffix:
+
+- **Async methods** (default) - Non-blocking operations using N-API's AsyncWorker. Methods like `decode()`, `encode()`, `read()`, `packets()` return Promises or AsyncGenerators.
+
+- **Sync methods** - Direct FFmpeg calls without AsyncWorker overhead. Same methods with `Sync` suffix: `decodeSync()`, `encodeSync()`, `readSync()`, `packetsSync()`.
+
+The key difference: Async methods don't block the Node.js event loop, allowing other operations to run concurrently. Sync methods block until completion but avoid AsyncWorker overhead, making them faster for sequential processing.
 
 ## Memory Safety Considerations
 
