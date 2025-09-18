@@ -114,7 +114,7 @@ if (hardware) {
 }
 
 console.log(`Creating filter: ${filterChain}`);
-using filter = await FilterAPI.create(filterChain, {
+using filter = FilterAPI.create(filterChain, {
   timeBase: videoStream.timeBase,
   frameRate: videoStream.avgFrameRate,
   hardware,

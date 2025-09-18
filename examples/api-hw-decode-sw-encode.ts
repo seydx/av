@@ -72,7 +72,7 @@ const decoder = await Decoder.create(videoStream, {
 // Create filter to convert from hardware to software format
 console.log('Setting up format conversion filter...');
 const filterChain = FilterPreset.chain(hw).hwdownload().format([AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P]).build();
-using filter = await FilterAPI.create(filterChain, {
+using filter = FilterAPI.create(filterChain, {
   timeBase: videoStream.timeBase,
   frameRate: videoStream.avgFrameRate,
   hardware: hw,

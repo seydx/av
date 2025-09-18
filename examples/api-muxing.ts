@@ -150,7 +150,7 @@ if (canCopyAudio) {
 
   // Create filter chain that converts to the format needed by AAC encoder
   const filterChain = FilterPreset.chain().aformat(AV_SAMPLE_FMT_FLTP, 48000, 'stereo').asetnsamples(1024).build();
-  audioFilter = await FilterAPI.create(filterChain, {
+  audioFilter = FilterAPI.create(filterChain, {
     timeBase: audioStream.timeBase,
   });
 

@@ -133,7 +133,7 @@ using audioEncoder = await Encoder.create(FF_ENCODER_AAC, {
 // Create audio filter to handle frame size and format conversion
 console.log('Creating audio filter for format conversion...');
 const filterChain = FilterPreset.chain().aformat([AV_SAMPLE_FMT_FLTP], 48000, 'stereo').asetnsamples(1024).build();
-using audioFilter = await FilterAPI.create(filterChain, {
+using audioFilter = FilterAPI.create(filterChain, {
   timeBase: audioStream.timeBase,
 });
 

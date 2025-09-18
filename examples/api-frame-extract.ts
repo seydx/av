@@ -52,7 +52,7 @@ async function extractFrameAsPNG(frameNumber: number) {
 
   // Create filter to convert to RGB24
   const filterChain = FilterPreset.chain().format(AV_PIX_FMT_RGB24).build();
-  using filter = await FilterAPI.create(filterChain, {
+  using filter = FilterAPI.create(filterChain, {
     timeBase: videoStream.timeBase,
     frameRate: videoStream.avgFrameRate,
   });
@@ -224,7 +224,7 @@ async function generateGIF(startTime: number, duration: number) {
 
   // Create filter to convert to RGB24 (GIF requires this)
   const filterChain = FilterPreset.chain().format(AV_PIX_FMT_RGB8).build();
-  using filter = await FilterAPI.create(filterChain, {
+  using filter = FilterAPI.create(filterChain, {
     timeBase: videoStream.timeBase,
     frameRate: videoStream.avgFrameRate,
   });

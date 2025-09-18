@@ -64,7 +64,7 @@ using decoder = await Decoder.create(videoStream);
 // Create filter to upload frames to hardware
 console.log('Setting up hardware upload filter...');
 const filterChain = FilterPreset.chain(hw).format(AV_PIX_FMT_NV12).hwupload().build();
-using filter = await FilterAPI.create(filterChain, {
+using filter = FilterAPI.create(filterChain, {
   timeBase: videoStream.timeBase,
   frameRate: videoStream.avgFrameRate,
   hardware: hw,
