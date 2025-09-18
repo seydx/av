@@ -19,7 +19,7 @@ import type { FilterOptions } from './types.js';
  * import { FilterAPI } from 'node-av/api';
  *
  * // Create video filter - initializes on first frame
- * const filter = await FilterAPI.create('scale=1280:720', {
+ * const filter = FilterAPI.create('scale=1280:720', {
  *   timeBase: video.timeBase,
  * });
  *
@@ -34,7 +34,7 @@ import type { FilterOptions } from './types.js';
  * @example
  * ```typescript
  * // Hardware-accelerated filtering - hw context detected from frame
- * const filter = await FilterAPI.create('hwupload,scale_cuda=1920:1080,hwdownload', {
+ * const filter = FilterAPI.create('hwupload,scale_cuda=1920:1080,hwdownload', {
  *   timeBase: video.timeBase,
  * });
  * // Hardware frames context will be automatically detected from first frame
@@ -89,7 +89,7 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * // Simple video filter
-   * const filter = await FilterAPI.create('scale=640:480', {
+   * const filter = FilterAPI.create('scale=640:480', {
    *   timeBase: video.timeBase
    * });
    * ```
@@ -97,7 +97,7 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * // Complex filter chain
-   * const filter = await FilterAPI.create('crop=640:480:0:0,rotate=PI/4', {
+   * const filter = FilterAPI.create('crop=640:480:0:0,rotate=PI/4', {
    *   timeBase: video.timeBase
    * });
    * ```
@@ -105,7 +105,7 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * // Audio filter
-   * const filter = await FilterAPI.create('volume=0.5,aecho=0.8:0.9:1000:0.3', {
+   * const filter = FilterAPI.create('volume=0.5,aecho=0.8:0.9:1000:0.3', {
    *   timeBase: audio.timeBase
    * });
    * ```
@@ -113,7 +113,7 @@ export class FilterAPI implements Disposable {
    * @see {@link process} For frame processing
    * @see {@link FilterOptions} For configuration options
    */
-  static async create(description: string, options: FilterOptions): Promise<FilterAPI> {
+  static create(description: string, options: FilterOptions): FilterAPI {
     // Create graph
     const graph = new FilterGraph();
     graph.alloc();
@@ -492,10 +492,10 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * // Chain filters
-   * const filter1 = await FilterAPI.create('scale=640:480', {
+   * const filter1 = FilterAPI.create('scale=640:480', {
    *   timeBase: video.timeBase
    * });
-   * const filter2 = await FilterAPI.create('rotate=PI/4', {
+   * const filter2 = FilterAPI.create('rotate=PI/4', {
    *   timeBase: video.timeBase
    * });
    *
@@ -566,10 +566,10 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * // Chain filters
-   * const filter1 = await FilterAPI.create('scale=640:480', {
+   * const filter1 = FilterAPI.create('scale=640:480', {
    *   timeBase: video.timeBase
    * });
-   * const filter2 = await FilterAPI.create('rotate=PI/4', {
+   * const filter2 = FilterAPI.create('rotate=PI/4', {
    *   timeBase: video.timeBase
    * });
    *
@@ -1183,7 +1183,7 @@ export class FilterAPI implements Disposable {
    * @example
    * ```typescript
    * {
-   *   using filter = await FilterAPI.create('scale=640:480', { ... });
+   *   using filter = FilterAPI.create('scale=640:480', { ... });
    *   // Use filter...
    * } // Automatically freed
    * ```

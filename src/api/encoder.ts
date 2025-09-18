@@ -215,6 +215,131 @@ export class Encoder implements Disposable {
   }
 
   /**
+   * Create an encoder with specified codec and options synchronously.
+   * Synchronous version of create.
+   *
+   * Initializes an encoder with the appropriate codec and configuration.
+   * Uses lazy initialization - encoder is opened when first frame is received.
+   * Hardware context will be automatically detected from first frame if not provided.
+   *
+   * Direct mapping to avcodec_find_encoder_by_name() or avcodec_find_encoder().
+   *
+   * @param encoderCodec - Codec name, ID, or instance to use for encoding
+   *
+   * @param options - Encoder configuration options including required timeBase
+   *
+   * @returns Configured encoder instance
+   *
+   * @throws {Error} If encoder not found or timeBase not provided
+   *
+   * @throws {FFmpegError} If codec allocation fails
+   *
+   * @example
+   * ```typescript
+   * // From decoder stream info
+   * const encoder = await Encoder.create(FF_ENCODER_LIBX264, {
+   *   timeBase: video.timeBase,
+   *   bitrate: '5M',
+   *   gopSize: 60,
+   *   options: {
+   *     preset: 'fast',
+   *     crf: '23'
+   *   }
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // With custom stream info
+   * const encoder = await Encoder.create(FF_ENCODER_AAC, {
+   *   timeBase: audio.timeBase,
+   *   bitrate: '192k'
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Hardware encoder
+   * const hw = HardwareContext.auto();
+   * const encoderCodec = hw?.getEncoderCodec('h264') ?? FF_ENCODER_H264_VIDEOTOOLBOX;
+   * const encoder = await Encoder.create(encoderCodec, {
+   *   timeBase: video.timeBase,
+   *   bitrate: '8M'
+   * });
+   * ```
+   *
+   * @see {@link create} For async version
+   */
+  static createSync(encoderCodec: FFEncoderCodec | AVCodecID | Codec, options: EncoderOptions): Encoder {
+    let codec: Codec | null = null;
+    let codecName = '';
+
+    if (encoderCodec instanceof Codec) {
+      codec = encoderCodec;
+      codecName = codec.name ?? 'Unknown';
+    } else if (typeof encoderCodec === 'string') {
+      codec = Codec.findEncoderByName(encoderCodec);
+      codecName = codec?.name ?? encoderCodec;
+    } else {
+      codec = Codec.findEncoder(encoderCodec);
+      codecName = codec?.name ?? encoderCodec.toString();
+    }
+
+    if (!codec) {
+      throw new Error(`Encoder ${codecName} not found`);
+    }
+
+    // Allocate codec context
+    const codecContext = new CodecContext();
+    codecContext.allocContext3(codec);
+
+    // Apply encoder-specific options
+    if (options.gopSize !== undefined) {
+      codecContext.gopSize = options.gopSize;
+    }
+
+    if (options.maxBFrames !== undefined) {
+      codecContext.maxBFrames = options.maxBFrames;
+    }
+
+    // Apply common options
+    if (options.bitrate !== undefined) {
+      const bitrate = typeof options.bitrate === 'string' ? parseBitrate(options.bitrate) : BigInt(options.bitrate);
+      codecContext.bitRate = bitrate;
+    }
+
+    if (options.minRate !== undefined) {
+      const minRate = typeof options.minRate === 'string' ? parseBitrate(options.minRate) : BigInt(options.minRate);
+      codecContext.rcMinRate = minRate;
+    }
+
+    if (options.maxRate !== undefined) {
+      const maxRate = typeof options.maxRate === 'string' ? parseBitrate(options.maxRate) : BigInt(options.maxRate);
+      codecContext.rcMaxRate = maxRate;
+    }
+
+    if (options.bufSize !== undefined) {
+      const bufSize = typeof options.bufSize === 'string' ? parseBitrate(options.bufSize) : BigInt(options.bufSize);
+      codecContext.rcBufferSize = Number(bufSize);
+    }
+
+    if (options.threads !== undefined) {
+      codecContext.threadCount = options.threads;
+    }
+
+    codecContext.timeBase = new Rational(options.timeBase.num, options.timeBase.den);
+    codecContext.pktTimebase = new Rational(options.timeBase.num, options.timeBase.den);
+
+    if (options.frameRate) {
+      codecContext.framerate = new Rational(options.frameRate.num, options.frameRate.den);
+    }
+
+    const opts = options.options ? Dictionary.fromObject(options.options) : undefined;
+
+    return new Encoder(codecContext, codec, opts);
+  }
+
+  /**
    * Check if encoder is open.
    *
    * @example

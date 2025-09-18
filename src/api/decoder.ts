@@ -176,6 +176,104 @@ export class Decoder implements Disposable {
   }
 
   /**
+   * Create a decoder for a media stream synchronously.
+   * Synchronous version of create.
+   *
+   * Initializes a decoder with the appropriate codec and configuration.
+   * Automatically detects and configures hardware acceleration if provided.
+   * Applies custom codec options and threading configuration.
+   *
+   * @param stream - Media stream to decode
+   *
+   * @param options - Decoder configuration options
+   *
+   * @returns Configured decoder instance
+   *
+   * @throws {Error} If decoder not found for codec
+   *
+   * @throws {FFmpegError} If codec initialization fails
+   *
+   * @example
+   * ```typescript
+   * import { MediaInput, Decoder } from 'node-av/api';
+   *
+   * await using input = await MediaInput.open('video.mp4');
+   * using decoder = await Decoder.create(input.video());
+   * ```
+   *
+   * @example
+   * ```typescript
+   * using decoder = await Decoder.create(stream, {
+   *   threads: 4,
+   *   options: {
+   *     'refcounted_frames': '1',
+   *     'skip_frame': 'nonkey'  // Only decode keyframes
+   *   }
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * const hw = HardwareContext.auto();
+   * using decoder = await Decoder.create(stream, {
+   *   hardware: hw,
+   *   threads: 0  // Auto-detect thread count
+   * });
+   * ```
+   *
+   * @see {@link create} For async version
+   */
+  static createSync(stream: Stream, options: DecoderOptions = {}): Decoder {
+    if (!stream) {
+      throw new Error('Stream is required');
+    }
+
+    // Find decoder for this codec
+    const codec = Codec.findDecoder(stream.codecpar.codecId);
+    if (!codec) {
+      throw new Error(`Decoder not found for codec ${stream.codecpar.codecId}`);
+    }
+
+    // Allocate and configure codec context
+    const codecContext = new CodecContext();
+    codecContext.allocContext3(codec);
+
+    // Copy codec parameters to context
+    const ret = codecContext.parametersToContext(stream.codecpar);
+    if (ret < 0) {
+      codecContext.freeContext();
+      FFmpegError.throwIfError(ret, 'Failed to copy codec parameters');
+    }
+
+    // Set packet time base
+    codecContext.pktTimebase = stream.timeBase;
+
+    // Apply options
+    if (options.threads !== undefined) {
+      codecContext.threadCount = options.threads;
+    }
+
+    // Check if this decoder supports hardware acceleration
+    // Only apply hardware acceleration if the decoder supports it
+    // Silently ignore hardware for software decoders
+    const isHWDecoder = codec.isHardwareAcceleratedDecoder();
+    if (isHWDecoder && options.hardware) {
+      codecContext.hwDeviceCtx = options.hardware.deviceContext;
+    }
+
+    const opts = options.options ? Dictionary.fromObject(options.options) : undefined;
+
+    // Open codec synchronously
+    const openRet = codecContext.open2Sync(codec, opts);
+    if (openRet < 0) {
+      codecContext.freeContext();
+      FFmpegError.throwIfError(openRet, 'Failed to open codec');
+    }
+
+    return new Decoder(codecContext, codec, stream, isHWDecoder ? options.hardware : undefined);
+  }
+
+  /**
    * Check if decoder is open.
    *
    * @returns true if decoder is open and ready
