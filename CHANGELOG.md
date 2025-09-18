@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Synchronous Methods for All Async Operations
+
+Added synchronous variants for all async methods to eliminate AsyncWorker overhead and achieve near-native FFmpeg performance. Every async method now has a corresponding `Sync` suffix variant.
+
+**Performance Improvements:**
+- Eliminates N-API AsyncWorker overhead for CPU-bound operations
+- Near-native FFmpeg performance for sequential processing
+
+**Usage:**
+
+```typescript
+// Async version (non-blocking, good for concurrent operations)
+const frame = await decoder.decode(packet);
+for await (const packet of input.packets()) { /* ... */ }
+
+// Sync version (faster for sequential processing)
+const frame = decoder.decodeSync(packet);
+for (const packet of input.packetsSync()) { /* ... */ }
+```
+
 ## [2.0.0] - 2025-09-13
 
 ### Changed
