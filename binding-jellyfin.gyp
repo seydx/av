@@ -386,6 +386,7 @@
               "-l:libiconv.a",
               "-l:libgmp.a",
               "-l:OpenCL.a",
+              "-lpthread",
               "-Wl,-Bdynamic",
               "-lole32",
               "-lshlwapi",
@@ -411,9 +412,14 @@
               "-DNAPI_DISABLE_CPP_EXCEPTIONS"
             ],
             "ldflags": [
+              "-static",
               "-static-libgcc",
               "-static-libstdc++",
               "-Wl,--gc-sections"
+            ],
+            "libraries!": [
+              "-lnode.lib",
+              "-lnode"
             ]
           }
         ]
