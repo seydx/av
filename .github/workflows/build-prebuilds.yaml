@@ -9,6 +9,7 @@ env:
   CACHE_VERSION_LINUX: "v26"
   CACHE_VERSION_MACOS: "v11"
   JELLYFIN_FFMPEG_HASH: "21198ee5630df2b0dabe4bb416e6c9c4a32522ed"
+  UPLOAD_CACHES: true
 
 on:
   workflow_dispatch:
@@ -189,6 +190,14 @@ jobs:
         with:
           path: C:\ffmpeg-cache-${{ matrix.os.arch }}
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
+
+      - name: Upload FFmpeg cache as artifact
+        if: env.UPLOAD_CACHES == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-cache-windows-${{ matrix.os.arch }}
+          path: C:\ffmpeg-cache-${{ matrix.os.arch }}
+          retention-days: 7
 
       - name: Install Node dependencies
         run: |
@@ -406,6 +415,14 @@ jobs:
           path: /opt/ffbuild/prefix
           key: ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-${{ steps.ffmpeg-hash.outputs.hash }}
 
+      - name: Upload FFmpeg cache as artifact
+        if: env.UPLOAD_CACHES == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-cache-linux-${{ matrix.arch }}
+          path: /opt/ffbuild/prefix
+          retention-days: 7
+
       - name: Install Node dependencies
         run: |
           npm install --ignore-scripts
@@ -557,6 +574,14 @@ jobs:
         with:
           path: /opt/ffbuild/prefix
           key: ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-${{ steps.ffmpeg-hash.outputs.hash }}
+
+      - name: Upload FFmpeg cache as artifact
+        if: env.UPLOAD_CACHES == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-cache-macos-${{ matrix.arch }}
+          path: /opt/ffbuild/prefix
+          retention-days: 7
 
       - name: Install Node dependencies
         run: |
