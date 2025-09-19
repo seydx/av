@@ -192,7 +192,6 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
           npm install --ignore-scripts
           npm install -g prebuildify
 
@@ -409,7 +408,6 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
           npm install --ignore-scripts
           npm install -g prebuildify
 
@@ -562,7 +560,6 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          # Use npm install instead of npm ci to avoid issues with optionalDependencies in Node 24
           npm install --ignore-scripts
           npm install -g prebuildify
 
