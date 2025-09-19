@@ -412,14 +412,9 @@
               "-DNAPI_DISABLE_CPP_EXCEPTIONS"
             ],
             "ldflags": [
-              "-static",
               "-static-libgcc",
               "-static-libstdc++",
               "-Wl,--gc-sections"
-            ],
-            "libraries!": [
-              "-lnode.lib",
-              "-lnode"
             ]
           }
         ]
