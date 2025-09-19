@@ -8,6 +8,7 @@ env:
   CACHE_VERSION_WINDOWS: "v13"
   CACHE_VERSION_LINUX: "v26"
   CACHE_VERSION_MACOS: "v11"
+  JELLYFIN_FFMPEG_HASH: "21198ee5630df2b0dabe4bb416e6c9c4a32522ed"
 
 on:
   workflow_dispatch:
@@ -87,7 +88,12 @@ jobs:
       - name: Get Jellyfin FFmpeg commit hash
         id: ffmpeg-hash
         shell: bash
-        run: echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ env.JELLYFIN_FFMPEG_HASH }}" ]; then
+            echo "hash=${{ env.JELLYFIN_FFMPEG_HASH }}" >> $GITHUB_OUTPUT
+          else
+            echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Prepare directories
         run: |
@@ -101,7 +107,9 @@ jobs:
         with:
           path: C:\ffmpeg-cache-${{ matrix.os.arch }}
           key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
-          restore-keys: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-
+          restore-keys: |
+            ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
+            ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-
 
       - name: Copy cache to MSYS2 location
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -302,7 +310,12 @@ jobs:
 
       - name: Get Jellyfin FFmpeg commit hash
         id: ffmpeg-hash
-        run: echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ env.JELLYFIN_FFMPEG_HASH }}" ]; then
+            echo "hash=${{ env.JELLYFIN_FFMPEG_HASH }}" >> $GITHUB_OUTPUT
+          else
+            echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Prepare directories
         run: |
@@ -316,7 +329,9 @@ jobs:
         with:
           path: /opt/ffbuild/prefix
           key: ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-${{ steps.ffmpeg-hash.outputs.hash }}
-          restore-keys: ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-
+          restore-keys: |
+            ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-${{ steps.ffmpeg-hash.outputs.hash }}
+            ffmpeg-linux-${{ matrix.arch }}-${{ env.CACHE_VERSION_LINUX }}-
 
       - name: Build FFmpeg
         id: build-ffmpeg
@@ -475,7 +490,12 @@ jobs:
 
       - name: Get Jellyfin FFmpeg commit hash
         id: ffmpeg-hash
-        run: echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ env.JELLYFIN_FFMPEG_HASH }}" ]; then
+            echo "hash=${{ env.JELLYFIN_FFMPEG_HASH }}" >> $GITHUB_OUTPUT
+          else
+            echo "hash=$(git -C externals/jellyfin-ffmpeg rev-parse HEAD)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Prepare directories
         run: |
@@ -489,7 +509,9 @@ jobs:
         with:
           path: /opt/ffbuild/prefix
           key: ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-${{ steps.ffmpeg-hash.outputs.hash }}
-          restore-keys: ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-
+          restore-keys: |
+            ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-${{ steps.ffmpeg-hash.outputs.hash }}
+            ffmpeg-macos-${{ matrix.arch }}-${{ env.CACHE_VERSION_MACOS }}-
 
       - name: Build FFmpeg
         id: build-ffmpeg
@@ -591,13 +613,13 @@ jobs:
 
       - name: Run Tests
         # Only run tests when building for the native architecture
-        if: matrix.arch == 'arm64'  # macos-latest runs on ARM64
+        if: matrix.arch == 'arm64' # macos-latest runs on ARM64
         run: |
           export PKG_CONFIG_PATH="/opt/ffbuild/prefix/lib/pkgconfig:${PKG_CONFIG_PATH}"
           npm run test:all
 
       - name: Skip Tests (Cross-compilation)
-        if: matrix.arch == 'x64'  # x64 is cross-compiled on ARM64 runners
+        if: matrix.arch == 'x64' # x64 is cross-compiled on ARM64 runners
         run: |
           echo "⚠️ Skipping tests for x64 build on ARM64 runner"
           echo "Cross-compiled binary (x64) cannot be tested on ARM64 host"
