@@ -319,7 +319,7 @@
                     "/clang64/ffbuild/lib"
                   ],
                   "libraries": [
-                    "-lvpl"
+                    "-l:libvpl.a"
                   ]
                 }
               ],
@@ -413,13 +413,7 @@
             "ldflags": [
               "-static-libgcc",
               "-static-libstdc++",
-              "-Wl,--gc-sections",
-              "-Wl,--whole-archive",
-              "-Wl,-Bstatic",
-              "-lwinpthread",
-              "-Wl,-Bdynamic",
-              "-Wl,--no-whole-archive",
-              "-Wl,--as-needed"
+              "-Wl,--gc-sections"
             ]
           }
         ]
