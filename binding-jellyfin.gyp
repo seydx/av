@@ -1,424 +1,493 @@
 {
-  "targets": [
-    {
-      "target_name": "node-av",
-      "sources": [
-        "src/bindings/index.cc",
-        "src/bindings/packet.cc",
-        "src/bindings/frame.cc",
-        "src/bindings/frame_async.cc",
-        "src/bindings/frame_sync.cc",
-        "src/bindings/codec.cc",
-        "src/bindings/codec_context.cc",
-        "src/bindings/codec_context_async.cc",
-        "src/bindings/codec_context_sync.cc",
-        "src/bindings/codec_parameters.cc",
-        "src/bindings/codec_parser.cc",
-        "src/bindings/format_context.cc",
-        "src/bindings/format_context_async.cc",
-        "src/bindings/format_context_sync.cc",
-        "src/bindings/stream.cc",
-        "src/bindings/dictionary.cc",
-        "src/bindings/input_format.cc",
-        "src/bindings/input_format_async.cc",
-        "src/bindings/input_format_sync.cc",
-        "src/bindings/output_format.cc",
-        "src/bindings/io_context.cc",
-        "src/bindings/io_context_async.cc",
-        "src/bindings/io_context_sync.cc",
-        "src/bindings/error.cc",
-        "src/bindings/software_scale_context.cc",
-        "src/bindings/software_scale_context_async.cc",
-        "src/bindings/software_scale_context_sync.cc",
-        "src/bindings/software_resample_context.cc",
-        "src/bindings/software_resample_context_async.cc",
-        "src/bindings/software_resample_context_sync.cc",
-        "src/bindings/filter.cc",
-        "src/bindings/filter_context.cc",
-        "src/bindings/filter_context_async.cc",
-        "src/bindings/filter_context_sync.cc",
-        "src/bindings/filter_graph.cc",
-        "src/bindings/filter_graph_async.cc",
-        "src/bindings/filter_graph_sync.cc",
-        "src/bindings/filter_inout.cc",
-        "src/bindings/hardware_device_context.cc",
-        "src/bindings/hardware_frames_context.cc",
-        "src/bindings/hardware_frames_context_async.cc",
-        "src/bindings/hardware_frames_context_sync.cc",
-        "src/bindings/log.cc",
-        "src/bindings/utilities.cc",
-        "src/bindings/audio_fifo.cc",
-        "src/bindings/audio_fifo_async.cc",
-        "src/bindings/audio_fifo_sync.cc",
-        "src/bindings/bitstream_filter.cc",
-        "src/bindings/bitstream_filter_context.cc",
-        "src/bindings/bitstream_filter_context_async.cc",
-        "src/bindings/bitstream_filter_context_sync.cc",
-        "src/bindings/option.cc"
-      ],
-      "include_dirs": [
-        "<!@(node -p \"require('node-addon-api').include\")"
-      ],
-      "dependencies": [
-        "<!(node -p \"require('node-addon-api').gyp\")"
-      ],
-      "cflags!": [
-        "-fno-exceptions"
-      ],
-      "cflags_cc!": [
-        "-fno-exceptions"
-      ],
-      "defines": [
-        "NAPI_DISABLE_CPP_EXCEPTIONS"
-      ],
-      "conditions": [
-        [
-          "OS=='mac'",
-          {
-            "include_dirs": [
-              "/opt/ffbuild/prefix/include"
+    "targets": [
+        {
+            "target_name": "node-av",
+            "sources": [
+                "src/bindings/index.cc",
+                "src/bindings/packet.cc",
+                "src/bindings/frame.cc",
+                "src/bindings/frame_async.cc",
+                "src/bindings/frame_sync.cc",
+                "src/bindings/codec.cc",
+                "src/bindings/codec_context.cc",
+                "src/bindings/codec_context_async.cc",
+                "src/bindings/codec_context_sync.cc",
+                "src/bindings/codec_parameters.cc",
+                "src/bindings/codec_parser.cc",
+                "src/bindings/format_context.cc",
+                "src/bindings/format_context_async.cc",
+                "src/bindings/format_context_sync.cc",
+                "src/bindings/stream.cc",
+                "src/bindings/dictionary.cc",
+                "src/bindings/input_format.cc",
+                "src/bindings/input_format_async.cc",
+                "src/bindings/input_format_sync.cc",
+                "src/bindings/output_format.cc",
+                "src/bindings/io_context.cc",
+                "src/bindings/io_context_async.cc",
+                "src/bindings/io_context_sync.cc",
+                "src/bindings/error.cc",
+                "src/bindings/software_scale_context.cc",
+                "src/bindings/software_scale_context_async.cc",
+                "src/bindings/software_scale_context_sync.cc",
+                "src/bindings/software_resample_context.cc",
+                "src/bindings/software_resample_context_async.cc",
+                "src/bindings/software_resample_context_sync.cc",
+                "src/bindings/filter.cc",
+                "src/bindings/filter_context.cc",
+                "src/bindings/filter_context_async.cc",
+                "src/bindings/filter_context_sync.cc",
+                "src/bindings/filter_graph.cc",
+                "src/bindings/filter_graph_async.cc",
+                "src/bindings/filter_graph_sync.cc",
+                "src/bindings/filter_inout.cc",
+                "src/bindings/hardware_device_context.cc",
+                "src/bindings/hardware_frames_context.cc",
+                "src/bindings/hardware_frames_context_async.cc",
+                "src/bindings/hardware_frames_context_sync.cc",
+                "src/bindings/log.cc",
+                "src/bindings/utilities.cc",
+                "src/bindings/audio_fifo.cc",
+                "src/bindings/audio_fifo_async.cc",
+                "src/bindings/audio_fifo_sync.cc",
+                "src/bindings/bitstream_filter.cc",
+                "src/bindings/bitstream_filter_context.cc",
+                "src/bindings/bitstream_filter_context_async.cc",
+                "src/bindings/bitstream_filter_context_sync.cc",
+                "src/bindings/option.cc",
             ],
-            "library_dirs": [
-              "/opt/ffbuild/prefix/lib"
-            ],
-            "libraries": [
-              "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavformat.a",
-              "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavcodec.a",
-              "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavfilter.a",
-              "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavutil.a",
-              "-Wl,-force_load,/opt/ffbuild/prefix/lib/libswscale.a",
-              "-Wl,-force_load,/opt/ffbuild/prefix/lib/libswresample.a",
-              "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavdevice.a",
-              "-L/opt/ffbuild/prefix/lib",
-              "/opt/ffbuild/prefix/lib/libx264.a",
-              "/opt/ffbuild/prefix/lib/libx265.a",
-              "/opt/ffbuild/prefix/lib/libvpx.a",
-              "/opt/ffbuild/prefix/lib/libopus.a",
-              "<!@(ls /opt/ffbuild/prefix/lib/libNE10.a 2>/dev/null || echo '')",
-              "/opt/ffbuild/prefix/lib/libmp3lame.a",
-              "/opt/ffbuild/prefix/lib/libdav1d.a",
-              "/opt/ffbuild/prefix/lib/libSvtAv1Enc.a",
-              "/opt/ffbuild/prefix/lib/libogg.a",
-              "/opt/ffbuild/prefix/lib/libvorbis.a",
-              "/opt/ffbuild/prefix/lib/libvorbisenc.a",
-              "/opt/ffbuild/prefix/lib/libtheora.a",
-              "/opt/ffbuild/prefix/lib/libtheoraenc.a",
-              "/opt/ffbuild/prefix/lib/libtheoradec.a",
-              "/opt/ffbuild/prefix/lib/libwebp.a",
-              "/opt/ffbuild/prefix/lib/libwebpmux.a",
-              "<!@(ls /opt/ffbuild/prefix/lib/libwebpdemux.a 2>/dev/null || echo '')",
-              "/opt/ffbuild/prefix/lib/libsrt.a",
-              "<!@(ls /opt/ffbuild/prefix/lib/libchromaprint.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libopenmpt.a 2>/dev/null || echo '')",
-              "/opt/ffbuild/prefix/lib/libass.a",
-              "/opt/ffbuild/prefix/lib/libharfbuzz.a",
-              "/opt/ffbuild/prefix/lib/libfontconfig.a",
-              "/opt/ffbuild/prefix/lib/libfreetype.a",
-              "/opt/ffbuild/prefix/lib/libfribidi.a",
-              "/opt/ffbuild/prefix/lib/libbluray.a",
-              "/opt/ffbuild/prefix/lib/libudfread.a",
-              "<!@(ls /opt/ffbuild/prefix/lib/libxml2.a 2>/dev/null || echo '')",
-              "/opt/ffbuild/prefix/lib/libz.a",
-              "<!@(ls /opt/ffbuild/prefix/lib/libbz2.a 2>/dev/null || echo '')",
-              "/opt/ffbuild/prefix/lib/liblzma.a",
-              "<!@(ls /opt/ffbuild/prefix/lib/libzvbi.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libzimg.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libgmp.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libssl.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libcrypto.a 2>/dev/null || echo '')",
-              "-liconv",
-              "-lxml2",
-              "-lbz2",
-              "-framework CoreFoundation",
-              "-framework CoreVideo",
-              "-framework CoreMedia",
-              "-framework CoreServices",
-              "-framework AudioToolbox",
-              "-framework VideoToolbox",
-              "-framework AVFoundation",
-              "-framework AppKit",
-              "-framework Accelerate",
-              "-framework Security",
-              "-framework IOKit",
-              "-framework OpenGL",
-              "-framework Metal",
-              "-framework OpenCL"
-            ],
-            "xcode_settings": {
-              "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
-              "CLANG_CXX_LIBRARY": "libc++",
-              "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
-              "MACOSX_DEPLOYMENT_TARGET": "12.0",
-              "OTHER_LDFLAGS": [
-                "-Wl,-dead_strip",
-                "-Wl,-no_warn_duplicate_libraries"
-              ],
-              "CONDITIONS": [
+            "include_dirs": ["<!@(node -p \"require('node-addon-api').include\")"],
+            "dependencies": ["<!(node -p \"require('node-addon-api').gyp\")"],
+            "cflags!": ["-fno-exceptions"],
+            "cflags_cc!": ["-fno-exceptions"],
+            "defines": ["NAPI_DISABLE_CPP_EXCEPTIONS"],
+            "conditions": [
                 [
-                  "target_arch=='x64'",
-                  {
-                    "ARCHS": [
-                      "x86_64"
-                    ]
-                  }
+                    "OS=='mac'",
+                    {
+                        "include_dirs": ["/opt/ffbuild/prefix/include"],
+                        "library_dirs": ["/opt/ffbuild/prefix/lib"],
+                        "libraries": [
+                            "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavformat.a",
+                            "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavcodec.a",
+                            "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavfilter.a",
+                            "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavutil.a",
+                            "-Wl,-force_load,/opt/ffbuild/prefix/lib/libswscale.a",
+                            "-Wl,-force_load,/opt/ffbuild/prefix/lib/libswresample.a",
+                            "-Wl,-force_load,/opt/ffbuild/prefix/lib/libavdevice.a",
+                            "-L/opt/ffbuild/prefix/lib",
+                            "/opt/ffbuild/prefix/lib/libx264.a",
+                            "/opt/ffbuild/prefix/lib/libx265.a",
+                            "/opt/ffbuild/prefix/lib/libvpx.a",
+                            "/opt/ffbuild/prefix/lib/libopus.a",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libNE10.a 2>/dev/null || echo '')",
+                            "/opt/ffbuild/prefix/lib/libmp3lame.a",
+                            "/opt/ffbuild/prefix/lib/libdav1d.a",
+                            "/opt/ffbuild/prefix/lib/libSvtAv1Enc.a",
+                            "/opt/ffbuild/prefix/lib/libogg.a",
+                            "/opt/ffbuild/prefix/lib/libvorbis.a",
+                            "/opt/ffbuild/prefix/lib/libvorbisenc.a",
+                            "/opt/ffbuild/prefix/lib/libtheora.a",
+                            "/opt/ffbuild/prefix/lib/libtheoraenc.a",
+                            "/opt/ffbuild/prefix/lib/libtheoradec.a",
+                            "/opt/ffbuild/prefix/lib/libwebp.a",
+                            "/opt/ffbuild/prefix/lib/libwebpmux.a",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libwebpdemux.a 2>/dev/null || echo '')",
+                            "/opt/ffbuild/prefix/lib/libsrt.a",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libchromaprint.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libopenmpt.a 2>/dev/null || echo '')",
+                            "/opt/ffbuild/prefix/lib/libass.a",
+                            "/opt/ffbuild/prefix/lib/libharfbuzz.a",
+                            "/opt/ffbuild/prefix/lib/libfontconfig.a",
+                            "/opt/ffbuild/prefix/lib/libfreetype.a",
+                            "/opt/ffbuild/prefix/lib/libfribidi.a",
+                            "/opt/ffbuild/prefix/lib/libbluray.a",
+                            "/opt/ffbuild/prefix/lib/libudfread.a",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libxml2.a 2>/dev/null || echo '')",
+                            "/opt/ffbuild/prefix/lib/libz.a",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libbz2.a 2>/dev/null || echo '')",
+                            "/opt/ffbuild/prefix/lib/liblzma.a",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libzvbi.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libzimg.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libgmp.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libssl.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libcrypto.a 2>/dev/null || echo '')",
+                            "-liconv",
+                            "-lxml2",
+                            "-lbz2",
+                            "-framework CoreFoundation",
+                            "-framework CoreVideo",
+                            "-framework CoreMedia",
+                            "-framework CoreServices",
+                            "-framework AudioToolbox",
+                            "-framework VideoToolbox",
+                            "-framework AVFoundation",
+                            "-framework AppKit",
+                            "-framework Accelerate",
+                            "-framework Security",
+                            "-framework IOKit",
+                            "-framework OpenGL",
+                            "-framework Metal",
+                            "-framework OpenCL",
+                        ],
+                        "xcode_settings": {
+                            "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
+                            "CLANG_CXX_LIBRARY": "libc++",
+                            "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
+                            "MACOSX_DEPLOYMENT_TARGET": "12.0",
+                            "OTHER_LDFLAGS": [
+                                "-Wl,-dead_strip",
+                                "-Wl,-no_warn_duplicate_libraries",
+                            ],
+                            "CONDITIONS": [
+                                ["target_arch=='x64'", {"ARCHS": ["x86_64"]}],
+                                ["target_arch=='arm64'", {"ARCHS": ["arm64"]}],
+                            ],
+                        },
+                    },
                 ],
                 [
-                  "target_arch=='arm64'",
-                  {
-                    "ARCHS": [
-                      "arm64"
-                    ]
-                  }
-                ]
-              ]
-            }
-          }
-        ],
-        [
-          "OS=='linux'",
-          {
-            "include_dirs": [
-              "/opt/ffbuild/prefix/include"
+                    "OS=='linux'",
+                    {
+                        "include_dirs": ["/opt/ffbuild/prefix/include"],
+                        "library_dirs": ["/opt/ffbuild/prefix/lib"],
+                        "libraries": [
+                            "-L/opt/ffbuild/prefix/lib",
+                            "-Wl,--whole-archive",
+                            "-Wl,--start-group",
+                            "/opt/ffbuild/prefix/lib/libavdevice.a",
+                            "/opt/ffbuild/prefix/lib/libavfilter.a",
+                            "/opt/ffbuild/prefix/lib/libavformat.a",
+                            "/opt/ffbuild/prefix/lib/libavcodec.a",
+                            "/opt/ffbuild/prefix/lib/libswscale.a",
+                            "/opt/ffbuild/prefix/lib/libswresample.a",
+                            "/opt/ffbuild/prefix/lib/libavutil.a",
+                            "-Wl,--end-group",
+                            "-Wl,--no-whole-archive",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libx264.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libx265.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libvpx.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libopus.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libmp3lame.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libfdk-aac.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libdav1d.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libSvtAv1Enc.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libogg.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libvorbis.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libvorbisenc.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libtheora.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libtheoraenc.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libtheoradec.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libwebp.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libwebpmux.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libwebpdemux.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libsharpyuv.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libsrt.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libchromaprint.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libopenmpt.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libmpg123.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libvorbisfile.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libass.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libharfbuzz.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libfontconfig.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libfreetype.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libfribidi.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libpng.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libpng16.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libbluray.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libudfread.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libxml2.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libexpat.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libz.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libbz2.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/liblzma.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libzvbi.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libzimg.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libgmp.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libssl.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libcrypto.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libshaderc_combined.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libplacebo.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libglslang.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libMachineIndependent.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libGenericCodeGen.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libSPIRV.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libOGLCompiler.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libOSDependent.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libglslang-default-resource-limits.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/liblcms2.a 2>/dev/null || echo '')",
+                            "<!@(ls /opt/ffbuild/prefix/lib/libOpenCL.a 2>/dev/null || echo '')",
+                            "-lpthread",
+                            "-lm",
+                            "-ldl",
+                            "-lrt",
+                            "-latomic",
+                            "-lstdc++",
+                        ],
+                        "cflags": ["-fPIC", "-O3", "-fno-finite-math-only"],
+                        "cflags_cc": [
+                            "-fPIC",
+                            "-O3",
+                            "-fno-finite-math-only",
+                            "-std=c++17",
+                        ],
+                        "ldflags": [
+                            "-Wl,-Bsymbolic",
+                            "-Wl,--allow-multiple-definition",
+                            "-Wl,-rpath,'$$ORIGIN'",
+                            "-Wl,-z,origin",
+                            "-Wl,-z,notext",
+                        ],
+                        "conditions": [
+                            [
+                                "target_arch=='x64'",
+                                {
+                                    "libraries": [
+                                        "<!@(ls /opt/ffbuild/prefix/lib/libvpl.a 2>/dev/null || echo '')",
+                                        "-lva",
+                                        "-lva-drm",
+                                        "-lva-x11",
+                                        "-ldrm",
+                                        "-lX11",
+                                    ]
+                                },
+                            ],
+                            [
+                                "target_arch=='arm64'",
+                                {
+                                    "libraries": [
+                                        "<!@(ls /opt/ffbuild/prefix/lib/librockchip_mpp.a 2>/dev/null || echo '')",
+                                        "<!@(ls /opt/ffbuild/prefix/lib/librga.a 2>/dev/null || echo '')",
+                                    ]
+                                },
+                            ],
+                        ],
+                    },
+                ],
+                [
+                    "OS=='win'",
+                    {
+                        "variables": {"os_type%": '<!@(node -p "os.type()")'},
+                        "conditions": [
+                            # MinGW/MSYS2 build configuration
+                            [
+                                "os_type.startswith('MINGW') or os_type.startswith('MSYS')",
+                                {
+                                    "conditions": [
+                                        [
+                                            "target_arch=='x64'",
+                                            {
+                                                "include_dirs": [
+                                                    "/clang64/ffbuild/include"
+                                                ],
+                                                "library_dirs": [
+                                                    "/clang64/ffbuild/lib"
+                                                ],
+                                                "libraries": ["-l:libvpl.a"],
+                                            },
+                                        ],
+                                        [
+                                            "target_arch=='arm64'",
+                                            {
+                                                "include_dirs": [
+                                                    "/clangarm64/ffbuild/include"
+                                                ],
+                                                "library_dirs": [
+                                                    "/clangarm64/ffbuild/lib"
+                                                ],
+                                            },
+                                        ],
+                                    ],
+                                    "libraries": [
+                                        "-Wl,-Bstatic",
+                                        "-l:libavformat.a",
+                                        "-l:libavcodec.a",
+                                        "-l:libavfilter.a",
+                                        "-l:libavdevice.a",
+                                        "-l:libavutil.a",
+                                        "-l:libswscale.a",
+                                        "-l:libswresample.a",
+                                        "-l:libpostproc.a",
+                                        "-l:libx264.a",
+                                        "-l:libx265.a",
+                                        "-l:libvpx.a",
+                                        "-l:libopus.a",
+                                        "-l:libmp3lame.a",
+                                        "-l:libfdk-aac.a",
+                                        "-l:libdav1d.a",
+                                        "-l:libSvtAv1Enc.a",
+                                        "-l:libogg.a",
+                                        "-l:libvorbis.a",
+                                        "-l:libvorbisenc.a",
+                                        "-l:libtheora.a",
+                                        "-l:libtheoraenc.a",
+                                        "-l:libtheoradec.a",
+                                        "-l:libwebp.a",
+                                        "-l:libwebpmux.a",
+                                        "-l:libwebpdemux.a",
+                                        "-l:libzimg.a",
+                                        "-l:libxml2.a",
+                                        "-l:libfontconfig.a",
+                                        "-l:libfreetype.a",
+                                        "-l:libharfbuzz.a",
+                                        "-l:libfribidi.a",
+                                        "-l:libass.a",
+                                        "-l:libunibreak.a",
+                                        "-l:libbluray.a",
+                                        "-l:libopenmpt.a",
+                                        "-l:libvorbisfile.a",
+                                        "-l:libchromaprint.a",
+                                        "-l:libfftw3f.a",
+                                        "-l:libsharpyuv.a",
+                                        "-l:libpng.a",
+                                        "-l:libbrotlidec.a",
+                                        "-l:libbrotlicommon.a",
+                                        "-l:libintl.a",
+                                        "-l:libz.a",
+                                        "-l:libbz2.a",
+                                        "-l:liblzma.a",
+                                        "-l:libiconv.a",
+                                        "-l:libgmp.a",
+                                        "-l:OpenCL.a",
+                                        "-Wl,-Bdynamic",
+                                        "-lole32",
+                                        "-lshlwapi",
+                                        "-lcfgmgr32",
+                                        "-lws2_32",
+                                        "-lsecur32",
+                                        "-lbcrypt",
+                                        "-lstrmiids",
+                                        "-lmfuuid",
+                                        "-lpsapi",
+                                    ],
+                                    "cflags": [
+                                        "-fPIC",
+                                        "-O3",
+                                        "-fexceptions",
+                                        "-DNAPI_DISABLE_CPP_EXCEPTIONS",
+                                    ],
+                                    "cflags_cc": [
+                                        "-fPIC",
+                                        "-O3",
+                                        "-fexceptions",
+                                        "-std=c++17",
+                                        "-DNAPI_DISABLE_CPP_EXCEPTIONS",
+                                    ],
+                                    "ldflags": [
+                                        "-static-libgcc",
+                                        "-static-libstdc++",
+                                        "-Wl,--gc-sections",
+                                    ],
+                                },
+                            ],
+                            # MSVC build configuration
+                            [
+                                "os_type=='Windows_NT'",
+                                {
+                                    "msvs_settings": {
+                                        "VCCLCompilerTool": {
+                                            "ExceptionHandling": 1,
+                                            "RuntimeLibrary": 0,  # /MT for static runtime
+                                        }
+                                    },
+                                    "include_dirs": [
+                                        "ffmpeg-msvc/build/include"
+                                    ],
+                                    "library_dirs": ["ffmpeg-msvc/build/lib"],
+                                    "libraries": [
+                                        # FFmpeg core libraries
+                                        "avformat.lib",
+                                        "avcodec.lib",
+                                        "avfilter.lib",
+                                        "avdevice.lib",
+                                        "avutil.lib",
+                                        "swscale.lib",
+                                        "swresample.lib",
+                                        "postproc.lib",
+                                        # Codec libraries (from ffmpeg-msvc build)
+                                        "x264.lib",
+                                        "x265.lib",
+                                        "vpx.lib",
+                                        "opus.lib",
+                                        "mp3lame.lib",
+                                        "fdk-aac.lib",
+                                        "dav1d.lib",
+                                        "SvtAv1Enc.lib",
+                                        "ogg.lib",
+                                        "vorbis.lib",
+                                        "vorbisenc.lib",
+                                        "webp.lib",
+                                        "webpmux.lib",
+                                        "webpdemux.lib",
+                                        "zimg.lib",
+                                        # Text/Subtitle rendering
+                                        "ass.lib",
+                                        "harfbuzz.lib",
+                                        "freetype.lib",
+                                        "fribidi.lib",
+                                        "fontconfig.lib",
+                                        # Support libraries
+                                        "xml2.lib",
+                                        "z.lib",
+                                        "lzma.lib",
+                                        "iconv.lib",
+                                        # OpenCL
+                                        "OpenCL.lib",
+                                        # Vulkan/glslang libraries (if enabled)
+                                        "glslang.lib",
+                                        "MachineIndependent.lib",
+                                        "GenericCodeGen.lib",
+                                        "SPVRemapper.lib",
+                                        "SPIRV.lib",
+                                        "OSDependent.lib",
+                                        "HLSL.lib",
+                                        "OGLCompiler.lib",
+                                        "SPIRV-Tools-opt.lib",
+                                        "SPIRV-Tools.lib",
+                                        # Windows system libraries
+                                        "ole32.lib",
+                                        "shlwapi.lib",
+                                        "cfgmgr32.lib",
+                                        "ws2_32.lib",
+                                        "secur32.lib",
+                                        "bcrypt.lib",
+                                        "strmiids.lib",
+                                        "mfuuid.lib",
+                                        "psapi.lib",
+                                        "user32.lib",
+                                        "gdi32.lib",
+                                        "advapi32.lib",
+                                    ],
+                                    "conditions": [
+                                        # x64-specific libraries and features
+                                        [
+                                            "target_arch=='x64'",
+                                            {
+                                                "libraries": [
+                                                    # Intel QuickSync (x64 only)
+                                                    "vpl.lib"
+                                                    # NVIDIA CUDA NPP libraries are linked by FFmpeg if CUDA is available
+                                                    # FFmpeg handles CUDA/NPP linking dynamically
+                                                ]
+                                            },
+                                        ],
+                                        # ARM64-specific features
+                                        [
+                                            "target_arch=='arm64'",
+                                            {
+                                                "libraries": [
+                                                    # MediaFoundation is enabled for ARM64
+                                                    # but doesn't require additional libraries
+                                                ]
+                                            },
+                                        ],
+                                    ],
+                                },
+                            ],
+                        ],
+                    },
+                ],
             ],
-            "library_dirs": [
-              "/opt/ffbuild/prefix/lib"
-            ],
-            "libraries": [
-              "-L/opt/ffbuild/prefix/lib",
-              "-Wl,--whole-archive",
-              "-Wl,--start-group",
-              "/opt/ffbuild/prefix/lib/libavdevice.a",
-              "/opt/ffbuild/prefix/lib/libavfilter.a",
-              "/opt/ffbuild/prefix/lib/libavformat.a",
-              "/opt/ffbuild/prefix/lib/libavcodec.a",
-              "/opt/ffbuild/prefix/lib/libswscale.a",
-              "/opt/ffbuild/prefix/lib/libswresample.a",
-              "/opt/ffbuild/prefix/lib/libavutil.a",
-              "-Wl,--end-group",
-              "-Wl,--no-whole-archive",
-              "<!@(ls /opt/ffbuild/prefix/lib/libx264.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libx265.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libvpx.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libopus.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libmp3lame.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libfdk-aac.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libdav1d.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libSvtAv1Enc.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libogg.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libvorbis.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libvorbisenc.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libtheora.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libtheoraenc.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libtheoradec.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libwebp.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libwebpmux.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libwebpdemux.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libsharpyuv.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libsrt.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libchromaprint.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libopenmpt.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libmpg123.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libvorbisfile.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libass.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libharfbuzz.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libfontconfig.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libfreetype.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libfribidi.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libpng.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libpng16.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libbluray.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libudfread.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libxml2.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libexpat.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libz.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libbz2.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/liblzma.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libzvbi.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libzimg.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libgmp.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libssl.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libcrypto.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libshaderc_combined.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libplacebo.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libglslang.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libMachineIndependent.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libGenericCodeGen.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libSPIRV.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libOGLCompiler.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libOSDependent.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libglslang-default-resource-limits.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/liblcms2.a 2>/dev/null || echo '')",
-              "<!@(ls /opt/ffbuild/prefix/lib/libOpenCL.a 2>/dev/null || echo '')",
-              "-lpthread",
-              "-lm",
-              "-ldl",
-              "-lrt",
-              "-latomic",
-              "-lstdc++"
-            ],
-            "cflags": [
-              "-fPIC",
-              "-O3",
-              "-fno-finite-math-only"
-            ],
-            "cflags_cc": [
-              "-fPIC",
-              "-O3",
-              "-fno-finite-math-only",
-              "-std=c++17"
-            ],
-            "ldflags": [
-              "-Wl,-Bsymbolic",
-              "-Wl,--allow-multiple-definition",
-              "-Wl,-rpath,'$$ORIGIN'",
-              "-Wl,-z,origin",
-              "-Wl,-z,notext"
-            ],
-            "conditions": [
-              [
-                "target_arch=='x64'",
-                {
-                  "libraries": [
-                    "<!@(ls /opt/ffbuild/prefix/lib/libvpl.a 2>/dev/null || echo '')",
-                    "-lva",
-                    "-lva-drm",
-                    "-lva-x11",
-                    "-ldrm",
-                    "-lX11"
-                  ]
-                }
-              ],
-              [
-                "target_arch=='arm64'",
-                {
-                  "libraries": [
-                    "<!@(ls /opt/ffbuild/prefix/lib/librockchip_mpp.a 2>/dev/null || echo '')",
-                    "<!@(ls /opt/ffbuild/prefix/lib/librga.a 2>/dev/null || echo '')"
-                  ]
-                }
-              ]
-            ]
-          }
-        ],
-        [
-          "OS=='win' or (OS!='mac' and OS!='linux')",
-          {
-            "msvs_settings": {
-              "VCCLCompilerTool": {
-                "ExceptionHandling": 1
-              }
-            },
-            "conditions": [
-              [
-                "target_arch=='x64'",
-                {
-                  "include_dirs": [
-                    "/clang64/ffbuild/include"
-                  ],
-                  "library_dirs": [
-                    "/clang64/ffbuild/lib"
-                  ],
-                  "libraries": [
-                    "-l:libvpl.a"
-                  ]
-                }
-              ],
-              [
-                "target_arch=='arm64'",
-                {
-                  "include_dirs": [
-                    "/clangarm64/ffbuild/include"
-                  ],
-                  "library_dirs": [
-                    "/clangarm64/ffbuild/lib"
-                  ]
-                }
-              ]
-            ],
-            "libraries": [
-              "-Wl,-Bstatic",
-              "-l:libavformat.a",
-              "-l:libavcodec.a",
-              "-l:libavfilter.a",
-              "-l:libavdevice.a",
-              "-l:libavutil.a",
-              "-l:libswscale.a",
-              "-l:libswresample.a",
-              "-l:libpostproc.a",
-              "-l:libx264.a",
-              "-l:libx265.a",
-              "-l:libvpx.a",
-              "-l:libopus.a",
-              "-l:libmp3lame.a",
-              "-l:libfdk-aac.a",
-              "-l:libdav1d.a",
-              "-l:libSvtAv1Enc.a",
-              "-l:libogg.a",
-              "-l:libvorbis.a",
-              "-l:libvorbisenc.a",
-              "-l:libtheora.a",
-              "-l:libtheoraenc.a",
-              "-l:libtheoradec.a",
-              "-l:libwebp.a",
-              "-l:libwebpmux.a",
-              "-l:libwebpdemux.a",
-              "-l:libzimg.a",
-              "-l:libxml2.a",
-              "-l:libfontconfig.a",
-              "-l:libfreetype.a",
-              "-l:libharfbuzz.a",
-              "-l:libfribidi.a",
-              "-l:libass.a",
-              "-l:libunibreak.a",
-              "-l:libbluray.a",
-              "-l:libopenmpt.a",
-              "-l:libvorbisfile.a",
-              "-l:libchromaprint.a",
-              "-l:libfftw3f.a",
-              "-l:libsharpyuv.a",
-              "-l:libpng.a",
-              "-l:libbrotlidec.a",
-              "-l:libbrotlicommon.a",
-              "-l:libintl.a",
-              "-l:libz.a",
-              "-l:libbz2.a",
-              "-l:liblzma.a",
-              "-l:libiconv.a",
-              "-l:libgmp.a",
-              "-l:OpenCL.a",
-              "-lpthread",
-              "-Wl,-Bdynamic",
-              "-lole32",
-              "-lshlwapi",
-              "-lcfgmgr32",
-              "-lws2_32",
-              "-lsecur32",
-              "-lbcrypt",
-              "-lstrmiids",
-              "-lmfuuid",
-              "-lpsapi"
-            ],
-            "cflags": [
-              "-fPIC",
-              "-O3",
-              "-fexceptions",
-              "-DNAPI_DISABLE_CPP_EXCEPTIONS"
-            ],
-            "cflags_cc": [
-              "-fPIC",
-              "-O3",
-              "-fexceptions",
-              "-std=c++17",
-              "-DNAPI_DISABLE_CPP_EXCEPTIONS"
-            ],
-            "ldflags": [
-              "-static-libgcc",
-              "-static-libstdc++",
-              "-Wl,--gc-sections"
-            ]
-          }
-        ]
-      ]
-    }
-  ]
-}
+        }
+    ]
+}  # pyright: ignore[reportUnusedExpression]
