@@ -8,7 +8,7 @@
  * Example: tsx examples/api-hw-transcode.ts testdata/video.mp4 examples/.tmp/api-hw-transcode.mp4
  */
 
-import { AV_LOG_DEBUG, Decoder, Encoder, FF_ENCODER_LIBX264, HardwareContext, Log, MediaInput, MediaOutput } from '../src/index.js';
+import { AV_HWDEVICE_TYPE_CUDA, AV_LOG_DEBUG, Decoder, Encoder, FF_ENCODER_LIBX264, HardwareContext, Log, MediaInput, MediaOutput } from '../src/index.js';
 import { prepareTestEnvironment } from './index.js';
 
 import type { FFEncoderCodec } from '../src/index.js';
@@ -26,7 +26,11 @@ Log.setLevel(AV_LOG_DEBUG);
 
 // Auto-detect best available hardware
 console.log('Detecting hardware acceleration...');
-const hw = HardwareContext.auto();
+
+const allHw = HardwareContext.listAvailable();
+console.log('All available hardware devices:', allHw);
+
+const hw = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
 if (!hw) {
   console.log('No hardware acceleration available, falling back to software');
 } else {
@@ -68,7 +72,7 @@ using decoder = await Decoder.create(videoStream, {
 let encoderName: FFEncoderCodec = FF_ENCODER_LIBX264; // Default software encoder
 
 if (hw) {
-  const encoderCodec = hw.getEncoderCodec('h264');
+  const encoderCodec = hw.getEncoderCodec('hevc');
   if (encoderCodec?.isHardwareAcceleratedEncoder()) {
     encoderName = encoderCodec.name as FFEncoderCodec;
   }
