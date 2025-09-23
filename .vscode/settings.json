@@ -7,6 +7,9 @@
   "editor.formatOnSave": true,
   "javascript.preferences.importModuleSpecifierEnding": "js",
   "typescript.preferences.importModuleSpecifierEnding": "js",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "github.copilot.chat.localeOverride": "en",
+  "eslint.debug": false,
   "eslint.validate": [
     "javascript",
     "typescript",
@@ -16,6 +19,12 @@
       "mode": "auto"
     }
   ],
+  "files.associations": {
+    ".gyp": "python",
+    ".gypi": "python",
+    "*.yaml": "yaml",
+    "vector": "cpp"
+  },
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.codeActionsOnSave": {
@@ -49,12 +58,4 @@
       "source.organizeImports": "explicit"
     }
   },
-  "files.associations": {
-    "*.gyp": "json",
-    "*.yaml": "yaml",
-    "vector": "cpp"
-  },
-  "eslint.debug": false,
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "github.copilot.chat.localeOverride": "en"
 }
