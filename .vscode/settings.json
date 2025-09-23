@@ -19,6 +19,9 @@
       "mode": "auto"
     }
   ],
+  "python.analysis.ignore": [
+    "*"
+  ],
   "files.associations": {
     ".gyp": "python",
     ".gypi": "python",
@@ -58,4 +61,25 @@
       "source.organizeImports": "explicit"
     }
   },
+  "terminal.integrated.profiles.windows": {
+    "MSYS2": {
+      "path": "C:\\msys64\\usr\\bin\\bash.exe",
+      "args": [
+        "--login",
+        "-i",
+        "-c",
+        "cd \"${workspaceFolder}\" 2>/dev/null || cd \"$(cygpath -u \"${env:PWD}\")\"; exec bash"
+      ]
+    },
+    "MinGW64": {
+      "path": "C:\\msys64\\mingw64\\bin\\bash.exe",
+      "args": [
+        "--login",
+        "-i",
+        "-c",
+        "cd \"${workspaceFolder}\" 2>/dev/null || cd \"$(cygpath -u \"${env:PWD}\")\"; exec bash"
+      ]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "MSYS2"
 }
