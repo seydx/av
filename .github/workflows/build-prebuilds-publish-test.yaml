@@ -55,12 +55,12 @@ jobs:
 
           # Verify we have all expected platforms
           echo -e "\nVerifying platform coverage:"
-          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64-mingw win32-arm64-mingw win32-x64-msvc win32-arm64-msvc; do
             if [ -d "prebuilds/$platform" ]; then
               echo "✓ $platform"
             else
               echo "✗ $platform missing"
-              exit 1  # Fail if any platform is missing
+              exit 1
             fi
           done
 
@@ -69,7 +69,7 @@ jobs:
           node scripts/create-platform-packages.js
 
           # Copy prebuilds to platform packages (already named node-av.node)
-          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64-mingw win32-arm64-mingw win32-x64-msvc win32-arm64-msvc; do
             if [ -d "prebuilds/$platform" ]; then
               cp "prebuilds/$platform/node-av.node" "packages/$platform/node-av.node"
               echo "Copied binary for $platform"

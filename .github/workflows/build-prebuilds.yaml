@@ -36,8 +36,8 @@ on:
       - "binding-jellyfin.gyp"
 
 jobs:
-  build_windows:
-    name: "Windows ${{ matrix.os.arch }}"
+  build_windows_mingw:
+    name: "Windows MinGW ${{ matrix.os.arch }}"
     runs-on: ${{ matrix.os.runner }}
     strategy:
       fail-fast: false
@@ -107,10 +107,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\ffmpeg-cache-${{ matrix.os.arch }}
-          key: ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
+          key: ffmpeg-windows-mingw-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
           restore-keys: |
-            ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
-            ffmpeg-windows-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-
+            ffmpeg-windows-mingw-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-${{ steps.ffmpeg-hash.outputs.hash }}
+            ffmpeg-windows-mingw-${{ matrix.os.arch }}-${{ env.CACHE_VERSION_WINDOWS }}-
 
       - name: Copy cache to MSYS2 location
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -291,7 +291,294 @@ jobs:
       - name: Upload Prebuild
         uses: actions/upload-artifact@v4
         with:
-          name: prebuild-windows-${{ matrix.os.arch }}
+          name: prebuild-windows-mingw-${{ matrix.os.arch }}
+          path: prebuilds/
+
+  build_windows_msvc:
+    name: "Windows MSVC ${{ matrix.arch }}"
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    env:
+      SDK_VER: 10.0.22621.0
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pull submodules
+        shell: bash
+        run: |
+          # Initialize av submodules first
+          git submodule update --init
+          # Then initialize ffmpeg-msvc's submodules with depth 1
+          cd externals/ffmpeg-msvc
+          git submodule update --init --recursive --depth 1
+          cd ../..
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Setup Environment
+        shell: bash
+        id: setup
+        run: |
+          echo "installationPath=$(vswhere -all -legacy -property installationPath)" >> $GITHUB_OUTPUT
+          echo "target=${{contains(matrix.arch,'arm')&&format('amd64_{0}',matrix.arch)||matrix.arch}}" >> $GITHUB_OUTPUT
+
+      - name: Get ffmpeg-msvc commit hash
+        id: ffmpeg-hash
+        shell: bash
+        run: |
+          echo "hash=$(git -C externals/ffmpeg-msvc rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Restore FFmpeg MSVC cache
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: D:\ffmpeg-msvc-cache-${{ matrix.arch }}
+          key: ffmpeg-msvc-${{ matrix.arch }}-${{ env.CACHE_VERSION_WINDOWS_MSVC }}-${{ steps.ffmpeg-hash.outputs.hash }}
+          restore-keys: |
+            ffmpeg-msvc-${{ matrix.arch }}-${{ env.CACHE_VERSION_WINDOWS_MSVC }}-
+
+      - name: Copy cache to build location
+        if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
+        shell: cmd
+        run: |
+          echo Restoring FFmpeg MSVC cache from D:\ffmpeg-msvc-cache-${{ matrix.arch }}
+          if exist "D:\ffmpeg-msvc-cache-${{ matrix.arch }}" (
+            xcopy /E /I /Y "D:\ffmpeg-msvc-cache-${{ matrix.arch }}" "D:\a\_temp\msys64\usr\local"
+            echo Cache restored successfully
+          ) else (
+            echo Cache directory not found
+            exit 1
+          )
+
+      - name: Install MSYS2
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        uses: msys2/setup-msys2@v2
+        with:
+          install: >-
+            diffutils
+            make
+            zip
+            pkgconf
+            yasm
+            nasm
+            libtool
+            bison
+            automake
+            autoconf
+            quilt
+            clang
+
+      - name: Setup Python for Meson
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson and Ninja
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: cmd
+        run: pip install meson ninja
+
+      - name: Install CUDA Toolkit
+        if: matrix.arch == 'x64' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        uses: N-Storm/cuda-toolkit@master
+        id: cuda-toolkit
+        with:
+          cuda: "12.6.3"
+          sub-packages: '["nvcc", "cudart", "npp_dev"]'
+
+      - name: Remove MSYS2 link
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: |
+          rm $(which link)
+          rm -rf /usr/local
+
+      - name: Build Meson dependencies
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          CALL "${{steps.setup.outputs.installationPath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{steps.setup.outputs.target}} ${{env.SDK_VER}}
+
+          REM Add MSYS2 tools (nasm, yasm) to PATH
+          set PATH=D:\a\_temp\msys64\usr\bin;%PATH%
+
+          REM Build dav1d (AV1 decoder)
+          if exist externals\ffmpeg-msvc\dav1d (
+            echo Building dav1d...
+            cd externals\ffmpeg-msvc\dav1d
+
+            REM Create cross-file for ARM64 builds
+            if "${{matrix.arch}}" == "arm64" (
+              echo [binaries] > cross.txt
+              echo c = 'cl' >> cross.txt
+              echo ar = 'lib' >> cross.txt
+              echo [host_machine] >> cross.txt
+              echo system = 'windows' >> cross.txt
+              echo cpu_family = 'aarch64' >> cross.txt
+              echo cpu = 'aarch64' >> cross.txt
+              echo endian = 'little' >> cross.txt
+              REM Disable assembly for ARM64 cross-compilation
+              meson setup build --cross-file cross.txt --prefix=D:\a\_temp\msys64\usr\local --buildtype=release --default-library=static -Denable_tools=false -Denable_tests=false -Denable_asm=false -Db_vscrt=mt
+            ) else (
+              meson setup build --prefix=D:\a\_temp\msys64\usr\local --buildtype=release --default-library=static -Denable_tools=false -Denable_tests=false -Db_vscrt=mt
+            )
+
+            meson compile -C build
+            meson install -C build
+
+            REM Meson installs as libdav1d.a, but FFmpeg expects dav1d.lib
+            if exist D:\a\_temp\msys64\usr\local\lib\libdav1d.a (
+              echo Copying libdav1d.a to dav1d.lib for FFmpeg
+              copy D:\a\_temp\msys64\usr\local\lib\libdav1d.a D:\a\_temp\msys64\usr\local\lib\dav1d.lib
+              copy D:\a\_temp\msys64\usr\local\lib\libdav1d.a D:\a\_temp\msys64\usr\local\lib\libdav1d.lib
+            )
+
+            cd ..\..\..
+            echo DEP_DAV1D=1>> %GITHUB_ENV%
+          )
+
+      - name: Build zimg with MSVC
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          CALL "${{steps.setup.outputs.installationPath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{steps.setup.outputs.target}} ${{env.SDK_VER}}
+
+          REM Build zimg using MSBuild
+          if exist externals\ffmpeg-msvc\zimg (
+            echo Building zimg...
+            cd externals\ffmpeg-msvc\zimg\_msvc
+
+            REM Determine platform for MSBuild
+            if "${{matrix.arch}}" == "arm64" (
+              set PLATFORM=ARM64
+            ) else (
+              set PLATFORM=x64
+            )
+
+            MSBuild zimg.sln -p:Configuration=Release -p:Platform=%PLATFORM% -p:RuntimeLibrary=MT
+
+            REM Install headers
+            if not exist D:\a\_temp\msys64\usr\local\include\zimg mkdir D:\a\_temp\msys64\usr\local\include\zimg
+            copy ..\src\zimg\api\zimg.h D:\a\_temp\msys64\usr\local\include\zimg\
+
+            REM Find and install the library
+            if not exist D:\a\_temp\msys64\usr\local\lib mkdir D:\a\_temp\msys64\usr\local\lib
+            for /R %PLATFORM%\Release %%f in (*.lib) do (
+              echo Found library: %%f
+              copy "%%f" D:\a\_temp\msys64\usr\local\lib\zimg.lib
+              copy "%%f" D:\a\_temp\msys64\usr\local\lib\libzimg.lib
+            )
+
+            cd ..\..\..
+            echo DEP_ZIMG=1>> %GITHUB_ENV%
+          )
+
+      - name: Build LAME with MSVC
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          CALL "${{steps.setup.outputs.installationPath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{steps.setup.outputs.target}} ${{env.SDK_VER}}
+
+          REM Build LAME MP3 encoder
+          if exist externals\ffmpeg-msvc\lame (
+            echo Building LAME...
+            cd externals\ffmpeg-msvc\lame
+
+            REM Copy configMS.h to config.h
+            copy configMS.h config.h
+
+            REM Set architecture-specific options and machine type
+            if "${{matrix.arch}}" == "arm64" (
+              REM Patch Makefile.MSVC to use correct machine type for ARM64
+              powershell -Command "(Get-Content Makefile.MSVC) -replace 'MACHINE = /machine:I386', 'MACHINE = /machine:ARM64' | Set-Content Makefile.MSVC"
+            ) else (
+              REM Patch Makefile.MSVC to use correct machine type for x64
+              powershell -Command "(Get-Content Makefile.MSVC) -replace 'MACHINE = /machine:I386', 'MACHINE = /machine:X64' | Set-Content Makefile.MSVC"
+            )
+
+            REM Also remove obsolete compiler flags that cause warnings
+            powershell -Command "(Get-Content Makefile.MSVC) -replace '/QIfdiv /QI0f /YX', '' | Set-Content Makefile.MSVC"
+
+            REM Build static library only
+            nmake -f Makefile.MSVC comp=msvc asm=no libmp3lame-static.lib
+
+            REM Install headers and library
+            if not exist D:\a\_temp\msys64\usr\local\include\lame mkdir D:\a\_temp\msys64\usr\local\include\lame
+            copy include\lame.h D:\a\_temp\msys64\usr\local\include\lame\
+            if not exist D:\a\_temp\msys64\usr\local\lib mkdir D:\a\_temp\msys64\usr\local\lib
+
+            REM Copy library with both naming conventions for maximum compatibility
+            copy output\libmp3lame-static.lib D:\a\_temp\msys64\usr\local\lib\libmp3lame.lib
+            copy output\libmp3lame-static.lib D:\a\_temp\msys64\usr\local\lib\mp3lame.lib
+            copy output\libmp3lame-static.lib D:\a\_temp\msys64\usr\local\lib\lame.lib
+
+            cd ..\..\..
+            echo DEP_LAME=1>> %GITHUB_ENV%
+          )
+
+      - name: Build FFmpeg MSVC
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          CALL "${{steps.setup.outputs.installationPath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{steps.setup.outputs.target}} ${{env.SDK_VER}}
+
+          cd externals/ffmpeg-msvc
+
+          REM Build FFmpeg with MSVC
+          msys2 -c "export CUDA_PATH=\"$CUDA_PATH\"; export DEP_DAV1D=\"$DEP_DAV1D\"; export DEP_ZIMG=\"$DEP_ZIMG\"; export DEP_LAME=\"$DEP_LAME\"; ./build.sh ${{matrix.arch}}"
+
+          cd ../..
+
+      - name: Save FFmpeg MSVC cache
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          echo Saving FFmpeg MSVC cache to D:\ffmpeg-msvc-cache-${{ matrix.arch }}
+          if exist "D:\a\_temp\msys64\usr\local" (
+            xcopy /E /I /Y "D:\a\_temp\msys64\usr\local" "D:\ffmpeg-msvc-cache-${{ matrix.arch }}"
+            echo Cache saved successfully
+          ) else (
+            echo Build output directory not found
+            exit 1
+          )
+
+      - name: Install Node dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install -g prebuildify
+
+      - name: Build Native Addon with MSVC
+        shell: cmd
+        run: |
+          CALL "${{steps.setup.outputs.installationPath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{steps.setup.outputs.target}} ${{env.SDK_VER}}
+
+          REM Copy binding configuration
+          copy binding-jellyfin.gyp binding.gyp
+
+          REM Build with node-gyp using MSVC
+          node-gyp configure --msvs_version=2022
+          node-gyp build --release
+
+          REM Create prebuilds directory
+          mkdir prebuilds\win32-${{matrix.arch}}
+          copy build\Release\node-av.node prebuilds\win32-${{matrix.arch}}\node-av.node
+
+      - name: Run Tests
+        shell: cmd
+        run: |
+          CALL "${{steps.setup.outputs.installationPath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{steps.setup.outputs.target}} ${{env.SDK_VER}}
+          npm run test:all
+
+      - name: Upload Prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-windows-msvc-${{ matrix.arch }}
           path: prebuilds/
 
   build_linux:
