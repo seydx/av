@@ -21,7 +21,7 @@ public:
   AVCodecContext* Get() { return context_; }
 
 private:
-  friend class AVOption;
+  friend class AVOptionWrapper;
   friend class CCOpen2Worker;
   friend class CCSendPacketWorker;
   friend class CCReceiveFrameWorker;

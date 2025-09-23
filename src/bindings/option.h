@@ -8,11 +8,11 @@ extern "C" {
 
 namespace ffmpeg {
 
-class AVOption : public Napi::ObjectWrap<AVOption> {
+class AVOptionWrapper : public Napi::ObjectWrap<AVOptionWrapper> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
-  AVOption(const Napi::CallbackInfo& info);
-  ~AVOption();
+  AVOptionWrapper(const Napi::CallbackInfo& info);
+  ~AVOptionWrapper();
 
   void SetOption(const ::AVOption* opt);
 

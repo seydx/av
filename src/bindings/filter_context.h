@@ -48,7 +48,7 @@ private:
   friend class FilterInOut;
   friend class FCBuffersrcAddFrameWorker;
   friend class FCBuffersinkGetFrameWorker;
-  friend class AVOption;
+  friend class AVOptionWrapper;
 
   static Napi::FunctionReference constructor;
 

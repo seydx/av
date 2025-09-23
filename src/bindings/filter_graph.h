@@ -44,7 +44,7 @@ public:
   }
 
 private:
-  friend class AVOption;
+  friend class AVOptionWrapper;
   friend class FilterContext;
   friend class FGConfigWorker;
   friend class FGRequestOldestWorker;

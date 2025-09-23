@@ -20,7 +20,7 @@ public:
   SwsContext* Get() { return ctx_; }
 
 private:
-  friend class AVOption;
+  friend class AVOptionWrapper;
   friend class SwsScaleFrameWorker;
 
   static Napi::FunctionReference constructor;

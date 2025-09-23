@@ -77,7 +77,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   Log::Init(env, exports);
   
   // Options System
-  AVOption::Init(env, exports);
+  AVOptionWrapper::Init(env, exports);
   
   return exports;
 }

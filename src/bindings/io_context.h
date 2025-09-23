@@ -60,7 +60,7 @@ public:
   static Napi::FunctionReference constructor;
 
 private:
-  friend class AVOption;
+  friend class AVOptionWrapper;
   friend class FormatContext;
   friend class IOOpen2Worker;
   friend class InputFormatProbeBufferWorker;

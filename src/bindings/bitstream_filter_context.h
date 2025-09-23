@@ -20,7 +20,7 @@ public:
   AVBSFContext* Get() { return context_; }
 
 private:
-  friend class AVOption;
+  friend class AVOptionWrapper;
   friend class BSFSendPacketWorker;
   friend class BSFReceivePacketWorker;
 

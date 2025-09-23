@@ -19,47 +19,47 @@ extern "C" {
 
 namespace ffmpeg {
 
-Napi::FunctionReference AVOption::constructor;
+Napi::FunctionReference AVOptionWrapper::constructor;
 
-Napi::Object AVOption::Init(Napi::Env env, Napi::Object exports) {
-  Napi::Function func = DefineClass(env, "AVOption", {
-    StaticMethod<&AVOption::Next>("next"),
-    StaticMethod<&AVOption::Find>("find"),
-    StaticMethod<&AVOption::Find2>("find2"),
-    StaticMethod<&AVOption::Get>("get"),
-    StaticMethod<&AVOption::GetInt>("getInt"),
-    StaticMethod<&AVOption::GetDouble>("getDouble"),
-    StaticMethod<&AVOption::GetRational>("getRational"),
-    StaticMethod<&AVOption::GetPixelFormat>("getPixelFormat"),
-    StaticMethod<&AVOption::GetSampleFormat>("getSampleFormat"),
-    StaticMethod<&AVOption::GetImageSize>("getImageSize"),
-    StaticMethod<&AVOption::GetChannelLayout>("getChannelLayout"),
-    StaticMethod<&AVOption::GetDict>("getDict"),
-    StaticMethod<&AVOption::Set>("set"),
-    StaticMethod<&AVOption::SetInt>("setInt"),
-    StaticMethod<&AVOption::SetDouble>("setDouble"),
-    StaticMethod<&AVOption::SetRational>("setRational"),
-    StaticMethod<&AVOption::SetPixelFormat>("setPixelFormat"),
-    StaticMethod<&AVOption::SetSampleFormat>("setSampleFormat"),
-    StaticMethod<&AVOption::SetImageSize>("setImageSize"),
-    StaticMethod<&AVOption::SetChannelLayout>("setChannelLayout"),
-    StaticMethod<&AVOption::SetDict>("setDict"),
-    StaticMethod<&AVOption::SetBin>("setBin"),
-    StaticMethod<&AVOption::SetDefaults>("setDefaults"),
-    StaticMethod<&AVOption::Copy>("copy"),
-    StaticMethod<&AVOption::IsSetToDefault>("isSetToDefault"),
-    StaticMethod<&AVOption::Serialize>("serialize"),
-    StaticMethod<&AVOption::Free>("free"),
-    StaticMethod<&AVOption::Show>("show"),
+Napi::Object AVOptionWrapper::Init(Napi::Env env, Napi::Object exports) {
+  Napi::Function func = DefineClass(env, "AVOptionWrapper", {
+    StaticMethod<&AVOptionWrapper::Next>("next"),
+    StaticMethod<&AVOptionWrapper::Find>("find"),
+    StaticMethod<&AVOptionWrapper::Find2>("find2"),
+    StaticMethod<&AVOptionWrapper::Get>("get"),
+    StaticMethod<&AVOptionWrapper::GetInt>("getInt"),
+    StaticMethod<&AVOptionWrapper::GetDouble>("getDouble"),
+    StaticMethod<&AVOptionWrapper::GetRational>("getRational"),
+    StaticMethod<&AVOptionWrapper::GetPixelFormat>("getPixelFormat"),
+    StaticMethod<&AVOptionWrapper::GetSampleFormat>("getSampleFormat"),
+    StaticMethod<&AVOptionWrapper::GetImageSize>("getImageSize"),
+    StaticMethod<&AVOptionWrapper::GetChannelLayout>("getChannelLayout"),
+    StaticMethod<&AVOptionWrapper::GetDict>("getDict"),
+    StaticMethod<&AVOptionWrapper::Set>("set"),
+    StaticMethod<&AVOptionWrapper::SetInt>("setInt"),
+    StaticMethod<&AVOptionWrapper::SetDouble>("setDouble"),
+    StaticMethod<&AVOptionWrapper::SetRational>("setRational"),
+    StaticMethod<&AVOptionWrapper::SetPixelFormat>("setPixelFormat"),
+    StaticMethod<&AVOptionWrapper::SetSampleFormat>("setSampleFormat"),
+    StaticMethod<&AVOptionWrapper::SetImageSize>("setImageSize"),
+    StaticMethod<&AVOptionWrapper::SetChannelLayout>("setChannelLayout"),
+    StaticMethod<&AVOptionWrapper::SetDict>("setDict"),
+    StaticMethod<&AVOptionWrapper::SetBin>("setBin"),
+    StaticMethod<&AVOptionWrapper::SetDefaults>("setDefaults"),
+    StaticMethod<&AVOptionWrapper::Copy>("copy"),
+    StaticMethod<&AVOptionWrapper::IsSetToDefault>("isSetToDefault"),
+    StaticMethod<&AVOptionWrapper::Serialize>("serialize"),
+    StaticMethod<&AVOptionWrapper::Free>("free"),
+    StaticMethod<&AVOptionWrapper::Show>("show"),
 
-    InstanceAccessor<&AVOption::GetName, nullptr>("name"),
-    InstanceAccessor<&AVOption::GetHelp, nullptr>("help"),
-    InstanceAccessor<&AVOption::GetType, nullptr>("type"),
-    InstanceAccessor<&AVOption::GetDefaultValue, nullptr>("defaultValue"),
-    InstanceAccessor<&AVOption::GetMin, nullptr>("min"),
-    InstanceAccessor<&AVOption::GetMax, nullptr>("max"),
-    InstanceAccessor<&AVOption::GetFlags, nullptr>("flags"),
-    InstanceAccessor<&AVOption::GetUnit, nullptr>("unit"),
+    InstanceAccessor<&AVOptionWrapper::GetName, nullptr>("name"),
+    InstanceAccessor<&AVOptionWrapper::GetHelp, nullptr>("help"),
+    InstanceAccessor<&AVOptionWrapper::GetType, nullptr>("type"),
+    InstanceAccessor<&AVOptionWrapper::GetDefaultValue, nullptr>("defaultValue"),
+    InstanceAccessor<&AVOptionWrapper::GetMin, nullptr>("min"),
+    InstanceAccessor<&AVOptionWrapper::GetMax, nullptr>("max"),
+    InstanceAccessor<&AVOptionWrapper::GetFlags, nullptr>("flags"),
+    InstanceAccessor<&AVOptionWrapper::GetUnit, nullptr>("unit"),
   });
 
   constructor = Napi::Persistent(func);
@@ -69,21 +69,21 @@ Napi::Object AVOption::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-AVOption::AVOption(const Napi::CallbackInfo& info) : Napi::ObjectWrap<AVOption>(info) {
+AVOptionWrapper::AVOptionWrapper(const Napi::CallbackInfo& info) : Napi::ObjectWrap<AVOptionWrapper>(info) {
   this->option_ = nullptr;
 }
 
-AVOption::~AVOption() {
+AVOptionWrapper::~AVOptionWrapper() {
   // Note: AVOptions are not owned by this wrapper, they belong to their parent object
   // So we don't free them here
 }
 
-void AVOption::SetOption(const ::AVOption* opt) {
+void AVOptionWrapper::SetOption(const ::AVOption* opt) {
   this->option_ = opt;
 }
 
 // Helper to extract void* from Native objects
-void* AVOption::GetNativePointer(const Napi::Value& obj) {
+void* AVOptionWrapper::GetNativePointer(const Napi::Value& obj) {
   if (!obj.IsObject()) {
     return nullptr;
   }
@@ -184,28 +184,28 @@ void* AVOption::GetNativePointer(const Napi::Value& obj) {
 }
 
 // Property getters for option metadata
-Napi::Value AVOption::GetName(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetName(const Napi::CallbackInfo& info) {
   if (!option_ || !option_->name) {
     return info.Env().Null();
   }
   return Napi::String::New(info.Env(), option_->name);
 }
 
-Napi::Value AVOption::GetHelp(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetHelp(const Napi::CallbackInfo& info) {
   if (!option_ || !option_->help) {
     return info.Env().Null();
   }
   return Napi::String::New(info.Env(), option_->help);
 }
 
-Napi::Value AVOption::GetType(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetType(const Napi::CallbackInfo& info) {
   if (!option_) {
     return info.Env().Null();
   }
   return Napi::Number::New(info.Env(), option_->type);
 }
 
-Napi::Value AVOption::GetDefaultValue(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetDefaultValue(const Napi::CallbackInfo& info) {
   if (!option_) {
     return info.Env().Null();
   }
@@ -262,35 +262,35 @@ Napi::Value AVOption::GetDefaultValue(const Napi::CallbackInfo& info) {
   return info.Env().Null();
 }
 
-Napi::Value AVOption::GetMin(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetMin(const Napi::CallbackInfo& info) {
   if (!option_) {
     return info.Env().Null();
   }
   return Napi::Number::New(info.Env(), option_->min);
 }
 
-Napi::Value AVOption::GetMax(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetMax(const Napi::CallbackInfo& info) {
   if (!option_) {
     return info.Env().Null();
   }
   return Napi::Number::New(info.Env(), option_->max);
 }
 
-Napi::Value AVOption::GetFlags(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetFlags(const Napi::CallbackInfo& info) {
   if (!option_) {
     return info.Env().Null();
   }
   return Napi::Number::New(info.Env(), option_->flags);
 }
 
-Napi::Value AVOption::GetUnit(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetUnit(const Napi::CallbackInfo& info) {
   if (!option_ || !option_->unit) {
     return info.Env().Null();
   }
   return Napi::String::New(info.Env(), option_->unit);
 }
 
-Napi::Value AVOption::Next(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Next(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 1) {
@@ -308,7 +308,7 @@ Napi::Value AVOption::Next(const Napi::CallbackInfo& info) {
   if (info.Length() >= 2 && info[1].IsObject()) {
     Napi::Object prevObj = info[1].As<Napi::Object>();
     if (prevObj.InstanceOf(constructor.Value())) {
-      AVOption* prevOpt = Napi::ObjectWrap<AVOption>::Unwrap(prevObj);
+      AVOptionWrapper* prevOpt = Napi::ObjectWrap<AVOptionWrapper>::Unwrap(prevObj);
       prev = prevOpt->option_;
     }
   }
@@ -319,13 +319,13 @@ Napi::Value AVOption::Next(const Napi::CallbackInfo& info) {
   }
   
   Napi::Object optObj = constructor.New({});
-  AVOption* wrapper = Napi::ObjectWrap<AVOption>::Unwrap(optObj);
+  AVOptionWrapper* wrapper = Napi::ObjectWrap<AVOptionWrapper>::Unwrap(optObj);
   wrapper->SetOption(opt);
   
   return optObj;
 }
 
-Napi::Value AVOption::Find(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Find(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -352,13 +352,13 @@ Napi::Value AVOption::Find(const Napi::CallbackInfo& info) {
   }
   
   Napi::Object optObj = constructor.New({});
-  AVOption* wrapper = Napi::ObjectWrap<AVOption>::Unwrap(optObj);
+  AVOptionWrapper* wrapper = Napi::ObjectWrap<AVOptionWrapper>::Unwrap(optObj);
   wrapper->SetOption(opt);
   
   return optObj;
 }
 
-Napi::Value AVOption::Find2(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Find2(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -388,7 +388,7 @@ Napi::Value AVOption::Find2(const Napi::CallbackInfo& info) {
   Napi::Object result = Napi::Object::New(env);
   
   Napi::Object optObj = constructor.New({});
-  AVOption* wrapper = Napi::ObjectWrap<AVOption>::Unwrap(optObj);
+  AVOptionWrapper* wrapper = Napi::ObjectWrap<AVOptionWrapper>::Unwrap(optObj);
   wrapper->SetOption(opt);
   
   result.Set("option", optObj);
@@ -399,7 +399,7 @@ Napi::Value AVOption::Find2(const Napi::CallbackInfo& info) {
   return result;
 }
 
-Napi::Value AVOption::Get(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Get(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -437,7 +437,7 @@ Napi::Value AVOption::Get(const Napi::CallbackInfo& info) {
   return result;
 }
 
-Napi::Value AVOption::GetInt(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetInt(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -468,7 +468,7 @@ Napi::Value AVOption::GetInt(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, static_cast<double>(out_val));
 }
 
-Napi::Value AVOption::GetDouble(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetDouble(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -499,7 +499,7 @@ Napi::Value AVOption::GetDouble(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, out_val);
 }
 
-Napi::Value AVOption::GetRational(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetRational(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -530,7 +530,7 @@ Napi::Value AVOption::GetRational(const Napi::CallbackInfo& info) {
   return RationalToJS(env, out_val);
 }
 
-Napi::Value AVOption::GetPixelFormat(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetPixelFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -561,7 +561,7 @@ Napi::Value AVOption::GetPixelFormat(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, out_val);
 }
 
-Napi::Value AVOption::GetSampleFormat(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetSampleFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -592,7 +592,7 @@ Napi::Value AVOption::GetSampleFormat(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, out_val);
 }
 
-Napi::Value AVOption::GetImageSize(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetImageSize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -627,7 +627,7 @@ Napi::Value AVOption::GetImageSize(const Napi::CallbackInfo& info) {
   return size;
 }
 
-Napi::Value AVOption::GetChannelLayout(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetChannelLayout(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -666,7 +666,7 @@ Napi::Value AVOption::GetChannelLayout(const Napi::CallbackInfo& info) {
   return layout;
 }
 
-Napi::Value AVOption::GetDict(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::GetDict(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -713,7 +713,7 @@ Napi::Value AVOption::GetDict(const Napi::CallbackInfo& info) {
 
 // Setter methods
 
-Napi::Value AVOption::Set(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Set(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -739,7 +739,7 @@ Napi::Value AVOption::Set(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetInt(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetInt(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -781,7 +781,7 @@ Napi::Value AVOption::SetInt(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetDouble(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetDouble(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -807,7 +807,7 @@ Napi::Value AVOption::SetDouble(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetRational(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetRational(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -841,7 +841,7 @@ Napi::Value AVOption::SetRational(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetPixelFormat(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetPixelFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -867,7 +867,7 @@ Napi::Value AVOption::SetPixelFormat(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetSampleFormat(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetSampleFormat(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -893,7 +893,7 @@ Napi::Value AVOption::SetSampleFormat(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetImageSize(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetImageSize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 4) {
@@ -920,7 +920,7 @@ Napi::Value AVOption::SetImageSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetChannelLayout(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetChannelLayout(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -966,7 +966,7 @@ Napi::Value AVOption::SetChannelLayout(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetDict(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetDict(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -1000,7 +1000,7 @@ Napi::Value AVOption::SetDict(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::SetBin(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetBin(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 3) {
@@ -1034,7 +1034,7 @@ Napi::Value AVOption::SetBin(const Napi::CallbackInfo& info) {
 
 // Utility methods
 
-Napi::Value AVOption::SetDefaults(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::SetDefaults(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 1) {
@@ -1053,7 +1053,7 @@ Napi::Value AVOption::SetDefaults(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value AVOption::Copy(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Copy(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -1077,7 +1077,7 @@ Napi::Value AVOption::Copy(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, ret);
 }
 
-Napi::Value AVOption::IsSetToDefault(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::IsSetToDefault(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 2) {
@@ -1107,7 +1107,7 @@ Napi::Value AVOption::IsSetToDefault(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(env, ret > 0);
 }
 
-Napi::Value AVOption::Serialize(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Serialize(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 1) {
@@ -1165,7 +1165,7 @@ Napi::Value AVOption::Serialize(const Napi::CallbackInfo& info) {
   return result;
 }
 
-Napi::Value AVOption::Free(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Free(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 1) {
@@ -1184,7 +1184,7 @@ Napi::Value AVOption::Free(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value AVOption::Show(const Napi::CallbackInfo& info) {
+Napi::Value AVOptionWrapper::Show(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
   if (info.Length() < 1) {
