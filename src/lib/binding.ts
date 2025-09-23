@@ -7,6 +7,7 @@
 
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { type } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -317,12 +318,35 @@ function loadBinding(): NativeBinding {
     errors.push(new Error(`Local build not found or loading failed: ${err}`));
   }
 
-  // Platform-specific package (optionalDependencies)
-  try {
-    const packageName = `@seydx/node-av-${platformArch}`;
-    return require(`${packageName}/node-av.node`);
-  } catch (err) {
-    errors.push(new Error(`Platform package not found or loading failed: ${err}`));
+  // For Windows, detect MinGW vs MSVC environment
+  if (platform === 'win32') {
+    const useMSVC = type() === 'Windows_NT';
+
+    // Try MinGW version first if in MinGW environment
+    if (!useMSVC) {
+      try {
+        const packageName = `@seydx/node-av-${platformArch}-mingw`;
+        return require(`${packageName}/node-av.node`);
+      } catch (err) {
+        errors.push(new Error(`MinGW package not found or loading failed: ${err}`));
+      }
+    }
+
+    // Try MSVC version (default for Windows)
+    try {
+      const packageName = `@seydx/node-av-${platformArch}-msvc`;
+      return require(`${packageName}/node-av.node`);
+    } catch (err) {
+      errors.push(new Error(`MSVC package not found or loading failed: ${err}`));
+    }
+  } else {
+    // Non-Windows platforms
+    try {
+      const packageName = `@seydx/node-av-${platformArch}`;
+      return require(`${packageName}/node-av.node`);
+    } catch (err) {
+      errors.push(new Error(`Platform package not found or loading failed: ${err}`));
+    }
   }
 
   // All attempts failed
