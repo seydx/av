@@ -14,8 +14,10 @@ const platforms = [
   { name: 'darwin-x64', os: 'darwin', cpu: 'x64' },
   { name: 'linux-arm64', os: 'linux', cpu: 'arm64' },
   { name: 'linux-x64', os: 'linux', cpu: 'x64' },
-  { name: 'win32-arm64', os: 'win32', cpu: 'arm64' },
-  { name: 'win32-x64', os: 'win32', cpu: 'x64' },
+  { name: 'win32-arm64-mingw', os: 'win32', cpu: 'arm64' },
+  { name: 'win32-x64-mingw', os: 'win32', cpu: 'x64' },
+  { name: 'win32-arm64-msvc', os: 'win32', cpu: 'arm64' },
+  { name: 'win32-x64-msvc', os: 'win32', cpu: 'x64' },
 ];
 
 // Read template
