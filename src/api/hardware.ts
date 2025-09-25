@@ -447,13 +447,14 @@ export class HardwareContext implements Disposable {
         }
 
         suffix = name.split('_')[1]; // Get suffix after underscore
+        if (!suffix) {
+          return null;
+        }
+
+        return suffix;
       }
 
-      if (!suffix) {
-        return null;
-      }
-
-      return suffix;
+      return null;
     };
 
     switch (this._deviceType) {
@@ -728,31 +729,24 @@ export class HardwareContext implements Disposable {
     let preferenceOrder: AVHWDeviceType[];
 
     if (platform === 'darwin') {
-      // macOS: VideoToolbox is preferred
-      preferenceOrder = [AV_HWDEVICE_TYPE_VIDEOTOOLBOX];
+      preferenceOrder = [AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_OPENCL];
     } else if (platform === 'win32') {
-      // Windows: Match FFmpeg's hw_configs order
-      // DXVA2 → D3D11VA → D3D12VA → NVDEC (CUDA)
       preferenceOrder = [
-        AV_HWDEVICE_TYPE_DXVA2,
-        AV_HWDEVICE_TYPE_D3D11VA,
-        AV_HWDEVICE_TYPE_D3D12VA,
         AV_HWDEVICE_TYPE_CUDA,
         AV_HWDEVICE_TYPE_QSV,
+        AV_HWDEVICE_TYPE_D3D11VA,
+        AV_HWDEVICE_TYPE_D3D12VA,
         AV_HWDEVICE_TYPE_VULKAN,
+        AV_HWDEVICE_TYPE_DXVA2,
         AV_HWDEVICE_TYPE_OPENCL,
       ];
     } else {
-      // Linux: Match FFmpeg's hw_configs order
-      // NVDEC (CUDA) → VAAPI → VDPAU → Vulkan
-      // RKMPP is platform-specific for ARM/Rockchip
+      // Linux/Unix platforms
       const isARM = process.arch === 'arm64' || process.arch === 'arm';
 
       if (isARM) {
-        // ARM platforms: Prioritize RKMPP for Rockchip SoCs
-        preferenceOrder = [AV_HWDEVICE_TYPE_RKMPP, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_DRM, AV_HWDEVICE_TYPE_OPENCL];
+        preferenceOrder = [AV_HWDEVICE_TYPE_RKMPP, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_DRM, AV_HWDEVICE_TYPE_OPENCL];
       } else {
-        // x86_64 Linux: CUDA → VAAPI → VDPAU → Vulkan
         preferenceOrder = [AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_VDPAU, AV_HWDEVICE_TYPE_VULKAN, AV_HWDEVICE_TYPE_DRM, AV_HWDEVICE_TYPE_OPENCL];
       }
     }

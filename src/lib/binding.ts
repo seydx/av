@@ -315,7 +315,7 @@ function loadBinding(): NativeBinding {
       }
     }
   } catch (err) {
-    errors.push(new Error(`Local build not found or loading failed: ${err}`));
+    errors.push(new Error(`Local build loading failed: ${err}`));
   }
 
   // For Windows, detect MinGW vs MSVC environment
