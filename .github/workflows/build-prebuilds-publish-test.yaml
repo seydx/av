@@ -169,8 +169,10 @@ jobs:
           - @seydx/node-av-darwin-x64@${{ github.event.inputs.test_version }}
           - @seydx/node-av-linux-arm64@${{ github.event.inputs.test_version }}
           - @seydx/node-av-linux-x64@${{ github.event.inputs.test_version }}
-          - @seydx/node-av-win32-arm64@${{ github.event.inputs.test_version }}
-          - @seydx/node-av-win32-x64@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-win32-arm64-mingw@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-win32-x64-mingw@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-win32-arm64-msvc@${{ github.event.inputs.test_version }}
+          - @seydx/node-av-win32-x64-msvc@${{ github.event.inputs.test_version }}
           EOF
 
           # Add recent commits since last tag
