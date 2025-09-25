@@ -123,6 +123,8 @@ describe('Transcode Scenarios', () => {
       return;
     }
 
+    console.log('Using Hardware:', hw.deviceTypeName);
+
     await using input = await MediaInput.open(inputFile);
     const videoStream = input.video();
     assert.ok(videoStream, 'Should have video stream');
@@ -156,6 +158,8 @@ describe('Transcode Scenarios', () => {
       return;
     }
 
+    console.log('Using Hardware:', hw.deviceTypeName);
+
     await using input = await MediaInput.open(inputFile);
     const videoStream = input.video();
     assert.ok(videoStream, 'Should have video stream');
@@ -176,6 +180,8 @@ describe('Transcode Scenarios', () => {
       console.log('No hardware encoder codec available - skipping test');
       return;
     }
+
+    console.log('Using Hardware Encoder:', encoderCodec.name);
 
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
@@ -199,6 +205,8 @@ describe('Transcode Scenarios', () => {
       return;
     }
 
+    console.log('Using Hardware:', hw.deviceTypeName);
+
     await using input = await MediaInput.open(inputFile);
     const videoStream = input.video();
     assert.ok(videoStream, 'Should have video stream');
@@ -220,6 +228,8 @@ describe('Transcode Scenarios', () => {
       return;
     }
 
+    console.log('Using Hardware Encoder:', encoderCodec.name);
+
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
       timeBase: { num: 1, den: 30 },
@@ -239,6 +249,8 @@ describe('Transcode Scenarios', () => {
       return;
     }
 
+    console.log('Using Hardware:', hw.deviceTypeName);
+
     await using input = await MediaInput.open(inputFile);
     const videoStream = input.video();
     assert.ok(videoStream, 'Should have video stream');
@@ -251,6 +263,8 @@ describe('Transcode Scenarios', () => {
       console.log('No hardware encoder codec available - skipping test');
       return;
     }
+
+    console.log('Using Hardware Encoder:', encoderCodec.name);
 
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
@@ -270,6 +284,8 @@ describe('Transcode Scenarios', () => {
       console.log('No hardware available - skipping test');
       return;
     }
+
+    console.log('Using Hardware:', hw.deviceTypeName);
 
     await using input = await MediaInput.open(inputFile);
     const videoStream = input.video();
@@ -291,6 +307,8 @@ describe('Transcode Scenarios', () => {
       console.log('No hardware encoder codec available - skipping test');
       return;
     }
+
+    console.log('Using Hardware Encoder:', encoderCodec.name);
 
     using encoder = await Encoder.create(encoderCodec, {
       frameRate: { num: 30, den: 1 },
