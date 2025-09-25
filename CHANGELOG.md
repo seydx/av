@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Windows MSVC builds alongside existing MinGW builds for better compatibility
 - Now distributes both `@seydx/node-av-win32-x64-msvc` and `@seydx/node-av-win32-x64-mingw` packages
 
+#### FFmpeg Binary Distribution
+- Now includes standalone FFmpeg v7.1.2 binaries as release assets for all supported platforms:
+  - **Jellyfin builds**: `ffmpeg-v7.1.2-{platform}-jellyfin.zip` (Windows MinGW, Linux, macOS)
+  - **MSVC builds**: `ffmpeg-v7.1.2-win-{arch}.zip` (Windows MSVC only)
+
 ### Changed
 
 #### FFmpeg Upgrade
