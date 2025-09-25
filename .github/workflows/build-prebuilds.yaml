@@ -313,11 +313,6 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Setup Env
-        shell: bash
-        id: setup
-        run: echo "installationPath=$(vswhere -all -legacy -property installationPath)">>$GITHUB_OUTPUT
-
       - name: Prepare directories
         shell: bash
         run: |
@@ -365,8 +360,6 @@ jobs:
       - name: Build Native Addon
         shell: cmd
         run: |
-          CALL "${{steps.setup.outputs.installationPath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{matrix.os.arch}} ${{env.SDK_VER}}
-
           REM Use the MSVC-compatible binding.gyp
           copy binding.gyp binding.gyp.bak
           copy binding-jellyfin.gyp binding.gyp
