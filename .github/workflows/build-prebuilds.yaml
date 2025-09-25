@@ -364,7 +364,8 @@ jobs:
           npx prebuildify \
             --napi \
             --strip \
-            --arch=${{ matrix.os.arch }}
+            --arch=${{ matrix.os.arch }} \
+            --cwd=%CD%
 
           REM Create prebuilds directory structure
           mkdir prebuilds\win32-${{ matrix.os.arch }}-msvc
