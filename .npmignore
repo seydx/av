@@ -30,6 +30,7 @@ CHANGELOG.md
 /binary
 /tests
 /binding-jellyfin.gyp
+/binding-jellyfin-msvc.gyp
 /build
 /externals
 /go-astiav
@@ -46,3 +47,4 @@ CHANGELOG.md
 /*runner.txt
 /docs
 release_notes.md
+test_release_notes.md
