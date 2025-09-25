@@ -262,7 +262,7 @@ jobs:
             --release
 
           # Create prebuilds directory structure
-          PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}"
+          PREBUILD_DIR="prebuilds/win32-${{ matrix.os.arch }}-mingw"
           mkdir -p "$PREBUILD_DIR"
 
           # Find the built .node file and copy it with consistent naming
@@ -318,6 +318,11 @@ jobs:
         id: setup
         run: echo "installationPath=$(vswhere -all -legacy -property installationPath)">>$GITHUB_OUTPUT
 
+      - name: Prepare directories
+        shell: bash
+        run: |
+          mkdir -p ffmpeg-msvc
+
       - name: Download FFmpeg MSVC Prebuilt
         shell: bash
         run: |
@@ -345,12 +350,9 @@ jobs:
 
           # Download and extract to project root
           curl -L "$ASSET_URL" -o ffmpeg-msvc-prebuilt.zip
-          unzip -q ffmpeg-msvc-prebuilt.zip
 
-          # The zip contains a folder like "ffmpeg-7.1.2-3-gpl-amd64-static"
-          # Rename it to "ffmpeg-msvc" to match binding.gyp expectations
-          EXTRACTED_DIR=$(ls -d ffmpeg-*-gpl-${ARCH_SUFFIX}-static)
-          mv "$EXTRACTED_DIR" ffmpeg-msvc
+          # Extract ZIP contents directly into ffmpeg-msvc directory
+          unzip -q ffmpeg-msvc-prebuilt.zip -d ffmpeg-msvc
 
           echo "FFmpeg MSVC prebuilt extracted to ffmpeg-msvc/"
           ls -la ffmpeg-msvc/
@@ -376,10 +378,10 @@ jobs:
             --arch=${{ matrix.os.arch }}
 
           REM Create prebuilds directory structure
-          mkdir prebuilds\win32-${{ matrix.os.arch }}
+          mkdir prebuilds\win32-${{ matrix.os.arch }}-msvc
 
           REM Copy the built .node file
-          copy build\Release\*.node prebuilds\win32-${{ matrix.os.arch }}\node-av.node
+          copy build\Release\*.node prebuilds\win32-${{ matrix.os.arch }}-msvc\node-av.node
 
           echo Build completed successfully
 
@@ -389,7 +391,7 @@ jobs:
       - name: Upload prebuilds
         uses: actions/upload-artifact@v4
         with:
-          name: prebuilds-win32-msvc-${{ matrix.os.arch }}
+          name: prebuild-win32-msvc-${{ matrix.os.arch }}
           path: prebuilds/
 
   build_linux:
