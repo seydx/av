@@ -355,7 +355,7 @@ jobs:
       - name: Install Node dependencies
         run: |
           npm install --ignore-scripts
-          npm install -g prebuildify
+          npm install -g prebuildify node-gyp
 
       - name: Build Native Addon
         shell: cmd
