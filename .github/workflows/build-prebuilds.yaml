@@ -200,9 +200,7 @@ jobs:
           retention-days: 7
 
       - name: Install Node dependencies
-        run: |
-          npm install --ignore-scripts
-          npm install -g prebuildify
+        run: npm install --ignore-scripts
 
       - name: Setup custom node-gyp
         shell: msys2 {0}
@@ -353,9 +351,7 @@ jobs:
           ls -la ffmpeg-msvc/
 
       - name: Install Node dependencies
-        run: |
-          npm install --ignore-scripts
-          npm install -g prebuildify node-gyp
+        run: npm install --ignore-scripts
 
       - name: Build Native Addon
         shell: cmd
@@ -365,7 +361,7 @@ jobs:
           copy binding-jellyfin.gyp binding.gyp
 
           REM Build N-API binary
-          prebuildify \
+          npx prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.os.arch }}
@@ -517,9 +513,7 @@ jobs:
           retention-days: 7
 
       - name: Install Node dependencies
-        run: |
-          npm install --ignore-scripts
-          npm install -g prebuildify
+        run: npm install --ignore-scripts
 
       - name: Build Native Addon
         run: |
@@ -544,7 +538,7 @@ jobs:
           CFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
           CXXFLAGS="-I/opt/ffbuild/prefix/include -fPIC" \
           LDFLAGS="$BUILD_LDFLAGS" \
-          prebuildify \
+          npx prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.arch }} \
@@ -675,9 +669,7 @@ jobs:
           retention-days: 7
 
       - name: Install Node dependencies
-        run: |
-          npm install --ignore-scripts
-          npm install -g prebuildify
+        run: npm install --ignore-scripts
 
       - name: Build Native Addon
         run: |
@@ -703,7 +695,7 @@ jobs:
           fi
 
           # Build N-API binary
-          prebuildify \
+          npx prebuildify \
             --napi \
             --strip \
             --arch=${{ matrix.arch }}
