@@ -37,6 +37,12 @@ jobs:
           pattern: prebuild-*
           path: prebuilds-artifacts
 
+      - name: Download FFmpeg binaries
+        uses: actions/download-artifact@v5
+        with:
+          pattern: ffmpeg-v7.1.2-*
+          path: ffmpeg-binaries
+
       - name: Prepare prebuilds structure
         run: |
           mkdir -p prebuilds
@@ -111,14 +117,35 @@ jobs:
 
       - name: Create release archives
         run: |
-          # Create archives for each platform
-          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+          # Create archives for each platform (including new Windows variants)
+          for platform in darwin-x64 darwin-arm64 linux-x64 linux-arm64 win32-x64-mingw win32-arm64-mingw win32-x64-msvc win32-arm64-msvc; do
             if [ -d "prebuilds/$platform" ]; then
               zip -r "node-av-${platform}-${GITHUB_REF#refs/tags/}.zip" "prebuilds/$platform"
+              echo "Created: node-av-${platform}-${GITHUB_REF#refs/tags/}.zip"
             fi
           done
 
-          echo "Release archives created:"
+          # Copy FFmpeg binaries to root for release
+          if [ -d "ffmpeg-binaries" ]; then
+            echo "Copying FFmpeg binaries for release:"
+            for ffmpeg_dir in ffmpeg-binaries/*/; do
+              if [ -d "$ffmpeg_dir" ]; then
+                # Extract the artifact name from directory
+                artifact_name=$(basename "$ffmpeg_dir")
+                echo "Processing FFmpeg artifact: $artifact_name"
+
+                # Create zip files for each FFmpeg binary
+                if [ -d "$ffmpeg_dir" ] && [ "$(ls -A "$ffmpeg_dir")" ]; then
+                  cd "$ffmpeg_dir"
+                  zip -r "../../${artifact_name}" *
+                  cd ../..
+                  echo "Created: ${artifact_name}"
+                fi
+              fi
+            done
+          fi
+
+          echo "All release archives created:"
           ls -la *.zip
 
       - name: Generate release notes from CHANGELOG
