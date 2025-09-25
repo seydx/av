@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Windows Build Improvements
+- Added Windows MSVC builds alongside existing MinGW builds for better compatibility
+- Now distributes both `@seydx/node-av-win32-x64-msvc` and `@seydx/node-av-win32-x64-mingw` packages
+
+### Changed
+
+#### FFmpeg Upgrade
+- Updated FFmpeg from 7.1 to **7.1.2** with latest performance improvements and bug fixes
+
 ## [2.1.0] - 2025-09-18
 
 ### Added
