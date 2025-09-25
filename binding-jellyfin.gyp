@@ -267,11 +267,11 @@
                 [
                     "OS=='win'",
                     {
-                        "variables": {"os_type%": '<!@(node -p "os.type()")'},
+                        "variables": {"os_type%": '<!(node -p "os.type()")'},
                         "conditions": [
                             # MinGW/MSYS2 build configuration
                             [
-                                "os_type.startswith('MINGW') or os_type.startswith('MSYS')",
+                                "'<(os_type)'=='MINGW' or '<(os_type)'=='MSYS'",
                                 {
                                     "conditions": [
                                         [
@@ -382,32 +382,45 @@
                             ],
                             # MSVC build configuration
                             [
-                                "os_type=='Windows_NT'",
+                                "'<(os_type)'=='Windows_NT'",
                                 {
                                     "msvs_settings": {
                                         "VCCLCompilerTool": {
                                             "ExceptionHandling": 1,
-                                            "RuntimeLibrary": 0,  # /MT for static runtime
-                                        }
+                                            "RuntimeLibrary": 0,  # /MT
+                                        },
+                                        "VCLinkerTool": {
+                                            "AdditionalOptions": [
+                                                "/ignore:4099",
+                                                "/ignore:4286",
+                                                "/NODEFAULTLIB:MSVCRT",
+                                            ],
+                                            "GenerateDebugInformation": "false",
+                                            "LinkIncremental": 1,
+                                            "OptimizeReferences": 2,
+                                            "EnableCOMDATFolding": 2,
+                                        },
                                     },
                                     "include_dirs": [
-                                        "ffmpeg-msvc/build/include"
+                                        "<(module_root_dir)/ffmpeg-msvc/include"
                                     ],
-                                    "library_dirs": ["ffmpeg-msvc/build/lib"],
+                                    "library_dirs": [
+                                        "<(module_root_dir)/ffmpeg-msvc/lib"
+                                    ],
                                     "libraries": [
                                         # FFmpeg core libraries
-                                        "avformat.lib",
-                                        "avcodec.lib",
-                                        "avfilter.lib",
-                                        "avdevice.lib",
-                                        "avutil.lib",
-                                        "swscale.lib",
-                                        "swresample.lib",
-                                        "postproc.lib",
+                                        "libavformat.a",
+                                        "libavcodec.a",
+                                        "libavfilter.a",
+                                        "libavdevice.a",
+                                        "libavutil.a",
+                                        "libswscale.a",
+                                        "libswresample.a",
+                                        "libpostproc.a",
                                         # Codec libraries (from ffmpeg-msvc build)
-                                        "x264.lib",
-                                        "x265.lib",
-                                        "vpx.lib",
+                                        "libx264.lib",
+                                        "x265-static.lib",
+                                        "vpxmt.lib",
                                         "opus.lib",
                                         "mp3lame.lib",
                                         "fdk-aac.lib",
@@ -416,24 +429,33 @@
                                         "ogg.lib",
                                         "vorbis.lib",
                                         "vorbisenc.lib",
-                                        "webp.lib",
-                                        "webpmux.lib",
-                                        "webpdemux.lib",
-                                        "zimg.lib",
+                                        "libwebp.lib",
+                                        "libwebpmux.lib",
+                                        "libwebpdemux.lib",
+                                        "libsharpyuv.lib",
+                                        "libzimg.lib",
+                                        # JPEG XL support
+                                        "jxl.lib",
+                                        "jxl_threads.lib",
+                                        "jxl_cms.lib",
+                                        "hwy.lib",
                                         # Text/Subtitle rendering
                                         "ass.lib",
                                         "harfbuzz.lib",
                                         "freetype.lib",
                                         "fribidi.lib",
-                                        "fontconfig.lib",
+                                        # Compression libraries
+                                        "brotlidec.lib",
+                                        "brotlienc.lib",
+                                        "brotlicommon.lib",
                                         # Support libraries
-                                        "xml2.lib",
-                                        "z.lib",
-                                        "lzma.lib",
+                                        "libxml2.lib",
+                                        "zlib.lib",
+                                        "liblzma.lib",
                                         "iconv.lib",
                                         # OpenCL
                                         "OpenCL.lib",
-                                        # Vulkan/glslang libraries (if enabled)
+                                        # Vulkan/glslang
                                         "glslang.lib",
                                         "MachineIndependent.lib",
                                         "GenericCodeGen.lib",
@@ -459,27 +481,9 @@
                                         "advapi32.lib",
                                     ],
                                     "conditions": [
-                                        # x64-specific libraries and features
                                         [
                                             "target_arch=='x64'",
-                                            {
-                                                "libraries": [
-                                                    # Intel QuickSync (x64 only)
-                                                    "vpl.lib"
-                                                    # NVIDIA CUDA NPP libraries are linked by FFmpeg if CUDA is available
-                                                    # FFmpeg handles CUDA/NPP linking dynamically
-                                                ]
-                                            },
-                                        ],
-                                        # ARM64-specific features
-                                        [
-                                            "target_arch=='arm64'",
-                                            {
-                                                "libraries": [
-                                                    # MediaFoundation is enabled for ARM64
-                                                    # but doesn't require additional libraries
-                                                ]
-                                            },
+                                            {"libraries": ["vpl.lib"]},
                                         ],
                                     ],
                                 },
