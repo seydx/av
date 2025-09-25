@@ -354,26 +354,23 @@ jobs:
         run: npm install --ignore-scripts
 
       - name: Build Native Addon
-        shell: cmd
+        shell: powershell
         run: |
-          REM Use the MSVC-compatible binding.gyp
-          copy binding.gyp binding.gyp.bak
-          copy binding-jellyfin.gyp binding.gyp
+          # Use the MSVC-compatible binding.gyp
+          Copy-Item binding.gyp binding.gyp.bak
+          Copy-Item binding-jellyfin.gyp binding.gyp
 
-          REM Build N-API binary
-          npx prebuildify \
-            --napi \
-            --strip \
-            --arch=${{ matrix.os.arch }} \
-            --cwd=%CD%
+          # Build N-API binary directly with node-gyp
+          npx node-gyp configure --arch=${{ matrix.os.arch }} --verbose --release
+          npx node-gyp build --arch=${{ matrix.os.arch }} --verbose --release
 
-          REM Create prebuilds directory structure
-          mkdir prebuilds\win32-${{ matrix.os.arch }}-msvc
+          # Create prebuilds directory structure
+          New-Item -ItemType Directory -Path "prebuilds\win32-${{ matrix.os.arch }}-msvc" -Force
 
-          REM Copy the built .node file
-          copy build\Release\*.node prebuilds\win32-${{ matrix.os.arch }}-msvc\node-av.node
+          # Copy the built .node file
+          Copy-Item "build\Release\*.node" "prebuilds\win32-${{ matrix.os.arch }}-msvc\node-av.node"
 
-          echo Build completed successfully
+          Write-Host "Build completed successfully"
 
       - name: Run Tests
         run: npm run test:all
