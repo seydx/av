@@ -311,7 +311,7 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-0-win-${{ matrix.os.arch }}-jellyfin.zip
+          name: ffmpeg-v7.1.2-win-${{ matrix.os.arch }}-jellyfin.zip
           path: ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin/
 
   build_windows_msvc:
@@ -420,7 +420,7 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-0-win-${{ matrix.os.arch }}.zip
+          name: ffmpeg-v7.1.2-win-${{ matrix.os.arch }}.zip
           path: ffmpeg-binary-win-${{ matrix.os.arch }}/
 
   build_linux:
@@ -624,7 +624,7 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-0-linux-${{ matrix.arch }}-jellyfin.zip
+          name: ffmpeg-v7.1.2-linux-${{ matrix.arch }}-jellyfin.zip
           path: ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin/
 
   build_macos:
@@ -799,5 +799,5 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-0-macos-${{ matrix.arch }}-jellyfin.zip
+          name: ffmpeg-v7.1.2-macos-${{ matrix.arch }}-jellyfin.zip
           path: ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin/
