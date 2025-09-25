@@ -283,7 +283,11 @@ NodeAV provides direct bindings to FFmpeg's C APIs, which work with raw memory p
 
 ## Prebuilt Binaries
 
-Prebuilt binaries are available for macOS, Linux, and Windows (x64/arm64). The package will automatically build from source if needed.
+Prebuilt binaries are available for multiple platforms:
+
+- **macOS**: x64, ARM64
+- **Linux**: x64, ARM64
+- **Windows**: x64, ARM64 (automatic MSVC/MinGW selection)
 
 For detailed installation instructions, build requirements, and troubleshooting, see the **[Installation Guide](https://github.com/seydx/av/tree/main/INSTALLATION.md)**.
 
@@ -306,3 +310,4 @@ For issues and questions, please use the GitHub issue tracker.
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
 - [FFmpeg Doxygen](https://ffmpeg.org/doxygen/trunk/)
 - [Jellyfin FFmpeg](https://github.com/jellyfin/jellyfin-ffmpeg)
+- [FFmpeg MSVC](https://github.com/seydx/ffmpeg-msvc-prebuilt)

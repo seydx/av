@@ -41,7 +41,7 @@ This will:
 
 ### For Prebuilt Binaries
 
-No additional requirements! Prebuilt binaries include statically linked Jellyfin FFmpeg 7.1 libraries with all optimizations and patches.
+No additional requirements! Prebuilt binaries include statically linked FFmpeg 7.1.2 libraries with all optimizations and patches.
 
 ### For Building from Source
 
@@ -63,17 +63,17 @@ No additional requirements! Prebuilt binaries include statically linked Jellyfin
 
 Prebuilt binaries are available for the following platforms:
 
-| Platform | Architecture | Node.js | Electron |
-|----------|-------------|---------|----------|
-| macOS    | x64, arm64  | ✅      | ✅       |
-| Linux    | x64, arm64  | ✅      | ✅       |
-| Windows  | x64, arm64  | ✅      | ✅       |
+| Platform | Architecture | Variants | Node.js | Electron |
+|----------|-------------|----------|---------|----------|
+| macOS    | x64, arm64  | Standard | ✅      | ✅       |
+| Linux    | x64, arm64  | Standard | ✅      | ✅       |
+| Windows  | x64, arm64  | MSVC + MinGW | ✅      | ✅       |
 
 All binaries are built with N-API level 9, ensuring compatibility with:
 - Node.js 22.18.0 and later
 - Electron 22.0.0 and later
 
-The prebuilt binaries are compiled with Jellyfin FFmpeg 7.1, which includes:
+The prebuilt binaries are compiled with FFmpeg 7.1.2, which includes:
 - Hardware acceleration optimizations
 - Additional codec support
 - Performance patches
@@ -265,7 +265,12 @@ pkg-config --modversion libavutil
 npm install node-av
 ```
 
-Prebuilt binaries are strongly recommended for Windows as they include all necessary Jellyfin FFmpeg libraries with optimizations and patches.
+node-av automatically selects the appropriate Windows prebuilt binary for your system:
+
+- **MSVC builds**: For standard Windows systems
+- **MinGW builds**: For MSYS2/MinGW environments
+
+Both variants include statically linked FFmpeg 7.1.2 libraries. The package automatically detects your system environment and chooses the correct variant.
 
 #### Building from Source
 
