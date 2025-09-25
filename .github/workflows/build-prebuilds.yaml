@@ -199,6 +199,24 @@ jobs:
           path: C:\ffmpeg-cache-${{ matrix.os.arch }}
           retention-days: 7
 
+      - name: Package FFmpeg binary
+        shell: msys2 {0}
+        run: |
+          if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
+            FFMPEG_BIN="/clang64/ffbuild/bin/ffmpeg.exe"
+          else
+            FFMPEG_BIN="/clangarm64/ffbuild/bin/ffmpeg.exe"
+          fi
+
+          if [ -f "$FFMPEG_BIN" ]; then
+            mkdir -p ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin
+            cp "$FFMPEG_BIN" ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin/ffmpeg.exe
+            llvm-strip ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin/ffmpeg.exe
+            echo "Packaged FFmpeg binary for win-${{ matrix.os.arch }}-jellyfin"
+          else
+            echo "Warning: FFmpeg binary not found at $FFMPEG_BIN"
+          fi
+
       - name: Install Node dependencies
         run: npm install --ignore-scripts
 
@@ -290,6 +308,12 @@ jobs:
           name: prebuild-windows-mingw-${{ matrix.os.arch }}
           path: prebuilds/
 
+      - name: Upload FFmpeg binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-v7.1.2-0-win-${{ matrix.os.arch }}-jellyfin.zip
+          path: ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin/
+
   build_windows_msvc:
     name: "Windows MSVC ${{ matrix.os.arch }}"
     runs-on: ${{ matrix.os.runner }}
@@ -372,6 +396,18 @@ jobs:
 
           Write-Host "Build completed successfully"
 
+      - name: Package FFmpeg binary
+        shell: powershell
+        run: |
+          $ffmpegBin = "ffmpeg-msvc\bin\ffmpeg.exe"
+          if (Test-Path $ffmpegBin) {
+            New-Item -ItemType Directory -Path "ffmpeg-binary-win-${{ matrix.os.arch }}" -Force
+            Copy-Item $ffmpegBin "ffmpeg-binary-win-${{ matrix.os.arch }}\ffmpeg.exe"
+            Write-Host "Packaged FFmpeg binary for win-${{ matrix.os.arch }}"
+          } else {
+            Write-Host "Warning: FFmpeg binary not found at $ffmpegBin"
+          }
+
       - name: Run Tests
         run: npm run test:all
 
@@ -380,6 +416,12 @@ jobs:
         with:
           name: prebuild-win32-msvc-${{ matrix.os.arch }}
           path: prebuilds/
+
+      - name: Upload FFmpeg binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-v7.1.2-0-win-${{ matrix.os.arch }}.zip
+          path: ffmpeg-binary-win-${{ matrix.os.arch }}/
 
   build_linux:
     name: "Linux ${{ matrix.arch }}"
@@ -510,6 +552,18 @@ jobs:
           path: /opt/ffbuild/prefix
           retention-days: 7
 
+      - name: Package FFmpeg binary
+        run: |
+          FFMPEG_BIN="/opt/ffbuild/prefix/bin/ffmpeg"
+          if [ -f "$FFMPEG_BIN" ]; then
+            mkdir -p ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin
+            cp "$FFMPEG_BIN" ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin/ffmpeg
+            strip ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin/ffmpeg
+            echo "Packaged FFmpeg binary for linux-${{ matrix.arch }}-jellyfin"
+          else
+            echo "Warning: FFmpeg binary not found at $FFMPEG_BIN"
+          fi
+
       - name: Install Node dependencies
         run: npm install --ignore-scripts
 
@@ -566,6 +620,12 @@ jobs:
         with:
           name: prebuild-linux-${{ matrix.arch }}
           path: prebuilds/
+
+      - name: Upload FFmpeg binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-v7.1.2-0-linux-${{ matrix.arch }}-jellyfin.zip
+          path: ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin/
 
   build_macos:
     name: "macOS ${{ matrix.arch }}"
@@ -666,6 +726,18 @@ jobs:
           path: /opt/ffbuild/prefix
           retention-days: 7
 
+      - name: Package FFmpeg binary
+        run: |
+          FFMPEG_BIN="/opt/ffbuild/prefix/bin/ffmpeg"
+          if [ -f "$FFMPEG_BIN" ]; then
+            mkdir -p ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin
+            cp "$FFMPEG_BIN" ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin/ffmpeg
+            strip ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin/ffmpeg
+            echo "Packaged FFmpeg binary for macos-${{ matrix.arch }}-jellyfin"
+          else
+            echo "Warning: FFmpeg binary not found at $FFMPEG_BIN"
+          fi
+
       - name: Install Node dependencies
         run: npm install --ignore-scripts
 
@@ -723,3 +795,9 @@ jobs:
         with:
           name: prebuild-macos-${{ matrix.arch }}
           path: prebuilds/
+
+      - name: Upload FFmpeg binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-v7.1.2-0-macos-${{ matrix.arch }}-jellyfin.zip
+          path: ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin/
