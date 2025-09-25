@@ -203,9 +203,9 @@ jobs:
         shell: msys2 {0}
         run: |
           if [ "${{ matrix.os.msystem }}" = "CLANG64" ]; then
-            FFMPEG_BIN="/clang64/ffbuild/bin/ffmpeg.exe"
+            FFMPEG_BIN="/clang64/ffbuild/jellyfin-ffmpeg/bin/ffmpeg.exe"
           else
-            FFMPEG_BIN="/clangarm64/ffbuild/bin/ffmpeg.exe"
+            FFMPEG_BIN="/clangarm64/ffbuild/jellyfin-ffmpeg/bin/ffmpeg.exe"
           fi
 
           if [ -f "$FFMPEG_BIN" ]; then
