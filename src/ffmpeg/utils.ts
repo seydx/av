@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { arch, platform } from 'node:os';
+import { arch, platform, type } from 'node:os';
 
 export type ARCH = 'arm' | 'arm6' | 'arm7' | 'arm64' | 'ia32' | 'loong64' | 'mips' | 'mipsel' | 'ppc' | 'ppc64' | 'riscv64' | 's390' | 's390x' | 'x64';
 
@@ -13,6 +13,10 @@ export function getPlatform(): NodeJS.Platform {
   }
 
   return platform();
+}
+
+export function getPlatformType(): string {
+  return type();
 }
 
 export function getArchitecture(): ARCH {

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Open } from 'unzipper';
 
 import { ffmpegPath } from './index.js';
-import { getArchitecture, getPlatform } from './utils.js';
+import { getArchitecture, getPlatform, getPlatformType } from './utils.js';
 
 import type { AxiosProgressEvent } from 'axios';
 import type { ARCH } from './utils.js';
@@ -44,13 +44,23 @@ const binaries: FFMPEG_BINARIES = {
 
 const arch = getArchitecture();
 const sysPlatform = getPlatform();
-const filename = binaries[sysPlatform]?.[arch];
+let filename = binaries[sysPlatform]?.[arch];
+
+if (!filename) {
+  console.error(`No ffmpeg binary found for architecture (${sysPlatform} / ${arch})`);
+  process.exit(1);
+}
+
+if (sysPlatform === 'win32' && getPlatformType() !== 'Windows_NT') {
+  filename = filename.replace('.zip', '-jellyfin.zip');
+}
 
 console.log(`Detected platform: ${sysPlatform} / ${arch}`);
+console.log(`Using binary: ${filename}`);
 
 const ffmpegBinaryPath = resolve(__dirname, '../../binary');
 
-const ffmpegFilePath = resolve(ffmpegBinaryPath, filename!);
+const ffmpegFilePath = resolve(ffmpegBinaryPath, filename);
 const ffmpegExtractedFilePath = ffmpegPath();
 
 const isZipUrl = (url: string): boolean => {
