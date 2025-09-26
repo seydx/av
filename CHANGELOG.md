@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2025-09-26
+
 ### Added
 
 - **FFmpeg Binary Access**: New `node-av/ffmpeg` entry point provides easy access to FFmpeg binaries
