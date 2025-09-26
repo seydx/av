@@ -8,7 +8,8 @@ env:
   CACHE_VERSION_WINDOWS: "v13"
   CACHE_VERSION_LINUX: "v26"
   CACHE_VERSION_MACOS: "v11"
-  JELLYFIN_FFMPEG_HASH: "21198ee5630df2b0dabe4bb416e6c9c4a32522ed"
+  FFMPEG_VERSION: "7.1.2"
+  # JELLYFIN_FFMPEG_HASH: "21198ee5630df2b0dabe4bb416e6c9c4a32522ed"
   UPLOAD_CACHES: false
 
 on:
@@ -311,7 +312,7 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-win-${{ matrix.os.arch }}-jellyfin.zip
+          name: ffmpeg-v${{ env.FFMPEG_VERSION }}-win-${{ matrix.os.arch }}-jellyfin.zip
           path: ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin/
 
   build_windows_msvc:
@@ -422,7 +423,7 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-win-${{ matrix.os.arch }}.zip
+          name: ffmpeg-v${{ env.FFMPEG_VERSION }}-win-${{ matrix.os.arch }}.zip
           path: ffmpeg-binary-win-${{ matrix.os.arch }}/
 
   build_linux:
@@ -626,7 +627,7 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-linux-${{ matrix.arch }}-jellyfin.zip
+          name: ffmpeg-v${{ env.FFMPEG_VERSION }}-linux-${{ matrix.arch }}-jellyfin.zip
           path: ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin/
 
   build_macos:
@@ -801,5 +802,5 @@ jobs:
       - name: Upload FFmpeg binary
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-v7.1.2-macos-${{ matrix.arch }}-jellyfin.zip
+          name: ffmpeg-v${{ env.FFMPEG_VERSION }}-macos-${{ matrix.arch }}-jellyfin.zip
           path: ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin/
