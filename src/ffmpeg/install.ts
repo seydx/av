@@ -15,6 +15,11 @@ import { getArchitecture, getPlatform, getPlatformType } from './utils.js';
 import type { AxiosProgressEvent } from 'axios';
 import type { ARCH } from './utils.js';
 
+if (process.env.SKIP_FFMPEG === 'true') {
+  console.log('Skipping ffmpeg download');
+  process.exit(0);
+}
+
 type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
 
 type FFMPEG_BINARIES = PartialRecord<NodeJS.Platform, PartialRecord<ARCH, string>>;
