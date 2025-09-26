@@ -53,7 +53,7 @@ let filename = binaries[sysPlatform]?.[arch];
 
 if (!filename) {
   console.error(`No ffmpeg binary found for architecture (${sysPlatform} / ${arch})`);
-  process.exit(1);
+  process.exit(0);
 }
 
 if (sysPlatform === 'win32' && getPlatformType() !== 'Windows_NT') {
@@ -154,6 +154,6 @@ const downloadFFmpeg = async (): Promise<void> => {
 };
 
 downloadFFmpeg().catch((error) => {
-  console.error('Error downloading FFmpeg:', error);
-  process.exit(1);
+  console.error('Error downloading FFmpeg:', error?.messge ?? error);
+  process.exit(0);
 });
