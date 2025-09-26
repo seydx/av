@@ -6,3 +6,6 @@ export * from './api/index.js';
 
 // Export all generated constants
 export * from './constants/index.js';
+
+// Export ffmpeg utilities
+export * from './ffmpeg/index.js';

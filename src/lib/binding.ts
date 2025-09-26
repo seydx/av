@@ -320,10 +320,8 @@ function loadBinding(): NativeBinding {
 
   // For Windows, detect MinGW vs MSVC environment
   if (platform === 'win32') {
-    const useMSVC = type() === 'Windows_NT';
-
-    // Try MinGW version first if in MinGW environment
-    if (!useMSVC) {
+    const useMingW = type() !== 'Windows_NT';
+    if (useMingW) {
       try {
         const packageName = `@seydx/node-av-${platformArch}-mingw`;
         return require(`${packageName}/node-av.node`);
@@ -332,7 +330,7 @@ function loadBinding(): NativeBinding {
       }
     }
 
-    // Try MSVC version (default for Windows)
+    // Fallback to MSVC
     try {
       const packageName = `@seydx/node-av-${platformArch}-msvc`;
       return require(`${packageName}/node-av.node`);
@@ -354,7 +352,7 @@ function loadBinding(): NativeBinding {
   // prettier-ignore
   throw new Error(
     `Could not load the node-av native binding for ${platformArch}.\n` +
-    `Attempted locations:\n  ${errorMessages}\n\n`,
+    `Errors:\n  ${errorMessages}\n\n`,
   );
 }
 
