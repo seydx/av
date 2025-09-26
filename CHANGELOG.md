@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **FFmpeg Binary Access**: New `node-av/ffmpeg` entry point provides easy access to FFmpeg binaries
+  - `ffmpegPath()` - Get path to FFmpeg executable
+  - `isFfmpegAvailable()` - Check if FFmpeg binary is available
+  - Automatic download and installation of platform-specific FFmpeg binaries from GitHub releases
+
+
 ## [2.4.0] - 2025-09-25
 
 ### Added

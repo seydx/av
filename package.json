@@ -24,6 +24,11 @@
       "types": "./dist/constants/index.d.ts",
       "require": "./dist/constants/index.js",
       "default": "./dist/constants/index.js"
+    },
+    "./ffmpeg": {
+      "types": "./dist/ffmpeg/index.d.ts",
+      "require": "./dist/ffmpeg/index.js",
+      "default": "./dist/ffmpeg/index.js"
     }
   },
   "scripts": {
