@@ -46,6 +46,7 @@
     "install-updates": "npm i --save",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
+    "postinstall": "node dist/ffmpeg/install.js",
     "predocs": "typedoc && cpy README.md docs/ --rename=index.md",
     "release:patch": "node scripts/prepare-release.js patch",
     "release:minor": "node scripts/prepare-release.js minor",
@@ -60,8 +61,8 @@
     "@seydx/node-av-linux-arm64": "^2.4.0",
     "@seydx/node-av-linux-x64": "^2.4.0",
     "@seydx/node-av-win32-arm64-mingw": "^2.4.0",
-    "@seydx/node-av-win32-x64-mingw": "^2.4.0",
     "@seydx/node-av-win32-arm64-msvc": "^2.4.0",
+    "@seydx/node-av-win32-x64-mingw": "^2.4.0",
     "@seydx/node-av-win32-x64-msvc": "^2.4.0"
   },
   "devDependencies": {
@@ -109,5 +110,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/seydx/av.git"
+  },
+  "dependencies": {
+    "unzipper": "^0.12.3"
   }
 }
