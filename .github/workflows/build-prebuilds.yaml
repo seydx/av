@@ -389,9 +389,11 @@ jobs:
           npx node-gyp build --arch=${{ matrix.os.arch }} --verbose --release
 
           # Create prebuilds directory structure
+          New-Item -ItemType Directory -Path "binary" -Force
           New-Item -ItemType Directory -Path "prebuilds\win32-${{ matrix.os.arch }}-msvc" -Force
 
           # Copy the built .node file
+          Copy-Item "build\Release\*.node" "binary\node-av.node"
           Copy-Item "build\Release\*.node" "prebuilds\win32-${{ matrix.os.arch }}-msvc\node-av.node"
 
           Write-Host "Build completed successfully"
