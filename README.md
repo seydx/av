@@ -220,6 +220,44 @@ try {
 }
 ```
 
+## FFmpeg Binary Access
+
+Need direct access to the FFmpeg binary? The library provides an easy way to get FFmpeg binaries that automatically downloads and manages platform-specific builds.
+
+```typescript
+import { ffmpegPath, isFfmpegAvailable } from 'node-av/ffmpeg';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+
+// Check if FFmpeg binary is available
+if (isFfmpegAvailable()) {
+  console.log('FFmpeg binary found at:', ffmpegPath());
+
+  // Use FFmpeg binary directly
+  const { stdout } = await execFileAsync(ffmpegPath(), ['-version']);
+  console.log(stdout);
+} else {
+  console.log('FFmpeg binary not available - install may have failed');
+}
+
+// Direct usage example
+async function convertVideo(input: string, output: string) {
+  const args = [
+    '-i', input,
+    '-c:v', 'libx264',
+    '-crf', '23',
+    '-c:a', 'aac',
+    output
+  ];
+
+  await execFileAsync(ffmpegPath(), args);
+}
+```
+
+The FFmpeg binary is automatically downloaded during installation from GitHub releases and matches the same build used by the native bindings.
+
 ## Performance
 
 NodeAV executes all media operations directly through FFmpeg's native C libraries. The Node.js bindings add minimal overhead - mostly just the JavaScript-to-C boundary crossings. During typical operations like transcoding or filtering, most processing time is spent in FFmpeg's optimized C code.
