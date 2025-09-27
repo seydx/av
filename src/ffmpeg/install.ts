@@ -1,18 +1,15 @@
 #!/usr/bin/env node
 
-import axios from 'axios';
 import { chmodSync, createWriteStream, mkdirSync, rmSync } from 'node:fs';
 import { rename } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, extname, resolve } from 'node:path';
-import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { Open } from 'unzipper';
 
 import { ffmpegPath } from './index.js';
 import { getArchitecture, getPlatform, getPlatformType } from './utils.js';
 
-import type { AxiosProgressEvent } from 'axios';
 import type { ARCH } from './utils.js';
 
 if (process.env.SKIP_FFMPEG === 'true') {
@@ -78,29 +75,57 @@ const isZipUrl = (url: string): boolean => {
 const downloadFile = async (url: string): Promise<void> => {
   console.log(`Downloading FFmpeg ${ffmpegVersion} to ${ffmpegFilePath}...`);
 
-  const { data } = await axios.get(url, {
-    onDownloadProgress: (progressEvent: AxiosProgressEvent) => {
-      if (process.env.CI || !progressEvent.total) {
-        return;
-      }
+  const response = await fetch(url);
 
-      const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100) + '%';
-      process.stdout.write('\r' + percent);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
 
-      if (progressEvent.loaded === progressEvent.total) {
-        process.stdout.write('\r');
-      }
-    },
-    timeout: 30 * 1000, // 30s
-    maxRedirects: 3,
-    responseType: 'stream',
-  });
+  if (!response.body) {
+    throw new Error('Response body is null');
+  }
 
   mkdirSync(ffmpegBinaryPath, { recursive: true });
 
-  const streams = [data, createWriteStream(ffmpegFilePath)];
+  // Progress tracking (optional, simpler without detailed progress)
+  const contentLength = response.headers.get('content-length');
+  let downloaded = 0;
 
-  await pipeline(streams);
+  const writeStream = createWriteStream(ffmpegFilePath);
+
+  // Convert ReadableStream to Node.js stream and track progress
+  const reader = response.body.getReader();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      downloaded += value.length;
+
+      // Show progress if we have content length and not in CI
+      if (!process.env.CI && contentLength) {
+        const percent = Math.round((downloaded / parseInt(contentLength)) * 100);
+        process.stdout.write(`\r${percent}%`);
+      }
+
+      writeStream.write(value);
+    }
+
+    if (!process.env.CI && contentLength) {
+      process.stdout.write('\r');
+    }
+  } finally {
+    reader.releaseLock();
+    writeStream.end();
+
+    // Wait for write stream to finish
+    await new Promise<void>((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
+  }
 
   if (isZipUrl(url)) {
     console.log(`Extracting ${ffmpegFilePath} to ${ffmpegExtractedFilePath}...`);
@@ -123,9 +148,16 @@ const downloadFile = async (url: string): Promise<void> => {
 const getReleaseAssets = async (version: string): Promise<{ assets: string[]; files: string[] }> => {
   const url = `${releasesUrl}/tags/v${version}`;
   console.log(`Fetching release info from ${url}...`);
-  const response = await axios.get(url);
 
-  const assets = response.data.assets.map((asset: any) => asset.browser_download_url);
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data: any = await response.json();
+
+  const assets = data.assets.map((asset: any) => asset.browser_download_url);
   const files = assets.map((asset: string) => asset.split(`${version}/`)[1]);
 
   return {
