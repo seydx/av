@@ -15,6 +15,34 @@ Native Node.js bindings for FFmpeg with full TypeScript support. Provides direct
 
 📚 **[Documentation](https://seydx.github.io/node-av)**
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+  - [Low-Level API](#low-level-api)
+  - [High-Level API](#high-level-api)
+  - [Pipeline API](#pipeline-api)
+- [Hardware Acceleration](#hardware-acceleration)
+  - [Auto-Detection](#auto-detection)
+  - [Specific Hardware](#specific-hardware)
+- [Imports and Tree Shaking](#imports-and-tree-shaking)
+- [Stream Processing](#stream-processing)
+  - [From Files](#from-files)
+  - [From Network](#from-network)
+  - [From Buffers](#from-buffers)
+  - [Raw Media Processing](#raw-media-processing)
+- [Resource Management](#resource-management)
+- [FFmpeg Binary Access](#ffmpeg-binary-access)
+- [Performance](#performance)
+  - [Sync vs Async Operations](#sync-vs-async-operations)
+- [Memory Safety Considerations](#memory-safety-considerations)
+- [Examples](#examples)
+- [Prebuilt Binaries](#prebuilt-binaries)
+- [License](#license)
+- [Contributing](#contributing)
+- [Support](#support)
+- [See Also](#see-also)
+
 ## Installation
 
 ```bash
@@ -23,7 +51,92 @@ npm install node-av
 
 ## Quick Start
 
+### Low-Level API
+
+Direct access to FFmpeg's C APIs with minimal abstractions. Perfect when you need full control over FFmpeg functionality.
+
+```typescript
+import { AVERROR_EOF, AVMEDIA_TYPE_VIDEO } from 'node-av/constants';
+import { Codec, CodecContext, FFmpegError, FormatContext, Frame, Packet, Rational } from 'node-av/lib';
+
+// Open input file
+await using ifmtCtx = new FormatContext();
+
+let ret = await ifmtCtx.openInput('input.mp4');
+FFmpegError.throwIfError(ret, 'Could not open input file');
+
+ret = await ifmtCtx.findStreamInfo();
+FFmpegError.throwIfError(ret, 'Could not find stream info');
+
+// Find video stream
+const videoStreamIndex = ifmtCtx.findBestStream(AVMEDIA_TYPE_VIDEO);
+const videoStream = ifmtCtx.streams?.[videoStreamIndex];
+
+if (!videoStream) {
+  throw new Error('No video stream found');
+}
+
+// Create codec
+const codec = Codec.findDecoder(videoStream.codecpar.codecId);
+if (!codec) {
+  throw new Error('Codec not found');
+}
+
+// Allocate codec context for the decoder
+using decoderCtx = new CodecContext();
+decoderCtx.allocContext3(codec);
+
+ret = decoderCtx.parametersToContext(videoStream.codecpar);
+FFmpegError.throwIfError(ret, 'Could not copy codec parameters to decoder context');
+
+// Inform the decoder about the timebase for packet timestamps and the frame rate
+decoderCtx.pktTimebase = videoStream.timeBase;
+decoderCtx.framerate = videoStream.rFrameRate || videoStream.avgFrameRate || new Rational(25, 1);
+
+// Open decoder context
+ret = await decoderCtx.open2(codec, null);
+FFmpegError.throwIfError(ret, 'Could not open codec');
+
+// Process packets
+using packet = new Packet();
+packet.alloc();
+
+using frame = new Frame();
+frame.alloc();
+
+while (true) {
+  let ret = await ifmtCtx.readFrame(packet);
+  if (ret < 0) {
+    break;
+  }
+
+  if (packet.streamIndex === videoStreamIndex) {
+    // Send packet to decoder
+    ret = await decoderCtx.sendPacket(packet);
+    if (ret < 0 && ret !== AVERROR_EOF) {
+      FFmpegError.throwIfError(ret, 'Error sending packet to decoder');
+    }
+
+    // Receive decoded frames
+    while (true) {
+      const ret = await decoderCtx.receiveFrame(frame);
+      if (ret === AVERROR_EOF || ret < 0) {
+        break;
+      }
+
+      console.log(`Decoded frame ${frame.pts}, size: ${frame.width}x${frame.height}`);
+
+      // Process frame data...
+    }
+  }
+
+  packet.unref();
+}
+```
+
 ### High-Level API
+
+Higher-level abstractions for common tasks like decoding, encoding, filtering, and transcoding. Easier to use while still providing access to low-level details when needed.
 
 ```typescript
 import { Decoder, Encoder, MediaInput, MediaOutput } from 'node-av/api';
@@ -76,6 +189,8 @@ for await (using packet of encoder.flushPackets()) {
 ```
 
 ### Pipeline API
+
+A simple way to chain together multiple processing steps like decoding, filtering, encoding, and muxing.
 
 ```typescript
 import { pipeline, MediaInput, MediaOutput, Decoder, Encoder } from 'node-av/api';
