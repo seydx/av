@@ -90,6 +90,36 @@ export interface MediaInputOptions {
 }
 
 /**
+ * Options for MediaOutput creation.
+ *
+ * Configures output container format and buffering.
+ */
+export interface MediaOutputOptions {
+  /**
+   * Preferred output format.
+   *
+   * If not specified, format is guessed from file extension.
+   * Use this to override automatic format detection.
+   *
+   */
+  format?: string;
+
+  /**
+   * Buffer size for I/O operations.
+   *
+   * This option controls the size of the internal buffer used for
+   * reading and writing data. A larger buffer may improve performance
+   * by reducing the number of I/O operations, but will also increase
+   * memory usage.
+   *
+   * @default 4096
+   *
+   * ```
+   */
+  bufferSize?: number;
+}
+
+/**
  * Options for decoder creation.
  *
  * Configuration parameters for initializing a media decoder.
@@ -99,6 +129,9 @@ export interface MediaInputOptions {
 export interface DecoderOptions {
   /** Number of threads to use (0 for auto) */
   threads?: number;
+
+  /** Exit immediately on first decode error (default: true) */
+  exitOnError?: boolean;
 
   /** Additional codec-specific options (passed to AVOptions) */
   options?: Record<string, string | number>;
@@ -144,36 +177,6 @@ export interface EncoderOptions {
 
   /** Additional codec-specific options (passed to AVOptions) */
   options?: Record<string, string | number>;
-}
-
-/**
- * Options for MediaOutput creation.
- *
- * Configures output container format and buffering.
- */
-export interface MediaOutputOptions {
-  /**
-   * Preferred output format.
-   *
-   * If not specified, format is guessed from file extension.
-   * Use this to override automatic format detection.
-   *
-   */
-  format?: string;
-
-  /**
-   * Buffer size for I/O operations.
-   *
-   * This option controls the size of the internal buffer used for
-   * reading and writing data. A larger buffer may improve performance
-   * by reducing the number of I/O operations, but will also increase
-   * memory usage.
-   *
-   * @default 4096
-   *
-   * ```
-   */
-  bufferSize?: number;
 }
 
 /**
