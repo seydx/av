@@ -61,6 +61,11 @@ console.log('Connecting to RTSP stream...');
 await using input = await MediaInput.open(rtspUrl, {
   options: {
     rtsp_transport: 'tcp', // Use TCP for more reliable streaming
+    flags: 'nodelay',
+    fflags: '+discardcorrupt+flush_packets+nobuffer',
+    analyzeduration: 0,
+    probesize: 500000,
+    timeout: 5000000,
   },
 });
 
@@ -100,6 +105,7 @@ if (hardware) {
 console.log('Creating video decoder...');
 using decoder = await Decoder.create(videoStream, {
   hardware,
+  exitOnError: false,
 });
 
 // Determine encoder based on hardware
