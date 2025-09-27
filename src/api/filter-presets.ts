@@ -44,6 +44,7 @@ export interface FilterSupport {
   flip: boolean;
   blur: boolean;
   sharpen: boolean;
+  sobel: boolean;
   chromakey: boolean;
   colorspace: boolean;
   pad: boolean;
@@ -377,6 +378,68 @@ export class FilterPreset {
     } else {
       const filter = amount ? `unsharp=amount=${amount}` : 'unsharp';
       this.add(filter);
+    }
+
+    return this;
+  }
+
+  /**
+   * Adds a Sobel edge detection filter.
+   *
+   * Applies Sobel operator to detect edges in images.
+   * Supports hardware acceleration with OpenCL.
+   * Useful for computer vision and artistic effects.
+   *
+   * @param planes - Planes to process (1-15, default: 15 for all)
+   *
+   * @param scale - Scale factor for result (default: 1.0)
+   *
+   * @returns This instance for chaining
+   *
+   * @example
+   * ```typescript
+   * const chain = FilterPresets.chain()
+   *   .sobel()
+   *   .build();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * const chain = FilterPresets.chain()
+   *   .sobel(15, 2.0)  // All planes, 2x scale
+   *   .build();
+   * ```
+   */
+  sobel(planes?: number, scale?: number): FilterPreset {
+    if (this.hardware) {
+      let filter: string | null = null;
+
+      switch (this.hardware.deviceType) {
+        case AV_HWDEVICE_TYPE_OPENCL:
+          if (planes !== undefined || scale !== undefined) {
+            const params: string[] = [];
+            if (planes !== undefined) params.push(`planes=${planes}`);
+            if (scale !== undefined) params.push(`scale=${scale}`);
+            filter = `sobel_opencl=${params.join(':')}`;
+          } else {
+            filter = 'sobel_opencl';
+          }
+          break;
+      }
+
+      if (filter) {
+        this.add(filter);
+      }
+    } else {
+      // Software Sobel filter
+      if (planes !== undefined || scale !== undefined) {
+        const params: string[] = [];
+        if (planes !== undefined) params.push(`planes=${planes}`);
+        if (scale !== undefined) params.push(`scale=${scale}`);
+        this.add(`sobel=${params.join(':')}`);
+      } else {
+        this.add('sobel');
+      }
     }
 
     return this;
@@ -1746,6 +1809,7 @@ export class FilterPreset {
         flip: true,
         blur: true,
         sharpen: true,
+        sobel: true,
         chromakey: true,
         colorspace: true,
         pad: true,
@@ -1765,6 +1829,7 @@ export class FilterPreset {
           flip: false,
           blur: true, // bilateral_cuda
           sharpen: false, // Uses NPP
+          sobel: false,
           chromakey: true, // chromakey_cuda
           colorspace: true, // colorspace_cuda
           pad: false,
@@ -1782,6 +1847,7 @@ export class FilterPreset {
           flip: false,
           blur: false,
           sharpen: true, // sharpness_vaapi
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: true, // pad_vaapi
@@ -1799,6 +1865,7 @@ export class FilterPreset {
           flip: false,
           blur: false,
           sharpen: false,
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: false,
@@ -1816,6 +1883,7 @@ export class FilterPreset {
           flip: true, // flip_vulkan, hflip_vulkan, vflip_vulkan
           blur: true, // avgblur_vulkan, gblur_vulkan
           sharpen: false,
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: false,
@@ -1833,6 +1901,7 @@ export class FilterPreset {
           flip: false,
           blur: true, // avgblur_opencl, boxblur_opencl
           sharpen: true, // unsharp_opencl
+          sobel: true, // sobel_opencl
           chromakey: true, // colorkey_opencl
           colorspace: false,
           pad: true, // pad_opencl
@@ -1850,6 +1919,7 @@ export class FilterPreset {
           flip: false,
           blur: false,
           sharpen: false,
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: false,
@@ -1868,6 +1938,7 @@ export class FilterPreset {
           flip: false,
           blur: false,
           sharpen: false,
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: false,
@@ -1887,6 +1958,7 @@ export class FilterPreset {
           flip: false,
           blur: false,
           sharpen: false,
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: false,
@@ -1909,6 +1981,7 @@ export class FilterPreset {
           flip: false,
           blur: false,
           sharpen: false,
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: false,
@@ -1929,6 +2002,7 @@ export class FilterPreset {
           flip: false,
           blur: false,
           sharpen: false,
+          sobel: false,
           chromakey: false,
           colorspace: false,
           pad: false,
