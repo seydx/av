@@ -290,22 +290,22 @@ export class Encoder implements Disposable {
     }
 
     // Allocate codec context
+
     const codecContext = new CodecContext();
     codecContext.allocContext3(codec);
 
-    // Apply encoder-specific options
+    // Apply options
+
+    options.bitrate = options.bitrate ?? 1_000_000; // Default bitrate if not provided
+    const bitrate = typeof options.bitrate === 'string' ? parseBitrate(options.bitrate) : BigInt(options.bitrate);
+    codecContext.bitRate = bitrate;
+
     if (options.gopSize !== undefined) {
       codecContext.gopSize = options.gopSize;
     }
 
     if (options.maxBFrames !== undefined) {
       codecContext.maxBFrames = options.maxBFrames;
-    }
-
-    // Apply common options
-    if (options.bitrate !== undefined) {
-      const bitrate = typeof options.bitrate === 'string' ? parseBitrate(options.bitrate) : BigInt(options.bitrate);
-      codecContext.bitRate = bitrate;
     }
 
     if (options.minRate !== undefined) {
@@ -327,12 +327,12 @@ export class Encoder implements Disposable {
       codecContext.threadCount = options.threads;
     }
 
-    codecContext.timeBase = new Rational(options.timeBase.num, options.timeBase.den);
-    codecContext.pktTimebase = new Rational(options.timeBase.num, options.timeBase.den);
-
     if (options.frameRate) {
       codecContext.framerate = new Rational(options.frameRate.num, options.frameRate.den);
     }
+
+    codecContext.timeBase = new Rational(options.timeBase.num, options.timeBase.den);
+    codecContext.pktTimebase = new Rational(options.timeBase.num, options.timeBase.den);
 
     const opts = options.options ? Dictionary.fromObject(options.options) : undefined;
 
