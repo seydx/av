@@ -1,8 +1,30 @@
 {
-  "plugin": ["typedoc-plugin-markdown", "typedoc-vitepress-theme"],
-  "entryPoints": ["./src/api/index.ts", "./src/api/utilities/index.ts", "./src/lib/index.ts", "./src/lib/native-types.ts", "./src/constants/index.ts"],
-  "exclude": ["**/*.test.ts", "**/examples/**", "**/*.cc", "**/*.h"],
-  "externalPattern": ["**/*.test.ts", "**/examples/**", "**/*.cc", "**/*.h", "examples/*.ts", "**/externals/**"],
+  "plugin": [
+    "typedoc-plugin-markdown",
+    "typedoc-vitepress-theme"
+  ],
+  "entryPoints": [
+    "./src/api/index.ts",
+    "./src/api/utilities/index.ts",
+    "./src/lib/index.ts",
+    "./src/lib/native-types.ts",
+    "./src/constants/index.ts",
+    "./src/ffmpeg/index.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/examples/**",
+    "**/*.cc",
+    "**/*.h"
+  ],
+  "externalPattern": [
+    "**/*.test.ts",
+    "**/examples/**",
+    "**/*.cc",
+    "**/*.h",
+    "examples/*.ts",
+    "**/externals/**"
+  ],
   "excludeExternals": true,
   "out": "./docs/api",
   "docsRoot": "./docs",

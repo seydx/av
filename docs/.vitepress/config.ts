@@ -17,11 +17,15 @@ export default defineConfig({
     sidebar: [
       {
         text: 'Low Level API',
-        items: typedocSidebar[2].items,
+        items: typedocSidebar[3].items,
       },
       {
         text: 'High Level API',
         items: typedocSidebar[0].items,
+      },
+      {
+        text: 'FFmpeg',
+        items: typedocSidebar[2].items,
       },
       {
         text: 'Constants',
