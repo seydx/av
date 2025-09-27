@@ -171,19 +171,29 @@ describe('FFmpeg Binary Access', () => {
 
       console.log(`FFmpeg version output: ${output}`);
 
-      // Check for FFmpeg 7.x version (should be compatible with library version)
-      const versionMatch = /ffmpeg version (\d+)\.(\d+)\.(\d+)/i.exec(output);
-      assert.ok(versionMatch, 'Should contain FFmpeg version information');
+      // Check for FFmpeg version - supports both semantic versioning (7.1.2) and specific git hash (f893221)
+      const semanticVersionMatch = /ffmpeg version (\d+)\.(\d+)\.(\d+)/i.exec(output);
+      const expectedGitHash = 'f893221'; // https://github.com/FFmpeg/FFmpeg/releases/tag/n7.1.2
+      const hasExpectedGitVersion = output.includes(`ffmpeg version ${expectedGitHash}`);
 
-      const majorVersion = parseInt(versionMatch[1]);
-      const minorVersion = parseInt(versionMatch[2]);
-      const patchVersion = parseInt(versionMatch[3]);
+      if (semanticVersionMatch) {
+        const majorVersion = parseInt(semanticVersionMatch[1]);
+        const minorVersion = parseInt(semanticVersionMatch[2]);
+        const patchVersion = parseInt(semanticVersionMatch[3]);
 
-      console.log(`Found FFmpeg version: ${majorVersion}.${minorVersion}.${patchVersion}`);
+        console.log(`Found FFmpeg semantic version: ${majorVersion}.${minorVersion}.${patchVersion}`);
 
-      // Should be FFmpeg 7.x (compatible with library)
-      assert.strictEqual(majorVersion, 7, 'Should be FFmpeg version 7.x');
-      assert.ok(minorVersion >= 1, 'Should be at least version 7.1.x');
+        // Should be FFmpeg 7.x (compatible with library)
+        assert.strictEqual(majorVersion, 7, 'Should be FFmpeg version 7.x');
+        assert.ok(minorVersion >= 1, 'Should be at least version 7.1.x');
+      } else if (hasExpectedGitVersion) {
+        console.log(`Found FFmpeg git version: ${expectedGitHash}`);
+
+        // Verify it's the expected git version for MSVC builds
+        assert.ok(output.includes(`ffmpeg version ${expectedGitHash}`), `Should be FFmpeg version ${expectedGitHash}`);
+      } else {
+        assert.fail(`Should contain either semantic version (7.x.x) or git version ${expectedGitHash}`);
+      }
     });
 
     it('should provide binary with expected codec support', async function () {
