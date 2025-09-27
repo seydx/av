@@ -40,6 +40,7 @@ private:
   Napi::Value CopyProps(const Napi::CallbackInfo& info);
   Napi::Value Copy(const Napi::CallbackInfo& info);
   Napi::Value FromBuffer(const Napi::CallbackInfo& info);
+  Napi::Value ToBuffer(const Napi::CallbackInfo& info);
   Napi::Value HwframeTransferDataAsync(const Napi::CallbackInfo& info);
   Napi::Value HwframeTransferDataSync(const Napi::CallbackInfo& info);
   Napi::Value IsHwFrame(const Napi::CallbackInfo& info);

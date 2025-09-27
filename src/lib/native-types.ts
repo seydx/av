@@ -131,6 +131,7 @@ export interface NativeFrame extends Disposable {
   copyProps(src: NativeFrame): number;
   copy(src: NativeFrame): number;
   fromBuffer(buffer: Buffer): number;
+  toBuffer(): Buffer;
   hwframeTransferData(dst: NativeFrame, flags?: number): Promise<number>;
   hwframeTransferDataSync(dst: NativeFrame, flags?: number): number;
   isHwFrame(): boolean;

@@ -775,6 +775,60 @@ export class Frame implements Disposable, NativeWrapper<NativeFrame> {
   }
 
   /**
+   * Convert frame data to buffer.
+   *
+   * Copies frame data into a single contiguous buffer.
+   * For video frames, converts all planes into packed format.
+   * For audio frames, handles both planar and interleaved formats.
+   * Cannot be used with hardware frames - use hwframeTransferData first.
+   *
+   * @returns Buffer containing frame data
+   *
+   * @throws {Error} If frame is not allocated, has no data, or is a hardware frame
+   *
+   * @example Video frame to buffer
+   * ```typescript
+   * // Get YUV420P video frame as buffer
+   * const buffer = frame.toBuffer();
+   * console.log(`Frame buffer size: ${buffer.length} bytes`);
+   * // Buffer contains Y plane, then U plane, then V plane
+   * ```
+   *
+   * @example Audio frame to buffer
+   * ```typescript
+   * // Get audio samples as buffer
+   * const audioBuffer = frame.toBuffer();
+   * console.log(`Audio buffer size: ${audioBuffer.length} bytes`);
+   * // For planar audio: channel 0 samples, then channel 1 samples, etc.
+   * // For interleaved audio: sample0_ch0, sample0_ch1, sample1_ch0, sample1_ch1, etc.
+   * ```
+   *
+   * @example Error handling
+   * ```typescript
+   * try {
+   *   const buffer = frame.toBuffer();
+   *   // Process buffer...
+   * } catch (error) {
+   *   if (frame.isHwFrame()) {
+   *     // Transfer to software first
+   *     const swFrame = new Frame();
+   *     swFrame.alloc();
+   *     await frame.hwframeTransferData(swFrame);
+   *     const buffer = swFrame.toBuffer();
+   *   }
+   * }
+   * ```
+   *
+   * @see {@link fromBuffer} To create frame from buffer
+   * @see {@link hwframeTransferData} To transfer hardware frames to software
+   * @see {@link isHwFrame} To check if frame is hardware
+   * @see {@link data} To access individual planes
+   */
+  toBuffer(): Buffer {
+    return this.native.toBuffer();
+  }
+
+  /**
    * Transfer data between hardware and software frames.
    *
    * Copies frame data between GPU and system memory.

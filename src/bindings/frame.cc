@@ -18,6 +18,7 @@ Napi::Object Frame::Init(Napi::Env env, Napi::Object exports) {
     InstanceMethod<&Frame::CopyProps>("copyProps"),
     InstanceMethod<&Frame::Copy>("copy"),
     InstanceMethod<&Frame::FromBuffer>("fromBuffer"),
+    InstanceMethod<&Frame::ToBuffer>("toBuffer"),
     InstanceMethod<&Frame::HwframeTransferDataAsync>("hwframeTransferData"),
     InstanceMethod<&Frame::HwframeTransferDataSync>("hwframeTransferDataSync"),
     InstanceMethod<&Frame::IsHwFrame>("isHwFrame"),
@@ -320,6 +321,123 @@ Napi::Value Frame::FromBuffer(const Napi::CallbackInfo& info) {
   }
   
   return Napi::Number::New(env, AVERROR(EINVAL));
+}
+
+Napi::Value Frame::ToBuffer(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (!frame_) {
+    Napi::Error::New(env, "Frame not allocated").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Check if this is a hardware frame (cannot convert directly to buffer)
+  if (frame_->hw_frames_ctx) {
+    Napi::Error::New(env, "Cannot convert hardware frame to buffer - use hwframeTransferData first").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Check if frame has data
+  if (!frame_->data[0]) {
+    Napi::Error::New(env, "Frame has no data").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Handle video frames
+  if (frame_->width > 0 && frame_->height > 0) {
+    // Calculate required buffer size for video frame
+    int buffer_size = av_image_get_buffer_size(
+      static_cast<AVPixelFormat>(frame_->format),
+      frame_->width,
+      frame_->height,
+      1
+    );
+
+    if (buffer_size < 0) {
+      Napi::Error::New(env, "Failed to calculate buffer size for video frame").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    // Allocate buffer
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::New(env, buffer_size);
+    uint8_t* buffer_data = buffer.Data();
+
+    if (!buffer_data) {
+      Napi::Error::New(env, "Failed to allocate buffer memory").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    // Copy frame data to buffer
+    int ret = av_image_copy_to_buffer(
+      buffer_data,
+      buffer_size,
+      (const uint8_t* const*)frame_->data,
+      frame_->linesize,
+      static_cast<AVPixelFormat>(frame_->format),
+      frame_->width,
+      frame_->height,
+      1
+    );
+
+    if (ret < 0) {
+      Napi::Error::New(env, "Failed to copy frame data to buffer").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    return buffer;
+  }
+  // Handle audio frames
+  else if (frame_->nb_samples > 0) {
+    int channels = frame_->ch_layout.nb_channels;
+    AVSampleFormat sample_fmt = static_cast<AVSampleFormat>(frame_->format);
+    int bytes_per_sample = av_get_bytes_per_sample(sample_fmt);
+    bool is_planar = av_sample_fmt_is_planar(sample_fmt);
+
+    if (bytes_per_sample <= 0) {
+      Napi::Error::New(env, "Invalid sample format").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    int buffer_size;
+    if (is_planar) {
+      // Planar: all channels concatenated
+      buffer_size = frame_->nb_samples * bytes_per_sample * channels;
+    } else {
+      // Interleaved: already in correct format
+      buffer_size = frame_->nb_samples * channels * bytes_per_sample;
+    }
+
+    // Allocate buffer
+    Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::New(env, buffer_size);
+    uint8_t* buffer_data = buffer.Data();
+
+    if (!buffer_data) {
+      Napi::Error::New(env, "Failed to allocate buffer memory").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    // Copy audio data
+    if (is_planar) {
+      // Copy each channel sequentially
+      int plane_size = frame_->nb_samples * bytes_per_sample;
+      for (int ch = 0; ch < channels; ch++) {
+        if (!frame_->data[ch]) {
+          Napi::Error::New(env, "Missing audio channel data").ThrowAsJavaScriptException();
+          return env.Undefined();
+        }
+        memcpy(buffer_data + (ch * plane_size), frame_->data[ch], plane_size);
+      }
+    } else {
+      // Copy interleaved data directly
+      memcpy(buffer_data, frame_->data[0], buffer_size);
+    }
+
+    return buffer;
+  }
+
+  // Neither video nor audio frame
+  Napi::Error::New(env, "Frame is neither video nor audio").ThrowAsJavaScriptException();
+  return env.Undefined();
 }
 
 Napi::Value Frame::GetFormat(const Napi::CallbackInfo& info) {
