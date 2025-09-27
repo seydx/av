@@ -931,8 +931,7 @@ describe('Pipeline - Comprehensive Tests', () => {
     });
 
     describe('Edge Cases', () => {
-      // CI tests failing due to aac decoder?
-      it.skip('should handle pipeline with multiple outputs in named pipeline', async () => {
+      it('should handle pipeline with multiple outputs in named pipeline', skipInCI, async () => {
         if (process.platform === 'darwin' && process.arch === 'x64') {
           console.log('Skipping test on macOS x64 due to known race condition');
           return;
