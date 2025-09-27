@@ -3,6 +3,16 @@
 #include "format_context.h"
 #include <cstring>
 #include <vector>
+extern "C" {
+#include <libavutil/version.h>
+#include <libavformat/version.h>
+#include <libavcodec/version.h>
+#include <libavfilter/version.h>
+#include <libavdevice/version.h>
+#include <libswscale/version.h>
+#include <libswresample/version.h>
+#include <libavutil/ffversion.h>
+}
 
 namespace ffmpeg {
 
@@ -48,12 +58,75 @@ Napi::Object Utilities::Init(Napi::Env env, Napi::Object exports) {
 
   // SDP utilities
   exports.Set("avSdpCreate", Napi::Function::New(env, SdpCreate));
+
+  // FFmpeg information
+  exports.Set("getFFmpegInfo", Napi::Function::New(env, GetFFmpegInfo));
+
   return exports;
 }
 
 Utilities::Utilities(const Napi::CallbackInfo& info) 
   : Napi::ObjectWrap<Utilities>(info) {
   // No instance creation needed for utilities
+}
+
+// === FFmpeg information utilities ===
+
+Napi::Value Utilities::GetFFmpegInfo(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  Napi::Object result = Napi::Object::New(env);
+
+  // FFmpeg version string (e.g., "7.1.2-Jellyfin")
+  result.Set("version", Napi::String::New(env, FFMPEG_VERSION));
+
+  // Configuration string
+  const char* config = avcodec_configuration();
+  result.Set("configuration", Napi::String::New(env, config ? config : ""));
+
+  // Library versions object
+  Napi::Object libs = Napi::Object::New(env);
+
+  char libVersion[128];
+
+  // libavutil
+  snprintf(libVersion, sizeof(libVersion), "%d.%d.%d",
+    LIBAVUTIL_VERSION_MAJOR, LIBAVUTIL_VERSION_MINOR, LIBAVUTIL_VERSION_MICRO);
+  libs.Set("avutil", Napi::String::New(env, libVersion));
+
+  // libavcodec
+  snprintf(libVersion, sizeof(libVersion), "%d.%d.%d",
+    LIBAVCODEC_VERSION_MAJOR, LIBAVCODEC_VERSION_MINOR, LIBAVCODEC_VERSION_MICRO);
+  libs.Set("avcodec", Napi::String::New(env, libVersion));
+
+  // libavformat
+  snprintf(libVersion, sizeof(libVersion), "%d.%d.%d",
+    LIBAVFORMAT_VERSION_MAJOR, LIBAVFORMAT_VERSION_MINOR, LIBAVFORMAT_VERSION_MICRO);
+  libs.Set("avformat", Napi::String::New(env, libVersion));
+
+  // libavfilter
+  snprintf(libVersion, sizeof(libVersion), "%d.%d.%d",
+    LIBAVFILTER_VERSION_MAJOR, LIBAVFILTER_VERSION_MINOR, LIBAVFILTER_VERSION_MICRO);
+  libs.Set("avfilter", Napi::String::New(env, libVersion));
+
+  // libavdevice
+  snprintf(libVersion, sizeof(libVersion), "%d.%d.%d",
+    LIBAVDEVICE_VERSION_MAJOR, LIBAVDEVICE_VERSION_MINOR, LIBAVDEVICE_VERSION_MICRO);
+  libs.Set("avdevice", Napi::String::New(env, libVersion));
+
+  // libswscale
+  snprintf(libVersion, sizeof(libVersion), "%d.%d.%d",
+    LIBSWSCALE_VERSION_MAJOR, LIBSWSCALE_VERSION_MINOR, LIBSWSCALE_VERSION_MICRO);
+  libs.Set("swscale", Napi::String::New(env, libVersion));
+
+  // libswresample
+  snprintf(libVersion, sizeof(libVersion), "%d.%d.%d",
+    LIBSWRESAMPLE_VERSION_MAJOR, LIBSWRESAMPLE_VERSION_MINOR, LIBSWRESAMPLE_VERSION_MICRO);
+  libs.Set("swresample", Napi::String::New(env, libVersion));
+
+  result.Set("libraries", libs);
+
+  return result;
 }
 
 // === Sample format utilities ===

@@ -58,9 +58,41 @@ import {
   avTs2Str,
   avTs2TimeStr,
   avUsleep,
+  getFFmpegInfo,
 } from '../src/index.js';
 
 describe('Utilities', () => {
+  describe('FFmpeg Information', () => {
+    it('should return FFmpeg version information', () => {
+      const info = getFFmpegInfo();
+
+      // Check that info object has required properties
+      assert.ok(info, 'Should return info object');
+      assert.ok(typeof info.version === 'string', 'Should have version string');
+      assert.ok(typeof info.configuration === 'string', 'Should have configuration string');
+      assert.ok(info.libraries, 'Should have libraries object');
+
+      // Check library versions
+      assert.ok(info.libraries.avutil, 'Should have avutil version');
+      assert.ok(info.libraries.avcodec, 'Should have avcodec version');
+      assert.ok(info.libraries.avformat, 'Should have avformat version');
+      assert.ok(info.libraries.avfilter, 'Should have avfilter version');
+      assert.ok(info.libraries.avdevice, 'Should have avdevice version');
+      assert.ok(info.libraries.swscale, 'Should have swscale version');
+      assert.ok(info.libraries.swresample, 'Should have swresample version');
+
+      // Version format check (should be like "59.39.100")
+      assert.match(info.libraries.avutil, /^\d+\.\d+\.\d+$/, 'avutil version should match format');
+      assert.match(info.libraries.avcodec, /^\d+\.\d+\.\d+$/, 'avcodec version should match format');
+
+      // FFmpeg version check (should contain version number)
+      assert.match(info.version, /\d+\.\d+/, 'Version should contain number format');
+
+      console.log('FFmpeg version:', info.version);
+      console.log('libavfilter:', info.libraries.avfilter);
+    });
+  });
+
   describe('Channel Layout Functions', () => {
     it('should describe channel layouts', () => {
       // Test mono layout

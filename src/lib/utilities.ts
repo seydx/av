@@ -6,6 +6,40 @@ import type { FormatContext } from './format-context.js';
 import type { ChannelLayout, IRational } from './types.js';
 
 /**
+ * Get FFmpeg library information.
+ *
+ * Returns detailed information about the FFmpeg libraries including
+ * version numbers and build configuration.
+ *
+ * @returns FFmpeg information object with version, configuration, and library versions
+ *
+ * @example
+ * ```typescript
+ * import { getFFmpegInfo } from 'node-av/lib';
+ *
+ * const info = getFFmpegInfo();
+ * console.log('FFmpeg version:', info.version);
+ * console.log('Configuration:', info.configuration);
+ * console.log('libavcodec:', info.libraries.avcodec);
+ * ```
+ */
+export function getFFmpegInfo(): {
+  version: string;
+  configuration: string;
+  libraries: {
+    avutil: string;
+    avcodec: string;
+    avformat: string;
+    avfilter: string;
+    avdevice: string;
+    swscale: string;
+    swresample: string;
+  };
+} {
+  return bindings.getFFmpegInfo();
+}
+
+/**
  * Get bytes per audio sample.
  *
  * Returns the number of bytes required to store a single audio sample

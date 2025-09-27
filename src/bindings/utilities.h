@@ -21,6 +21,9 @@ class Utilities : public Napi::ObjectWrap<Utilities> {
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
 
+  // FFmpeg information utilities
+  static Napi::Value GetFFmpegInfo(const Napi::CallbackInfo& info);
+
   // Sample format utilities
   static Napi::Value GetBytesPerSample(const Napi::CallbackInfo& info);
   static Napi::Value GetSampleFmtName(const Napi::CallbackInfo& info);

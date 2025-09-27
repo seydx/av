@@ -233,7 +233,19 @@ export interface NativeBinding {
   Option: NativeOptionStatic;
 
   // Functions
-  getVersion: () => string;
+  getFFmpegInfo: () => {
+    version: string;
+    configuration: string;
+    libraries: {
+      avutil: string;
+      avcodec: string;
+      avformat: string;
+      avfilter: string;
+      avdevice: string;
+      swscale: string;
+      swresample: string;
+    };
+  };
 
   // Utility functions
   avGetBytesPerSample: (sampleFmt: AVSampleFormat) => number;
