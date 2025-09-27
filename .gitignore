@@ -64,6 +64,7 @@ ffmpeg_examples
 /docs/lowlevel
 /docs/highlevel
 /docs/api
+/docs/lib
 /docs/index.md
 /projects
 /ffmpeg-msvc
