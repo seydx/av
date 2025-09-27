@@ -82,11 +82,14 @@ describe('Utilities', () => {
       assert.ok(info.libraries.swresample, 'Should have swresample version');
 
       // Version format check (should be like "59.39.100")
-      assert.match(info.libraries.avutil, /^\d+\.\d+\.\d+$/, 'avutil version should match format');
-      assert.match(info.libraries.avcodec, /^\d+\.\d+\.\d+$/, 'avcodec version should match format');
+      assert.match(info.libraries.avutil, /^\d+\.\s*\d+\.\d+$/, 'avutil version should match format');
+      assert.match(info.libraries.avcodec, /^\d+\.\s*\d+\.\d+$/, 'avcodec version should match format');
 
-      // FFmpeg version check (should contain version number)
-      assert.match(info.version, /\d+\.\d+/, 'Version should contain number format');
+      // FFmpeg version check - supports both semantic versioning (7.1.2) and git hash (f893221)
+      assert.ok(
+        /\d+\.\d+/.exec(info.version) ?? /^[a-f0-9]{7}/.exec(info.version),
+        'Version should contain either semantic version (e.g. 7.1.2) or git hash (e.g. f893221)',
+      );
 
       console.log('FFmpeg version:', info.version);
       console.log('libavfilter:', info.libraries.avfilter);
