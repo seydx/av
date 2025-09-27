@@ -4,7 +4,7 @@
  * Shows how to apply hardware-accelerated video filters using the Filter API and multiple hardware contexts.
  *
  * Usage: tsx examples/api-hw-filter-sync.ts <input> <output>
- * Example: tsx examples/api-hw-filter-sync.ts /Users/seydx/Downloads/sample.mp4 examples/.tmp/api-hw-filter-sync.mp4
+ * Example: tsx examples/api-hw-filter-sync.ts testdata/video.mp4 examples/.tmp/api-hw-filter-sync.mp4
  */
 
 import {
