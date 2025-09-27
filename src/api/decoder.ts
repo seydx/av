@@ -2,7 +2,6 @@ import { AVERROR_EAGAIN, AVERROR_EOF } from '../constants/constants.js';
 import { Codec, CodecContext, Dictionary, FFmpegError, Frame } from '../lib/index.js';
 
 import type { Packet, Stream } from '../lib/index.js';
-import type { HardwareContext } from './hardware.js';
 import type { DecoderOptions } from './types.js';
 
 /**
@@ -54,7 +53,7 @@ export class Decoder implements Disposable {
   private stream: Stream;
   private initialized = true;
   private isClosed = false;
-  private hardware?: HardwareContext | null;
+  private options: DecoderOptions;
 
   /**
    * @param codecContext - Configured codec context
@@ -63,16 +62,17 @@ export class Decoder implements Disposable {
    *
    * @param stream - Media stream being decoded
    *
-   * @param hardware - Optional hardware context
+   * @param options - Decoder options
+   *
    * Use {@link create} factory method
    *
    * @internal
    */
-  private constructor(codecContext: CodecContext, codec: Codec, stream: Stream, hardware?: HardwareContext | null) {
+  private constructor(codecContext: CodecContext, codec: Codec, stream: Stream, options: DecoderOptions = {}) {
     this.codecContext = codecContext;
     this.codec = codec;
     this.stream = stream;
-    this.hardware = hardware;
+    this.options = options;
     this.frame = new Frame();
     this.frame.alloc();
   }
@@ -119,6 +119,7 @@ export class Decoder implements Disposable {
    * using decoder = await Decoder.create(stream, {
    *   hardware: hw,
    *   threads: 0  // Auto-detect thread count
+   *   exitOnError: false     // Continue on decode errors (default: true)
    * });
    * ```
    *
@@ -161,7 +162,11 @@ export class Decoder implements Disposable {
     const isHWDecoder = codec.isHardwareAcceleratedDecoder();
     if (isHWDecoder && options.hardware) {
       codecContext.hwDeviceCtx = options.hardware.deviceContext;
+    } else {
+      options.hardware = undefined;
     }
+
+    options.exitOnError = options.exitOnError ?? true;
 
     const opts = options.options ? Dictionary.fromObject(options.options) : undefined;
 
@@ -172,7 +177,7 @@ export class Decoder implements Disposable {
       FFmpegError.throwIfError(openRet, 'Failed to open codec');
     }
 
-    return new Decoder(codecContext, codec, stream, isHWDecoder ? options.hardware : undefined);
+    return new Decoder(codecContext, codec, stream, options);
   }
 
   /**
@@ -259,6 +264,8 @@ export class Decoder implements Disposable {
     const isHWDecoder = codec.isHardwareAcceleratedDecoder();
     if (isHWDecoder && options.hardware) {
       codecContext.hwDeviceCtx = options.hardware.deviceContext;
+    } else {
+      options.hardware = undefined;
     }
 
     const opts = options.options ? Dictionary.fromObject(options.options) : undefined;
@@ -270,7 +277,7 @@ export class Decoder implements Disposable {
       FFmpegError.throwIfError(openRet, 'Failed to open codec');
     }
 
-    return new Decoder(codecContext, codec, stream, isHWDecoder ? options.hardware : undefined);
+    return new Decoder(codecContext, codec, stream, options);
   }
 
   /**
@@ -323,7 +330,7 @@ export class Decoder implements Disposable {
    * @see {@link HardwareContext} For hardware setup
    */
   isHardware(): boolean {
-    return !!this.hardware && this.codec.isHardwareAcceleratedDecoder();
+    return !!this.options.hardware && this.codec.isHardwareAcceleratedDecoder();
   }
 
   /**
@@ -400,7 +407,7 @@ export class Decoder implements Disposable {
       }
 
       // If still failing, it's an error
-      if (sendRet !== AVERROR_EAGAIN) {
+      if (sendRet !== AVERROR_EAGAIN && this.options.exitOnError) {
         FFmpegError.throwIfError(sendRet, 'Failed to send packet');
       }
     }
@@ -784,7 +791,10 @@ export class Decoder implements Disposable {
       return null;
     } else {
       // Error
-      FFmpegError.throwIfError(ret, 'Failed to receive frame');
+      if (this.options.exitOnError) {
+        FFmpegError.throwIfError(ret, 'Failed to receive frame');
+      }
+
       return null;
     }
   }
@@ -839,7 +849,10 @@ export class Decoder implements Disposable {
       return null;
     } else {
       // Error
-      FFmpegError.throwIfError(ret, 'Failed to receive frame');
+      if (this.options.exitOnError) {
+        FFmpegError.throwIfError(ret, 'Failed to receive frame');
+      }
+
       return null;
     }
   }
