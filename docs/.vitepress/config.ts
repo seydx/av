@@ -24,12 +24,12 @@ export default defineConfig({
         items: typedocSidebar[0].items,
       },
       {
-        text: 'FFmpeg',
-        items: typedocSidebar[2].items,
-      },
-      {
         text: 'Constants',
         items: typedocSidebar[1].items,
+      },
+      {
+        text: 'FFmpeg',
+        items: typedocSidebar[2].items,
       },
     ],
 
