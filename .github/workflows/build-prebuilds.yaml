@@ -295,6 +295,12 @@ jobs:
             mkdir -p binary
             cp "$PREBUILD_DIR/node-av.node" binary/node-av.node
             echo "Copied binary for tests"
+
+            # Copy FFmpeg binary to binary folder
+            if [ -f "ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin/ffmpeg.exe" ]; then
+              cp "ffmpeg-binary-win-${{ matrix.os.arch }}-jellyfin/ffmpeg.exe" binary/ffmpeg.exe
+              echo "Copied FFmpeg binary for tests"
+            fi
           else
             echo "Error: No .node file found in build/Release"
             exit 1
@@ -406,6 +412,11 @@ jobs:
           if (Test-Path $ffmpegBin) {
             New-Item -ItemType Directory -Path "ffmpeg-binary-win-${{ matrix.os.arch }}" -Force
             Copy-Item $ffmpegBin "ffmpeg-binary-win-${{ matrix.os.arch }}\ffmpeg.exe"
+
+            # Copy FFmpeg binary to binary folder for tests
+            Copy-Item $ffmpegBin "binary\ffmpeg.exe"
+            Write-Host "Copied FFmpeg binary for tests"
+
             Write-Host "Packaged FFmpeg binary for win-${{ matrix.os.arch }}"
           } else {
             Write-Host "Warning: FFmpeg binary not found at $ffmpegBin"
@@ -605,11 +616,17 @@ jobs:
             DIR=$(dirname "$BUILT_FILE")
             mv "$BUILT_FILE" "$DIR/node-av.node"
             echo "Renamed $(basename $BUILT_FILE) -> node-av.node"
-            
+
             # Copy binary for tests
             mkdir -p binary
             cp "$DIR/node-av.node" binary/node-av.node
             echo "Copied binary for tests"
+
+            # Copy FFmpeg binary to binary folder
+            if [ -f "ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin/ffmpeg" ]; then
+              cp "ffmpeg-binary-linux-${{ matrix.arch }}-jellyfin/ffmpeg" binary/ffmpeg
+              echo "Copied FFmpeg binary for tests"
+            fi
           else
             echo "Error: No .node file found in prebuilds directory"
             exit 1
@@ -779,11 +796,17 @@ jobs:
             DIR=$(dirname "$BUILT_FILE")
             mv "$BUILT_FILE" "$DIR/node-av.node"
             echo "Renamed $(basename $BUILT_FILE) -> node-av.node"
-            
+
             # Copy binary for tests
             mkdir -p binary
             cp "$DIR/node-av.node" binary/node-av.node
             echo "Copied binary for tests"
+
+            # Copy FFmpeg binary to binary folder
+            if [ -f "ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin/ffmpeg" ]; then
+              cp "ffmpeg-binary-macos-${{ matrix.arch }}-jellyfin/ffmpeg" binary/ffmpeg
+              echo "Copied FFmpeg binary for tests"
+            fi
           else
             echo "Error: No .node file found in prebuilds directory"
             exit 1
