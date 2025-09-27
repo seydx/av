@@ -60,7 +60,7 @@ console.log(`Duration: ${duration} seconds`);
 console.log('Connecting to RTSP stream...');
 await using input = await MediaInput.open(rtspUrl, {
   options: {
-    rtsp_transport: 'tcp', // Use TCP for more reliable streaming
+    rtsp_transport: 'tcp',
     flags: 'nodelay',
     fflags: '+discardcorrupt+flush_packets+nobuffer',
     analyzeduration: 0,
@@ -87,6 +87,7 @@ console.log(`Codec: ${videoStream.codecpar.codecId}`);
 console.log(`Format: ${videoStream.codecpar.format}`);
 console.log(`Time base: ${videoStream.timeBase.num}/${videoStream.timeBase.den}`);
 console.log(`Frame rate: ${videoStream.avgFrameRate.num}/${videoStream.avgFrameRate.den}`);
+
 if (audioStream) {
   console.log(`Audio: ${audioStream.codecpar.sampleRate}Hz, ${audioStream.codecpar.channels} channels`);
   console.log(`Audio codec: ${audioStream.codecpar.codecId}`);
@@ -175,13 +176,11 @@ let videoPackets = 0;
 let audioPackets = 0;
 
 try {
-  // Create video processing pipeline
   const videoInputGenerator = input.packets(videoStream.index);
   const videoDecoderGenerator = decoder.frames(videoInputGenerator);
   const videoFilterGenerator = filter.frames(videoDecoderGenerator);
   const videoEncoderGenerator = encoder.packets(videoFilterGenerator);
 
-  // Process video and audio in parallel
   const processVideo = async () => {
     for await (const packet of videoEncoderGenerator) {
       if (stop) break;
@@ -211,10 +210,8 @@ const elapsed = (Date.now() - startTime) / 1000;
 console.log('Done!');
 console.log(`Duration: ${elapsed.toFixed(2)} seconds`);
 console.log(`Video packets: ${videoPackets}`);
+console.log(`Audio packets: ${audioPackets}`);
 console.log(`RTP packets received: ${receivedRTPPackets}`);
-if (audioPackets > 0) {
-  console.log(`Audio packets: ${audioPackets}`);
-}
 if (hardware) {
   console.log(`Hardware used: ${hardware.deviceTypeName}`);
 }
