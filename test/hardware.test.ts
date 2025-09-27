@@ -40,8 +40,8 @@ describe('HardwareContext', () => {
       }
     });
 
-    it('should handle unknown device type', async () => {
-      await assert.rejects(async () => HardwareContext.create(999 as any), /Failed to create hardware context/, 'Should throw for unknown device');
+    it('should handle unknown device type', () => {
+      assert.equal(HardwareContext.create(AV_HWDEVICE_TYPE_NONE), null, 'Should return null for unknown device type');
     });
 
     it('should get preference order for hardware types', () => {
@@ -106,24 +106,25 @@ describe('HardwareContext', () => {
 
   describe('specific hardware types', skipInCI, () => {
     it('should handle CUDA if available', () => {
-      try {
-        const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+      const cuda = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
+      if (cuda) {
         console.log('CUDA hardware acceleration available');
         assert.equal(cuda.deviceTypeName, 'cuda', 'Should be CUDA device');
         cuda.dispose();
-      } catch {
+      } else {
         console.log('CUDA not available on this system');
       }
     });
 
     it('should handle VideoToolbox if available', () => {
       if (process.platform === 'darwin') {
-        try {
-          const vt = HardwareContext.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+        const vt = HardwareContext.create(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+
+        if (vt) {
           console.log('VideoToolbox hardware acceleration available');
           assert.equal(vt.deviceTypeName, 'videotoolbox', 'Should be VideoToolbox device');
           vt.dispose();
-        } catch {
+        } else {
           console.log('VideoToolbox not available');
         }
       }
@@ -131,12 +132,13 @@ describe('HardwareContext', () => {
 
     it('should handle VAAPI if available', () => {
       if (process.platform === 'linux') {
-        try {
-          const vaapi = HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI);
+        const vaapi = HardwareContext.create(AV_HWDEVICE_TYPE_VAAPI);
+
+        if (vaapi) {
           console.log('VAAPI hardware acceleration available');
           assert.equal(vaapi.deviceTypeName, 'vaapi', 'Should be VAAPI device');
           vaapi.dispose();
-        } catch {
+        } else {
           console.log('VAAPI not available');
         }
       }

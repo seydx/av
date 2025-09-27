@@ -68,7 +68,7 @@ import type { BaseCodecName, HardwareOptions } from './types.js';
  * ```typescript
  * // Use specific hardware type
  * const hw = HardwareContext.create(AV_HWDEVICE_TYPE_CUDA);
- * const encoderCodec = hw.getEncoderCodec('h264') ?? FF_ENCODER_LIBX264;
+ * const encoderCodec = hw?.getEncoderCodec('h264') ?? FF_ENCODER_LIBX264;
  * const encoder = await Encoder.create(encoderCodec, { ... });
  * hw.dispose();
  * ```
@@ -160,9 +160,7 @@ export class HardwareContext implements Disposable {
    *
    * @param options - Optional device initialization options
    *
-   * @returns Initialized hardware context
-   *
-   * @throws {Error} If device type unsupported or initialization fails
+   * @returns Initialized hardware context or null if HardwareContext could not be created
    *
    * @example
    * ```typescript
@@ -186,17 +184,17 @@ export class HardwareContext implements Disposable {
    * @see {@link auto} For automatic detection
    * @see {@link HardwareDeviceContext} For low-level API
    */
-  static create(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): HardwareContext {
+  static create(deviceType: AVHWDeviceType, device?: string, options?: Record<string, string>): HardwareContext | null {
     if (deviceType === AV_HWDEVICE_TYPE_NONE) {
-      throw new Error('Cannot create hardware context for unknown hardware device type');
+      return null;
     }
 
     let hw: HardwareContext;
 
     try {
       hw = this.createFromType(deviceType, device, options);
-    } catch (err) {
-      throw new Error(`Failed to create hardware context for ${HardwareDeviceContext.getTypeName(deviceType) ?? 'unknown'}: ${(err as Error).message}`);
+    } catch {
+      return null;
     }
 
     return hw;
