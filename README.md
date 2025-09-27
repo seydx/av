@@ -402,6 +402,7 @@ NodeAV provides direct bindings to FFmpeg's C APIs, which work with raw memory p
 | `api-hw-rtsp-custom-io` | | | [✓](https://github.com/seydx/node-av/tree/main/examples/api-hw-rtsp-custom-io.ts) |
 | `api-hw-rtsp` | | | [✓](https://github.com/seydx/node-av/tree/main/examples/api-hw-rtsp.ts) |
 | `api-hw-transcode` | | | [✓](https://github.com/seydx/node-av/tree/main/examples/api-hw-transcode.ts) |
+| `api-hw-filter-sync` | | | [✓](https://github.com/seydx/node-av/tree/main/examples/api-hw-filter-sync.ts) |
 | `api-muxing` | | | [✓](https://github.com/seydx/node-av/tree/main/examples/api-muxing.ts) |
 | `api-pipeline-hw-rtsp` | | | [✓](https://github.com/seydx/node-av/tree/main/examples/api-pipeline-hw-rtsp.ts) |
 | `api-pipeline-raw-muxing` | | | [✓](https://github.com/seydx/node-av/tree/main/examples/api-pipeline-raw-muxing.ts) |
