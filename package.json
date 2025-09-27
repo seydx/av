@@ -1,6 +1,6 @@
 {
   "name": "node-av",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "FFmpeg bindings for Node.js",
   "author": "seydx (https://github.com/seydx/av)",
   "type": "module",
@@ -61,14 +61,14 @@
     "update": "updates --update ./"
   },
   "optionalDependencies": {
-    "@seydx/node-av-darwin-arm64": "^2.5.1",
-    "@seydx/node-av-darwin-x64": "^2.5.1",
-    "@seydx/node-av-linux-arm64": "^2.5.1",
-    "@seydx/node-av-linux-x64": "^2.5.1",
-    "@seydx/node-av-win32-arm64-mingw": "^2.5.1",
-    "@seydx/node-av-win32-arm64-msvc": "^2.5.1",
-    "@seydx/node-av-win32-x64-mingw": "^2.5.1",
-    "@seydx/node-av-win32-x64-msvc": "^2.5.1"
+    "@seydx/node-av-darwin-arm64": "^2.5.2",
+    "@seydx/node-av-darwin-x64": "^2.5.2",
+    "@seydx/node-av-linux-arm64": "^2.5.2",
+    "@seydx/node-av-linux-x64": "^2.5.2",
+    "@seydx/node-av-win32-arm64-mingw": "^2.5.2",
+    "@seydx/node-av-win32-arm64-msvc": "^2.5.2",
+    "@seydx/node-av-win32-x64-mingw": "^2.5.2",
+    "@seydx/node-av-win32-x64-msvc": "^2.5.2"
   },
   "devDependencies": {
     "@camera.ui/ffmpeg": "^0.0.14",
