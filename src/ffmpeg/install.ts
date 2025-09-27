@@ -49,7 +49,8 @@ const sysPlatform = getPlatform();
 let filename = binaries[sysPlatform]?.[arch];
 
 if (!filename) {
-  console.error(`No ffmpeg binary found for architecture (${sysPlatform} / ${arch})`);
+  console.warn(`Warning: No ffmpeg binary found for architecture (${sysPlatform} / ${arch})`);
+  console.warn('FFmpeg binary installation will be skipped.');
   process.exit(0);
 }
 
@@ -130,15 +131,28 @@ const downloadFile = async (url: string): Promise<void> => {
   if (isZipUrl(url)) {
     console.log(`Extracting ${ffmpegFilePath} to ${ffmpegExtractedFilePath}...`);
 
-    const directory = await Open.file(ffmpegFilePath);
+    try {
+      const directory = await Open.file(ffmpegFilePath);
 
-    await new Promise<void>((resolve, reject) => {
-      directory.files[0].stream().pipe(createWriteStream(ffmpegExtractedFilePath)).on('error', reject).on('finish', resolve);
-    });
+      if (!directory.files || directory.files.length === 0) {
+        throw new Error('No files found in ZIP archive');
+      }
 
-    console.log(`Removing ${ffmpegFilePath}...`);
+      await new Promise<void>((resolve, reject) => {
+        directory.files[0].stream().pipe(createWriteStream(ffmpegExtractedFilePath)).on('error', reject).on('finish', resolve);
+      });
 
-    rmSync(ffmpegFilePath);
+      console.log(`Removing ${ffmpegFilePath}...`);
+      rmSync(ffmpegFilePath);
+    } catch (extractError) {
+      // Clean up on extraction failure
+      try {
+        rmSync(ffmpegFilePath);
+      } catch {
+        // Ignore cleanup errors
+      }
+      throw new Error(`Failed to extract ZIP: ${extractError}`);
+    }
   } else {
     console.log(`Renaming ${ffmpegFilePath} to ${ffmpegExtractedFilePath}...`);
     await rename(ffmpegFilePath, ffmpegExtractedFilePath);
@@ -185,7 +199,12 @@ const downloadFFmpeg = async (): Promise<void> => {
   console.log('Done!');
 };
 
-downloadFFmpeg().catch((error) => {
-  console.error('Error downloading FFmpeg:', error?.messge ?? error);
-  process.exit(0);
-});
+downloadFFmpeg()
+  .catch((error) => {
+    console.warn('Warning: Failed to download FFmpeg binary:', error?.message ?? error);
+    console.warn('FFmpeg binary will not be available, but the package installation will continue.');
+  })
+  .finally(() => {
+    // Always exit successfully to avoid breaking npm install
+    process.exit(0);
+  });
